@@ -3,19 +3,24 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 
+
+
 enum CharacterType { Fire, Grass, Water, None };
 enum Place { CreateRGB, CreatePixel, CreateCharacter, Hospital, Battle, None };
 
 
-public class CharacterClass : MonoBehaviour
+public class CharacterClass //: MonoBehaviour
 {
-
     //キャラクターのID
     uint ID;
     //キャラクターのTexture2D型の画像
     Texture2D ImageTexture2D;
     //キャラクターの名前
     string Name;
+    //サイズ
+    ushort Size;
+    //TODO:観察ピクセル数
+    uint KnownPixels;
     //属性
     CharacterType CharacterType;
     //TODO:所有数
@@ -25,43 +30,61 @@ public class CharacterClass : MonoBehaviour
     ulong ReincarnationTimes;
     //TODO:レベル
     ulong Level;
-    //体力
-    ulong HPMax;
-    ulong HPCur;
-    //攻撃力
-    ulong ATK;
-    //防御力
-    ulong DEF;
-    //素早さ
-    ulong SPD;
-    //運
-    ulong LUC;
-    //観察力
-    ulong OBS;
+    //TODO:経験値
+    ulong Exp;
+    ulong ExpMax;
+
+    //ステータス　0:トータル　1:基本ステータス　2:レベルステータス　3:武器ステータス　4:装飾品ステータス
+    StatisticsClass[] Stats = new StatisticsClass[5];
+
+    ////体力
+    //ulong HPMax;
+    //ulong HPCur;
+    ////攻撃力
+    //ulong ATK;
+    ////防御力
+    //ulong DEF;
+    ////素早さ
+    //ulong SPD;
+    ////運
+    //ulong LUC;
+    ////観察力
+    //ulong OBS;
+    ////TODO:治癒力
+    //ulong HealPower;
+    ////RGB作成数
+    //ulong RCreates;
+    //ulong GCreates;
+    //ulong BCreates;
+    ////TODO:ピクセル作成数
+    ////ulong GetCreatePixels(int r,int g,int b);
+    ////TODO:描画数
+    //ulong PaintPixels;
+
     //TODO:瀕死フラグ
     bool FlagFNT;
-    //TODO:治癒力
-    ulong HealPower;
-    //RGB作成数
-    ulong RCreates;
-    ulong GCreates;
-    ulong BCreates;
-    //TODO:ピクセル作成数
-    //ulong GetCreatePixels(int r,int g,int b);
-    //TODO:描画数
-    ulong PaintPixels;
     //TODO:居場所
     Place Whereabouts;
     //TODO:装備武器
     //TODO:装備装飾品
 
 
+    public CharacterClass()
+    {
+        Debug.Log("new StatisticsClass");
+        for (int i = 0; i < 5; i++)
+        {
+            Stats[i] = new StatisticsClass();
+            //Stats[i] = GameObject.Find("GameObject").GetComponent<StatisticsClass>();
+            //Stats[i] = GetComponent<StatisticsClass>();
+        }
 
+    }
 
     // Start is called before the first frame update
     void Start()
     {
-        
+
     }
 
     // Update is called once per frame
@@ -85,6 +108,8 @@ public class CharacterClass : MonoBehaviour
             return false;
         }
 
+        Size = (ushort)argImage.height;
+
         ImageTexture2D = NomalizationImage(argImage);
 
         ID = argID;
@@ -99,17 +124,18 @@ public class CharacterClass : MonoBehaviour
         }
 
         Debug.Log("ID[" + ID + "] " + Name + "\n" +
+                "Size : " + Size + "\n" +
                 "CharacterType : " + CharacterType + "\n" +
-                "HPMax : " + HPMax + "\n" +
-                "HPCur : " + HPCur + "\n" +
-                "ATK : " + ATK + "\n" +
-                "DEF : " + DEF + "\n" +
-                "SPD : " + SPD + "\n" +
-                "LUC : " + LUC + "\n" +
-                "OBS : " + OBS + "\n" +
-                "RCreates : " + RCreates + "\n" +
-                "GCreates : " + GCreates + "\n" +
-                "BCreates : " + BCreates
+                "HPMax : " + Stats[1].HPMax + "\n" +
+                "HPCur : " + Stats[1].HPCur + "\n" +
+                "ATK : " + Stats[1].ATK + "\n" +
+                "DEF : " + Stats[1].DEF + "\n" +
+                "SPD : " + Stats[1].SPD + "\n" +
+                "LUC : " + Stats[1].LUC + "\n" +
+                "OBS : " + Stats[1].OBS + "\n" +
+                "RCreates : " + Stats[1].RCreates + "\n" +
+                "GCreates : " + Stats[1].GCreates + "\n" +
+                "BCreates : " + Stats[1].BCreates
             );
 
         return true;
@@ -249,7 +275,7 @@ public class CharacterClass : MonoBehaviour
         }
 
         //攻撃力の算出
-        ATK = RPixelValues + GPixelValues + BPixelValues;
+        Stats[1].ATK = RPixelValues + GPixelValues + BPixelValues;
 
         //防御力の算出
         {
@@ -259,23 +285,23 @@ public class CharacterClass : MonoBehaviour
             if (MaxPixelValues < BPixelValues)
                 MaxPixelValues = BPixelValues;
 
-            DEF = MaxPixelValues;
+            Stats[1].DEF = MaxPixelValues;
         }
 
         //体力の算出
-        HPMax = (RPixels + GPixels + BPixels + NoneRGBPixels) * (255 + 255 + 255);
-        HPCur = HPMax;
-        if (HPMax == 0)
+        Stats[1].HPMax = (RPixels + GPixels + BPixels + NoneRGBPixels) * (255 + 255 + 255);
+        Stats[1].HPCur = Stats[1].HPMax;
+        if (Stats[1].HPMax == 0)
         {
-            HPMax = 1;
-            HPCur = 1;
+            Stats[1].HPMax = 1;
+            Stats[1].HPCur = 1;
         }
 
         //素早さの算出
         //SPD = APixels;
-        SPD = (ulong)(((float)APixels / (ImageTexture2D.width * ImageTexture2D.height)) * 100);
-        if (SPD == 0)
-            SPD = 1;
+        Stats[1].SPD = (ulong)(((float)APixels / (ImageTexture2D.width * ImageTexture2D.height)) * 100);
+        if (Stats[1].SPD == 0)
+            Stats[1].SPD = 1;
 
         //諧調数の算出
         {
@@ -296,9 +322,9 @@ public class CharacterClass : MonoBehaviour
             }
 
             //運の算出
-            LUC = GradationNum;
+            Stats[1].LUC = GradationNum;
             //観察力の算出
-            OBS = (ulong)(Mathf.Floor(GradationNum / ImageTexture2D.height)) + 1;
+            Stats[1].OBS = (ulong)(Mathf.Floor(GradationNum / ImageTexture2D.height)) + 1;
         }
 
 
@@ -327,9 +353,9 @@ public class CharacterClass : MonoBehaviour
         Debug.Log("BPixels : " + BPixels);
         Debug.Log("Total : " + (APixels + RPixels + GPixels + BPixels));
 
-        RCreates = RPixels;
-        GCreates = GPixels;
-        BCreates = BPixels;
+        Stats[1].RCreates = RPixels;
+        Stats[1].GCreates = GPixels;
+        Stats[1].BCreates = BPixels;
 
         return true;
     }

@@ -1065,6 +1065,7 @@
     <Compile Include="Assets\OpenCV+Unity\Demo\Scripts\FaceProcessor.cs" />
     <Compile Include="Assets\OpenCV+Unity\Demo\Scripts\WebCamera.cs" />
     <Compile Include="Assets\OpenCV+Unity\Demo\Tracking\TrackingScript.cs" />
+    <Compile Include="Assets\StatisticsClass.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\OpenCV+Unity\Demo\Face_Detector\haarcascade_eye.xml" />

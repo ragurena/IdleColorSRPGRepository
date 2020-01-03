@@ -86,13 +86,18 @@ public class ControllerProduction : MonoBehaviour
         Debug.Log("ControllerProduction Start");
 
         ModelProduction = GetComponent<ModelProduction>();
-        Character = GetComponent<CharacterClass>();
+        //Character = GetComponent<CharacterClass>();
+        Character = new CharacterClass();
+        //Character = GameObject.Find("GameObject").GetComponent<CharacterClass>();
 
         //UIの更新
         UpdateProductionScene();
 
+        Debug.Log("キャラ生成");
         //キャラ生成
         Character.MakeCharacter(Resources.Load("Monster/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
+        Character.MakeCharacter(Resources.Load("Monster/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
+        Character.MakeCharacter(Resources.Load("Monster/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
         Character.MakeCharacter(Resources.Load("Monster/RBlackCat8", typeof(Texture2D)) as Texture2D, 4, "LittleRBlackCat");
 
         /////////////////////////////////////////////////

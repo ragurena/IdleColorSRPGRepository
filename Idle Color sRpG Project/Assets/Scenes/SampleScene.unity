@@ -1481,7 +1481,6 @@ GameObject:
   - component: {fileID: 1012974148}
   - component: {fileID: 1012974147}
   - component: {fileID: 1012974149}
-  - component: {fileID: 1012974150}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -1556,18 +1555,6 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2e7fd0b7ddeaff44baf9afffff438f66, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!114 &1012974150
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1012974146}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 483be91360045ba43962de6a344f6174, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &1028199902
@@ -3564,6 +3551,11 @@ PrefabInstance:
     - target: {fileID: 3606269488069385535, guid: a81859f2033c4f34d9a193483dc4ee6a,
         type: 3}
       propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3606269488122145685, guid: a81859f2033c4f34d9a193483dc4ee6a,
+        type: 3}
+      propertyPath: m_RaycastTarget
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3606269488458030330, guid: a81859f2033c4f34d9a193483dc4ee6a,
