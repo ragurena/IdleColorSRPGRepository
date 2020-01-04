@@ -116,6 +116,9 @@ public class CharacterClass //: MonoBehaviour
 
         Name = argName;
 
+        //TODO:OwnedNumCur仮置き
+        OwnedNumCur = 1;
+
         //TODO:ステータスの設定
         if (CalcCharacterStats() == false)
         {

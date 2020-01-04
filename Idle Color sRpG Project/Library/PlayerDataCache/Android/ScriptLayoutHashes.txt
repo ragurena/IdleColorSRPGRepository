@@ -1,6 +1,6 @@
 Android
 PlayerPath?
-C:/Users/owner/Idle Color sRpG Project/MYTEST/ICSP_05.apk
+C:/Users/owner/Idle Color sRpG Project/MYTEST/ICSP_06.apk
 SceneListBegin?
 Assets/Scenes/SampleScene.unity
 SceneListEnd?
@@ -168,5 +168,5 @@ d791aa6007fa3640be1164ea75bb087d Unity.TextMeshPro.dll:TMPro.TMP_StyleSheet
 25759fed02b9b9bec6c0f2b855ae2642 Assembly-CSharp.dll:OpenCvSharp.Demo.FaceRecognizerScene
 df434544c9f7b33d1cc7e635b180d279 Unity.TextMeshPro.dll:TMPro.TextMeshPro
 3165968ba45c74472d279ba04455fccb Unity.TextMeshPro.dll:TMPro.TMP_ColorGradient
-34b77a2f3e8be398a0441a1b170c751c Assembly-CSharp.dll:.ControllerProduction
+05449495a2ea7fb8c65627f2f5208407 Assembly-CSharp.dll:.ControllerProduction
 8649814970b42d345b89944b862453cc Unity.TextMeshPro.dll:TMPro.TMP_SubMesh

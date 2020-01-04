@@ -77,6 +77,9 @@ public class ControllerProduction : MonoBehaviour
 
     //パネル
     [SerializeField] GameObject PanelSelectCharacter;
+    [SerializeField] Image ImageSelectCharacter;
+
+    Button ButtonTmp = null;
 
 
 
@@ -102,9 +105,13 @@ public class ControllerProduction : MonoBehaviour
         Character[3].MakeCharacter(Resources.Load("Character/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
         Character[4].MakeCharacter(Resources.Load("Character/WhiteSlime8", typeof(Texture2D)) as Texture2D, 4, "LittleWhiteSlime");
         Character[5].MakeCharacter(Resources.Load("Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
+        Character[8].MakeCharacter(Resources.Load("Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
 
         //UIの更新
         UpdateProductionScene();
+
+        //GameObject.Find("ButtonRProductionHelpCharacter1").GetComponent<Button>().image = Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D;
+        //GameObject.Find("ButtonRProductionHelpCharacter1").GetComponent<Button>().image.sprite = Sprite.Create(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, new UnityEngine.Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f));
 
     }
 
@@ -183,11 +190,40 @@ public class ControllerProduction : MonoBehaviour
         UpdateProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
     }
 
-
     //キャラクターセレクト
-    public void PushButtonProductionHelpCharacter()
+    public void PushButtonProductionHelpCharacter(string ButtonName)
     {
-        //PanelSelectCharacter;
+        Debug.Log("ButtonTmp = GameObject.Find(ButtonName).GetComponent<Button>();");
+        //どのボタンで呼び出されたか保存
+        ButtonTmp = GameObject.Find(ButtonName).GetComponent<Button>();
+
+        ShowPanelSelectCharacter();
+    }
+
+    public void PushButtonBackProductionHelpCharacter()
+    {
+        NotShowPanelSelectCharacter();
+    }
+
+    public void PushButtonProductionHelpCharacterSelect(int CharacterID)
+    {
+        Debug.Log("SelectCharacterID : " + CharacterID);
+        ImageSelectCharacter.sprite = Sprite.Create(Character[CharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, Character[CharacterID].Size, Character[CharacterID].Size), new Vector2(0.5f, 0.5f));
+    }
+
+    public void PushButtonSelectProductionHelpCharacter()
+    {
+        ButtonTmp.image.sprite = ImageSelectCharacter.sprite;
+        ButtonTmp.image.color = new Color(255, 255, 255, 255);
+        ButtonTmp.GetComponentInChildren<Text>().text = "";
+        //TODO:ヘルプの値の設定
+
+        NotShowPanelSelectCharacter();
+    }
+
+    public void ShowPanelSelectCharacter()
+    {
+        //PanelSelectCharacterの表示
         CanvasGroup PanelSelectCharacterCanvasGroup = PanelSelectCharacter.GetComponent<CanvasGroup>();
         PanelSelectCharacterCanvasGroup.alpha = 1;
         PanelSelectCharacterCanvasGroup.interactable = true;
@@ -197,22 +233,40 @@ public class ControllerProduction : MonoBehaviour
         GameObject[] ArrayButtonHelpCharacter = new GameObject[10];
         for (int indexCharacter = 0; indexCharacter < 10; indexCharacter++)
         {
-            //プレハブのインスタンス化
-            ArrayButtonHelpCharacter[indexCharacter] = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("Content").transform) as GameObject;
-            //親を設定
-            //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(PanelSelectCharacter.transform, false);
-            //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(GameObject.Find("").transform, false);
-            //textの指定
-            ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = Character[indexCharacter].Stats[1].RCreates.ToString();
-            //spriteの指定
-            //ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = (Sprite)Character[indexCharacter].ImageTexture2D;
-            ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(Character[indexCharacter].ImageTexture2D,new UnityEngine.Rect(0,0, Character[indexCharacter].Size, Character[indexCharacter].Size),new Vector2(0.5f,0.5f));
+            if (Character[indexCharacter].OwnedNumCur != 0)
+            {
+                //プレハブのインスタンス化
+                ArrayButtonHelpCharacter[indexCharacter] = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("Content").transform) as GameObject;
+                //親を設定
+                //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(PanelSelectCharacter.transform, false);
+                //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(GameObject.Find("").transform, false);
+                //textの指定
+                ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = Character[indexCharacter].Stats[1].RCreates.ToString();
+                //spriteの指定
+                //ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = (Sprite)Character[indexCharacter].ImageTexture2D;
+                ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(Character[indexCharacter].ImageTexture2D, new UnityEngine.Rect(0, 0, Character[indexCharacter].Size, Character[indexCharacter].Size), new Vector2(0.5f, 0.5f));
+                //クリックイベントを追加
+                int CharacterID = indexCharacter;//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
+                ArrayButtonHelpCharacter[indexCharacter].GetComponent<Button>().onClick.AddListener(() => PushButtonProductionHelpCharacterSelect(CharacterID));
+            }
         }
     }
 
-    public void PushButtonBackProductionHelpCharacter()
+    public void NotShowPanelSelectCharacter()
     {
-        //PanelSelectCharacter;
+        //どのボタンで呼び出されたか削除
+        ButtonTmp = null;
+
+        //キャラクターボタンの削除
+        foreach (Transform child in GameObject.Find("Content").transform)
+        {
+            Destroy(child.gameObject);
+        }
+
+        //ImageSelectCharacterの画像を削除
+        ImageSelectCharacter.sprite = null;
+
+        //PanelSelectCharacterの非表示
         CanvasGroup PanelSelectCharacterCanvasGroup = PanelSelectCharacter.GetComponent<CanvasGroup>();
         PanelSelectCharacterCanvasGroup.alpha = 0;
         PanelSelectCharacterCanvasGroup.interactable = false;
