@@ -8,7 +8,7 @@ using OpenCvSharp;
 public class ControllerProduction : MonoBehaviour
 {
     ModelProduction ModelProduction;
-    CharacterClass Character;
+    CharacterClass[] Character = new CharacterClass[10];
 
     //現在の全カラーの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
     ulong[,,] CurPixels = new ulong[256,256,256];
@@ -75,9 +75,13 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] Button ButtonIncreaseValueGUp;
     [SerializeField] Button ButtonIncreaseValueBUp;
 
+    //パネル
+    [SerializeField] GameObject PanelSelectCharacter;
 
-    //モンスター
-    [SerializeField] Image ImageRedSlime8;
+
+
+    ////モンスター
+    //[SerializeField] Image ImageRedSlime8;
 
 
     // Start is called before the first frame update
@@ -86,98 +90,30 @@ public class ControllerProduction : MonoBehaviour
         Debug.Log("ControllerProduction Start");
 
         ModelProduction = GetComponent<ModelProduction>();
-        //Character = GetComponent<CharacterClass>();
-        Character = new CharacterClass();
-        //Character = GameObject.Find("GameObject").GetComponent<CharacterClass>();
+        for(int i = 0; i<10; i++)
+        {
+            Character[i] = new CharacterClass();
+        }
+
+        //キャラ生成
+        Debug.Log("キャラ生成");
+        Character[1].MakeCharacter(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
+        Character[2].MakeCharacter(Resources.Load("Character/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
+        Character[3].MakeCharacter(Resources.Load("Character/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
+        Character[4].MakeCharacter(Resources.Load("Character/WhiteSlime8", typeof(Texture2D)) as Texture2D, 4, "LittleWhiteSlime");
+        Character[5].MakeCharacter(Resources.Load("Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
 
         //UIの更新
         UpdateProductionScene();
 
-        Debug.Log("キャラ生成");
-        //キャラ生成
-        Character.MakeCharacter(Resources.Load("Monster/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
-        Character.MakeCharacter(Resources.Load("Monster/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
-        Character.MakeCharacter(Resources.Load("Monster/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
-        Character.MakeCharacter(Resources.Load("Monster/RBlackCat8", typeof(Texture2D)) as Texture2D, 4, "LittleRBlackCat");
-
-        /////////////////////////////////////////////////
-        //テスト
-        //モンスター画像を触る
-        //Texture2D Texture2DRedSlime = ToTexture2D(ImageRedSlime8.mainTexture);
-        Texture2D Texture2DRedSlime = Resources.Load("Monster/RedSlime8", typeof(Texture2D)) as Texture2D;//ToTexture2D(ImageRedSlime8.mainTexture);
-        //Texture2D Texture2DRedSlime = ImageRedSlime8.//ToTexture2D(ImageRedSlime8.mainTexture);
-
-        Debug.Log("Texture2D : " + Texture2DRedSlime);
-        Debug.Log("Texture2D.GetType() : " + Texture2DRedSlime.GetType());
-        Debug.Log("Texture2D Height : " + Texture2DRedSlime.height);
-        Debug.Log("Texture2D Width : " + Texture2DRedSlime.width);
-
-
-
-        Mat MatRedSlime = OpenCvSharp.Unity.TextureToMat(Texture2DRedSlime);
-        //Mat MatRedSlime = new Mat(8, 8, MatType.CV_8UC4);
-        Debug.Log("Mat : " + MatRedSlime);
-        //Mat MatRedSlime = OpenCvSharp.Unity.TextureToMat(Texture2DRedSlime);
-        //OpenCvSharp.Unity.TextureToMat
-        Debug.Log("Mat : " + MatRedSlime);
-        Debug.Log("Mat Height : " + MatRedSlime.Height);
-        Debug.Log("Mat Width : " + MatRedSlime.Width);
-
-        Debug.Log("Mat(0,0) : " + MatRedSlime.At<Vec3b>(0, 0)[0] + " , " + MatRedSlime.At<Vec3b>(0, 0)[1] + " , " + MatRedSlime.At<Vec3b>(0, 0)[2]);
-        Debug.Log("Mat(0,1) : " + MatRedSlime.At<Vec3b>(0, 1)[0] + " , " + MatRedSlime.At<Vec3b>(0, 1)[1] + " , " + MatRedSlime.At<Vec3b>(0, 1)[2]);
-        Debug.Log("Mat(0,2) : " + MatRedSlime.At<Vec3b>(0, 2)[0] + " , " + MatRedSlime.At<Vec3b>(0, 2)[1] + " , " + MatRedSlime.At<Vec3b>(0, 2)[2]);
-        Debug.Log("Mat(0,3) : " + MatRedSlime.At<Vec3b>(0, 3)[0] + " , " + MatRedSlime.At<Vec3b>(0, 3)[1] + " , " + MatRedSlime.At<Vec3b>(0, 3)[2]);
-        Debug.Log("Mat(1,0) : " + MatRedSlime.At<Vec3b>(1, 0)[0] + " , " + MatRedSlime.At<Vec3b>(1, 0)[1] + " , " + MatRedSlime.At<Vec3b>(1, 0)[2]);
-        Debug.Log("Mat(1,1) : " + MatRedSlime.At<Vec3b>(1, 1)[0] + " , " + MatRedSlime.At<Vec3b>(1, 1)[1] + " , " + MatRedSlime.At<Vec3b>(1, 1)[2]);
-        Debug.Log("Mat(1,2) : " + MatRedSlime.At<Vec3b>(1, 2)[0] + " , " + MatRedSlime.At<Vec3b>(1, 2)[1] + " , " + MatRedSlime.At<Vec3b>(1, 2)[2]);
-        Debug.Log("Mat(1,3) : " + MatRedSlime.At<Vec3b>(1, 3)[0] + " , " + MatRedSlime.At<Vec3b>(1, 3)[1] + " , " + MatRedSlime.At<Vec3b>(1, 3)[2]);
-        Debug.Log("MatType : " + MatRedSlime.Type());
-
-        //Cv2.Reduceはintを扱えないっぽい？
-        //Mat Mat32FC3RedSlime = new Mat(MatRedSlime.Height, MatRedSlime.Width, MatType.CV_32FC3);
-        //MatRedSlime.ConvertTo(Mat32FC3RedSlime, MatType.CV_32F, 1.0/255);// = MatRedSlime;
-        //Debug.Log("Mat32FC3RedSlime(1,0) : " + Mat32FC3RedSlime.At<Vec3b>(1, 0)[0] + " , " + Mat32FC3RedSlime.At<Vec3b>(1, 0)[1] + " , " + Mat32FC3RedSlime.At<Vec3b>(1, 0)[2]);
-        //Debug.Log("Mat32FC3RedSlime(1,1) : " + Mat32FC3RedSlime.At<Vec3b>(1, 1)[0] + " , " + Mat32FC3RedSlime.At<Vec3b>(1, 1)[1] + " , " + Mat32FC3RedSlime.At<Vec3b>(1, 1)[2]);
-        //Debug.Log("Mat32FC3RedSlime(1,2) : " + Mat32FC3RedSlime.At<Vec3b>(1, 2)[0] + " , " + Mat32FC3RedSlime.At<Vec3b>(1, 2)[1] + " , " + Mat32FC3RedSlime.At<Vec3b>(1, 2)[2]);
-        //Debug.Log("Mat32FC3RedSlime(1,3) : " + Mat32FC3RedSlime.At<Vec3b>(1, 3)[0] + " , " + Mat32FC3RedSlime.At<Vec3b>(1, 3)[1] + " , " + Mat32FC3RedSlime.At<Vec3b>(1, 3)[2]);
-        //Mat MatSumRedSlime = new Mat(3,1,MatType.CV_32FC3);
-        //Cv2.Reduce(Mat32FC3RedSlime, MatSumRedSlime, ReduceDimension.Row, ReduceTypes.Sum,-1);
-        //Debug.Log("MatSumRedSlime(0,0) : " + MatSumRedSlime.At<Vec3b>(0, 0)[0] + " , " + MatSumRedSlime.At<Vec3b>(0, 0)[1] + " , " + MatSumRedSlime.At<Vec3b>(0, 0)[2]);
-        //Debug.Log("MatSumRedSlime(0,1) : " + MatSumRedSlime.At<Vec3b>(0, 1)[0] + " , " + MatSumRedSlime.At<Vec3b>(0, 1)[1] + " , " + MatSumRedSlime.At<Vec3b>(0, 1)[2]);
-        //Debug.Log("MatSumRedSlime(0,2) : " + MatSumRedSlime.At<Vec3b>(0, 2)[0] + " , " + MatSumRedSlime.At<Vec3b>(0, 2)[1] + " , " + MatSumRedSlime.At<Vec3b>(0, 2)[2]);
-
-        //モンスターの能力値
-        Scalar ScalarRedSlimeAbility = Cv2.Sum(MatRedSlime);
-        Debug.Log("ScalarRedSlime : " + ScalarRedSlimeAbility);
-
-
-
     }
-
-    ////Texture2Dを読み込み可能にする
-    ////参考：http://baba-s.hatenablog.com/entry/2018/02/26/210100
-    //Texture2D ToTexture2D(Texture self)
-    //{
-    //    int sw = self.width;
-    //    int sh = self.height;
-    //    TextureFormat format = TextureFormat.RGBA32;
-    //    Texture2D result = new Texture2D(sw, sh, format, false);
-    //    RenderTexture currentRT = RenderTexture.active;
-    //    RenderTexture rt = new RenderTexture(sw, sh, 32);
-    //    Graphics.Blit(self, rt);
-    //    RenderTexture.active = rt;
-    //    UnityEngine.Rect source = new UnityEngine.Rect(0, 0, rt.width, rt.height);
-    //    result.ReadPixels(source, 0, 0);
-    //    result.Apply();
-    //    RenderTexture.active = currentRT;
-    //    return result;
-    //}
 
     // Update is called once per frame
     void Update()
     {
         //Debug.Log("ControllerProduction Update");
     }
+
 
     // ButtonRが押されたら
     public void PushButtonR()
@@ -245,6 +181,42 @@ public class ControllerProduction : MonoBehaviour
         Debug.Log("ButtonMaxRUpが押された");
         ModelProduction.UpgradeValue(ref CurB, ref CostMaxBUp, ref MaxB, ModelProduction.TypeUpgrade.MAX);
         UpdateProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
+    }
+
+
+    //キャラクターセレクト
+    public void PushButtonProductionHelpCharacter()
+    {
+        //PanelSelectCharacter;
+        CanvasGroup PanelSelectCharacterCanvasGroup = PanelSelectCharacter.GetComponent<CanvasGroup>();
+        PanelSelectCharacterCanvasGroup.alpha = 1;
+        PanelSelectCharacterCanvasGroup.interactable = true;
+        PanelSelectCharacterCanvasGroup.blocksRaycasts = true;
+
+        //キャラクターボタン生成
+        GameObject[] ArrayButtonHelpCharacter = new GameObject[10];
+        for (int indexCharacter = 0; indexCharacter < 10; indexCharacter++)
+        {
+            //プレハブのインスタンス化
+            ArrayButtonHelpCharacter[indexCharacter] = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("Content").transform) as GameObject;
+            //親を設定
+            //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(PanelSelectCharacter.transform, false);
+            //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(GameObject.Find("").transform, false);
+            //textの指定
+            ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = Character[indexCharacter].Stats[1].RCreates.ToString();
+            //spriteの指定
+            //ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = (Sprite)Character[indexCharacter].ImageTexture2D;
+            ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(Character[indexCharacter].ImageTexture2D,new UnityEngine.Rect(0,0, Character[indexCharacter].Size, Character[indexCharacter].Size),new Vector2(0.5f,0.5f));
+        }
+    }
+
+    public void PushButtonBackProductionHelpCharacter()
+    {
+        //PanelSelectCharacter;
+        CanvasGroup PanelSelectCharacterCanvasGroup = PanelSelectCharacter.GetComponent<CanvasGroup>();
+        PanelSelectCharacterCanvasGroup.alpha = 0;
+        PanelSelectCharacterCanvasGroup.interactable = false;
+        PanelSelectCharacterCanvasGroup.blocksRaycasts = false;
     }
 
 

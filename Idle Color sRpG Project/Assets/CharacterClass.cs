@@ -5,37 +5,37 @@ using System.Linq;
 
 
 
-enum CharacterType { Fire, Grass, Water, None };
-enum Place { CreateRGB, CreatePixel, CreateCharacter, Hospital, Battle, None };
+public enum CharacterType { Fire, Grass, Water, None };
+public enum Place { CreateRGB, CreatePixel, CreateCharacter, Hospital, Battle, None };
 
 
 public class CharacterClass //: MonoBehaviour
 {
     //キャラクターのID
-    uint ID;
+    public uint ID;
     //キャラクターのTexture2D型の画像
-    Texture2D ImageTexture2D;
+    public Texture2D ImageTexture2D;
     //キャラクターの名前
-    string Name;
+    public string Name;
     //サイズ
-    ushort Size;
+    public ushort Size;
     //TODO:観察ピクセル数
-    uint KnownPixels;
+    public uint KnownPixels;
     //属性
-    CharacterType CharacterType;
+    public CharacterType CharacterType;
     //TODO:所有数
-    ulong OwnedNumMax;
-    ulong OwnedNumCur;
+    public ulong OwnedNumMax;
+    public ulong OwnedNumCur;
     //TODO:転生回数
-    ulong ReincarnationTimes;
+    public ulong ReincarnationTimes;
     //TODO:レベル
-    ulong Level;
+    public ulong Level;
     //TODO:経験値
-    ulong Exp;
-    ulong ExpMax;
+    public ulong Exp;
+    public ulong ExpMax;
 
     //ステータス　0:トータル　1:基本ステータス　2:レベルステータス　3:武器ステータス　4:装飾品ステータス
-    StatisticsClass[] Stats = new StatisticsClass[5];
+    public StatisticsClass[] Stats = new StatisticsClass[5];
 
     ////体力
     //ulong HPMax;
@@ -62,9 +62,9 @@ public class CharacterClass //: MonoBehaviour
     //ulong PaintPixels;
 
     //TODO:瀕死フラグ
-    bool FlagFNT;
+    public bool FlagFNT;
     //TODO:居場所
-    Place Whereabouts;
+    public Place Whereabouts;
     //TODO:装備武器
     //TODO:装備装飾品
 
