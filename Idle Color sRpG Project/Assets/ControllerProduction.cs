@@ -4,11 +4,20 @@ using UnityEngine;
 using UnityEngine.UI;
 using OpenCvSharp;
 
+static class Constants
+{
+    public const int CHARACTERS_ALL_NUM = 10;
+    public const int CHARACTERS_HELP_PRODUCTION_NUM = 3;
+}
+
 //生産画面のコントロール
 public class ControllerProduction : MonoBehaviour
 {
     ModelProduction ModelProduction;
-    CharacterClass[] Character = new CharacterClass[10];
+    CharacterClass[] CharactersAll = new CharacterClass[Constants.CHARACTERS_ALL_NUM + 1];
+    uint[] CharactersIDHelpProductionR = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
+    uint[] CharactersIDHelpProductionG = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
+    uint[] CharactersIDHelpProductionB = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
 
     //現在の全カラーの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
     ulong[,,] CurPixels = new ulong[256,256,256];
@@ -80,6 +89,7 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] Image ImageSelectCharacter;
 
     Button ButtonTmp = null;
+    uint CharacterIDTmp = 0;
 
 
 
@@ -93,32 +103,56 @@ public class ControllerProduction : MonoBehaviour
         Debug.Log("ControllerProduction Start");
 
         ModelProduction = GetComponent<ModelProduction>();
-        for(int i = 0; i<10; i++)
+        for (int i = 0; i < Constants.CHARACTERS_ALL_NUM + 1; i++)
         {
-            Character[i] = new CharacterClass();
+            CharactersAll[i] = new CharacterClass();
         }
 
         //キャラ生成
         Debug.Log("キャラ生成");
-        Character[1].MakeCharacter(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
-        Character[2].MakeCharacter(Resources.Load("Character/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
-        Character[3].MakeCharacter(Resources.Load("Character/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
-        Character[4].MakeCharacter(Resources.Load("Character/WhiteSlime8", typeof(Texture2D)) as Texture2D, 4, "LittleWhiteSlime");
-        Character[5].MakeCharacter(Resources.Load("Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
-        Character[8].MakeCharacter(Resources.Load("Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
+        CharactersAll[1].MakeCharacter(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
+        CharactersAll[2].MakeCharacter(Resources.Load("Character/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
+        CharactersAll[3].MakeCharacter(Resources.Load("Character/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
+        CharactersAll[4].MakeCharacter(Resources.Load("Character/WhiteSlime8", typeof(Texture2D)) as Texture2D, 4, "LittleWhiteSlime");
+        CharactersAll[5].MakeCharacter(Resources.Load("Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
+        CharactersAll[8].MakeCharacter(Resources.Load("Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
 
         //UIの更新
         UpdateProductionScene();
-
-        //GameObject.Find("ButtonRProductionHelpCharacter1").GetComponent<Button>().image = Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D;
-        //GameObject.Find("ButtonRProductionHelpCharacter1").GetComponent<Button>().image.sprite = Sprite.Create(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, new UnityEngine.Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f));
-
     }
 
+    private float TimeOut = 1;
+    private float TimeElapsed = 0;
     // Update is called once per frame
     void Update()
     {
         //Debug.Log("ControllerProduction Update");
+
+        TimeElapsed += Time.deltaTime;
+
+        if (TimeElapsed >= TimeOut)
+        {
+            TimeElapsed = 0;
+
+            ulong IncreaseValueRHelp = CharactersAll[CharactersIDHelpProductionR[1]].Stats[0].RCreates +
+                                       CharactersAll[CharactersIDHelpProductionR[2]].Stats[0].RCreates +
+                                       CharactersAll[CharactersIDHelpProductionR[3]].Stats[0].RCreates;
+            ModelProduction.Increase(ref CurR, IncreaseValueRHelp, MaxR);
+            UpdateProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
+
+            ulong IncreaseValueGHelp = CharactersAll[CharactersIDHelpProductionG[1]].Stats[0].GCreates +
+                                       CharactersAll[CharactersIDHelpProductionG[2]].Stats[0].GCreates +
+                                       CharactersAll[CharactersIDHelpProductionG[3]].Stats[0].GCreates;
+            ModelProduction.Increase(ref CurG, IncreaseValueGHelp, MaxG);
+            UpdateProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
+
+            ulong IncreaseValueBHelp = CharactersAll[CharactersIDHelpProductionB[1]].Stats[0].BCreates +
+                                       CharactersAll[CharactersIDHelpProductionB[2]].Stats[0].BCreates +
+                                       CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].BCreates;
+            ModelProduction.Increase(ref CurB, IncreaseValueBHelp, MaxB);
+            UpdateProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
+        }
+
     }
 
 
@@ -193,11 +227,14 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクト
     public void PushButtonProductionHelpCharacter(string ButtonName)
     {
-        Debug.Log("ButtonTmp = GameObject.Find(ButtonName).GetComponent<Button>();");
         //どのボタンで呼び出されたか保存
         ButtonTmp = GameObject.Find(ButtonName).GetComponent<Button>();
 
         ShowPanelSelectCharacter();
+        Button ButtonSelect = GameObject.Find("ButtonSelectLeft").GetComponent<Button>();
+        ButtonSelect.interactable = false;
+        ButtonSelect = GameObject.Find("ButtonSelectRight").GetComponent<Button>();
+        ButtonSelect.interactable = false;
     }
 
     public void PushButtonBackProductionHelpCharacter()
@@ -205,10 +242,15 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanelSelectCharacter();
     }
 
-    public void PushButtonProductionHelpCharacterSelect(int CharacterID)
+    public void PushButtonProductionHelpCharacterSelect(uint CharacterID)
     {
         Debug.Log("SelectCharacterID : " + CharacterID);
-        ImageSelectCharacter.sprite = Sprite.Create(Character[CharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, Character[CharacterID].Size, Character[CharacterID].Size), new Vector2(0.5f, 0.5f));
+        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharacterID].Size, CharactersAll[CharacterID].Size), new Vector2(0.5f, 0.5f));
+        CharacterIDTmp = CharacterID;
+        Button ButtonSelect = GameObject.Find("ButtonSelectLeft").GetComponent<Button>();
+        ButtonSelect.interactable = true;
+        ButtonSelect = GameObject.Find("ButtonSelectRight").GetComponent<Button>();
+        ButtonSelect.interactable = true;
     }
 
     public void PushButtonSelectProductionHelpCharacter()
@@ -216,7 +258,64 @@ public class ControllerProduction : MonoBehaviour
         ButtonTmp.image.sprite = ImageSelectCharacter.sprite;
         ButtonTmp.image.color = new Color(255, 255, 255, 255);
         ButtonTmp.GetComponentInChildren<Text>().text = "";
-        //TODO:ヘルプの値の設定
+
+        //HelpProductionキャラクターの管理
+        if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter")) 
+        {
+            if(ButtonTmp.name.EndsWith("1"))
+            {
+                CharactersIDHelpProductionR[1] = CharacterIDTmp;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                CharactersIDHelpProductionR[2] = CharacterIDTmp;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                CharactersIDHelpProductionR[3] = CharacterIDTmp;
+            }
+        }
+        else
+        if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
+        {
+            if (ButtonTmp.name.EndsWith("1"))
+            {
+                CharactersIDHelpProductionG[1] = CharacterIDTmp;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                CharactersIDHelpProductionG[2] = CharacterIDTmp;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                CharactersIDHelpProductionG[3] = CharacterIDTmp;
+            }
+        }
+        else
+        if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
+        {
+            if (ButtonTmp.name.EndsWith("1"))
+            {
+                CharactersIDHelpProductionB[1] = CharacterIDTmp;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                CharactersIDHelpProductionB[2] = CharacterIDTmp;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                CharactersIDHelpProductionB[3] = CharacterIDTmp;
+            }
+        }
+
+        //居場所変更
+        CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateR;
 
         NotShowPanelSelectCharacter();
     }
@@ -230,10 +329,10 @@ public class ControllerProduction : MonoBehaviour
         PanelSelectCharacterCanvasGroup.blocksRaycasts = true;
 
         //キャラクターボタン生成
-        GameObject[] ArrayButtonHelpCharacter = new GameObject[10];
-        for (int indexCharacter = 0; indexCharacter < 10; indexCharacter++)
+        GameObject[] ArrayButtonHelpCharacter = new GameObject[Constants.CHARACTERS_ALL_NUM + 1];
+        for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
         {
-            if (Character[indexCharacter].OwnedNumCur != 0)
+            if (CharactersAll[indexCharacter].OwnedNumCur != 0 && CharactersAll[indexCharacter].Whereabouts == Place.None)
             {
                 //プレハブのインスタンス化
                 ArrayButtonHelpCharacter[indexCharacter] = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("Content").transform) as GameObject;
@@ -241,12 +340,12 @@ public class ControllerProduction : MonoBehaviour
                 //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(PanelSelectCharacter.transform, false);
                 //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(GameObject.Find("").transform, false);
                 //textの指定
-                ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = Character[indexCharacter].Stats[1].RCreates.ToString();
+                ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = CharactersAll[indexCharacter].Stats[1].RCreates.ToString();
                 //spriteの指定
                 //ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = (Sprite)Character[indexCharacter].ImageTexture2D;
-                ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(Character[indexCharacter].ImageTexture2D, new UnityEngine.Rect(0, 0, Character[indexCharacter].Size, Character[indexCharacter].Size), new Vector2(0.5f, 0.5f));
+                ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(CharactersAll[indexCharacter].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[indexCharacter].Size, CharactersAll[indexCharacter].Size), new Vector2(0.5f, 0.5f));
                 //クリックイベントを追加
-                int CharacterID = indexCharacter;//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
+                uint CharacterID = (uint)(indexCharacter);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
                 ArrayButtonHelpCharacter[indexCharacter].GetComponent<Button>().onClick.AddListener(() => PushButtonProductionHelpCharacterSelect(CharacterID));
             }
         }
@@ -256,6 +355,8 @@ public class ControllerProduction : MonoBehaviour
     {
         //どのボタンで呼び出されたか削除
         ButtonTmp = null;
+        //どのキャラクターが選ばれたか削除
+        CharacterIDTmp = 0;
 
         //キャラクターボタンの削除
         foreach (Transform child in GameObject.Find("Content").transform)

@@ -5,8 +5,8 @@ using System.Linq;
 
 
 
-public enum CharacterType { Fire, Grass, Water, None };
-public enum Place { CreateRGB, CreatePixel, CreateCharacter, Hospital, Battle, None };
+public enum CharacterType { None, Fire, Grass, Water };
+public enum Place { None, CreateR, CreateG, CreateB, CreatePixel, CreateCharacter, Hospital, Battle };
 
 
 public class CharacterClass //: MonoBehaviour
@@ -119,12 +119,16 @@ public class CharacterClass //: MonoBehaviour
         //TODO:OwnedNumCur仮置き
         OwnedNumCur = 1;
 
+        Whereabouts = Place.None;
+
         //TODO:ステータスの設定
         if (CalcCharacterStats() == false)
         {
             Debug.Log("Error!!!!!!!!!");
             return false;
         }
+
+        CalcTotalStats();
 
         Debug.Log("ID[" + ID + "] " + Name + "\n" +
                 "Size : " + Size + "\n" +
@@ -359,6 +363,24 @@ public class CharacterClass //: MonoBehaviour
         Stats[1].RCreates = RPixels;
         Stats[1].GCreates = GPixels;
         Stats[1].BCreates = BPixels;
+
+        return true;
+    }
+
+    bool CalcTotalStats()
+    {
+        Stats[0].HPMax = Stats[1].HPMax + Stats[2].HPMax + Stats[3].HPMax + Stats[4].HPMax;
+        Stats[0].HPCur = Stats[1].HPCur + Stats[2].HPCur + Stats[3].HPCur + Stats[4].HPCur;
+        Stats[0].ATK = Stats[1].ATK + Stats[2].ATK + Stats[3].ATK + Stats[4].ATK;
+        Stats[0].DEF = Stats[1].DEF + Stats[2].DEF + Stats[3].DEF + Stats[4].DEF;
+        Stats[0].SPD = Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD;
+        Stats[0].LUC = Stats[1].LUC + Stats[2].LUC + Stats[3].LUC + Stats[4].LUC;
+        Stats[0].OBS = Stats[1].OBS + Stats[2].OBS + Stats[3].OBS + Stats[4].OBS;
+        Stats[0].HealPower = Stats[1].HealPower + Stats[2].HealPower + Stats[3].HealPower + Stats[4].HealPower;
+        Stats[0].RCreates = Stats[1].RCreates + Stats[2].RCreates + Stats[3].RCreates + Stats[4].RCreates;
+        Stats[0].GCreates = Stats[1].GCreates + Stats[2].GCreates + Stats[3].GCreates + Stats[4].GCreates;
+        Stats[0].BCreates = Stats[1].BCreates + Stats[2].BCreates + Stats[3].BCreates + Stats[4].BCreates;
+        Stats[0].PaintPixels = Stats[1].PaintPixels + Stats[2].PaintPixels + Stats[3].PaintPixels + Stats[4].PaintPixels;
 
         return true;
     }
