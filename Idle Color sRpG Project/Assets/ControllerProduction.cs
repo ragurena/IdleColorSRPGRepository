@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using OpenCvSharp;
 
+using System.IO;
+
 static class Constants
 {
     public const int CHARACTERS_ALL_NUM = 10;
@@ -18,9 +20,6 @@ public class ControllerProduction : MonoBehaviour
     uint[] CharactersIDHelpProductionR = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
     uint[] CharactersIDHelpProductionG = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
     uint[] CharactersIDHelpProductionB = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
-
-    //現在の全カラーの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
-    ulong[,,] CurPixels = new ulong[256,256,256];
 
     //現在のRGB値
     ulong CurR = 0;
@@ -91,6 +90,11 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] Text TextSelectCharacterCreateG;
     [SerializeField] Text TextSelectCharacterCreateB;
 
+
+    //現在の全カラーの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
+    ulong[,,] CurPixels = new ulong[256, 256, 256];
+
+
     Button ButtonTmp = null;
     uint CharacterIDTmp = 0;
 
@@ -105,19 +109,14 @@ public class ControllerProduction : MonoBehaviour
     {
         Debug.Log("ControllerProduction Start");
 
-        SaveClass SC = new SaveClass();
-        SC.Load(ref CurR, ref CurG, ref CurB);
-
-
-
+        //キャラ生成
+        Debug.Log("キャラ生成");
         ModelProduction = GetComponent<ModelProduction>();
         for (int i = 0; i < Constants.CHARACTERS_ALL_NUM + 1; i++)
         {
             CharactersAll[i] = new CharacterClass();
         }
-
-        //キャラ生成
-        Debug.Log("キャラ生成");
+        //IDと配列番号を一致させる、0は初期値のままで
         CharactersAll[1].MakeCharacter(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
         CharactersAll[2].MakeCharacter(Resources.Load("Character/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
         CharactersAll[3].MakeCharacter(Resources.Load("Character/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
@@ -125,14 +124,37 @@ public class ControllerProduction : MonoBehaviour
         CharactersAll[5].MakeCharacter(Resources.Load("Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
         CharactersAll[8].MakeCharacter(Resources.Load("Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
 
+        //ロード
+        SaveClass SC = new SaveClass();
+        SC.Load(ref CharactersAll, Constants.CHARACTERS_ALL_NUM + 1, 
+            ref CurR, ref CurG, ref CurB,
+            ref MaxR, ref MaxG, ref MaxB,
+            ref CostMaxRUp, ref CostMaxGUp, ref CostMaxBUp,
+            ref IncreaseValueR, ref IncreaseValueG, ref IncreaseValueB,
+            ref CostIncreaseValueRUp, ref CostIncreaseValueGUp, ref CostIncreaseValueBUp,
+            ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB);
+
         //UIの更新
         UpdateProductionScene();
     }
 
+    //セーブボタンが押されたら
     public void PushButtonSave()
     {
         SaveClass SC = new SaveClass();
-        SC.Save(CurR, CurG, CurB);
+        SC.Save(CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
+            CurR, CurG, CurB,
+            MaxR, MaxG, MaxB,
+            CostMaxRUp, CostMaxGUp, CostMaxBUp,
+            IncreaseValueR, IncreaseValueG, IncreaseValueB,
+            CostIncreaseValueRUp, CostIncreaseValueGUp, CostIncreaseValueBUp,
+            CharactersIDHelpProductionR, CharactersIDHelpProductionG, CharactersIDHelpProductionB);
+    }
+
+    //デリートセーブボタンが押されたら
+    public void PushButtonDeleteSave()
+    {
+        File.Delete(Application.persistentDataPath + "/ICS.csv");
     }
 
     private float TimeOut = 1;
@@ -730,6 +752,7 @@ public class ControllerProduction : MonoBehaviour
         UpdateProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
         UpdateProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
         UpdateProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
+        UpdateProductionHelpCharacter();
     }
 
     public void UpdateProductionOneColor(ulong ColorValue, ulong MaxValue, Text TextColorValue, Slider SliderColorValue, ulong IncreaseValue, ulong CostIncreaseUp, Text TextIncreaseValueLeft, Text TextIncreaseValueRight, Text TextCostIncreaseValueUp, Slider SliderCostIncrease, Button ButtonIncreaseValueUp, ulong CostMaxValueUp, Text TextCostMaxValueUp, Slider SliderCostMaxValueUp, Button ButtonMaxValueUp)
@@ -770,6 +793,73 @@ public class ControllerProduction : MonoBehaviour
     }
 
 
+    public void UpdateProductionHelpCharacter()
+    {
+        if(CharactersIDHelpProductionR[1] != 0)
+        {
+            Button B = GameObject.Find("ButtonRProductionHelpCharacter1").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[1]].Size, CharactersAll[CharactersIDHelpProductionR[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
+        if (CharactersIDHelpProductionR[2] != 0)
+        {
+            Button B = GameObject.Find("ButtonRProductionHelpCharacter2").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[2]].Size, CharactersAll[CharactersIDHelpProductionR[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
+        if (CharactersIDHelpProductionR[3] != 0)
+        {
+            Button B = GameObject.Find("ButtonRProductionHelpCharacter3").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[3]].Size, CharactersAll[CharactersIDHelpProductionR[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
 
+        if (CharactersIDHelpProductionG[1] != 0)
+        {
+            Button B = GameObject.Find("ButtonGProductionHelpCharacter1").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[1]].Size, CharactersAll[CharactersIDHelpProductionG[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
+        if (CharactersIDHelpProductionG[2] != 0)
+        {
+            Button B = GameObject.Find("ButtonGProductionHelpCharacter2").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[2]].Size, CharactersAll[CharactersIDHelpProductionG[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
+        if (CharactersIDHelpProductionG[3] != 0)
+        {
+            Button B = GameObject.Find("ButtonGProductionHelpCharacter3").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[3]].Size, CharactersAll[CharactersIDHelpProductionG[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
+
+        if (CharactersIDHelpProductionB[1] != 0)
+        {
+            Button B = GameObject.Find("ButtonBProductionHelpCharacter1").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[1]].Size, CharactersAll[CharactersIDHelpProductionB[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
+        if (CharactersIDHelpProductionB[2] != 0)
+        {
+            Button B = GameObject.Find("ButtonBProductionHelpCharacter2").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[2]].Size, CharactersAll[CharactersIDHelpProductionB[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
+        if (CharactersIDHelpProductionB[3] != 0)
+        {
+            Button B = GameObject.Find("ButtonBProductionHelpCharacter3").GetComponent<Button>();
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[3]].Size, CharactersAll[CharactersIDHelpProductionB[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            B.GetComponentInChildren<Text>().text = "";
+        }
+    }
 
 }
