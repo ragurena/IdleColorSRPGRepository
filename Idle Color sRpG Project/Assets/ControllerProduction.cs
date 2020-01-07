@@ -87,6 +87,9 @@ public class ControllerProduction : MonoBehaviour
     //パネル
     [SerializeField] GameObject PanelSelectCharacter;
     [SerializeField] Image ImageSelectCharacter;
+    [SerializeField] Text TextSelectCharacterCreateR;
+    [SerializeField] Text TextSelectCharacterCreateG;
+    [SerializeField] Text TextSelectCharacterCreateB;
 
     Button ButtonTmp = null;
     uint CharacterIDTmp = 0;
@@ -101,6 +104,11 @@ public class ControllerProduction : MonoBehaviour
     void Start()
     {
         Debug.Log("ControllerProduction Start");
+
+        SaveClass SC = new SaveClass();
+        SC.Load(ref CurR, ref CurG, ref CurB);
+
+
 
         ModelProduction = GetComponent<ModelProduction>();
         for (int i = 0; i < Constants.CHARACTERS_ALL_NUM + 1; i++)
@@ -119,6 +127,12 @@ public class ControllerProduction : MonoBehaviour
 
         //UIの更新
         UpdateProductionScene();
+    }
+
+    public void PushButtonSave()
+    {
+        SaveClass SC = new SaveClass();
+        SC.Save(CurR, CurG, CurB);
     }
 
     private float TimeOut = 1;
@@ -224,39 +238,40 @@ public class ControllerProduction : MonoBehaviour
         UpdateProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
     }
 
+    ///////////////////////////////////////////////////
     //キャラクターセレクト
+    //RGB生産のヘルプキャラクター選択ボタンが押されたら
     public void PushButtonProductionHelpCharacter(string ButtonName)
     {
         //どのボタンで呼び出されたか保存
         ButtonTmp = GameObject.Find(ButtonName).GetComponent<Button>();
 
         ShowPanelSelectCharacter();
-        Button ButtonSelect = GameObject.Find("ButtonSelectLeft").GetComponent<Button>();
-        ButtonSelect.interactable = false;
-        ButtonSelect = GameObject.Find("ButtonSelectRight").GetComponent<Button>();
-        ButtonSelect.interactable = false;
     }
 
+    //キャラクターセレクトの戻るボタンが押されたら
     public void PushButtonBackProductionHelpCharacter()
     {
         NotShowPanelSelectCharacter();
     }
 
+    //キャラクターセレクトのキャラクターボタンが押されたら
     public void PushButtonProductionHelpCharacterSelect(uint CharacterID)
     {
         Debug.Log("SelectCharacterID : " + CharacterID);
         ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharacterID].Size, CharactersAll[CharacterID].Size), new Vector2(0.5f, 0.5f));
         CharacterIDTmp = CharacterID;
-        Button ButtonSelect = GameObject.Find("ButtonSelectLeft").GetComponent<Button>();
+        Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
         ButtonSelect.interactable = true;
-        ButtonSelect = GameObject.Find("ButtonSelectRight").GetComponent<Button>();
+        ButtonSelect = GameObject.Find("ButtonConfirmSelectRight").GetComponent<Button>();
         ButtonSelect.interactable = true;
     }
 
-    public void PushButtonSelectProductionHelpCharacter()
+    //キャラクターセレクトの決定ボタンが押されたら
+    public void PushButtonConfirmSelectProductionHelpCharacter()
     {
         ButtonTmp.image.sprite = ImageSelectCharacter.sprite;
-        ButtonTmp.image.color = new Color(255, 255, 255, 255);
+        ButtonTmp.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
         ButtonTmp.GetComponentInChildren<Text>().text = "";
 
         //HelpProductionキャラクターの管理
@@ -264,16 +279,25 @@ public class ControllerProduction : MonoBehaviour
         {
             if(ButtonTmp.name.EndsWith("1"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionR[1]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionR[1] = CharacterIDTmp;
             }
             else
             if (ButtonTmp.name.EndsWith("2"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionR[2]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionR[2] = CharacterIDTmp;
             }
             else
             if (ButtonTmp.name.EndsWith("3"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionR[3]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionR[3] = CharacterIDTmp;
             }
         }
@@ -282,16 +306,25 @@ public class ControllerProduction : MonoBehaviour
         {
             if (ButtonTmp.name.EndsWith("1"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionG[1]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionG[1] = CharacterIDTmp;
             }
             else
             if (ButtonTmp.name.EndsWith("2"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionG[2]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionG[2] = CharacterIDTmp;
             }
             else
             if (ButtonTmp.name.EndsWith("3"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionG[3]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionG[3] = CharacterIDTmp;
             }
         }
@@ -300,16 +333,25 @@ public class ControllerProduction : MonoBehaviour
         {
             if (ButtonTmp.name.EndsWith("1"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionB[1]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionB[1] = CharacterIDTmp;
             }
             else
             if (ButtonTmp.name.EndsWith("2"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionB[2]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionB[2] = CharacterIDTmp;
             }
             else
             if (ButtonTmp.name.EndsWith("3"))
             {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionB[3]].Whereabouts = Place.None;
+
                 CharactersIDHelpProductionB[3] = CharacterIDTmp;
             }
         }
@@ -320,6 +362,104 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanelSelectCharacter();
     }
 
+    //キャラクターセレクトの外すボタンが押されたら
+    public void PushButtonRemoveCharacterSelect()
+    {
+        ButtonTmp.image.sprite = null;
+        ButtonTmp.GetComponentInChildren<Text>().text = "+";
+
+        //HelpProductionキャラクターの管理
+        if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
+        {
+            ButtonTmp.image.color = new Color(50/255f, 0.0f, 0.0f, 1.0f);
+
+            if (ButtonTmp.name.EndsWith("1"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionR[1]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionR[1] = 0;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionR[2]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionR[2] = 0;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionR[3]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionR[3] = 0;
+            }
+        }
+        else
+        if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
+        {
+            ButtonTmp.image.color = new Color(0.0f, 50/255f, 0.0f, 1.0f);
+
+            if (ButtonTmp.name.EndsWith("1"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionG[1]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionG[1] = 0;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionG[2]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionG[2] = 0;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionG[3]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionG[3] = 0;
+            }
+        }
+        else
+        if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
+        {
+            ButtonTmp.image.color = new Color(0.0f, 0.0f, 50/255f, 1.0f);
+
+            if (ButtonTmp.name.EndsWith("1"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionB[1]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionB[1] = 0;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionB[2]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionB[2] = 0;
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionB[3]].Whereabouts = Place.None;
+
+                CharactersIDHelpProductionB[3] = 0;
+            }
+        }
+
+        NotShowPanelSelectCharacter();
+    }
+
+    //キャラクターセレクトパネルの表示
     public void ShowPanelSelectCharacter()
     {
         //PanelSelectCharacterの表示
@@ -327,6 +467,199 @@ public class ControllerProduction : MonoBehaviour
         PanelSelectCharacterCanvasGroup.alpha = 1;
         PanelSelectCharacterCanvasGroup.interactable = true;
         PanelSelectCharacterCanvasGroup.blocksRaycasts = true;
+
+        //選択ボタンのenable設定
+        Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
+        ButtonSelect.interactable = false;
+        ButtonSelect = GameObject.Find("ButtonConfirmSelectRight").GetComponent<Button>();
+        ButtonSelect.interactable = false;
+
+        //外すボタンのenable設定
+        Button ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+        ButtonRemove.interactable = false;
+        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+        ButtonRemove.interactable = false;
+
+        //選択キャラクターの画像とステータスの表示
+        if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
+        {
+            if (ButtonTmp.name.EndsWith("1"))
+            {
+                if (CharactersIDHelpProductionR[1] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[1]].Size, CharactersAll[CharactersIDHelpProductionR[1]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[1]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionR[1]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionR[1]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                if (CharactersIDHelpProductionR[2] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[2]].Size, CharactersAll[CharactersIDHelpProductionR[2]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[2]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionR[2]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionR[2]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                if (CharactersIDHelpProductionR[3] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[3]].Size, CharactersAll[CharactersIDHelpProductionR[3]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[3]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionR[3]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionR[3]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+        }
+        else
+        if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
+        {
+            if (ButtonTmp.name.EndsWith("1"))
+            {
+                if (CharactersIDHelpProductionG[1] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[1]].Size, CharactersAll[CharactersIDHelpProductionG[1]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[1]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionG[1]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionG[1]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                if (CharactersIDHelpProductionG[2] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[2]].Size, CharactersAll[CharactersIDHelpProductionG[2]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[2]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionG[2]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionG[2]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                if (CharactersIDHelpProductionG[3] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[3]].Size, CharactersAll[CharactersIDHelpProductionG[3]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[3]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionG[3]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionG[3]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+        }
+        else
+        if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
+        {
+            if (ButtonTmp.name.EndsWith("1"))
+            {
+                if (CharactersIDHelpProductionB[1] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[1]].Size, CharactersAll[CharactersIDHelpProductionB[1]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[1]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionB[1]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionB[1]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+            else
+            if (ButtonTmp.name.EndsWith("2"))
+            {
+                if (CharactersIDHelpProductionB[2] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[2]].Size, CharactersAll[CharactersIDHelpProductionB[2]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[2]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionB[2]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionB[2]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+            else
+            if (ButtonTmp.name.EndsWith("3"))
+            {
+                if (CharactersIDHelpProductionB[3] != 0)
+                {
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[3]].Size, CharactersAll[CharactersIDHelpProductionB[3]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacterCreateR.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].RCreates;
+                    TextSelectCharacterCreateG.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].GCreates;
+                    TextSelectCharacterCreateB.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].BCreates;
+
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                }
+            }
+        }
 
         //キャラクターボタン生成
         GameObject[] ArrayButtonHelpCharacter = new GameObject[Constants.CHARACTERS_ALL_NUM + 1];
@@ -336,14 +669,26 @@ public class ControllerProduction : MonoBehaviour
             {
                 //プレハブのインスタンス化
                 ArrayButtonHelpCharacter[indexCharacter] = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("Content").transform) as GameObject;
-                //親を設定
-                //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(PanelSelectCharacter.transform, false);
-                //ArrayButtonHelpCharacter[indexCharacter].transform.SetParent(GameObject.Find("").transform, false);
+                
                 //textの指定
-                ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = CharactersAll[indexCharacter].Stats[1].RCreates.ToString();
+                if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
+                {
+                    ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = CharactersAll[indexCharacter].Stats[0].RCreates.ToString();
+                }
+                else
+                if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
+                {
+                    ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = CharactersAll[indexCharacter].Stats[0].GCreates.ToString();
+                }
+                else
+                if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
+                {
+                    ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Text>().text = CharactersAll[indexCharacter].Stats[0].BCreates.ToString();
+                }
+
                 //spriteの指定
-                //ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = (Sprite)Character[indexCharacter].ImageTexture2D;
                 ArrayButtonHelpCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(CharactersAll[indexCharacter].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[indexCharacter].Size, CharactersAll[indexCharacter].Size), new Vector2(0.5f, 0.5f));
+                
                 //クリックイベントを追加
                 uint CharacterID = (uint)(indexCharacter);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
                 ArrayButtonHelpCharacter[indexCharacter].GetComponent<Button>().onClick.AddListener(() => PushButtonProductionHelpCharacterSelect(CharacterID));
@@ -351,6 +696,7 @@ public class ControllerProduction : MonoBehaviour
         }
     }
 
+    //キャラクターセレクトパネルの非表示
     public void NotShowPanelSelectCharacter()
     {
         //どのボタンで呼び出されたか削除
