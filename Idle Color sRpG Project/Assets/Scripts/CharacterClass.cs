@@ -56,8 +56,6 @@ public class CharacterClass //: MonoBehaviour
     //ulong RCreates;
     //ulong GCreates;
     //ulong BCreates;
-    ////TODO:ピクセル作成数
-    ////ulong GetCreatePixels(int r,int g,int b);
     ////TODO:描画数
     //ulong PaintPixels;
 
@@ -67,6 +65,14 @@ public class CharacterClass //: MonoBehaviour
     public Place Whereabouts;
     //TODO:装備武器
     //TODO:装備装飾品
+
+    //TODO:ピクセル作成数
+    //ulong GetCreatePixels(int r,int g,int b);
+
+    //諧調数
+    uint GradationNum = 0;
+    uint[,,] ExistsColors = new uint[256, 256, 256];
+
 
 
     public CharacterClass()
@@ -208,9 +214,20 @@ public class CharacterClass //: MonoBehaviour
         uint BPixels = 0;
         uint APixels = 0;
         uint NoneRGBPixels = 0;
-        bool[,,] ExistsColor = new bool[256, 256, 256];
 
-        for (int x = 0; x < ImageTexture2D.width; x++)
+        for (int b = 0; b < 256; b++)
+        {
+            for (int g = 0; g < 256; g++)
+            {
+                for (int r = 0; r < 256; r++)
+                {
+                    ExistsColors[r,g,b] = 0;
+
+                }
+            }
+        }
+
+                for (int x = 0; x < ImageTexture2D.width; x++)
         {
             for (int y = 0; y < ImageTexture2D.height; y++)
             {
@@ -218,8 +235,8 @@ public class CharacterClass //: MonoBehaviour
 
                 if (ImageColor[x + y * ImageTexture2D.width].a != 0.0)
                 {
-                    ExistsColor[(int)(ImageColor[x + y * ImageTexture2D.width].r * 255), (int)(ImageColor[x + y * ImageTexture2D.width].g * 255), (int)(ImageColor[x + y * ImageTexture2D.width].b * 255)]
-                    = true;
+                    ExistsColors[(int)(ImageColor[x + y * ImageTexture2D.width].r * 255), (int)(ImageColor[x + y * ImageTexture2D.width].g * 255), (int)(ImageColor[x + y * ImageTexture2D.width].b * 255)]
+                    += 1;
                 }
 
                 //RGBの各合計値を算出
@@ -312,14 +329,14 @@ public class CharacterClass //: MonoBehaviour
 
         //諧調数の算出
         {
-            uint GradationNum = 0;
+            GradationNum = 0;
             for(int r = 0; r < 256; r++)
             {
                 for (int g = 0; g < 256; g++)
                 {
                     for (int b = 0; b < 256; b++)
                     {
-                        if (ExistsColor[r, g, b] == true)
+                        if (ExistsColors[r, g, b] != 0)
                         {
                             Debug.Log("諧調 : r" + r + " g" + g + " b" + b);
                             GradationNum++;
@@ -385,11 +402,13 @@ public class CharacterClass //: MonoBehaviour
         return true;
     }
 
-    ulong GetCreatePixels(int r, int g, int b)
+    public uint GetCreatePixels(ushort r, ushort g, ushort b)
     {
-        //TODO:GetCreatePixelsの処理
-        return 0;
-    }
+        uint result = 0;
 
+        result = Size + ExistsColors[r,g,b];
+
+        return result;
+    }
 
 }

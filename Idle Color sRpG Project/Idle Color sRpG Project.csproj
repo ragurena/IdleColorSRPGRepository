@@ -658,9 +658,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\CharacterClass.cs" />
-    <Compile Include="Assets\ControllerProduction.cs" />
-    <Compile Include="Assets\ModelProduction.cs" />
     <Compile Include="Assets\OpenCV+Unity\Assets\Scripts\DLib\PInvoke\NativeMethods_dlib.cs" />
     <Compile Include="Assets\OpenCV+Unity\Assets\Scripts\DLib\ShapePredictor.cs" />
     <Compile Include="Assets\OpenCV+Unity\Assets\Scripts\OpenCvSharp\Constants.cs" />
@@ -1065,8 +1062,12 @@
     <Compile Include="Assets\OpenCV+Unity\Demo\Scripts\FaceProcessor.cs" />
     <Compile Include="Assets\OpenCV+Unity\Demo\Scripts\WebCamera.cs" />
     <Compile Include="Assets\OpenCV+Unity\Demo\Tracking\TrackingScript.cs" />
-    <Compile Include="Assets\SaveClass.cs" />
-    <Compile Include="Assets\StatisticsClass.cs" />
+    <Compile Include="Assets\Scripts\CharacterClass.cs" />
+    <Compile Include="Assets\Scripts\ControllerProduction.cs" />
+    <Compile Include="Assets\Scripts\ModelProduction.cs" />
+    <Compile Include="Assets\Scripts\OnePixelProductionClass.cs" />
+    <Compile Include="Assets\Scripts\SaveClass.cs" />
+    <Compile Include="Assets\Scripts\StatisticsClass.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\OpenCV+Unity\Demo\Face_Detector\haarcascade_eye.xml" />

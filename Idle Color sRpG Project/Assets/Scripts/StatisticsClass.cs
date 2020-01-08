@@ -23,8 +23,6 @@ public class StatisticsClass //: MonoBehaviour
     public ulong RCreates;
     public ulong GCreates;
     public ulong BCreates;
-    //TODO:ピクセル作成数
-    //ulong GetCreatePixels(int r,int g,int b);
     //TODO:描画数
     public ulong PaintPixels;
 
@@ -41,4 +39,6 @@ public class StatisticsClass //: MonoBehaviour
     {
         
     }
+
+
 }
