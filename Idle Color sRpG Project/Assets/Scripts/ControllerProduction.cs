@@ -92,10 +92,12 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] Button ButtonIncreaseValueGUp;
     [SerializeField] Button ButtonIncreaseValueBUp;
 
-    //パネル
+
+    //シーンパネル
     [SerializeField] GameObject PanelRGBProduction;
     [SerializeField] GameObject PanelPixelProduction;
 
+    //キャラクターセレクトパネル
     [SerializeField] GameObject PanelSelectCharacter;
 
     [SerializeField] Image ImageSelectCharacter;
@@ -103,16 +105,27 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] Text TextSelectCharacter2;
     [SerializeField] Text TextSelectCharacter3;
 
+    //カラーセレクトパネル
+    [SerializeField] GameObject PanelSelectColor;
+    [SerializeField] GameObject PanelSelectColorMethod;
+    [SerializeField] GameObject PanelSelectColorMethodRGBNum;
+
+    [SerializeField] InputField InputFieldSpecificationNumR;
+    [SerializeField] InputField InputFieldSpecificationNumG;
+    [SerializeField] InputField InputFieldSpecificationNumB;
+
+    [SerializeField] Image ImageSpecificationColorR;
+    [SerializeField] Image ImageSpecificationColorG;
+    [SerializeField] Image ImageSpecificationColorB;
+
+
 
 
 
     Button ButtonTmp = null;
     uint CharacterIDTmp = 0;
+    Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 0.0f);
 
-
-
-    ////モンスター
-    //[SerializeField] Image ImageRedSlime8;
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -150,9 +163,9 @@ public class ControllerProduction : MonoBehaviour
         UpdateRGBProductionScene();
     }
 
+    // Update is called once per frame
     private float TimeOut = 1;
     private float TimeElapsed = 0;
-    // Update is called once per frame
     void Update()
     {
         //Debug.Log("ControllerProduction Update");
@@ -185,6 +198,8 @@ public class ControllerProduction : MonoBehaviour
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //セーブ機能
+
     //セーブボタンが押されたら
     public void PushButtonSave()
     {
@@ -259,7 +274,6 @@ public class ControllerProduction : MonoBehaviour
         ModelProduction.UpgradeValue(ref CurR, ref CostMaxRUp, ref MaxR, ModelProduction.TypeUpgrade.MAX);
         UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
     }
-
     //ButtonMaxGUpが押されたら
     public void PushButtonMaxGUp()
     {
@@ -267,7 +281,6 @@ public class ControllerProduction : MonoBehaviour
         ModelProduction.UpgradeValue(ref CurG, ref CostMaxGUp, ref MaxG, ModelProduction.TypeUpgrade.MAX);
         UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
     }
-
     //ButtonMaxBUpが押されたら
     public void PushButtonMaxBUp()
     {
@@ -277,67 +290,52 @@ public class ControllerProduction : MonoBehaviour
     }
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //セレクトシーン
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //シーンセレクト
+
     //RGB生産シーンボタンが押されたら
     public void PushButtonSelectSceneRGBProduction()
     {
         //PanelRGBProductionの表示
-        CanvasGroup PanelRGBProductionCanvasGroup = PanelRGBProduction.GetComponent<CanvasGroup>();
-        PanelRGBProductionCanvasGroup.alpha = 1;
-        PanelRGBProductionCanvasGroup.interactable = true;
-        PanelRGBProductionCanvasGroup.blocksRaycasts = true;
+        ShowPanel(PanelRGBProduction);
         //UIの更新
         UpdateRGBProductionScene();
 
+
         //他のシーンを非表示
         //PanelRGBProductionの非表示
-        CanvasGroup PanelPixelProductionCanvasGroup = PanelPixelProduction.GetComponent<CanvasGroup>();
-        PanelPixelProductionCanvasGroup.alpha = 0;
-        PanelPixelProductionCanvasGroup.interactable = false;
-        PanelPixelProductionCanvasGroup.blocksRaycasts = false;
-
+        NotShowPanel(PanelPixelProduction);
     }
 
     //ピクセル生産シーンボタンが押されたら
     public void PushButtonSelectScenePixelProduction()
     {
         //PanelRGBProductionの表示
-        CanvasGroup PanelPixelProductionCanvasGroup = PanelPixelProduction.GetComponent<CanvasGroup>();
-        PanelPixelProductionCanvasGroup.alpha = 1;
-        PanelPixelProductionCanvasGroup.interactable = true;
-        PanelPixelProductionCanvasGroup.blocksRaycasts = true;
+        ShowPanel(PanelPixelProduction);
         //UIの更新
         UpdatePixelProductionScene();
 
 
         //他のシーンを非表示
         //PanelRGBProductionの非表示
-        CanvasGroup PanelRGBProductionCanvasGroup = PanelRGBProduction.GetComponent<CanvasGroup>();
-        PanelRGBProductionCanvasGroup.alpha = 0;
-        PanelRGBProductionCanvasGroup.interactable = false;
-        PanelRGBProductionCanvasGroup.blocksRaycasts = false;
-
+        NotShowPanel(PanelRGBProduction);
     }
 
 
 
-
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //キャラクターセレクト
     //キャラクター選択ボタンが押されたら
-    public void PushButtonCharacterSelect(string ButtonName)
+    public void PushButtonSelectCharacter(string argButtonName)
     {
         //どのボタンで呼び出されたか保存
-        ButtonTmp = GameObject.Find(ButtonName).GetComponent<Button>();
+        ButtonTmp = GameObject.Find(argButtonName).GetComponent<Button>();
 
         ShowPanelSelectCharacter();
     }
 
     //キャラクターセレクトの戻るボタンが押されたら
-    public void PushButtonBackCharacterSelect()
+    public void PushButtonBackSelectCharacter()
     {
         //どのボタンで呼び出されたか削除
         ButtonTmp = null;
@@ -348,7 +346,7 @@ public class ControllerProduction : MonoBehaviour
     }
 
     //キャラクターセレクトのキャラクターボタンが押されたら
-    public void PushButtonSelectCharacter(uint argCharacterID)
+    public void PushButtonSelectCharacterCharacter(uint argCharacterID)
     {
         Debug.Log("SelectCharacterID : " + argCharacterID);
         ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[argCharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterID].Size, CharactersAll[argCharacterID].Size), new Vector2(0.5f, 0.5f));
@@ -400,88 +398,40 @@ public class ControllerProduction : MonoBehaviour
             ButtonTmp.name.Contains("GProductionHelpCharacter") ||
             ButtonTmp.name.Contains("BProductionHelpCharacter"))
         {
-            if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
+            if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))//TODO:リファクタリング
             {
-                if (ButtonTmp.name.EndsWith("1"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionR[1]].Whereabouts = Place.None;
-                    CharactersIDHelpProductionR[1] = CharacterIDTmp;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionR[2]].Whereabouts = Place.None;
-                    CharactersIDHelpProductionR[2] = CharacterIDTmp;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionR[3]].Whereabouts = Place.None;
-                    CharactersIDHelpProductionR[3] = CharacterIDTmp;
-                }
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
+
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Whereabouts = Place.None;
+                CharactersIDHelpProductionR[HelpProductionIndex] = CharacterIDTmp;
 
                 //居場所変更
                 CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateR;
-
             }
             else
-        if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
+            if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
             {
-                if (ButtonTmp.name.EndsWith("1"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionG[1]].Whereabouts = Place.None;
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                    CharactersIDHelpProductionG[1] = CharacterIDTmp;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionG[2]].Whereabouts = Place.None;
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Whereabouts = Place.None;
 
-                    CharactersIDHelpProductionG[2] = CharacterIDTmp;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionG[3]].Whereabouts = Place.None;
+                CharactersIDHelpProductionG[HelpProductionIndex] = CharacterIDTmp;
 
-                    CharactersIDHelpProductionG[3] = CharacterIDTmp;
-                }
                 //居場所変更
                 CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateG;
             }
             else
-        if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
+            if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
             {
-                if (ButtonTmp.name.EndsWith("1"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionB[1]].Whereabouts = Place.None;
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                    CharactersIDHelpProductionB[1] = CharacterIDTmp;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionB[2]].Whereabouts = Place.None;
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Whereabouts = Place.None;
 
-                    CharactersIDHelpProductionB[2] = CharacterIDTmp;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionB[3]].Whereabouts = Place.None;
+                CharactersIDHelpProductionB[HelpProductionIndex] = CharacterIDTmp;
 
-                    CharactersIDHelpProductionB[3] = CharacterIDTmp;
-                }
                 //居場所変更
                 CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateB;
             }
@@ -490,23 +440,9 @@ public class ControllerProduction : MonoBehaviour
         //Pixel生産のキャラクターの管理
         if(ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)//TODO:リファクタリング
-            {
-                string StrEndNum = i.ToString();
-                if(StrEndNum.Length == 1)
-                {
-                    StrEndNum = "0" + StrEndNum;
-                }
+            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            CharactersIDProductionPixel[ProductionPixelIndex] = CharacterIDTmp;
 
-                if (ButtonTmp.name.EndsWith(StrEndNum))
-                {
-                    Debug.Log("StrEndNum : " + StrEndNum);
-
-                    CharactersIDProductionPixel[i] = CharacterIDTmp;
-
-                    break;
-                }
-            }
             //居場所変更
             CharactersAll[CharacterIDTmp].Whereabouts = Place.CreatePixel;
         }
@@ -526,91 +462,40 @@ public class ControllerProduction : MonoBehaviour
             ButtonTmp.name.Contains("BProductionHelpCharacter"))
         {
 
-            if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
+            if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))//TODO:リファクタリング
             {
                 ButtonTmp.image.color = new Color(50 / 255f, 0.0f, 0.0f, 1.0f);
 
-                if (ButtonTmp.name.EndsWith("1"))//TODO:リファクタリング
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionR[1]].Whereabouts = Place.None;
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                    CharactersIDHelpProductionR[1] = 0;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionR[2]].Whereabouts = Place.None;
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Whereabouts = Place.None;
 
-                    CharactersIDHelpProductionR[2] = 0;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionR[3]].Whereabouts = Place.None;
-
-                    CharactersIDHelpProductionR[3] = 0;
-                }
+                CharactersIDHelpProductionR[HelpProductionIndex] = 0;
             }
             else
             if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
             {
                 ButtonTmp.image.color = new Color(0.0f, 50 / 255f, 0.0f, 1.0f);
 
-                if (ButtonTmp.name.EndsWith("1"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionG[1]].Whereabouts = Place.None;
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                    CharactersIDHelpProductionG[1] = 0;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionG[2]].Whereabouts = Place.None;
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Whereabouts = Place.None;
 
-                    CharactersIDHelpProductionG[2] = 0;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionG[3]].Whereabouts = Place.None;
-
-                    CharactersIDHelpProductionG[3] = 0;
-                }
+                CharactersIDHelpProductionG[HelpProductionIndex] = 0;
             }
             else
             if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
             {
                 ButtonTmp.image.color = new Color(0.0f, 0.0f, 50 / 255f, 1.0f);
 
-                if (ButtonTmp.name.EndsWith("1"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionB[1]].Whereabouts = Place.None;
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                    CharactersIDHelpProductionB[1] = 0;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionB[2]].Whereabouts = Place.None;
+                //前に設定されていたキャラの居場所変更
+                CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Whereabouts = Place.None;
 
-                    CharactersIDHelpProductionB[2] = 0;
-                }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    //前に設定されていたキャラの居場所変更
-                    CharactersAll[CharactersIDHelpProductionB[3]].Whereabouts = Place.None;
-
-                    CharactersIDHelpProductionB[3] = 0;
-                }
+                CharactersIDHelpProductionB[HelpProductionIndex] = 0;
             }
         }
         else
@@ -626,7 +511,6 @@ public class ControllerProduction : MonoBehaviour
 
         }
 
-
         NotShowPanelSelectCharacter();
     }
 
@@ -634,10 +518,7 @@ public class ControllerProduction : MonoBehaviour
     public void ShowPanelSelectCharacter()
     {
         //PanelSelectCharacterの表示
-        CanvasGroup PanelSelectCharacterCanvasGroup = PanelSelectCharacter.GetComponent<CanvasGroup>();
-        PanelSelectCharacterCanvasGroup.alpha = 1;
-        PanelSelectCharacterCanvasGroup.interactable = true;
-        PanelSelectCharacterCanvasGroup.blocksRaycasts = true;
+        ShowPanel(PanelSelectCharacter);
 
         //選択ボタンのenable設定
         Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
@@ -656,248 +537,120 @@ public class ControllerProduction : MonoBehaviour
             ButtonTmp.name.Contains("GProductionHelpCharacter") ||
             ButtonTmp.name.Contains("BProductionHelpCharacter"))
         {
-            if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
+            //選択キャラクターのステータスの初期表示
+            TextSelectCharacter1.text = "CreateR : ";
+            TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter2.text = "CreateG : ";
+            TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+            TextSelectCharacter3.text = "CreateB : ";
+            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+
+            if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))//TODO:リファクタリング
             {
-                if (ButtonTmp.name.EndsWith("1"))
-                {
-                    if (CharactersIDHelpProductionR[1] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[1]].Size, CharactersAll[CharactersIDHelpProductionR[1]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[1]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionR[1]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionR[1]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
+                if (CharactersIDHelpProductionR[HelpProductionIndex] != 0)
                 {
-                    if (CharactersIDHelpProductionR[2] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[2]].Size, CharactersAll[CharactersIDHelpProductionR[2]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[2]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionR[2]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionR[2]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Stats[0].RCreates;
+                    TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
+                    TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Stats[0].GCreates;
+                    TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+                    TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Stats[0].BCreates;
+                    TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
                 }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    if (CharactersIDHelpProductionR[3] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[3]].Size, CharactersAll[CharactersIDHelpProductionR[3]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[3]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionR[3]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionR[3]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
-                }
             }
             else
             if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
             {
-                if (ButtonTmp.name.EndsWith("1"))
-                {
-                    if (CharactersIDHelpProductionG[1] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[1]].Size, CharactersAll[CharactersIDHelpProductionG[1]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[1]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionG[1]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionG[1]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
+                if (CharactersIDHelpProductionG[HelpProductionIndex] != 0)
                 {
-                    if (CharactersIDHelpProductionG[2] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[2]].Size, CharactersAll[CharactersIDHelpProductionG[2]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[2]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionG[2]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionG[2]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Stats[0].RCreates;
+                    TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
+                    TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Stats[0].GCreates;
+                    TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+                    TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Stats[0].BCreates;
+                    TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
                 }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    if (CharactersIDHelpProductionG[3] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[3]].Size, CharactersAll[CharactersIDHelpProductionG[3]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[3]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionG[3]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionG[3]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
-                }
             }
             else
             if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
             {
-                if (ButtonTmp.name.EndsWith("1"))
-                {
-                    if (CharactersIDHelpProductionB[1] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[1]].Size, CharactersAll[CharactersIDHelpProductionB[1]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[1]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionB[1]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionB[1]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
-                }
-                else
-                if (ButtonTmp.name.EndsWith("2"))
+                if (CharactersIDHelpProductionB[HelpProductionIndex] != 0)
                 {
-                    if (CharactersIDHelpProductionB[2] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[2]].Size, CharactersAll[CharactersIDHelpProductionB[2]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[2]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionB[2]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionB[2]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                    //選択キャラクターの画像を表示
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    //選択キャラクターのステータスを表示
+                    TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Stats[0].RCreates;
+                    TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
+                    TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Stats[0].GCreates;
+                    TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+                    TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Stats[0].BCreates;
+                    TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
+                    //外すボタンのenable設定
+                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
+                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                    ButtonRemove.interactable = true;
                 }
-                else
-                if (ButtonTmp.name.EndsWith("3"))
-                {
-                    if (CharactersIDHelpProductionB[3] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[3]].Size, CharactersAll[CharactersIDHelpProductionB[3]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].RCreates;
-                        TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].GCreates;
-                        TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].BCreates;
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
-                }
             }
         }
         else
         if (ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+            //選択キャラクターのステータスの初期表示
+            TextSelectCharacter1.text = "      SPD       : ";
+            TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter2.text = "CreatePixel : ";
+            TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter3.text = "  Pixel/sec   : ";
+            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+
+            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+            if (CharactersIDProductionPixel[ProductionPixelIndex] != 0)
             {
-                string StrEndNum = i.ToString();
-                if (StrEndNum.Length == 1)
-                {
-                    StrEndNum = "0" + StrEndNum;
-                }
+                //選択キャラクターの画像を表示
+                ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size), new Vector2(0.5f, 0.5f));
+                //選択キャラクターのステータスを表示
+                TextSelectCharacter1.text = "      SPD       : " + CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Stats[0].SPD;
+                TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+                TextSelectCharacter2.text = "CreatePixel : " + CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].GetCreatePixels((ushort)(ColorProductionPixel[ProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].b * 255));
+                TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+                TextSelectCharacter3.text = "  Pixel/sec   : " + GetCreatePixelTime(ColorProductionPixel[ProductionPixelIndex], CharactersIDProductionPixel[ProductionPixelIndex])
+                                                               * CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].GetCreatePixels((ushort)(ColorProductionPixel[ProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].b * 255));
+                TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
-                if (ButtonTmp.name.EndsWith(StrEndNum)) //TODO:リファクタリング
-                {
-                    if (CharactersIDProductionPixel[i] != 0)
-                    {
-                        //選択キャラクターの画像を表示
-                        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDProductionPixel[i]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[i]].Size, CharactersAll[CharactersIDProductionPixel[i]].Size), new Vector2(0.5f, 0.5f));
-                        //選択キャラクターのステータスを表示
-                        TextSelectCharacter1.text = "      SPD       : " + CharactersAll[CharactersIDProductionPixel[i]].Stats[0].SPD;
-                        TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter2.text = "CreatePixel : " + CharactersAll[CharactersIDProductionPixel[i]].GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255));
-                        TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-                        TextSelectCharacter3.text = "  Pixel/sec   : " + GetCreatePixelTime(ColorProductionPixel[i], CharactersIDProductionPixel[i])
-                                                                       * CharactersAll[CharactersIDProductionPixel[i]].GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255));
-                        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-
-                        //外すボタンのenable設定
-                        ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                        ButtonRemove.interactable = true;
-                    }
-
-                    break;
-                }
+                //外すボタンのenable設定
+                ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
+                ButtonRemove.interactable = true;
+                ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
+                ButtonRemove.interactable = true;
             }
 
         }
@@ -947,12 +700,9 @@ public class ControllerProduction : MonoBehaviour
                     ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
                 }
 
-
-
-
                 //クリックイベントを追加
                 uint CharacterID = (uint)(indexCharacter);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
-                ArrayButtonCharacter[indexCharacter].GetComponent<Button>().onClick.AddListener(() => PushButtonSelectCharacter(CharacterID));
+                ArrayButtonCharacter[indexCharacter].GetComponent<Button>().onClick.AddListener(() => PushButtonSelectCharacterCharacter(CharacterID));
             }
         }
     }
@@ -975,13 +725,245 @@ public class ControllerProduction : MonoBehaviour
         ImageSelectCharacter.sprite = null;
 
         //PanelSelectCharacterの非表示
-        CanvasGroup PanelSelectCharacterCanvasGroup = PanelSelectCharacter.GetComponent<CanvasGroup>();
-        PanelSelectCharacterCanvasGroup.alpha = 0;
-        PanelSelectCharacterCanvasGroup.interactable = false;
-        PanelSelectCharacterCanvasGroup.blocksRaycasts = false;
+        NotShowPanel(PanelSelectCharacter);
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //カラーセレクト
+    //色選択ボタンが押されたら
+    public void PushButtonSelectColor(string argButtonName)
+    {
+        //どのボタンで呼び出されたか保存
+        ButtonTmp = GameObject.Find(argButtonName).GetComponent<Button>();
 
+        ShowPanelSelectColorMethod();
+    }
+
+    //カラーセレクトの色指定方法の戻るボタンが押されたら
+    public void PushButtonBackSelectColorMethod()
+    {
+        //どのボタンで呼び出されたか削除
+        ButtonTmp = null;
+
+        NotShowPanelSelectColorMethod();
+    }
+
+    //カラーセレクトの色指定方法のRGB値で指定ボタンが押されたら
+    public void PushButtonSelectColorMethodRGBNum()
+    {
+        ShowPanel(PanelSelectColorMethodRGBNum);
+    }
+
+    //カラーセレクトの色指定方法のRGB値で指定で戻るボタンが押されたら
+    public void PushButtonBackSelectColorMethodRGBNum()
+    {
+        NotShowPanel(PanelSelectColorMethodRGBNum);
+    }
+
+    //カラーセレクトの色指定方法パネルの表示
+    public void ShowPanelSelectColorMethod()
+    {
+        ShowPanel(PanelSelectColor);
+        ShowPanel(PanelSelectColorMethod);
+    }
+    //カラーセレクトの色指定方法パネルの非表示
+    public void NotShowPanelSelectColorMethod()
+    {
+        NotShowPanel(PanelSelectColorMethod);
+        NotShowPanel(PanelSelectColor);
+    }
+
+    //RGB値で色指定のスライダーまたはインプットフィールドの入力があったら
+    public void ValueChangeSliderOrInputFieldSpecificationRNum(string argName)
+    {
+        if(argName.StartsWith("SliderSpecificationNum") || argName.StartsWith("InputFieldSpecificationNum"))
+        {
+            string strRGB = argName.Substring(argName.Length - 1, 1);
+            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+            if (strRGB.Equals("R"))
+            {
+                Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
+
+                if (argName.StartsWith("SliderSpecificationNum"))
+                {
+                    ColorTmp.r = (float)(SliderSpecificationNumRGB.value / 255.0);
+                    InputFieldSpecificationNumR.placeholder.GetComponent<Text>().text = (ColorTmp.r * 255).ToString();
+                }
+                else
+                if (argName.StartsWith("InputFieldSpecificationNum"))
+                {
+                    int num;
+                    if (int.TryParse(InputFieldSpecificationNumR.text, out num))
+                    {
+                        if(num > 255)
+                        {
+                            InputFieldSpecificationNumR.text = "255";
+                            num = 255;
+                        }
+                        ColorTmp.r = (float)(int.Parse(InputFieldSpecificationNumR.text) / 255.0);
+                    }
+                    else
+                    if (InputFieldSpecificationNumR.text.Equals(""))
+                    {
+                        ColorTmp.r = 0.0f;
+                    }
+                    else
+                    if (InputFieldSpecificationNumR.text.Equals("-"))
+                    {
+                        InputFieldSpecificationNumR.text = "";
+                    }
+                    SliderSpecificationNumRGB.value = ColorTmp.r * 255;
+                }
+                ImageSpecificationColorR.color = new Color(ColorTmp.r, 0.0f, 0.0f, 1.0f);
+            }
+            else
+            if (strRGB.Equals("G"))
+            {
+                Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
+
+                if (argName.StartsWith("SliderSpecificationNum"))
+                {
+                    ColorTmp.g = (float)(SliderSpecificationNumRGB.value / 255.0);
+                    InputFieldSpecificationNumG.placeholder.GetComponent<Text>().text = (ColorTmp.g * 255).ToString();
+                }
+                else
+                if (argName.StartsWith("InputFieldSpecificationNum"))
+                {
+                    int num;
+                    if (int.TryParse(InputFieldSpecificationNumG.text, out num))
+                    {
+                        if (num > 255)
+                        {
+                            InputFieldSpecificationNumG.text = "255";
+                            num = 255;
+                        }
+                        ColorTmp.g = (float)(int.Parse(InputFieldSpecificationNumG.text) / 255.0);
+                    }
+                    else
+                    if (InputFieldSpecificationNumG.text.Equals(""))
+                    {
+                        ColorTmp.g = 0.0f;
+                    }
+                    else
+                    if (InputFieldSpecificationNumG.text.Equals("-"))
+                    {
+                        InputFieldSpecificationNumG.text = "";
+                    }
+                    SliderSpecificationNumRGB.value = ColorTmp.g * 255;
+                }
+                ImageSpecificationColorG.color = new Color(0.0f, ColorTmp.g, 0.0f, 1.0f);
+            }
+            else
+            if (strRGB.Equals("B"))
+            {
+                Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
+
+                if (argName.StartsWith("SliderSpecificationNum"))
+                {
+                    ColorTmp.b = (float)(SliderSpecificationNumRGB.value / 255.0);
+                    InputFieldSpecificationNumB.placeholder.GetComponent<Text>().text = (ColorTmp.b * 255).ToString();
+                }
+                else
+                if (argName.StartsWith("InputFieldSpecificationNum"))
+                {
+                    int num;
+                    if (int.TryParse(InputFieldSpecificationNumB.text, out num))
+                    {
+                        if (num > 255)
+                        {
+                            InputFieldSpecificationNumB.text = "255";
+                            num = 255;
+                        }
+                        ColorTmp.b = (float)(int.Parse(InputFieldSpecificationNumB.text) / 255.0);
+                    }
+                    else
+                    if (InputFieldSpecificationNumB.text.Equals(""))
+                    {
+                        ColorTmp.b = 0.0f;
+                    }
+                    else
+                    if (InputFieldSpecificationNumB.text.Equals("-"))
+                    {
+                        InputFieldSpecificationNumB.text = "";
+                    }
+                    SliderSpecificationNumRGB.value = ColorTmp.b * 255;
+                }
+                ImageSpecificationColorB.color = new Color(0.0f, 0.0f, ColorTmp.b, 1.0f);
+            }
+        }
+
+    }
+    //RGB値で色指定のDownまたはUpボタンが押されたら
+    public void PushButtonButtonSpecificationNumRGBDownOrUP(string argName)
+    {
+        Debug.Log(argName.Substring(argName.Length - 5, 1) + argName.Substring(argName.Length - 3, 1));
+
+        if (argName.Substring(argName.Length - 5, 1).Equals("R") || argName.Substring(argName.Length - 3, 1).Equals("R"))
+        {
+            Debug.Log("ok");
+
+            if (argName.Contains("Down") && ColorTmp.r > 0.0f)
+            {
+                Debug.Log("Down");
+                ColorTmp.r -= 1 / 255.0f;
+            }
+            else
+            if (argName.Contains("Up") && ColorTmp.r < 1.0f)
+            {
+                Debug.Log("Up");
+                ColorTmp.r += 1 / 255.0f;
+            }
+
+            ImageSpecificationColorR.color = new Color(ColorTmp.r, 0.0f, 0.0f, 1.0f);
+
+            Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
+            SliderSpecificationNumRGB.value = ColorTmp.r * 255;
+
+            InputFieldSpecificationNumR.placeholder.GetComponent<Text>().text = (ColorTmp.r * 255).ToString();
+        }
+        else
+        if (argName.Substring(argName.Length - 5, 1).Equals("G") || argName.Substring(argName.Length - 3, 1).Equals("G"))
+        {
+            if (argName.Contains("Down") && ColorTmp.g > 0.0f)
+            {
+                ColorTmp.g -= 1 / 255.0f;
+            }
+            else
+            if (argName.Contains("Up") && ColorTmp.g < 1.0f)
+            {
+                ColorTmp.g += 1 / 255.0f;
+            }
+
+            ImageSpecificationColorG.color = new Color(0.0f, ColorTmp.g, 0.0f, 1.0f);
+
+            Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
+            SliderSpecificationNumRGB.value = ColorTmp.g * 255;
+
+            InputFieldSpecificationNumG.placeholder.GetComponent<Text>().text = (ColorTmp.g * 255).ToString();
+        }
+        else
+        if (argName.Substring(argName.Length - 5, 1).Equals("B") || argName.Substring(argName.Length - 3, 1).Equals("B"))
+        {
+            if (argName.Contains("Down") && ColorTmp.b > 0.0f)
+            {
+                ColorTmp.b -= 1 / 255.0f;
+            }
+            else
+            if (argName.Contains("Up") && ColorTmp.b < 1.0f)
+            {
+                ColorTmp.b += 1 / 255.0f;
+            }
+
+            ImageSpecificationColorB.color = new Color(0.0f, 0.0f, ColorTmp.b, 1.0f);
+
+            Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
+            SliderSpecificationNumRGB.value = ColorTmp.b * 255;
+
+            InputFieldSpecificationNumB.placeholder.GetComponent<Text>().text = (ColorTmp.b * 255).ToString();
+
+        }
+    }
 
 
     ////////////////////////////////////
@@ -999,8 +981,26 @@ public class ControllerProduction : MonoBehaviour
 
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //View
+
+    //パネルの表示
+    public void ShowPanel(GameObject argPanel)
+    {
+        CanvasGroup PanelCanvasGroup = argPanel.GetComponent<CanvasGroup>();
+        PanelCanvasGroup.alpha = 1;
+        PanelCanvasGroup.interactable = true;
+        PanelCanvasGroup.blocksRaycasts = true;
+    }
+    //パネルの非表示
+    public void NotShowPanel(GameObject argPanel)
+    {
+        CanvasGroup PanelCanvasGroup = argPanel.GetComponent<CanvasGroup>();
+        PanelCanvasGroup.alpha = 0;
+        PanelCanvasGroup.interactable = false;
+        PanelCanvasGroup.blocksRaycasts = false;
+    }
+
 
     //グラフィックをデータと同期させる
     public void UpdateRGBProductionScene()
@@ -1010,7 +1010,6 @@ public class ControllerProduction : MonoBehaviour
         UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
         UpdateRGBProductionHelpCharacter();
     }
-
     public void UpdateRGBProductionOneColor(ulong ColorValue, ulong MaxValue, Text TextColorValue, Slider SliderColorValue, ulong IncreaseValue, ulong CostIncreaseUp, Text TextIncreaseValueLeft, Text TextIncreaseValueRight, Text TextCostIncreaseValueUp, Slider SliderCostIncrease, Button ButtonIncreaseValueUp, ulong CostMaxValueUp, Text TextCostMaxValueUp, Slider SliderCostMaxValueUp, Button ButtonMaxValueUp)
     {
         TextColorValue.text = string.Format("{0} / {1}", ColorValue, MaxValue);
