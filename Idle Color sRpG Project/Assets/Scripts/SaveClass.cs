@@ -391,7 +391,7 @@ public class SaveClass// : MonoBehaviour
 
                         if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].SPD"))
                         {
-                            CharactersAll[i].Stats[j].SPD = (uint)(int.Parse(values[1]));
+                            CharactersAll[i].Stats[j].SPD = (byte)(int.Parse(values[1]));
                             FlagHit = true;
                             break;
                         }

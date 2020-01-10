@@ -12,7 +12,7 @@ public class StatisticsClass //: MonoBehaviour
     //防御力
     public ulong DEF;
     //素早さ
-    public ulong SPD;
+    public byte SPD;
     //運
     public ulong LUC;
     //観察力

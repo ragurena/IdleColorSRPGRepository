@@ -6,6 +6,8 @@ using OpenCvSharp;
 
 using System.IO;
 
+public enum Trigger {User, Update};
+
 static class Constants
 {
     public const int CHARACTERS_ALL_NUM = 10;
@@ -26,6 +28,8 @@ public class ControllerProduction : MonoBehaviour
 
     uint[] CharactersIDProductionPixel = new uint[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
     Color[] ColorProductionPixel = new Color[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
+    ushort[,] ProgressProductionPixel = new ushort[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
+    bool[,] WarningLackRGB = new bool[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
 
     //現在の全カラーの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
     ulong[,,] CurPixels = new ulong[256, 256, 256];
@@ -93,6 +97,9 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] Button ButtonIncreaseValueBUp;
 
 
+    //ピクセル生産のクリック時の進捗数
+    ushort UserProductionPixelNum = 10;
+
     //シーンパネル
     [SerializeField] GameObject PanelRGBProduction;
     [SerializeField] GameObject PanelPixelProduction;
@@ -124,7 +131,7 @@ public class ControllerProduction : MonoBehaviour
 
     Button ButtonTmp = null;
     uint CharacterIDTmp = 0;
-    Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 0.0f);
+    Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
 
 
@@ -133,6 +140,17 @@ public class ControllerProduction : MonoBehaviour
     void Start()
     {
         Debug.Log("ControllerProduction Start");
+
+        //画面回転固定
+        //縦
+        Screen.autorotateToPortrait = true;
+        //上下反転
+        Screen.autorotateToPortraitUpsideDown = true;
+        //左
+        Screen.autorotateToLandscapeLeft = false;
+        //右
+        Screen.autorotateToLandscapeRight = false;
+
 
         //キャラ生成
         Debug.Log("キャラ生成");
@@ -148,6 +166,12 @@ public class ControllerProduction : MonoBehaviour
         CharactersAll[4].MakeCharacter(Resources.Load("Character/WhiteSlime8", typeof(Texture2D)) as Texture2D, 4, "LittleWhiteSlime");
         CharactersAll[5].MakeCharacter(Resources.Load("Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
         CharactersAll[8].MakeCharacter(Resources.Load("Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
+
+        //ColorProductionPixelの初期化
+        for (int i = 0; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+        {
+            ColorProductionPixel[i].a = 1.0f;
+        }
 
         //ロード
         SaveClass SC = new SaveClass();
@@ -193,6 +217,10 @@ public class ControllerProduction : MonoBehaviour
                                        CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].BCreates;
             ModelProduction.Increase(ref CurB, IncreaseValueBHelp, MaxB);
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
+
+
+            ProductionPixel(Trigger.Update);
+            UpdatePixelProductionScene();
         }
 
     }
@@ -305,6 +333,7 @@ public class ControllerProduction : MonoBehaviour
         //他のシーンを非表示
         //PanelRGBProductionの非表示
         NotShowPanel(PanelPixelProduction);
+        ClearPixelProductionScene();
     }
 
     //ピクセル生産シーンボタンが押されたら
@@ -758,6 +787,9 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonBackSelectColorMethodRGBNum()
     {
         NotShowPanel(PanelSelectColorMethodRGBNum);
+        ColorTmp.r = 0.0f;
+        ColorTmp.g = 0.0f;
+        ColorTmp.b = 0.0f;
     }
 
     //カラーセレクトの色指定方法パネルの表示
@@ -774,21 +806,18 @@ public class ControllerProduction : MonoBehaviour
     }
 
     //RGB値で色指定のスライダーまたはインプットフィールドの入力があったら
-    public void ValueChangeSliderOrInputFieldSpecificationRNum(string argName)
+    public void ValueChangeSliderOrInputFieldSpecificationRGBNum(string argName)
     {
         if(argName.StartsWith("SliderSpecificationNum") || argName.StartsWith("InputFieldSpecificationNum"))
         {
             string strRGB = argName.Substring(argName.Length - 1, 1);
-            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
             if (strRGB.Equals("R"))
             {
-                Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
-
                 if (argName.StartsWith("SliderSpecificationNum"))
                 {
-                    ColorTmp.r = (float)(SliderSpecificationNumRGB.value / 255.0);
-                    InputFieldSpecificationNumR.placeholder.GetComponent<Text>().text = (ColorTmp.r * 255).ToString();
+                    Slider SliderSpecificationNumR = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
+                    ColorTmp.r = (float)(SliderSpecificationNumR.value / 255.0);
                 }
                 else
                 if (argName.StartsWith("InputFieldSpecificationNum"))
@@ -798,34 +827,26 @@ public class ControllerProduction : MonoBehaviour
                     {
                         if(num > 255)
                         {
-                            InputFieldSpecificationNumR.text = "255";
                             num = 255;
                         }
-                        ColorTmp.r = (float)(int.Parse(InputFieldSpecificationNumR.text) / 255.0);
+                        ColorTmp.r = num / 255.0f;
                     }
                     else
                     if (InputFieldSpecificationNumR.text.Equals(""))
                     {
                         ColorTmp.r = 0.0f;
                     }
-                    else
-                    if (InputFieldSpecificationNumR.text.Equals("-"))
-                    {
-                        InputFieldSpecificationNumR.text = "";
-                    }
-                    SliderSpecificationNumRGB.value = ColorTmp.r * 255;
                 }
-                ImageSpecificationColorR.color = new Color(ColorTmp.r, 0.0f, 0.0f, 1.0f);
+
+                UpdateSlectColorMethodRGBNum("R");
             }
             else
             if (strRGB.Equals("G"))
             {
-                Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
-
                 if (argName.StartsWith("SliderSpecificationNum"))
                 {
-                    ColorTmp.g = (float)(SliderSpecificationNumRGB.value / 255.0);
-                    InputFieldSpecificationNumG.placeholder.GetComponent<Text>().text = (ColorTmp.g * 255).ToString();
+                    Slider SliderSpecificationNumG = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
+                    ColorTmp.g = (float)(SliderSpecificationNumG.value / 255.0);
                 }
                 else
                 if (argName.StartsWith("InputFieldSpecificationNum"))
@@ -835,34 +856,26 @@ public class ControllerProduction : MonoBehaviour
                     {
                         if (num > 255)
                         {
-                            InputFieldSpecificationNumG.text = "255";
                             num = 255;
                         }
-                        ColorTmp.g = (float)(int.Parse(InputFieldSpecificationNumG.text) / 255.0);
+                        ColorTmp.g = num / 255.0f;
                     }
                     else
                     if (InputFieldSpecificationNumG.text.Equals(""))
                     {
                         ColorTmp.g = 0.0f;
                     }
-                    else
-                    if (InputFieldSpecificationNumG.text.Equals("-"))
-                    {
-                        InputFieldSpecificationNumG.text = "";
-                    }
-                    SliderSpecificationNumRGB.value = ColorTmp.g * 255;
                 }
-                ImageSpecificationColorG.color = new Color(0.0f, ColorTmp.g, 0.0f, 1.0f);
+
+                UpdateSlectColorMethodRGBNum("G");
             }
             else
             if (strRGB.Equals("B"))
             {
-                Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
-
                 if (argName.StartsWith("SliderSpecificationNum"))
                 {
-                    ColorTmp.b = (float)(SliderSpecificationNumRGB.value / 255.0);
-                    InputFieldSpecificationNumB.placeholder.GetComponent<Text>().text = (ColorTmp.b * 255).ToString();
+                    Slider SliderSpecificationNumB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
+                    ColorTmp.b = (float)(SliderSpecificationNumB.value / 255.0);
                 }
                 else
                 if (argName.StartsWith("InputFieldSpecificationNum"))
@@ -872,55 +885,37 @@ public class ControllerProduction : MonoBehaviour
                     {
                         if (num > 255)
                         {
-                            InputFieldSpecificationNumB.text = "255";
                             num = 255;
                         }
-                        ColorTmp.b = (float)(int.Parse(InputFieldSpecificationNumB.text) / 255.0);
+                        ColorTmp.b = num / 255.0f;
                     }
                     else
                     if (InputFieldSpecificationNumB.text.Equals(""))
                     {
                         ColorTmp.b = 0.0f;
                     }
-                    else
-                    if (InputFieldSpecificationNumB.text.Equals("-"))
-                    {
-                        InputFieldSpecificationNumB.text = "";
-                    }
-                    SliderSpecificationNumRGB.value = ColorTmp.b * 255;
                 }
-                ImageSpecificationColorB.color = new Color(0.0f, 0.0f, ColorTmp.b, 1.0f);
+
+                UpdateSlectColorMethodRGBNum("B");
             }
         }
-
     }
     //RGB値で色指定のDownまたはUpボタンが押されたら
-    public void PushButtonButtonSpecificationNumRGBDownOrUP(string argName)
+    public void PushButtonSpecificationNumRGBDownOrUP(string argName)
     {
-        Debug.Log(argName.Substring(argName.Length - 5, 1) + argName.Substring(argName.Length - 3, 1));
-
         if (argName.Substring(argName.Length - 5, 1).Equals("R") || argName.Substring(argName.Length - 3, 1).Equals("R"))
         {
-            Debug.Log("ok");
-
             if (argName.Contains("Down") && ColorTmp.r > 0.0f)
             {
-                Debug.Log("Down");
                 ColorTmp.r -= 1 / 255.0f;
             }
             else
             if (argName.Contains("Up") && ColorTmp.r < 1.0f)
             {
-                Debug.Log("Up");
                 ColorTmp.r += 1 / 255.0f;
             }
 
-            ImageSpecificationColorR.color = new Color(ColorTmp.r, 0.0f, 0.0f, 1.0f);
-
-            Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
-            SliderSpecificationNumRGB.value = ColorTmp.r * 255;
-
-            InputFieldSpecificationNumR.placeholder.GetComponent<Text>().text = (ColorTmp.r * 255).ToString();
+            UpdateSlectColorMethodRGBNum("R");
         }
         else
         if (argName.Substring(argName.Length - 5, 1).Equals("G") || argName.Substring(argName.Length - 3, 1).Equals("G"))
@@ -935,12 +930,7 @@ public class ControllerProduction : MonoBehaviour
                 ColorTmp.g += 1 / 255.0f;
             }
 
-            ImageSpecificationColorG.color = new Color(0.0f, ColorTmp.g, 0.0f, 1.0f);
-
-            Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
-            SliderSpecificationNumRGB.value = ColorTmp.g * 255;
-
-            InputFieldSpecificationNumG.placeholder.GetComponent<Text>().text = (ColorTmp.g * 255).ToString();
+            UpdateSlectColorMethodRGBNum("G");
         }
         else
         if (argName.Substring(argName.Length - 5, 1).Equals("B") || argName.Substring(argName.Length - 3, 1).Equals("B"))
@@ -955,14 +945,139 @@ public class ControllerProduction : MonoBehaviour
                 ColorTmp.b += 1 / 255.0f;
             }
 
-            ImageSpecificationColorB.color = new Color(0.0f, 0.0f, ColorTmp.b, 1.0f);
-
-            Slider SliderSpecificationNumRGB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
-            SliderSpecificationNumRGB.value = ColorTmp.b * 255;
-
-            InputFieldSpecificationNumB.placeholder.GetComponent<Text>().text = (ColorTmp.b * 255).ToString();
-
+            UpdateSlectColorMethodRGBNum("B");
         }
+    }
+    //RGB値で色指定の決定ボタンが押されたら
+    public void PushButtonConfirmSelectColor()
+    {
+        int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+        ColorProductionPixel[ProductionPixelIndex].r = ColorTmp.r;
+        ColorProductionPixel[ProductionPixelIndex].g = ColorTmp.g;
+        ColorProductionPixel[ProductionPixelIndex].b = ColorTmp.b;
+
+        NotShowPanel(PanelSelectColorMethodRGBNum);
+        ColorTmp.r = 0;
+        ColorTmp.g = 0;
+        ColorTmp.b = 0;
+
+        //どのボタンで呼び出されたか削除
+        ButtonTmp = null;
+
+        NotShowPanelSelectColorMethod();
+
+        UpdatePixelProductionScene();
+    }
+
+    public bool ProductionPixel(Trigger argTrigger)//TODO:RGBが0のときの対処
+    {
+        for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+        {
+            if(CharactersIDProductionPixel[i] != 0)
+            {
+                Debug.Log("OK");
+
+                ushort Progress;
+                if(argTrigger == Trigger.Update)
+                {
+                    Progress = CharactersAll[CharactersIDProductionPixel[i]].Stats[0].SPD;
+                }
+                else
+                if(argTrigger == Trigger.User)
+                {
+                    Progress = UserProductionPixelNum;
+                }
+                else
+                {
+                    Debug.Log("NG");
+
+                    return false;
+                }
+
+                Debug.Log("ProgressProductionPixel[0, 1] : " + ProgressProductionPixel[0, 1] + "\n" +
+                    "(int)(ColorProductionPixel[i].r * 255) : " + (int)(ColorProductionPixel[i].r * 255));
+
+                if (ProgressProductionPixel[i, 1] < (int)(ColorProductionPixel[i].r * 255))
+                {
+                    Debug.Log("R");
+                    //SPDよりも残りの進捗が少なかったら
+                    if (Progress > (int)(ColorProductionPixel[i].r * 255) - ProgressProductionPixel[i, 1])
+                    {
+                        Progress = (ushort)(ColorProductionPixel[i].r * 255 - ProgressProductionPixel[i, 1]);
+                    }
+
+                    if (CurR < Progress)
+                    {
+                        WarningLackRGB[i, 1] = true;
+                    }
+                    else
+                    {
+                        WarningLackRGB[i, 1] = false;
+                        CurR -= Progress;
+                        ProgressProductionPixel[i, 1] += Progress;
+                    }
+                }
+                else
+                if (ProgressProductionPixel[i, 2] < (int)(ColorProductionPixel[i].g * 255))
+                {
+                    Debug.Log("G");
+                    //SPDよりも残りの進捗が少なかったら
+                    if (Progress > (int)(ColorProductionPixel[i].g * 255) - ProgressProductionPixel[i, 2])
+                    {
+                        Progress = (ushort)(ColorProductionPixel[i].g * 255 - ProgressProductionPixel[i, 2]);
+                    }
+
+                    if (CurG < Progress)
+                    {
+                        WarningLackRGB[i, 2] = true;
+                    }
+                    else
+                    {
+                        WarningLackRGB[i, 2] = false;
+                        CurG -= Progress;
+                        ProgressProductionPixel[i, 2] += Progress;
+                    }
+                }
+                else
+                if (ProgressProductionPixel[i, 3] < (int)(ColorProductionPixel[i].b * 255))
+                {
+                    Debug.Log("B");
+                    //SPDよりも残りの進捗が少なかったら
+                    if (Progress > (int)(ColorProductionPixel[i].b * 255) - ProgressProductionPixel[i, 3])
+                    {
+                        Progress = (ushort)(ColorProductionPixel[i].b * 255 - ProgressProductionPixel[i, 3]);
+                    }
+
+                    if (CurB < Progress)
+                    {
+                        WarningLackRGB[i, 3] = true;
+                    }
+                    else
+                    {
+                        WarningLackRGB[i, 3] = false;
+                        CurB -= Progress;
+                        ProgressProductionPixel[i, 3] += Progress;
+                    }
+                }
+
+
+                if(ProgressProductionPixel[i, 3] >= (int)(ColorProductionPixel[i].b * 255))
+                {
+                    ProgressProductionPixel[i, 1] = 0;
+                    ProgressProductionPixel[i, 2] = 0;
+                    ProgressProductionPixel[i, 3] = 0;
+
+                    CurPixels[(int)(ColorProductionPixel[i].r * 255), (int)(ColorProductionPixel[i].g * 255), (int)(ColorProductionPixel[i].b * 255)]
+                        += CharactersAll[CharactersIDProductionPixel[i]].GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255));
+
+                    Debug.Log("CurPixels[0,0,0] : " + CurPixels[(int)(ColorProductionPixel[i].r * 255), (int)(ColorProductionPixel[i].g * 255), (int)(ColorProductionPixel[i].b * 255)]);
+                }
+
+            }
+        }
+
+        return true;
     }
 
 
@@ -1048,7 +1163,7 @@ public class ControllerProduction : MonoBehaviour
     }
 
 
-    public void UpdateRGBProductionHelpCharacter()
+    public void UpdateRGBProductionHelpCharacter()//TODO:リファクタリング
     {
         if(CharactersIDHelpProductionR[1] != 0)
         {
@@ -1118,8 +1233,10 @@ public class ControllerProduction : MonoBehaviour
     }
 
 
-    public void UpdatePixelProductionScene()
+    public void UpdatePixelProductionScene()//TODO:UpdatePixelProductionScene()
     {
+        ClearPixelProductionScene();
+
         //PixelListの生成
         GameObject[,,] ArrayShowPixelColorAndNum = new GameObject[8,8,1];
         for (int B = 0; B < 1; B++)
@@ -1140,6 +1257,96 @@ public class ControllerProduction : MonoBehaviour
             }
         }
 
+        for (int i = 0; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        {
+            GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (i + 1).ToString("00")).gameObject;
+
+            Content.GetComponentsInChildren<Button>()[0].image.sprite
+                = Sprite.Create(CharactersAll[CharactersIDProductionPixel[i + 1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[i + 1]].Size, CharactersAll[CharactersIDProductionPixel[i + 1]].Size), new Vector2(0.5f, 0.5f));
+
+            Content.GetComponentsInChildren<Button>()[1].image.color
+                = new Color(ColorProductionPixel[i + 1].r, ColorProductionPixel[i + 1].g, ColorProductionPixel[i + 1].b);
+            Content.GetComponentsInChildren<Button>()[1].image.GetComponentInChildren<Text>().text
+                = "#" + ((int)(ColorProductionPixel[i + 1].r * 255)).ToString("X2") + ((int)(ColorProductionPixel[i + 1].g * 255)).ToString("X2") + ((int)(ColorProductionPixel[i + 1].b * 255)).ToString("X2");
+
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorR").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[i + 1].r * 255).ToString();
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorG").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[i + 1].g * 255).ToString();
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorB").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[i + 1].b * 255).ToString();
+
+            //TODO:スライダー
+        }
+    }
+    public void ClearPixelProductionScene()
+    {
+        //PixelListの削除
+        foreach (Transform child in GameObject.Find("ContentPixelList").transform)
+        {
+            Destroy(child.gameObject);
+        }
+    }
+
+
+    public void UpdateSlectColorMethodRGBNum(string argRGB)
+    {
+        if (argRGB.Equals("R"))
+        {
+            ImageSpecificationColorR.color = new Color(ColorTmp.r, 0.0f, 0.0f, 1.0f);
+
+            Slider SliderSpecificationNumR = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
+            SliderSpecificationNumR.value = ColorTmp.r * 255;
+
+            InputFieldSpecificationNumR.placeholder.GetComponent<Text>().text = (ColorTmp.r * 255).ToString();
+            InputFieldSpecificationNumR.text = (ColorTmp.r * 255).ToString();
+
+            GameObject.Find("TextSelectColorR").GetComponent<Text>().text = "R:" + (ColorTmp.r * 255).ToString();
+        }
+        else
+        if (argRGB.Equals("G"))
+        {
+            ImageSpecificationColorG.color = new Color(0.0f, ColorTmp.g, 0.0f, 1.0f);
+
+            Slider SliderSpecificationNumG = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
+            SliderSpecificationNumG.value = ColorTmp.g * 255;
+
+            InputFieldSpecificationNumG.placeholder.GetComponent<Text>().text = (ColorTmp.g * 255).ToString();
+            InputFieldSpecificationNumG.text = (ColorTmp.g * 255).ToString();
+
+            GameObject.Find("TextSelectColorG").GetComponent<Text>().text = "G:" + (ColorTmp.g * 255).ToString();
+        }
+        else
+        if (argRGB.Equals("B"))
+        {
+            ImageSpecificationColorB.color = new Color(0.0f, 0.0f, ColorTmp.b, 1.0f);
+
+            Slider SliderSpecificationNumB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
+            SliderSpecificationNumB.value = ColorTmp.b * 255;
+
+            InputFieldSpecificationNumB.placeholder.GetComponent<Text>().text = (ColorTmp.b * 255).ToString();
+            InputFieldSpecificationNumB.text = (ColorTmp.b * 255).ToString();
+
+            GameObject.Find("TextSelectColorB").GetComponent<Text>().text = "B:" + (ColorTmp.b * 255).ToString();
+        }
+
+        GameObject.Find("ImageSelectColor").GetComponent<Image>().color = new Color(ColorTmp.r, ColorTmp.g, ColorTmp.b);
+        GameObject.Find("TextSelectColorCode").GetComponent<Text>().text = "#" + ((int)(ColorTmp.r * 255)).ToString("X2") + ((int)(ColorTmp.g * 255)).ToString("X2") + ((int)(ColorTmp.b * 255)).ToString("X2");
+
+        if (((ColorTmp.r + ColorTmp.g + ColorTmp.b) / 3.0f) < 0.5f)
+        {
+            GameObject.Find("TextSelectColorCode").GetComponent<Text>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            GameObject.Find("TextSelectColorR").GetComponent<Text>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            GameObject.Find("TextSelectColorG").GetComponent<Text>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            GameObject.Find("TextSelectColorB").GetComponent<Text>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+        else
+        {
+            GameObject.Find("TextSelectColorCode").GetComponent<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            GameObject.Find("TextSelectColorR").GetComponent<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            GameObject.Find("TextSelectColorG").GetComponent<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            GameObject.Find("TextSelectColorB").GetComponent<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        }
 
     }
 

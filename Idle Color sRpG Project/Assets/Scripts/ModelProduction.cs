@@ -26,7 +26,7 @@ public class ModelProduction : MonoBehaviour
     //RGB値を生産する
     public bool Increase(ref ulong Target, ulong IncreaseValue, ulong MaxValue)
     {
-        Debug.Log("Increaseが呼ばれた");
+        //Debug.Log("Increaseが呼ばれた");
         bool result = false;
 
         if (Target + IncreaseValue <= MaxValue)

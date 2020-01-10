@@ -1,6 +1,6 @@
 Android
 PlayerPath?
-C:/Users/owner/Idle Color sRpG Project/MYTEST/ICSP_12.apk
+C:/Users/owner/Idle Color sRpG Project/MYTEST/ICSP_13.apk
 SceneListBegin?
 Assets/Scenes/SampleScene.unity
 SceneListEnd?

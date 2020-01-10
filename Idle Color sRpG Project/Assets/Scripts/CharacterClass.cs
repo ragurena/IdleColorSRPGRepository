@@ -227,11 +227,11 @@ public class CharacterClass //: MonoBehaviour
             }
         }
 
-                for (int x = 0; x < ImageTexture2D.width; x++)
+        for (int x = 0; x < ImageTexture2D.width; x++)
         {
             for (int y = 0; y < ImageTexture2D.height; y++)
             {
-                Debug.Log("ImageColor[" + x + "][" + y + "] : " + ImageColor[x + y * ImageTexture2D.width]);
+                //Debug.Log("ImageColor[" + x + "][" + y + "] : " + ImageColor[x + y * ImageTexture2D.width]);
 
                 if (ImageColor[x + y * ImageTexture2D.width].a != 0.0)
                 {
@@ -274,9 +274,10 @@ public class CharacterClass //: MonoBehaviour
 
             }
         }
-        Debug.Log("RPixelValues : " + RPixelValues);
-        Debug.Log("GPixelValues : " + GPixelValues);
-        Debug.Log("BPixelValues : " + BPixelValues);
+        Debug.Log("PixelValues\n" +
+                  "RPixelValues : " + RPixelValues + "\n" +
+                  "GPixelValues : " + GPixelValues + "\n" +
+                  "BPixelValues : " + BPixelValues);
 
         //属性決め
         if (RPixelValues > GPixelValues && RPixelValues > BPixelValues)
@@ -323,7 +324,7 @@ public class CharacterClass //: MonoBehaviour
 
         //素早さの算出
         //SPD = APixels;
-        Stats[1].SPD = (ulong)(((float)APixels / (ImageTexture2D.width * ImageTexture2D.height)) * 100);
+        Stats[1].SPD = (byte)(((float)APixels / (ImageTexture2D.width * ImageTexture2D.height)) * 100);
         if (Stats[1].SPD == 0)
             Stats[1].SPD = 1;
 
@@ -353,12 +354,13 @@ public class CharacterClass //: MonoBehaviour
 
 
         //RGB作成数の算出
-        Debug.Log("APixels : " + APixels);
-        Debug.Log("RPixels : " + RPixels);
-        Debug.Log("GPixels : " + GPixels);
-        Debug.Log("BPixels : " + BPixels);
-        Debug.Log("NoneRGBPixels : " + NoneRGBPixels);
-        Debug.Log("Total : " + (APixels + RPixels + GPixels + BPixels + NoneRGBPixels));
+        Debug.Log("Pixels \n" + 
+                  "APixels : " + APixels + "\n" +
+                  "RPixels : " + RPixels + "\n" +
+                  "GPixels : " + GPixels + "\n" +
+                  "BPixels : " + BPixels + "\n" +
+                  "NoneRGBPixels : " + NoneRGBPixels + "\n" +
+                  "Total : " + (APixels + RPixels + GPixels + BPixels + NoneRGBPixels));
 
         RPixels += NoneRGBPixels / 3;
         GPixels += NoneRGBPixels / 3;
@@ -372,10 +374,11 @@ public class CharacterClass //: MonoBehaviour
             RPixels++;
             GPixels++;
         }
-        Debug.Log("RPixels : " + RPixels);
-        Debug.Log("GPixels : " + GPixels);
-        Debug.Log("BPixels : " + BPixels);
-        Debug.Log("Total : " + (APixels + RPixels + GPixels + BPixels));
+        Debug.Log("Pixels \n" +
+                  "RPixels : " + RPixels + "\n" +
+                  "GPixels : " + GPixels + "\n" +
+                  "BPixels : " + BPixels + "\n" +
+                  "Total : " + (APixels + RPixels + GPixels + BPixels));
 
         Stats[1].RCreates = RPixels;
         Stats[1].GCreates = GPixels;
@@ -390,7 +393,14 @@ public class CharacterClass //: MonoBehaviour
         Stats[0].HPCur = Stats[1].HPCur + Stats[2].HPCur + Stats[3].HPCur + Stats[4].HPCur;
         Stats[0].ATK = Stats[1].ATK + Stats[2].ATK + Stats[3].ATK + Stats[4].ATK;
         Stats[0].DEF = Stats[1].DEF + Stats[2].DEF + Stats[3].DEF + Stats[4].DEF;
-        Stats[0].SPD = Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD;
+        if (Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD <= 100)
+        {
+            Stats[0].SPD = (byte)(Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD);
+        }
+        else
+        {
+            Stats[0].SPD = 100;
+        }
         Stats[0].LUC = Stats[1].LUC + Stats[2].LUC + Stats[3].LUC + Stats[4].LUC;
         Stats[0].OBS = Stats[1].OBS + Stats[2].OBS + Stats[3].OBS + Stats[4].OBS;
         Stats[0].HealPower = Stats[1].HealPower + Stats[2].HealPower + Stats[3].HealPower + Stats[4].HealPower;
