@@ -128,7 +128,6 @@ public class ControllerProduction : MonoBehaviour
 
 
 
-
     Button ButtonTmp = null;
     uint CharacterIDTmp = 0;
     Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 1.0f);
@@ -218,9 +217,17 @@ public class ControllerProduction : MonoBehaviour
             ModelProduction.Increase(ref CurB, IncreaseValueBHelp, MaxB);
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
-
-            ProductionPixel(Trigger.Update);
-            UpdatePixelProductionScene();
+            for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+            {
+                bool ProductionPixelFlag;
+                ProductionPixel(Trigger.Update, i, out ProductionPixelFlag);
+                UpdateSliderPixelProduction(i);
+                if (ProductionPixelFlag)
+                {
+                    ClearPixelListPixelProduction();
+                    CreatePixelListPixelProduction();
+                }
+            }
         }
 
     }
@@ -333,7 +340,7 @@ public class ControllerProduction : MonoBehaviour
         //他のシーンを非表示
         //PanelRGBProductionの非表示
         NotShowPanel(PanelPixelProduction);
-        ClearPixelProductionScene();
+        ClearPixelListPixelProduction();
     }
 
     //ピクセル生産シーンボタンが押されたら
@@ -470,10 +477,22 @@ public class ControllerProduction : MonoBehaviour
         if(ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
             int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+            //進捗の初期化
+            InitializeProgressProductionPixel(ProductionPixelIndex);
+
+
+            //前に設定されていたキャラの居場所変更
+            CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Whereabouts = Place.None;
+
+
             CharactersIDProductionPixel[ProductionPixelIndex] = CharacterIDTmp;
 
             //居場所変更
             CharactersAll[CharacterIDTmp].Whereabouts = Place.CreatePixel;
+
+            //TODO:view更新、RGBのテキストだけでいい
+            UpdatePixelProductionScene();
         }
 
         NotShowPanelSelectCharacter();
@@ -533,11 +552,16 @@ public class ControllerProduction : MonoBehaviour
         {
             int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
+            //進捗の初期化
+            InitializeProgressProductionPixel(ProductionPixelIndex);
+
             //前に設定されていたキャラの居場所変更
             CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Whereabouts = Place.None;
 
             CharactersIDProductionPixel[ProductionPixelIndex] = 0;
 
+            //TODO:view更新、RGBのテキストと、スライダーだけでいい
+            UpdatePixelProductionScene();
         }
 
         NotShowPanelSelectCharacter();
@@ -953,6 +977,9 @@ public class ControllerProduction : MonoBehaviour
     {
         int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
+        //進捗の初期化
+        InitializeProgressProductionPixel(ProductionPixelIndex);
+
         ColorProductionPixel[ProductionPixelIndex].r = ColorTmp.r;
         ColorProductionPixel[ProductionPixelIndex].g = ColorTmp.g;
         ColorProductionPixel[ProductionPixelIndex].b = ColorTmp.b;
@@ -967,117 +994,23 @@ public class ControllerProduction : MonoBehaviour
 
         NotShowPanelSelectColorMethod();
 
-        UpdatePixelProductionScene();
+        UpdatePixelColorPixelProduction(ProductionPixelIndex);
+        UpdateSliderPixelProduction(ProductionPixelIndex);
     }
 
-    public bool ProductionPixel(Trigger argTrigger)//TODO:RGBが0のときの対処
+    //ピクセル生産でスピードアップボタンが押されたら
+    public void PushButtonSpeedUpProductionPixel(string argName)
     {
-        for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+        int ProductionPixelIndex = int.Parse(argName.Substring(argName.Length - 2, 2));
+
+        bool ProductionPixelFlag;
+        ProductionPixel(Trigger.User, ProductionPixelIndex, out ProductionPixelFlag);
+        UpdateSliderPixelProduction(ProductionPixelIndex);
+        if (ProductionPixelFlag)
         {
-            if(CharactersIDProductionPixel[i] != 0)
-            {
-                Debug.Log("OK");
-
-                ushort Progress;
-                if(argTrigger == Trigger.Update)
-                {
-                    Progress = CharactersAll[CharactersIDProductionPixel[i]].Stats[0].SPD;
-                }
-                else
-                if(argTrigger == Trigger.User)
-                {
-                    Progress = UserProductionPixelNum;
-                }
-                else
-                {
-                    Debug.Log("NG");
-
-                    return false;
-                }
-
-                Debug.Log("ProgressProductionPixel[0, 1] : " + ProgressProductionPixel[0, 1] + "\n" +
-                    "(int)(ColorProductionPixel[i].r * 255) : " + (int)(ColorProductionPixel[i].r * 255));
-
-                if (ProgressProductionPixel[i, 1] < (int)(ColorProductionPixel[i].r * 255))
-                {
-                    Debug.Log("R");
-                    //SPDよりも残りの進捗が少なかったら
-                    if (Progress > (int)(ColorProductionPixel[i].r * 255) - ProgressProductionPixel[i, 1])
-                    {
-                        Progress = (ushort)(ColorProductionPixel[i].r * 255 - ProgressProductionPixel[i, 1]);
-                    }
-
-                    if (CurR < Progress)
-                    {
-                        WarningLackRGB[i, 1] = true;
-                    }
-                    else
-                    {
-                        WarningLackRGB[i, 1] = false;
-                        CurR -= Progress;
-                        ProgressProductionPixel[i, 1] += Progress;
-                    }
-                }
-                else
-                if (ProgressProductionPixel[i, 2] < (int)(ColorProductionPixel[i].g * 255))
-                {
-                    Debug.Log("G");
-                    //SPDよりも残りの進捗が少なかったら
-                    if (Progress > (int)(ColorProductionPixel[i].g * 255) - ProgressProductionPixel[i, 2])
-                    {
-                        Progress = (ushort)(ColorProductionPixel[i].g * 255 - ProgressProductionPixel[i, 2]);
-                    }
-
-                    if (CurG < Progress)
-                    {
-                        WarningLackRGB[i, 2] = true;
-                    }
-                    else
-                    {
-                        WarningLackRGB[i, 2] = false;
-                        CurG -= Progress;
-                        ProgressProductionPixel[i, 2] += Progress;
-                    }
-                }
-                else
-                if (ProgressProductionPixel[i, 3] < (int)(ColorProductionPixel[i].b * 255))
-                {
-                    Debug.Log("B");
-                    //SPDよりも残りの進捗が少なかったら
-                    if (Progress > (int)(ColorProductionPixel[i].b * 255) - ProgressProductionPixel[i, 3])
-                    {
-                        Progress = (ushort)(ColorProductionPixel[i].b * 255 - ProgressProductionPixel[i, 3]);
-                    }
-
-                    if (CurB < Progress)
-                    {
-                        WarningLackRGB[i, 3] = true;
-                    }
-                    else
-                    {
-                        WarningLackRGB[i, 3] = false;
-                        CurB -= Progress;
-                        ProgressProductionPixel[i, 3] += Progress;
-                    }
-                }
-
-
-                if(ProgressProductionPixel[i, 3] >= (int)(ColorProductionPixel[i].b * 255))
-                {
-                    ProgressProductionPixel[i, 1] = 0;
-                    ProgressProductionPixel[i, 2] = 0;
-                    ProgressProductionPixel[i, 3] = 0;
-
-                    CurPixels[(int)(ColorProductionPixel[i].r * 255), (int)(ColorProductionPixel[i].g * 255), (int)(ColorProductionPixel[i].b * 255)]
-                        += CharactersAll[CharactersIDProductionPixel[i]].GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255));
-
-                    Debug.Log("CurPixels[0,0,0] : " + CurPixels[(int)(ColorProductionPixel[i].r * 255), (int)(ColorProductionPixel[i].g * 255), (int)(ColorProductionPixel[i].b * 255)]);
-                }
-
-            }
+            ClearPixelListPixelProduction();
+            CreatePixelListPixelProduction();
         }
-
-        return true;
     }
 
 
@@ -1092,6 +1025,144 @@ public class ControllerProduction : MonoBehaviour
     int GetCreatePixelTimeRGB(ushort argRGB, uint argCharacterID)
     {
         return (int)(Mathf.Ceil((argRGB + 1) / (float)(CharactersAll[argCharacterID].Stats[0].SPD)));
+    }
+
+    //ピクセル生産
+    bool ProductionPixel(Trigger argTrigger, int argIndex, out bool ProductionPixelFlag)
+    {
+        ProductionPixelFlag = false;
+
+        if (CharactersIDProductionPixel[argIndex] != 0)
+        {
+            ushort Progress;
+            if (argTrigger == Trigger.Update)
+            {
+                Progress = CharactersAll[CharactersIDProductionPixel[argIndex]].Stats[0].SPD;
+            }
+            else
+            if (argTrigger == Trigger.User)
+            {
+                Progress = UserProductionPixelNum;
+            }
+            else
+            {
+                Debug.Log("NG !!!!!!!!!!!!!!!!!!!!!!!");
+
+                return false;
+            }
+
+            if ((int)(ColorProductionPixel[argIndex].r * 255) == 0 && ProgressProductionPixel[argIndex, 1] == 0)
+            {
+                ProgressProductionPixel[argIndex, 1] += 1;
+            }
+            else
+            if (ProgressProductionPixel[argIndex, 1] < (int)(ColorProductionPixel[argIndex].r * 255))
+            {
+                //SPDよりも残りの進捗が少なかったら
+                if (Progress > (int)(ColorProductionPixel[argIndex].r * 255) - ProgressProductionPixel[argIndex, 1])
+                {
+                    Progress = (ushort)(ColorProductionPixel[argIndex].r * 255 - ProgressProductionPixel[argIndex, 1]);
+                }
+
+                if (CurR < Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)))
+                {
+                    WarningLackRGB[argIndex, 1] = true;
+                }
+                else
+                {
+                    WarningLackRGB[argIndex, 1] = false;
+                    CurR -= Progress + CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+                    ProgressProductionPixel[argIndex, 1] += Progress;
+                }
+            }
+            else
+            if ((int)(ColorProductionPixel[argIndex].g * 255) == 0 && ProgressProductionPixel[argIndex, 2] == 0)
+            {
+                ProgressProductionPixel[argIndex, 2] += 1;
+            }
+            else
+            if (ProgressProductionPixel[argIndex, 2] < (int)(ColorProductionPixel[argIndex].g * 255))
+            {
+                //SPDよりも残りの進捗が少なかったら
+                if (Progress > (int)(ColorProductionPixel[argIndex].g * 255) - ProgressProductionPixel[argIndex, 2])
+                {
+                    Progress = (ushort)(ColorProductionPixel[argIndex].g * 255 - ProgressProductionPixel[argIndex, 2]);
+                }
+
+                if (CurG < Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)))
+                {
+                    WarningLackRGB[argIndex, 2] = true;
+                }
+                else
+                {
+                    WarningLackRGB[argIndex, 2] = false;
+                    CurG -= Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+                    ProgressProductionPixel[argIndex, 2] += Progress;
+                }
+            }
+            else
+            if ((int)(ColorProductionPixel[argIndex].b * 255) == 0 && ProgressProductionPixel[argIndex, 3] == 0)
+            {
+                ProgressProductionPixel[argIndex, 3] += 1;
+            }
+            else
+            if (ProgressProductionPixel[argIndex, 3] < (int)(ColorProductionPixel[argIndex].b * 255))
+            {
+                //SPDよりも残りの進捗が少なかったら
+                if (Progress > (int)(ColorProductionPixel[argIndex].b * 255) - ProgressProductionPixel[argIndex, 3])
+                {
+                    Progress = (ushort)(ColorProductionPixel[argIndex].b * 255 - ProgressProductionPixel[argIndex, 3]);
+                }
+
+                if (CurB < Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)))
+                {
+                    WarningLackRGB[argIndex, 3] = true;
+                }
+                else
+                {
+                    WarningLackRGB[argIndex, 3] = false;
+                    CurB -= Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+                    ProgressProductionPixel[argIndex, 3] += Progress;
+                }
+            }
+
+
+            if (ProgressProductionPixel[argIndex, 3] >= (int)(ColorProductionPixel[argIndex].b * 255) && ProgressProductionPixel[argIndex, 3] != 0)
+            {
+                ProgressProductionPixel[argIndex, 1] = 0;
+                ProgressProductionPixel[argIndex, 2] = 0;
+                ProgressProductionPixel[argIndex, 3] = 0;
+
+                CurPixels[(int)(ColorProductionPixel[argIndex].r * 255), (int)(ColorProductionPixel[argIndex].g * 255), (int)(ColorProductionPixel[argIndex].b * 255)]
+                    += CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+
+                ProductionPixelFlag = true;
+            }
+
+        }
+
+        return true;
+    }
+    //ピクセル生産の進捗の初期化 //TODO:この関数が呼ばれるより前にキャラクターとカラーが先に変更されていないか確認
+    bool InitializeProgressProductionPixel(int argIndex)
+    {
+        CurR += (uint)(ColorProductionPixel[argIndex].r * 255)
+            * ProgressProductionPixel[argIndex, 1]
+            * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+
+        CurG += (uint)(ColorProductionPixel[argIndex].g * 255)
+            * ProgressProductionPixel[argIndex, 2]
+            * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+
+        CurB += (uint)(ColorProductionPixel[argIndex].b * 255)
+            * ProgressProductionPixel[argIndex, 3]
+            * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+
+        ProgressProductionPixel[argIndex, 1] = 0;
+        ProgressProductionPixel[argIndex, 2] = 0;
+        ProgressProductionPixel[argIndex, 3] = 0;
+
+        return true;
     }
 
 
@@ -1233,14 +1304,28 @@ public class ControllerProduction : MonoBehaviour
     }
 
 
-    public void UpdatePixelProductionScene()//TODO:UpdatePixelProductionScene()
+    public void UpdatePixelProductionScene()
     {
-        ClearPixelProductionScene();
+        ClearPixelListPixelProduction();
 
+        CreatePixelListPixelProduction();
+
+        for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+        {
+
+            UpdateCharacterPixelProduction(i);
+
+            UpdatePixelColorPixelProduction(i);
+
+            UpdateSliderPixelProduction(i);
+        }
+    }
+    public void CreatePixelListPixelProduction()
+    {
         //PixelListの生成
-        GameObject[,,] ArrayShowPixelColorAndNum = new GameObject[8,8,1];
+        GameObject[,,] ArrayShowPixelColorAndNum = new GameObject[8, 8, 1];
         for (int B = 0; B < 1; B++)
-            {
+        {
             for (int G = 0; G < 8; G++)
             {
                 for (int R = 0; R < 8; R++)
@@ -1257,35 +1342,88 @@ public class ControllerProduction : MonoBehaviour
             }
         }
 
-        for (int i = 0; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
-        {
-            GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (i + 1).ToString("00")).gameObject;
-
-            Content.GetComponentsInChildren<Button>()[0].image.sprite
-                = Sprite.Create(CharactersAll[CharactersIDProductionPixel[i + 1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[i + 1]].Size, CharactersAll[CharactersIDProductionPixel[i + 1]].Size), new Vector2(0.5f, 0.5f));
-
-            Content.GetComponentsInChildren<Button>()[1].image.color
-                = new Color(ColorProductionPixel[i + 1].r, ColorProductionPixel[i + 1].g, ColorProductionPixel[i + 1].b);
-            Content.GetComponentsInChildren<Button>()[1].image.GetComponentInChildren<Text>().text
-                = "#" + ((int)(ColorProductionPixel[i + 1].r * 255)).ToString("X2") + ((int)(ColorProductionPixel[i + 1].g * 255)).ToString("X2") + ((int)(ColorProductionPixel[i + 1].b * 255)).ToString("X2");
-
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorR").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[i + 1].r * 255).ToString();
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorG").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[i + 1].g * 255).ToString();
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorB").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[i + 1].b * 255).ToString();
-
-            //TODO:スライダー
-        }
     }
-    public void ClearPixelProductionScene()
+    public void ClearPixelListPixelProduction()
     {
         //PixelListの削除
         foreach (Transform child in GameObject.Find("ContentPixelList").transform)
         {
             Destroy(child.gameObject);
         }
+    }
+    public void UpdateCharacterPixelProduction(int argIndex)
+    {
+        GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (argIndex).ToString("00")).gameObject;
+
+        //キャラクター
+        Content.GetComponentsInChildren<Button>()[0].image.sprite
+            = Sprite.Create(CharactersAll[CharactersIDProductionPixel[argIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[argIndex]].Size, CharactersAll[CharactersIDProductionPixel[argIndex]].Size), new Vector2(0.5f, 0.5f));
+    }
+    public void UpdatePixelColorPixelProduction(int argIndex)
+    {
+        GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (argIndex).ToString("00")).gameObject;
+
+        //ピクセルカラー
+        Content.GetComponentsInChildren<Button>()[1].image.color
+            = new Color(ColorProductionPixel[argIndex].r, ColorProductionPixel[argIndex].g, ColorProductionPixel[argIndex].b);
+        Content.GetComponentsInChildren<Button>()[1].image.GetComponentInChildren<Text>().text
+            = "#" + ((int)(ColorProductionPixel[argIndex].r * 255)).ToString("X2") + ((int)(ColorProductionPixel[argIndex].g * 255)).ToString("X2") + ((int)(ColorProductionPixel[argIndex].b * 255)).ToString("X2");
+
+        //RGB値の表示
+        if (CharactersIDProductionPixel[argIndex] == 0)
+        {
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorR").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[argIndex].r * 255).ToString();
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorG").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[argIndex].g * 255).ToString();
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorB").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[argIndex].b * 255).ToString();
+        }
+        else
+        {
+            uint PixelProductionNum = CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorR").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[argIndex].r * 255).ToString() + "\n" +
+                  "× " + PixelProductionNum.ToString() + "\n" +
+                  "= " + (ColorProductionPixel[argIndex].r * 255 * PixelProductionNum).ToString();
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorG").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[argIndex].g * 255).ToString() + "\n" +
+                  "× " + PixelProductionNum.ToString() + "\n" +
+                  "= " + (ColorProductionPixel[argIndex].g * 255 * PixelProductionNum).ToString();
+            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorB").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
+                = (ColorProductionPixel[argIndex].b * 255).ToString() + "\n" +
+                  "× " + PixelProductionNum.ToString() + "\n" +
+                  "= " + (ColorProductionPixel[argIndex].b * 255 * PixelProductionNum).ToString();
+        }
+    }
+    public void UpdateSliderPixelProduction(int argIndex)
+    {
+        GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (argIndex).ToString("00")).gameObject;
+
+        //進捗スライダー
+        Slider SliderPixelColorR = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorR").gameObject.GetComponent<Slider>();
+        SliderPixelColorR.maxValue = (int)(ColorProductionPixel[argIndex].r * 255);
+        if (SliderPixelColorR.maxValue == 0)
+        {
+            SliderPixelColorR.maxValue = 1;
+        }
+        SliderPixelColorR.value = ProgressProductionPixel[argIndex, 1];
+
+        Slider SliderPixelColorG = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorG").gameObject.GetComponent<Slider>();
+        SliderPixelColorG.maxValue = (int)(ColorProductionPixel[argIndex].g * 255);
+        if (SliderPixelColorG.maxValue == 0)
+        {
+            SliderPixelColorG.maxValue = 1;
+        }
+        SliderPixelColorG.value = ProgressProductionPixel[argIndex, 2];
+
+        Slider SliderPixelColorB = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorB").gameObject.GetComponent<Slider>();
+        SliderPixelColorB.maxValue = (int)(ColorProductionPixel[argIndex].b * 255);
+        if (SliderPixelColorB.maxValue == 0)
+        {
+            SliderPixelColorB.maxValue = 1;
+        }
+        SliderPixelColorB.value = ProgressProductionPixel[argIndex, 3];
     }
 
 

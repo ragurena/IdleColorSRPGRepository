@@ -1065,7 +1065,6 @@
     <Compile Include="Assets\Scripts\CharacterClass.cs" />
     <Compile Include="Assets\Scripts\ControllerProduction.cs" />
     <Compile Include="Assets\Scripts\ModelProduction.cs" />
-    <Compile Include="Assets\Scripts\OnePixelProductionClass.cs" />
     <Compile Include="Assets\Scripts\SaveClass.cs" />
     <Compile Include="Assets\Scripts\StatisticsClass.cs" />
   </ItemGroup>
