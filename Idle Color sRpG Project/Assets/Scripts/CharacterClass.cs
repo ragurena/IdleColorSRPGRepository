@@ -77,7 +77,7 @@ public class CharacterClass //: MonoBehaviour
 
     public CharacterClass()
     {
-        Debug.Log("new StatisticsClass");
+        //Debug.Log("new StatisticsClass");
         for (int i = 0; i < 5; i++)
         {
             Stats[i] = new StatisticsClass();
@@ -164,6 +164,20 @@ public class CharacterClass //: MonoBehaviour
 
         //画像が正方形でない場合
         if (argImage.width != argImage.height)
+        {
+            Debug.Log("Error!!!!!!!!!");
+            return null;
+        }
+
+        if(!(argImage.width == 8 ||
+           argImage.width == 16 ||
+           argImage.width == 32 ||
+           argImage.width == 64 ||
+           argImage.width == 128 ||
+           argImage.width == 256 ||
+           argImage.width == 512 ||
+           argImage.width == 1024 ||
+           argImage.width == 2048))
         {
             Debug.Log("Error!!!!!!!!!");
             return null;

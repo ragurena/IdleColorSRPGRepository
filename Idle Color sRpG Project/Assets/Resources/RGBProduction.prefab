@@ -822,7 +822,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\u30B3\u30B9\u30C8 : "
+  m_Text: "\u30B3\u30B9\u30C8 : 0"
 --- !u!1 &3606269488385822190
 GameObject:
   m_ObjectHideFlags: 0
@@ -899,7 +899,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\u30B3\u30B9\u30C8 : "
+  m_Text: "\u30B3\u30B9\u30C8 : 0"
 --- !u!1 &3606269488391635158
 GameObject:
   m_ObjectHideFlags: 0
@@ -2737,7 +2737,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 'R : 0'
+  m_Text: 0 / 0
 --- !u!1 &3953040142807756805
 GameObject:
   m_ObjectHideFlags: 0
