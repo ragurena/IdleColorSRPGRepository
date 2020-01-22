@@ -26,9 +26,11 @@ public class SaveClass// : MonoBehaviour
         uint[] CharactersIDHelpProductionR, uint[] CharactersIDHelpProductionG, uint[] CharactersIDHelpProductionB)
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
+        //Debug.Log("セーブ : " + Application.streamingAssetsPath + "/ICS.csv");
 
         //if(File.Exists("Assets/Resources/ICS.csv"))
         if (File.Exists(Application.persistentDataPath + "/ICS.csv"))
+        //if (File.Exists(Application.streamingAssetsPath + "/ICS.csv"))
         {
             Debug.Log("セーブファイルが存在します");
         }
@@ -37,11 +39,13 @@ public class SaveClass// : MonoBehaviour
             Debug.Log("セーブファイルが存在しません");
             //FileStream fs = File.Create("Assets/Resources/ICS.csv");
             FileStream fs = File.Create(Application.persistentDataPath + "/ICS.csv");
+            //FileStream fs = File.Create(Application.streamingAssetsPath + "/ICS.csv");
             fs.Close();
         }
 
         //StreamWriter sw = new StreamWriter("Assets/Resources/ICS.csv");
         StreamWriter sw = new StreamWriter(Application.persistentDataPath + "/ICS.csv");
+        //StreamWriter sw = new StreamWriter(Application.streamingAssetsPath + "/ICS.csv");
 
         //TODO:CharactersAllのセーブ・ロード
         for (int i = 1; i < CharactersAllIndexNum; i++)
@@ -132,9 +136,11 @@ public class SaveClass// : MonoBehaviour
         ref uint[] CharactersIDHelpProductionR, ref uint[] CharactersIDHelpProductionG, ref uint[] CharactersIDHelpProductionB)
     {
         Debug.Log("ロード : " + Application.persistentDataPath + "/ICS.csv");
+        //Debug.Log("ロード : " + Application.streamingAssetsPath + "/ICS.csv");
 
         //if (File.Exists("Assets/Resources/ICS.csv"))
         if (File.Exists(Application.persistentDataPath + "/ICS.csv"))
+        //if (File.Exists(Application.streamingAssetsPath + "/ICS.csv"))
         {
             Debug.Log("セーブファイルが存在します");
         }
@@ -147,6 +153,7 @@ public class SaveClass// : MonoBehaviour
 
         //StreamReader sr = new StreamReader("Assets/Resources/ICS.csv");
         StreamReader sr = new StreamReader(Application.persistentDataPath + "/ICS.csv");
+        //StreamReader sr = new StreamReader(Application.streamingAssetsPath + "/ICS.csv");
 
         while (!sr.EndOfStream)
         {

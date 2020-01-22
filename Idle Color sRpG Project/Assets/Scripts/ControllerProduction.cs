@@ -10,7 +10,7 @@ public enum Trigger {User, Update};
 
 static class Constants
 {
-    public const int CHARACTERS_ALL_NUM = 32;
+    public const int CHARACTERS_ALL_NUM = 16;
     public const int CHARACTERS_HELP_PRODUCTION_NUM = 3;
     public const int CHARACTERS_PRODUCTION_PIXEL_NUM = 5;
 }
@@ -143,6 +143,8 @@ public class ControllerProduction : MonoBehaviour
     {
         Debug.Log("ControllerProduction Start");
 
+        GameObject.Find("TextLog").GetComponent<Text>().text = "1";
+
         //画面回転固定
         //縦
         Screen.autorotateToPortrait = true;
@@ -153,28 +155,45 @@ public class ControllerProduction : MonoBehaviour
         //右
         Screen.autorotateToLandscapeRight = false;
 
+        GameObject.Find("TextLog").GetComponent<Text>().text = "2";
 
         //キャラ生成
         Debug.Log("キャラ生成");
         ModelProduction = GetComponent<ModelProduction>();
+        GameObject.Find("TextLog").GetComponent<Text>().text = "2.1";
         for (int i = 0; i < Constants.CHARACTERS_ALL_NUM + 1; i++)
         {
+            GameObject.Find("TextLog").GetComponent<Text>().text = "2.2 + " + i;
             CharactersAll[i] = new CharacterClass();
+            GameObject.Find("TextLog").GetComponent<Text>().text = "2.3 + " + i;
         }
+        GameObject.Find("TextLog").GetComponent<Text>().text = "3";
+
         //IDと配列番号を一致させる、0は初期値のままで
         CharactersAll[1].MakeCharacter(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
+        GameObject.Find("TextLog").GetComponent<Text>().text = "4";
+
         CharactersAll[2].MakeCharacter(Resources.Load("Character/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
         CharactersAll[3].MakeCharacter(Resources.Load("Character/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
         CharactersAll[4].MakeCharacter(Resources.Load("Character/WhiteSlime8", typeof(Texture2D)) as Texture2D, 4, "LittleWhiteSlime");
         CharactersAll[5].MakeCharacter(Resources.Load("Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
         CharactersAll[8].MakeCharacter(Resources.Load("Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
-        CharactersAll[32].MakeCharacter(Resources.Load("Character/wanwan", typeof(Texture2D)) as Texture2D, 32, "wanwan");
+        //CharactersAll[32].MakeCharacter(Resources.Load("Character/wanwan", typeof(Texture2D)) as Texture2D, 32, "wanwan");
+        //CharactersAll[1].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
+        //CharactersAll[2].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
+        //CharactersAll[3].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/BlueSlime8", typeof(Texture2D)) as Texture2D, 3, "LittleBlueSlime");
+        //CharactersAll[4].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/WhiteSlime8", typeof(Texture2D)) as Texture2D, 4, "LittleWhiteSlime");
+        //CharactersAll[5].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
+        //CharactersAll[8].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
+        //CharactersAll[32].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/wanwan", typeof(Texture2D)) as Texture2D, 32, "wanwan");
+        GameObject.Find("TextLog").GetComponent<Text>().text = "5";
 
         //ColorProductionPixelの初期化
         for (int i = 0; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
         {
             ColorProductionPixel[i].a = 1.0f;
         }
+        GameObject.Find("TextLog").GetComponent<Text>().text = "6";
 
         //ロード
         SaveClass SC = new SaveClass();
@@ -186,8 +205,13 @@ public class ControllerProduction : MonoBehaviour
             ref CostIncreaseValueRUp, ref CostIncreaseValueGUp, ref CostIncreaseValueBUp,
             ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB);
 
+        GameObject.Find("TextLog").GetComponent<Text>().text = "7";
+
         //UIの更新
         UpdateRGBProductionScene();
+
+        GameObject.Find("TextLog").GetComponent<Text>().text = "8";
+
     }
 
     // Update is called once per frame
@@ -248,6 +272,8 @@ public class ControllerProduction : MonoBehaviour
     //セーブボタンが押されたら
     public void PushButtonSave()
     {
+        GameObject.Find("ButtonSave").GetComponent<Button>().GetComponentInChildren<Text>().text = Application.persistentDataPath + "/ICS.csv";
+
         SaveClass SC = new SaveClass();
         SC.Save(CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
             CurR, CurG, CurB,
@@ -262,6 +288,7 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonDeleteSave()
     {
         File.Delete(Application.persistentDataPath + "/ICS.csv");
+        //File.Delete(Application.streamingAssetsPath + "/ICS.csv");
     }
 
 
