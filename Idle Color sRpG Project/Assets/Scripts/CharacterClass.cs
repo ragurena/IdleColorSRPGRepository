@@ -2,11 +2,24 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using System.IO;
 
 
 
 public enum CharacterType { None, Fire, Grass, Water };
 public enum Place { None, CreateR, CreateG, CreateB, CreatePixel, CreateCharacter, Hospital, Battle };
+
+public class ExistColor
+{
+    public Color Color = new Color(0,0,0);
+    public uint Num = 0;
+
+    public ExistColor(Color argColor, uint argNum)
+    {
+        Color = argColor;
+        Num = argNum;
+    }
+}
 
 
 public class CharacterClass //: MonoBehaviour
@@ -14,7 +27,8 @@ public class CharacterClass //: MonoBehaviour
     //キャラクターのID
     public uint ID;
     //キャラクターのTexture2D型の画像
-    public Texture2D ImageTexture2D;
+    //public Texture2D ImageTexture2D;
+    public string ImagePath;
     //キャラクターの名前
     public string Name;
     //サイズ
@@ -71,8 +85,9 @@ public class CharacterClass //: MonoBehaviour
 
     //諧調数
     uint GradationNum = 0;
-    uint[,,] ExistsColors = new uint[256, 256, 256];
-
+    //uint[,,] ExistsColors = new uint[256, 256, 256];
+    //public uint GetExistsColors(Color argColor);
+    public List<ExistColor> ListExistsColors = new List<ExistColor>();
 
 
     public CharacterClass()
@@ -99,24 +114,32 @@ public class CharacterClass //: MonoBehaviour
         
     }
 
-    public bool MakeCharacter(Texture2D argImage, uint argID, string argName)
+    //public bool MakeCharacter(Texture2D argImage, uint argID, string argName)
+    public bool MakeCharacter(string argImagePath, uint argID, string argName)
     {
-        if (argImage == null)
+        Debug.Log("argImagePath : " + argImagePath);
+        //Texture2D Image = Resources.Load(argImagePath, typeof(Texture2D)) as Texture2D;
+        Texture2D Image = ReadPng(argImagePath);
+
+        if (Image == null)
         {
             Debug.Log("Error!!!!!!!!!");
             return false;
         }
 
         //画像が正方形でない場合
-        if (argImage.width != argImage.height)
+        if (Image.width != Image.height)
         {
             Debug.Log("Error!!!!!!!!!");
             return false;
         }
 
-        Size = (ushort)argImage.height;
+        Size = (ushort)Image.height;
 
-        ImageTexture2D = NomalizationImage(argImage);
+        //ImageTexture2D = NomalizationImage(argImage);
+        Debug.Log("ImagePath : " + ImagePath);
+        ImagePath = NomalizationImage(Image, argImagePath);
+        Debug.Log("ImagePath : " + ImagePath);
 
         ID = argID;
 
@@ -133,7 +156,6 @@ public class CharacterClass //: MonoBehaviour
             Debug.Log("Error!!!!!!!!!");
             return false;
         }
-
         CalcTotalStats();
 
         Debug.Log("ID[" + ID + "] " + Name + "\n" +
@@ -151,10 +173,13 @@ public class CharacterClass //: MonoBehaviour
                 "BCreates : " + Stats[1].BCreates
             );
 
+        Object.DestroyImmediate(Image);
+
         return true;
     }
 
-    Texture2D NomalizationImage(Texture2D argImage)
+    //Texture2D NomalizationImage(Texture2D argImage)
+    string NomalizationImage(Texture2D argImage, string argImagePath)
     {
         if (argImage == null)
         {
@@ -207,11 +232,37 @@ public class CharacterClass //: MonoBehaviour
         Texture2D resultTexture2D = argImage;
         resultTexture2D.SetPixels(0, 0, argImage.width, argImage.height, ImageColor);
 
-        return resultTexture2D;
+        //resultTexture2Dの画像出力
+        string FileName = Path.GetFileName(argImagePath);
+        string resultImagePath = argImagePath.Substring(0, argImagePath.Length - FileName.Length) + "Nomalization/Nomalization_" + FileName;
+        Debug.Log("resultImagePath : " + resultImagePath);
+        File.WriteAllBytes(resultImagePath, resultTexture2D.EncodeToPNG());
+        //File.WriteAllBytes("Assets/Resources/" + resultImagePath + ".png", new Texture2D(resultTexture2D.width, resultTexture2D.height, TextureFormat.RGBA32, false).EncodeToPNG());
+
+        ////テクスチャの設定
+        ////Texture2D tex = Resources.Load(resultImagePath, typeof(Texture2D)) as Texture2D;
+        //Texture2D tex = ReadPng(Application.dataPath + "/Resources/" + resultImagePath + ".png");
+        //if (tex == null)
+        //{
+        //    Debug.Log("tex == null Error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        //}
+        //string assetPath = UnityEditor.AssetDatabase.GetAssetPath(tex);
+        //UnityEditor.TextureImporter importer = UnityEditor.AssetImporter.GetAtPath(assetPath) as UnityEditor.TextureImporter;
+        //importer.isReadable = true;
+        //importer.spritePixelsPerUnit = argImage.width;
+        //importer.filterMode = FilterMode.Point;
+        //importer.maxTextureSize = 64;
+
+        Object.DestroyImmediate(resultTexture2D);
+
+        return resultImagePath;
     }
 
     bool CalcCharacterStats()
     {
+        //Texture2D ImageTexture2D = Resources.Load(ImagePath, typeof(Texture2D)) as Texture2D;
+        Texture2D ImageTexture2D = ReadPng(ImagePath);
+
         if (ImageTexture2D == null)
         {
             Debug.Log("Error!!!!!!!!!");
@@ -228,18 +279,18 @@ public class CharacterClass //: MonoBehaviour
         uint BPixels = 0;
         uint APixels = 0;
         uint NoneRGBPixels = 0;
+        ListExistsColors.Clear();
 
-        for (int b = 0; b < 256; b++)
-        {
-            for (int g = 0; g < 256; g++)
-            {
-                for (int r = 0; r < 256; r++)
-                {
-                    ExistsColors[r,g,b] = 0;
-
-                }
-            }
-        }
+        //for (int b = 0; b < 256; b++)
+        //{
+        //    for (int g = 0; g < 256; g++)
+        //    {
+        //        for (int r = 0; r < 256; r++)
+        //        {
+        //            ExistsColors[r,g,b] = 0;
+        //        }
+        //    }
+        //}
 
         for (int x = 0; x < ImageTexture2D.width; x++)
         {
@@ -249,8 +300,16 @@ public class CharacterClass //: MonoBehaviour
 
                 if (ImageColor[x + y * ImageTexture2D.width].a != 0.0)
                 {
-                    ExistsColors[(int)(ImageColor[x + y * ImageTexture2D.width].r * 255), (int)(ImageColor[x + y * ImageTexture2D.width].g * 255), (int)(ImageColor[x + y * ImageTexture2D.width].b * 255)]
-                    += 1;
+                    //ExistsColors[(int)(ImageColor[x + y * ImageTexture2D.width].r * 255), (int)(ImageColor[x + y * ImageTexture2D.width].g * 255), (int)(ImageColor[x + y * ImageTexture2D.width].b * 255)]
+                    //+= 1;
+                    if(ListExistsColors.Any(L => L.Color == ImageColor[x + y * ImageTexture2D.width]))
+                    {
+                        ListExistsColors.Find(L => L.Color == ImageColor[x + y * ImageTexture2D.width]).Num++;
+                    }
+                    else
+                    {
+                        ListExistsColors.Add(new ExistColor(ImageColor[x + y * ImageTexture2D.width], 1));
+                    }
                 }
 
                 //RGBの各合計値を算出
@@ -345,19 +404,28 @@ public class CharacterClass //: MonoBehaviour
         //諧調数の算出
         {
             GradationNum = 0;
-            for(int r = 0; r < 256; r++)
+            //Color C = new Color(0,0,0);
+            //for (int r = 0; r < 256; r++)
+            //{
+            //    for (int g = 0; g < 256; g++)
+            //    {
+            //        for (int b = 0; b < 256; b++)
+            //        {
+            //            C.r = r / 255;
+            //            C.g = g / 255;
+            //            C.b = b / 255;
+            //            if (IsExistsColors(C))
+            //            {
+            //                Debug.Log("諧調 : r" + r + " g" + g + " b" + b);
+            //                GradationNum++;
+            //            }
+            //        }
+            //    }
+            //}
+            GradationNum = (uint)ListExistsColors.Count();
+            foreach(ExistColor E in ListExistsColors)
             {
-                for (int g = 0; g < 256; g++)
-                {
-                    for (int b = 0; b < 256; b++)
-                    {
-                        if (ExistsColors[r, g, b] != 0)
-                        {
-                            Debug.Log("諧調 : r" + r + " g" + g + " b" + b);
-                            GradationNum++;
-                        }
-                    }
-                }
+                Debug.Log("諧調 : r" + E.Color.r * 255 + " g" + E.Color.g * 255 + " b" + E.Color.b * 255);
             }
 
             //運の算出
@@ -398,6 +466,8 @@ public class CharacterClass //: MonoBehaviour
         Stats[1].GCreates = GPixels;
         Stats[1].BCreates = BPixels;
 
+        Object.DestroyImmediate(ImageTexture2D);
+
         return true;
     }
 
@@ -426,13 +496,112 @@ public class CharacterClass //: MonoBehaviour
         return true;
     }
 
+    public uint GetExistsColors(Color argColor)
+    {
+        //uint resultColors = 0;
+
+        //Texture2D ImageTexture2D = ReadPng(ImagePath);
+        //Color[] ImageColor = ImageTexture2D.GetPixels(0, 0, ImageTexture2D.width, ImageTexture2D.height);
+
+        //for (int x = 0; x < ImageTexture2D.width; x++)
+        //{
+        //    for (int y = 0; y < ImageTexture2D.height; y++)
+        //    {
+
+        //        if (ImageColor[x + y * ImageTexture2D.width].a != 0.0)
+        //        {
+        //            if(ImageColor[x + y * ImageTexture2D.width].r == argColor.r
+        //            && ImageColor[x + y * ImageTexture2D.width].g == argColor.g
+        //            && ImageColor[x + y * ImageTexture2D.width].b == argColor.b)
+        //            {
+        //                resultColors++;
+        //            }
+        //        }
+
+        //    }
+        //}
+
+        //return resultColors;
+
+        if (ListExistsColors.Any(L => L.Color == argColor))
+        {
+            return ListExistsColors.Find(L => L.Color == argColor).Num;
+        }
+        else
+        {
+            return 0;
+        }
+
+    }
+    public bool IsExistsColors(Color argColor)
+    {
+        //Texture2D ImageTexture2D = ReadPng(ImagePath);
+        //Color[] ImageColor = ImageTexture2D.GetPixels(0, 0, ImageTexture2D.width, ImageTexture2D.height);
+
+        //for (int x = 0; x < ImageTexture2D.width; x++)
+        //{
+        //    for (int y = 0; y < ImageTexture2D.height; y++)
+        //    {
+
+        //        if (ImageColor[x + y * ImageTexture2D.width].a != 0.0)
+        //        {
+        //            if (ImageColor[x + y * ImageTexture2D.width].r == argColor.r
+        //            && ImageColor[x + y * ImageTexture2D.width].g == argColor.g
+        //            && ImageColor[x + y * ImageTexture2D.width].b == argColor.b)
+        //            {
+        //                return true;
+        //            }
+        //        }
+
+        //    }
+        //}
+
+        //return false;
+
+        return ListExistsColors.Any(L => L.Color == argColor);
+    }
+
     public uint GetCreatePixels(ushort r, ushort g, ushort b)
     {
         uint result = 0;
 
-        result = Size + ExistsColors[r,g,b];
+        //result = Size + ExistsColors[r,g,b];
+        result = Size + GetExistsColors(new Color(r / 255, g / 255, b / 255));
 
         return result;
+    }
+
+
+    public static Texture2D ReadPng(string argImagePath)
+    {
+        FileStream fs = new FileStream(argImagePath, FileMode.Open, FileAccess.Read);
+        BinaryReader br = new BinaryReader(fs);
+
+        byte[] readBinary = br.ReadBytes((int)br.BaseStream.Length);
+
+        br.Close();
+        fs.Close();
+
+        int w = 0;
+        int h = 0;
+
+        int pos = 16;
+        for (int i = 0; i < 4; i++)
+        {
+            w = w * 256 + readBinary[pos++];
+        }
+        for (int i = 0; i < 4; i++)
+        {
+            h = h * 256 + readBinary[pos++];
+        }
+
+        Texture2D resTex = new Texture2D(w, h);
+        resTex.LoadImage(readBinary);
+
+        //テクスチャの設定
+        resTex.filterMode = FilterMode.Point;
+
+        return resTex;
     }
 
 }
