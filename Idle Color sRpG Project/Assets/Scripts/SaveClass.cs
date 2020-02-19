@@ -460,7 +460,8 @@ public class SaveClass// : MonoBehaviour
                 }
             }
 
-
         }
+
+        sr.Close();
     }
 }

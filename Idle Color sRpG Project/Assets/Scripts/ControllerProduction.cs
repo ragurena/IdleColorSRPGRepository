@@ -6,6 +6,8 @@ using OpenCvSharp;
 
 using System.IO;
 
+using UnityEngine.Networking;
+
 public enum Trigger {User, Update};
 
 static class Constants
@@ -1162,19 +1164,40 @@ public class ControllerProduction : MonoBehaviour
 
     void MakeFile()
     {
+        GameObject.Find("TextLog").GetComponent<Text>().text = "0.0";
+
         if (!(Directory.Exists(Application.persistentDataPath + "/Character")))
         {
             Directory.CreateDirectory(Application.persistentDataPath + "/Character");
         }
+
+        GameObject.Find("TextLog").GetComponent<Text>().text = "0.1";
 
         if (!(Directory.Exists(Application.persistentDataPath + "/Character/Nomalization")))
         {
             Directory.CreateDirectory(Application.persistentDataPath + "/Character/Nomalization");
         }
 
-        string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
+        GameObject.Find("TextLog").GetComponent<Text>().text = "0.2";
 
-        foreach(string file in files)
+#if UNITY_EDITOR
+        Debug.Log("UNITY_EDITOR");
+        GameObject.Find("TextLog").GetComponent<Text>().text = "UNITY_EDITOR + 0.2";
+        string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
+#elif UNITY_IPHONE //TODO:iosテスト
+        Debug.Log("UNITY_IPHONE");
+        GameObject.Find("TextLog").GetComponent<Text>().text = "UNITY_IPHONE + 0.2";
+        string[] files = System.IO.Directory.GetFiles(Application.dataPath + "/Raw" + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
+//#else
+//        Debug.Log("ELSE");
+//        GameObject.Find("TextLog").GetComponent<Text>().text = "ELSE + 0.2";
+//        string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
+#endif
+
+#if UNITY_EDITOR || UNITY_IPHONE
+        GameObject.Find("TextLog").GetComponent<Text>().text = "UNITY_EDITOR || UNITY_IPHONE + 0.3";
+
+        foreach (string file in files)
         {
             if (!(File.Exists(Application.persistentDataPath + "/Character/" + Path.GetFileName(file))))
             {
@@ -1182,7 +1205,128 @@ public class ControllerProduction : MonoBehaviour
                 File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
             }
         }
+#endif
 
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        Debug.Log("UNITY_ANDROID");
+        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.3";
+
+        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.41 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png";
+        string path = Application.streamingAssetsPath + "/Character/RedSlime8.png";
+        //string path = Application.streamingAssetsPath + "/Character";
+        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.42 + " + path;
+        WWW www = new WWW(path);
+        while (!www.isDone)
+        {
+        }
+        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.51 + " + Application.persistentDataPath + "/Character/RedSlime8.png";
+        string toPath = Application.persistentDataPath + "/Character/RedSlime8.png";
+        //string toPath = Application.persistentDataPath + "/Character";
+        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.52 + " + toPath;
+        File.WriteAllBytes(toPath, www.bytes);
+        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.6 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png" + " -> " + Application.persistentDataPath + "/Character/RedSlime8.png";
+
+        //TODO:リファクタリング
+        path = Application.streamingAssetsPath + "/Character/GreenSlime8.png";
+        www = new WWW(path);
+        while (!www.isDone)
+        {
+        }
+        toPath = Application.persistentDataPath + "/Character/GreenSlime8.png";
+        File.WriteAllBytes(toPath, www.bytes);
+        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.61";
+
+        path = Application.streamingAssetsPath + "/Character/BlueSlime8.png";
+        www = new WWW(path);
+        while (!www.isDone)
+        {
+        }
+        toPath = Application.persistentDataPath + "/Character/BlueSlime8.png";
+        File.WriteAllBytes(toPath, www.bytes);
+
+        path = Application.streamingAssetsPath + "/Character/WhiteSlime8.png";
+        www = new WWW(path);
+        while (!www.isDone)
+        {
+        }
+        toPath = Application.persistentDataPath + "/Character/WhiteSlime8.png";
+        File.WriteAllBytes(toPath, www.bytes);
+
+        path = Application.streamingAssetsPath + "/Character/RBlackCat8.png";
+        www = new WWW(path);
+        while (!www.isDone)
+        {
+        }
+        toPath = Application.persistentDataPath + "/Character/RBlackCat8.png";
+        File.WriteAllBytes(toPath, www.bytes);
+
+        path = Application.streamingAssetsPath + "/Character/WhiteCat8.png";
+        www = new WWW(path);
+        while (!www.isDone)
+        {
+        }
+        toPath = Application.persistentDataPath + "/Character/WhiteCat8.png";
+        File.WriteAllBytes(toPath, www.bytes);
+
+        path = Application.streamingAssetsPath + "/Character/wanwan.png";
+        www = new WWW(path);
+        while (!www.isDone)
+        {
+        }
+        toPath = Application.persistentDataPath + "/Character/wanwan.png";
+        File.WriteAllBytes(toPath, www.bytes);
+
+
+        //string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
+        //foreach (string file in files)
+        //{
+        //    WWW www = new WWW(file);
+        //    while (!www.isDone)
+        //    {
+        //    }
+
+        //    if (!(File.Exists(Application.persistentDataPath + "/Character/" + Path.GetFileName(file))))
+        //    {
+        //        File.WriteAllBytes(toPath, www.bytes);
+
+        //        Debug.Log("コピー　" + file + "->" + Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
+        //        File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
+        //    }
+        //}
+
+
+
+        ////後で試したい
+        ////WWW www = new WWW(Application.streamingAssetsPath + "/Character");
+        ////while (!www.isDone) { }
+        ////GameObject.Find("TextLog").GetComponent<Text>().text = "0.211 + " + www.bytes;
+        //////string[] files = System.IO.Directory.GetFiles(www.bytes, "*.png", System.IO.SearchOption.AllDirectories);
+        ////File.WriteAllBytes(Application.persistentDataPath + "/Character", www.bytes);
+
+        //GameObject.Find("TextLog").GetComponent<Text>().text = "0.21";
+
+        ////WWW www = new WWW("jar:file://" + Application.dataPath + "!/assets");// + "/Character");
+        //GameObject.Find("TextLog").GetComponent<Text>().text = "0.2101 + " + Application.streamingAssetsPath + "/Character";
+        //WWW www = new WWW(Application.streamingAssetsPath + "/Character");
+        ////yield return www;
+        //while (!www.isDone) { }
+        //string TxtTmp = string.Empty;
+        //TextReader TR = new StringReader(www.text);
+        //string filesTmp = string.Empty;
+        //for (int i = 0; (TxtTmp = TR.ReadLine()) != null; i++)
+        //{
+        //    GameObject.Find("TextLog").GetComponent<Text>().text = "0.211 + " + i + " + " + TxtTmp;
+        //    filesTmp = filesTmp + TxtTmp + ' ';
+        //}
+        //string[] files = filesTmp.Split(' ');
+        //GameObject.Find("TextLog").GetComponent<Text>().text = "0.212 + " + files;
+
+        ////string[] files = System.IO.Directory.GetFiles("jar:file://" + Application.dataPath + "!/assets" + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
+        //GameObject.Find("TextLog").GetComponent<Text>().text = "0.22";
+#endif
+
+        GameObject.Find("TextLog").GetComponent<Text>().text = "0.7";
     }
 
 
