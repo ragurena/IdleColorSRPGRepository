@@ -622,6 +622,7 @@ public class ControllerProduction : MonoBehaviour
         //選択ボタンのenable設定
         Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
         ButtonSelect.interactable = false;
+        //ButtonSelect.interactable = true;
         ButtonSelect = GameObject.Find("ButtonConfirmSelectRight").GetComponent<Button>();
         ButtonSelect.interactable = false;
 
