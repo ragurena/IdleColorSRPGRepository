@@ -141,13 +141,9 @@ public class ControllerProduction : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        Debug.Log("ControllerProduction Start");
-
-        GameObject.Find("TextLog").GetComponent<Text>().text = "0";
+        Debug.Log("ControllerProduction Begin");
 
         MakeFile();
-
-        GameObject.Find("TextLog").GetComponent<Text>().text = "1";
 
         //画面回転固定
         //縦
@@ -159,19 +155,13 @@ public class ControllerProduction : MonoBehaviour
         //右
         Screen.autorotateToLandscapeRight = false;
 
-        GameObject.Find("TextLog").GetComponent<Text>().text = "2";
-
         //キャラ生成
         Debug.Log("キャラ生成");
         ModelProduction = GetComponent<ModelProduction>();
-        GameObject.Find("TextLog").GetComponent<Text>().text = "2.1";
         for (int i = 0; i < Constants.CHARACTERS_ALL_NUM + 1; i++)
         {
-            GameObject.Find("TextLog").GetComponent<Text>().text = "2.2 + " + i;
             CharactersAll[i] = new CharacterClass();
-            GameObject.Find("TextLog").GetComponent<Text>().text = "2.3 + " + i;
         }
-        GameObject.Find("TextLog").GetComponent<Text>().text = "3";
 
         //IDと配列番号を一致させる、0は初期値のままで
         //CharactersAll[1].MakeCharacter(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
@@ -179,7 +169,6 @@ public class ControllerProduction : MonoBehaviour
         //CharactersAll[1].MakeCharacter("Character/RedSlime8", 1, "LittleRedSlime");
         //CharactersAll[1].MakeCharacter(Application.dataPath + "/Resources/" + "Character/RedSlime8" + ".png", 1, "LittleRedSlime");
         CharactersAll[1].MakeCharacter(Application.persistentDataPath + "/Character/RedSlime8" + ".png", 1, "LittleRedSlime");
-        GameObject.Find("TextLog").GetComponent<Text>().text = "4";
         CharactersAll[2].MakeCharacter(Application.persistentDataPath + "/Character/GreenSlime8" + ".png", 2, "LittleGreenSlime");
         CharactersAll[3].MakeCharacter(Application.persistentDataPath + "/Character/BlueSlime8" + ".png", 3, "LittleBlueSlime");
         CharactersAll[4].MakeCharacter(Application.persistentDataPath + "/Character/WhiteSlime8" + ".png", 4, "LittleWhiteSlime");
@@ -194,14 +183,12 @@ public class ControllerProduction : MonoBehaviour
         //CharactersAll[5].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
         //CharactersAll[8].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
         //CharactersAll[32].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/wanwan", typeof(Texture2D)) as Texture2D, 32, "wanwan");
-        GameObject.Find("TextLog").GetComponent<Text>().text = "5";
 
         //ColorProductionPixelの初期化
         for (int i = 0; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
         {
             ColorProductionPixel[i].a = 1.0f;
         }
-        GameObject.Find("TextLog").GetComponent<Text>().text = "6";
 
         //ロード
         SaveClass SC = new SaveClass();
@@ -213,13 +200,12 @@ public class ControllerProduction : MonoBehaviour
             ref CostIncreaseValueRUp, ref CostIncreaseValueGUp, ref CostIncreaseValueBUp,
             ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB);
 
-        GameObject.Find("TextLog").GetComponent<Text>().text = "7";
 
         //UIの更新
         UpdateRGBProductionScene();
 
-        GameObject.Find("TextLog").GetComponent<Text>().text = "8";
 
+        Debug.Log("ControllerProduction End");
     }
 
     // Update is called once per frame
@@ -1148,39 +1134,30 @@ public class ControllerProduction : MonoBehaviour
 
     void MakeFile()
     {
-        GameObject.Find("TextLog").GetComponent<Text>().text = "0.0";
+        Debug.Log("MakeFile Begin");
 
         if (!(Directory.Exists(Application.persistentDataPath + "/Character")))
         {
             Directory.CreateDirectory(Application.persistentDataPath + "/Character");
         }
 
-        GameObject.Find("TextLog").GetComponent<Text>().text = "0.1";
-
         if (!(Directory.Exists(Application.persistentDataPath + "/Character/Nomalization")))
         {
             Directory.CreateDirectory(Application.persistentDataPath + "/Character/Nomalization");
         }
 
-        GameObject.Find("TextLog").GetComponent<Text>().text = "0.2";
-
 #if UNITY_EDITOR
         Debug.Log("UNITY_EDITOR");
-        GameObject.Find("TextLog").GetComponent<Text>().text = "UNITY_EDITOR + 0.2";
         string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
 #elif UNITY_IPHONE //TODO:iosテスト
         Debug.Log("UNITY_IPHONE");
-        GameObject.Find("TextLog").GetComponent<Text>().text = "UNITY_IPHONE + 0.2";
         string[] files = System.IO.Directory.GetFiles(Application.dataPath + "/Raw" + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
 //#else
 //        Debug.Log("ELSE");
-//        GameObject.Find("TextLog").GetComponent<Text>().text = "ELSE + 0.2";
 //        string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
 #endif
 
 #if UNITY_EDITOR || UNITY_IPHONE
-        GameObject.Find("TextLog").GetComponent<Text>().text = "UNITY_EDITOR || UNITY_IPHONE + 0.3";
-
         foreach (string file in files)
         {
             if (!(File.Exists(Application.persistentDataPath + "/Character/" + Path.GetFileName(file))))
@@ -1192,24 +1169,23 @@ public class ControllerProduction : MonoBehaviour
 #endif
 
 
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_ANDROID && UNITY_EDITOR
         Debug.Log("UNITY_ANDROID");
-        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.3";
 
-        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.41 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png";
+        Debug.Log("ANDROID + 0.41 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png");
         string path = Application.streamingAssetsPath + "/Character/RedSlime8.png";
         //string path = Application.streamingAssetsPath + "/Character";
-        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.42 + " + path;
+        Debug.Log("ANDROID + 0.42 + " + path);
         WWW www = new WWW(path);
         while (!www.isDone)
         {
         }
-        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.51 + " + Application.persistentDataPath + "/Character/RedSlime8.png";
+        Debug.Log("ANDROID + 0.51 + " + Application.persistentDataPath + "/Character/RedSlime8.png");
         string toPath = Application.persistentDataPath + "/Character/RedSlime8.png";
         //string toPath = Application.persistentDataPath + "/Character";
-        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.52 + " + toPath;
+        Debug.Log("ANDROID + 0.52 + " + toPath);
         File.WriteAllBytes(toPath, www.bytes);
-        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.6 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png" + " -> " + Application.persistentDataPath + "/Character/RedSlime8.png";
+        Debug.Log("ANDROID + 0.6 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png" + " -> " + Application.persistentDataPath + "/Character/RedSlime8.png");
 
         //TODO:リファクタリング
         path = Application.streamingAssetsPath + "/Character/GreenSlime8.png";
@@ -1219,7 +1195,6 @@ public class ControllerProduction : MonoBehaviour
         }
         toPath = Application.persistentDataPath + "/Character/GreenSlime8.png";
         File.WriteAllBytes(toPath, www.bytes);
-        GameObject.Find("TextLog").GetComponent<Text>().text = "ANDROID + 0.61";
 
         path = Application.streamingAssetsPath + "/Character/BlueSlime8.png";
         www = new WWW(path);
@@ -1284,14 +1259,12 @@ public class ControllerProduction : MonoBehaviour
         ////後で試したい
         ////WWW www = new WWW(Application.streamingAssetsPath + "/Character");
         ////while (!www.isDone) { }
-        ////GameObject.Find("TextLog").GetComponent<Text>().text = "0.211 + " + www.bytes;
+        ////Debug.Log("0.211 + " + www.bytes);
         //////string[] files = System.IO.Directory.GetFiles(www.bytes, "*.png", System.IO.SearchOption.AllDirectories);
         ////File.WriteAllBytes(Application.persistentDataPath + "/Character", www.bytes);
 
-        //GameObject.Find("TextLog").GetComponent<Text>().text = "0.21";
-
         ////WWW www = new WWW("jar:file://" + Application.dataPath + "!/assets");// + "/Character");
-        //GameObject.Find("TextLog").GetComponent<Text>().text = "0.2101 + " + Application.streamingAssetsPath + "/Character";
+        //Debug.Log("0.2101 + " + Application.streamingAssetsPath + "/Character");
         //WWW www = new WWW(Application.streamingAssetsPath + "/Character");
         ////yield return www;
         //while (!www.isDone) { }
@@ -1300,17 +1273,16 @@ public class ControllerProduction : MonoBehaviour
         //string filesTmp = string.Empty;
         //for (int i = 0; (TxtTmp = TR.ReadLine()) != null; i++)
         //{
-        //    GameObject.Find("TextLog").GetComponent<Text>().text = "0.211 + " + i + " + " + TxtTmp;
+        //    Debug.Log("0.211 + " + i + " + " + TxtTmp);
         //    filesTmp = filesTmp + TxtTmp + ' ';
         //}
         //string[] files = filesTmp.Split(' ');
-        //GameObject.Find("TextLog").GetComponent<Text>().text = "0.212 + " + files;
+        //Debug.Log("0.212 + " + files);
 
         ////string[] files = System.IO.Directory.GetFiles("jar:file://" + Application.dataPath + "!/assets" + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
-        //GameObject.Find("TextLog").GetComponent<Text>().text = "0.22";
 #endif
 
-        GameObject.Find("TextLog").GetComponent<Text>().text = "0.7";
+        Debug.Log("MakeFile End");
     }
 
 
