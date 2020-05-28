@@ -6971,6 +6971,9 @@ MonoBehaviour:
   SliderR: {fileID: 2047777168}
   SliderG: {fileID: 4688059908582947427}
   SliderB: {fileID: 36571612}
+  ImageAttentionR: {fileID: 2099349200}
+  ImageAttentionG: {fileID: 1950663773}
+  ImageAttentionB: {fileID: 367078533}
   TextCostMaxRUp: {fileID: 2011158266}
   TextCostMaxGUp: {fileID: 4688059908787500297}
   TextCostMaxBUp: {fileID: 1055968798}

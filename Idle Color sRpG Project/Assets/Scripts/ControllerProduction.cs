@@ -31,7 +31,7 @@ public class ControllerProduction : MonoBehaviour
     uint[] CharactersIDProductionPixel = new uint[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
     Color[] ColorProductionPixel = new Color[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
     ushort[,] ProgressProductionPixel = new ushort[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
-    bool[,] WarningLackRGB = new bool[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
+    //bool[,] WarningLackRGB = new bool[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
 
     //現在の全カラーの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
     ulong[,,] CurPixels = new ulong[256, 256, 256];
@@ -40,13 +40,15 @@ public class ControllerProduction : MonoBehaviour
     ulong CurR = 0;
     ulong CurG = 0;
     ulong CurB = 0;
-
     [SerializeField] Text TextR;
     [SerializeField] Text TextG;
     [SerializeField] Text TextB;
     [SerializeField] Slider SliderR;
     [SerializeField] Slider SliderG;
     [SerializeField] Slider SliderB;
+    [SerializeField] Image ImageAttentionR;
+    [SerializeField] Image ImageAttentionG;
+    [SerializeField] Image ImageAttentionB;
 
     //最大値
     ulong MaxR = 1024;
@@ -57,7 +59,6 @@ public class ControllerProduction : MonoBehaviour
     ulong CostMaxRUp = 512;
     ulong CostMaxGUp = 512;
     ulong CostMaxBUp = 512;
-
     [SerializeField] Text TextCostMaxRUp;
     [SerializeField] Text TextCostMaxGUp;
     [SerializeField] Text TextCostMaxBUp;
@@ -74,7 +75,6 @@ public class ControllerProduction : MonoBehaviour
     ulong IncreaseValueR = 1;
     ulong IncreaseValueG = 1;
     ulong IncreaseValueB = 1;
-
     [SerializeField] Text TextIncreaseValueRLeft;
     [SerializeField] Text TextIncreaseValueRRight;
     [SerializeField] Text TextIncreaseValueGLeft;
@@ -86,7 +86,6 @@ public class ControllerProduction : MonoBehaviour
     ulong CostIncreaseValueRUp = 16;
     ulong CostIncreaseValueGUp = 16;
     ulong CostIncreaseValueBUp = 16;
-
     [SerializeField] Text TextCostIncreaseValueRUp;
     [SerializeField] Text TextCostIncreaseValueGUp;
     [SerializeField] Text TextCostIncreaseValueBUp;
@@ -132,6 +131,7 @@ public class ControllerProduction : MonoBehaviour
 
 
 
+    //TODO:グローバルなtmp変数はバグの温床だと分かってるけどどうしたものか...
     Button ButtonTmp = null;
     uint CharacterIDTmp = 0;
     Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 1.0f);
@@ -219,24 +219,28 @@ public class ControllerProduction : MonoBehaviour
         {
             TimeElapsed = 0;
 
+            //Rの生産
             ulong IncreaseValueRHelp = CharactersAll[CharactersIDHelpProductionR[1]].Stats[0].RCreates +
                                        CharactersAll[CharactersIDHelpProductionR[2]].Stats[0].RCreates +
                                        CharactersAll[CharactersIDHelpProductionR[3]].Stats[0].RCreates;
             ModelProduction.Increase(ref CurR, IncreaseValueRHelp, MaxR);
             UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
 
+            //Gの生産
             ulong IncreaseValueGHelp = CharactersAll[CharactersIDHelpProductionG[1]].Stats[0].GCreates +
                                        CharactersAll[CharactersIDHelpProductionG[2]].Stats[0].GCreates +
                                        CharactersAll[CharactersIDHelpProductionG[3]].Stats[0].GCreates;
             ModelProduction.Increase(ref CurG, IncreaseValueGHelp, MaxG);
             UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
 
+            //Bの生産
             ulong IncreaseValueBHelp = CharactersAll[CharactersIDHelpProductionB[1]].Stats[0].BCreates +
                                        CharactersAll[CharactersIDHelpProductionB[2]].Stats[0].BCreates +
                                        CharactersAll[CharactersIDHelpProductionB[3]].Stats[0].BCreates;
             ModelProduction.Increase(ref CurB, IncreaseValueBHelp, MaxB);
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
+            //ピクセルの生産
             for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
             {
                 bool ProductionPixelFlag;
@@ -254,6 +258,37 @@ public class ControllerProduction : MonoBehaviour
                     CreatePixelListPixelProduction();
                 }
             }
+            //RGB不足フラグの表示
+            {
+                ulong tmpR = 0;
+                ulong tmpG = 0;
+                ulong tmpB = 0;
+                for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+                {
+                    if (CharactersIDProductionPixel[i] != 0)
+                    {
+                        tmpR += CalcProductionPixelRGB(UserProductionPixelNum, (uint)(ColorProductionPixel[i].r * 255), ProgressProductionPixel[i, 1], CharactersAll[CharactersIDProductionPixel[i]].GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255)));
+                        tmpG += CalcProductionPixelRGB(UserProductionPixelNum, (uint)(ColorProductionPixel[i].g * 255), ProgressProductionPixel[i, 2], CharactersAll[CharactersIDProductionPixel[i]].GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255)));
+                        tmpB += CalcProductionPixelRGB(UserProductionPixelNum, (uint)(ColorProductionPixel[i].b * 255), ProgressProductionPixel[i, 3], CharactersAll[CharactersIDProductionPixel[i]].GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255)));
+                    }
+                }
+
+                if (CurR >= tmpR)
+                    ImageAttentionR.enabled = false;
+                else
+                    ImageAttentionR.enabled = true;
+
+                if (CurG >= tmpG)
+                    ImageAttentionG.enabled = false;
+                else
+                    ImageAttentionG.enabled = true;
+
+                if (CurB >= tmpB)
+                    ImageAttentionB.enabled = false;
+                else
+                    ImageAttentionB.enabled = true;
+            }
+
         }
     }
 
@@ -1169,7 +1204,7 @@ public class ControllerProduction : MonoBehaviour
 #endif
 
 
-#if UNITY_ANDROID && UNITY_EDITOR
+#if UNITY_ANDROID && !UNITY_EDITOR
         Debug.Log("UNITY_ANDROID");
 
         Debug.Log("ANDROID + 0.41 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png");
@@ -1328,21 +1363,13 @@ public class ControllerProduction : MonoBehaviour
             else
             if (ProgressProductionPixel[argIndex, 1] < (int)(ColorProductionPixel[argIndex].r * 255))
             {
-                //SPDよりも残りの進捗が少なかったら
-                if (Progress > (int)(ColorProductionPixel[argIndex].r * 255) - ProgressProductionPixel[argIndex, 1])
+                ulong tmpR = CalcProductionPixelRGB(Progress, (uint)(ColorProductionPixel[argIndex].r * 255), ProgressProductionPixel[argIndex, 1], CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)));
+                if (CurR >= tmpR)
                 {
-                    Progress = (ushort)(ColorProductionPixel[argIndex].r * 255 - ProgressProductionPixel[argIndex, 1]);
-                }
-
-                if (CurR < Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)))
-                {
-                    WarningLackRGB[argIndex, 1] = true;
-                }
-                else
-                {
-                    WarningLackRGB[argIndex, 1] = false;
-                    CurR -= Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+                    CurR -= tmpR;
                     ProgressProductionPixel[argIndex, 1] += Progress;
+                    if (ProgressProductionPixel[argIndex, 1] > (ushort)(ColorProductionPixel[argIndex].r * 255))
+                        ProgressProductionPixel[argIndex, 1] = (ushort)(ColorProductionPixel[argIndex].r * 255);
                 }
             }
             else
@@ -1353,21 +1380,13 @@ public class ControllerProduction : MonoBehaviour
             else
             if (ProgressProductionPixel[argIndex, 2] < (int)(ColorProductionPixel[argIndex].g * 255))
             {
-                //SPDよりも残りの進捗が少なかったら
-                if (Progress > (int)(ColorProductionPixel[argIndex].g * 255) - ProgressProductionPixel[argIndex, 2])
+                ulong tmpG = CalcProductionPixelRGB(Progress, (uint)(ColorProductionPixel[argIndex].g * 255), ProgressProductionPixel[argIndex, 2], CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)));
+                if (CurG >= tmpG)
                 {
-                    Progress = (ushort)(ColorProductionPixel[argIndex].g * 255 - ProgressProductionPixel[argIndex, 2]);
-                }
-
-                if (CurG < Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)))
-                {
-                    WarningLackRGB[argIndex, 2] = true;
-                }
-                else
-                {
-                    WarningLackRGB[argIndex, 2] = false;
-                    CurG -= Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+                    CurG -= tmpG;
                     ProgressProductionPixel[argIndex, 2] += Progress;
+                    if (ProgressProductionPixel[argIndex, 2] > (ushort)(ColorProductionPixel[argIndex].g * 255))
+                        ProgressProductionPixel[argIndex, 2] = (ushort)(ColorProductionPixel[argIndex].g * 255);
                 }
             }
             else
@@ -1378,25 +1397,17 @@ public class ControllerProduction : MonoBehaviour
             else
             if (ProgressProductionPixel[argIndex, 3] < (int)(ColorProductionPixel[argIndex].b * 255))
             {
-                //SPDよりも残りの進捗が少なかったら
-                if (Progress > (int)(ColorProductionPixel[argIndex].b * 255) - ProgressProductionPixel[argIndex, 3])
+                ulong tmpB = CalcProductionPixelRGB(Progress, (uint)(ColorProductionPixel[argIndex].b * 255), ProgressProductionPixel[argIndex, 3], CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)));
+                if (CurB >= tmpB)
                 {
-                    Progress = (ushort)(ColorProductionPixel[argIndex].b * 255 - ProgressProductionPixel[argIndex, 3]);
-                }
-
-                if (CurB < Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)))
-                {
-                    WarningLackRGB[argIndex, 3] = true;
-                }
-                else
-                {
-                    WarningLackRGB[argIndex, 3] = false;
-                    CurB -= Progress * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+                    CurB -= tmpB;
                     ProgressProductionPixel[argIndex, 3] += Progress;
+                    if (ProgressProductionPixel[argIndex, 3] > (ushort)(ColorProductionPixel[argIndex].b * 255))
+                        ProgressProductionPixel[argIndex, 3] = (ushort)(ColorProductionPixel[argIndex].b * 255);
                 }
             }
 
-
+            //ピクセル生産の進捗が満たされたら、進捗を初期化し、ピクセル生産
             if (ProgressProductionPixel[argIndex, 3] >= (int)(ColorProductionPixel[argIndex].b * 255) && ProgressProductionPixel[argIndex, 3] != 0)
             {
                 ProgressProductionPixel[argIndex, 1] = 0;
@@ -1413,7 +1424,20 @@ public class ControllerProduction : MonoBehaviour
 
         return true;
     }
-    //ピクセル生産の進捗の初期化 //TODO:この関数が呼ばれるより前にキャラクターとカラーが先に変更されていないか確認
+    //ピクセル生産のためのRGB消費値の算出
+    ulong CalcProductionPixelRGB(ushort argAddProgress, uint argColorProductionPixelRGB, ushort argCurProgress, uint argCreatePixels)
+    {
+        ushort Progress = argAddProgress;
+
+        //残りの進捗が少なかったら
+        if (Progress > argColorProductionPixelRGB - argCurProgress)
+        {
+            Progress = (ushort)(argColorProductionPixelRGB - argCurProgress);
+        }
+
+        return Progress * argCreatePixels;
+    }
+    //ピクセル生産の進捗の初期化(進捗が途中のときに消費されてしまったRGBを戻す) //TODO:この関数が呼ばれるより前にキャラクターとカラーが先に変更されていないか確認
     bool InitializeProgressProductionPixel(int argIndex)
     {
         CurR += (uint)(ColorProductionPixel[argIndex].r * 255)
