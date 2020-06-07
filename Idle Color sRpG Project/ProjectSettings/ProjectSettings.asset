@@ -694,10 +694,10 @@ PlayerSettings:
   facebookXfbml: 0
   facebookFrictionlessRequests: 1
   apiCompatibilityLevel: 6
-  cloudProjectId: 
+  cloudProjectId: 0fc73332-b6f9-4fa1-8d38-282203b4a047
   framebufferDepthMemorylessMode: 0
-  projectName: 
-  organizationId: 
+  projectName: IdleColorsRpGProduct
+  organizationId: ragrag
   cloudEnabled: 0
   enableNativePlatformBackendsForNewInputSystem: 0
   disableOldInputManagerSupport: 0

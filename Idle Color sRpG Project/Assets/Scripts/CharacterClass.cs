@@ -119,7 +119,7 @@ public class CharacterClass //: MonoBehaviour
     {
         Debug.Log("argImagePath : " + argImagePath);
         //Texture2D Image = Resources.Load(argImagePath, typeof(Texture2D)) as Texture2D;
-        Texture2D Image = ReadPng(argImagePath);
+        Texture2D Image = ImagegUtility.ReadPng(argImagePath);
 
         if (Image == null)
         {
@@ -261,7 +261,7 @@ public class CharacterClass //: MonoBehaviour
     bool CalcCharacterStats()
     {
         //Texture2D ImageTexture2D = Resources.Load(ImagePath, typeof(Texture2D)) as Texture2D;
-        Texture2D ImageTexture2D = ReadPng(ImagePath);
+        Texture2D ImageTexture2D = ImagegUtility.ReadPng(ImagePath);
 
         if (ImageTexture2D == null)
         {
@@ -569,39 +569,6 @@ public class CharacterClass //: MonoBehaviour
         result = Size + GetExistsColors(new Color(r / 255, g / 255, b / 255));
 
         return result;
-    }
-
-
-    public static Texture2D ReadPng(string argImagePath)
-    {
-        FileStream fs = new FileStream(argImagePath, FileMode.Open, FileAccess.Read);
-        BinaryReader br = new BinaryReader(fs);
-
-        byte[] readBinary = br.ReadBytes((int)br.BaseStream.Length);
-
-        br.Close();
-        fs.Close();
-
-        int w = 0;
-        int h = 0;
-
-        int pos = 16;
-        for (int i = 0; i < 4; i++)
-        {
-            w = w * 256 + readBinary[pos++];
-        }
-        for (int i = 0; i < 4; i++)
-        {
-            h = h * 256 + readBinary[pos++];
-        }
-
-        Texture2D resTex = new Texture2D(w, h);
-        resTex.LoadImage(readBinary);
-
-        //テクスチャの設定
-        resTex.filterMode = FilterMode.Point;
-
-        return resTex;
     }
 
 }

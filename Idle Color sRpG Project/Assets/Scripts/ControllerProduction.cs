@@ -120,6 +120,7 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] GameObject PanelSelectColor;
     [SerializeField] GameObject PanelSelectColorMethod;
     [SerializeField] GameObject PanelSelectColorMethodRGBNum;
+    [SerializeField] GameObject PanelSelectColorMethodCharacter;
 
     [SerializeField] InputField InputFieldSpecificationNumR;
     [SerializeField] InputField InputFieldSpecificationNumG;
@@ -137,12 +138,61 @@ public class ControllerProduction : MonoBehaviour
     Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
 
+
+    //テスト　ポスタリゼーション
+    Mat Pos(Mat argSrcImg,int argCullNum)
+    {
+        Mat resultMat = new Mat(argSrcImg.Height, argSrcImg.Width, MatType.CV_8U);
+        //Mat LUT = new Mat(256, 1, MatType.CV_8U);
+        byte[] LUT = new byte[256];
+        for (int x = 0; x < 256; x++)
+        {
+            //var px = LUT.Get<Vec3b>(0, x);
+            //px[0] = (byte)(x / 16);
+            //px[1] = (byte)(x / 16);
+            //px[2] = (byte)(x / 16);
+            //LUT.Set(0, x, px);
+            int num = ((x + (argCullNum / 2)) / argCullNum) * argCullNum;
+            if (num > 255)
+                num = 255;
+            LUT[x] = (byte)num;
+        }
+
+        Cv2.LUT(argSrcImg, LUT, resultMat);
+
+        //Cv2.ImWrite(Application.streamingAssetsPath + "/Character/TestImageResult2.bmp", resultMat);
+
+        return resultMat;
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Start is called before the first frame update
     void Start()
     {
-        Debug.Log("ControllerProduction Begin");
+        {
+            //Mat tes = new Mat(5,5,MatType.CV_8U);
+            //tes.SaveImage("./TestImage.bmp");
+            //Cv2.ImWrite("TestImage.png", tes);
 
+            //Mat PosImg = Cv2.ImRead(Application.streamingAssetsPath + "/Character/TestImage.png");
+            //Mat PosImg = Cv2.ImRead(@"TestImage.bmp");
+            Texture2D image = ImagegUtility.ReadPng("TestImage.png");
+            Mat PosImg = OpenCvSharp.Unity.TextureToMat(image);
+            //Mat PosImg = new Mat(5, 5, MatType.CV_8U); 
+            //Mat PosImg = Cv2.ImRead(Application.streamingAssetsPath + "/Character/RedSlime8.png");
+            //Mat PosImg = new Mat(5, 5, MatType.CV_8U);
+            Debug.Log("PosImg.Height = " + PosImg.Height);
+            //Cv2.ImWrite(Application.streamingAssetsPath + "/Character/TestImageResult1.png", PosImg);
+            PosImg.SaveImage("./TestImage1.bmp");
+            //Cv2.ImWrite("TestImageResult1.bmp", PosImg);
+            Cv2.ImWrite("./TestImageResult1.bmp", PosImg);
+            Mat PosImgRes = new Mat(PosImg.Height, PosImg.Width, MatType.CV_8U);
+            PosImgRes = Pos(PosImg, 32);
+            Cv2.ImWrite("./TestImageResult2.bmp", PosImgRes);
+        }
+
+        Debug.Log("ControllerProduction Begin");
+            
         MakeFile();
 
         //画面回転固定
@@ -272,6 +322,12 @@ public class ControllerProduction : MonoBehaviour
                         tmpB += CalcProductionPixelRGB(UserProductionPixelNum, (uint)(ColorProductionPixel[i].b * 255), ProgressProductionPixel[i, 3], CharactersAll[CharactersIDProductionPixel[i]].GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255)));
                     }
                 }
+
+                Debug.Log("temR = " + tmpR + "\n"
+                        + "(uint)(ColorProductionPixel[1].r * 255) = " + (uint)(ColorProductionPixel[1].r * 255) + "\n"
+                        + "ProgressProductionPixel[1, 1] = " + ProgressProductionPixel[1, 1]);
+                Debug.Log("temG = " + tmpG);
+                Debug.Log("temB = " + tmpB);
 
                 if (CurR >= tmpR)
                     ImageAttentionR.enabled = false;
@@ -446,7 +502,7 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonSelectCharacterCharacter(uint argCharacterID)
     {
         Debug.Log("SelectCharacterID : " + argCharacterID);
-        ImageSelectCharacter.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[argCharacterID].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[argCharacterID].Size, CharactersAll[argCharacterID].Size), new Vector2(0.5f, 0.5f));
+        ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[argCharacterID].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[argCharacterID].Size, CharactersAll[argCharacterID].Size), new Vector2(0.5f, 0.5f));
         CharacterIDTmp = argCharacterID;
         Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
         ButtonSelect.interactable = true;
@@ -666,7 +722,7 @@ public class ControllerProduction : MonoBehaviour
                 if (CharactersIDHelpProductionR[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
                     TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
@@ -691,7 +747,7 @@ public class ControllerProduction : MonoBehaviour
                 if (CharactersIDHelpProductionG[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
                     TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
@@ -716,7 +772,7 @@ public class ControllerProduction : MonoBehaviour
                 if (CharactersIDHelpProductionB[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
                     TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
@@ -750,7 +806,7 @@ public class ControllerProduction : MonoBehaviour
             if (CharactersIDProductionPixel[ProductionPixelIndex] != 0)
             {
                 //選択キャラクターの画像を表示
-                ImageSelectCharacter.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size), new Vector2(0.5f, 0.5f));
+                ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size), new Vector2(0.5f, 0.5f));
                 //選択キャラクターのステータスを表示
                 TextSelectCharacter1.text = "      SPD       : " + CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Stats[0].SPD;
                 TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
@@ -779,7 +835,7 @@ public class ControllerProduction : MonoBehaviour
                 ArrayButtonCharacter[indexCharacter] = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("ContentCharacterList").transform) as GameObject;
 
                 //spriteの指定
-                ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[indexCharacter].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[indexCharacter].Size, CharactersAll[indexCharacter].Size), new Vector2(0.5f, 0.5f));
+                ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[indexCharacter].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[indexCharacter].Size, CharactersAll[indexCharacter].Size), new Vector2(0.5f, 0.5f));
 
                 //textの指定
                 if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
@@ -1143,6 +1199,18 @@ public class ControllerProduction : MonoBehaviour
         UpdateSliderPixelProduction(ProductionPixelIndex);
     }
 
+    //カラーセレクトの色指定方法のRGB値で指定ボタンが押されたら
+    public void PushButtonSelectColorMethodCharacter()
+    {
+        ShowPanel(PanelSelectColorMethodCharacter);
+
+        ////パネルの初期化
+        //UpdateSlectColorMethodRGBNum("R");
+        //UpdateSlectColorMethodRGBNum("G");
+        //UpdateSlectColorMethodRGBNum("B");
+    }
+
+
     //ピクセル生産でスピードアップボタンが押されたら
     public void PushButtonSpeedUpProductionPixel(string argName)
     {
@@ -1427,15 +1495,17 @@ public class ControllerProduction : MonoBehaviour
     //ピクセル生産のためのRGB消費値の算出
     ulong CalcProductionPixelRGB(ushort argAddProgress, uint argColorProductionPixelRGB, ushort argCurProgress, uint argCreatePixels)
     {
-        ushort Progress = argAddProgress;
+        short Progress = (short)argAddProgress;
 
         //残りの進捗が少なかったら
-        if (Progress > argColorProductionPixelRGB - argCurProgress)
+        if (Progress > (short)(argColorProductionPixelRGB - argCurProgress))
         {
-            Progress = (ushort)(argColorProductionPixelRGB - argCurProgress);
+            Progress = (short)(argColorProductionPixelRGB - argCurProgress);
         }
+        if (Progress < 0)
+            Progress = 0;
 
-        return Progress * argCreatePixels;
+        return (ulong)(Progress * argCreatePixels);
     }
     //ピクセル生産の進捗の初期化(進捗が途中のときに消費されてしまったRGBを戻す) //TODO:この関数が呼ばれるより前にキャラクターとカラーが先に変更されていないか確認
     bool InitializeProgressProductionPixel(int argIndex)
@@ -1539,21 +1609,21 @@ public class ControllerProduction : MonoBehaviour
         if(CharactersIDHelpProductionR[1] != 0)
         {
             Button B = GameObject.Find("ButtonRProductionHelpCharacter1").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionR[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[1]].Size, CharactersAll[CharactersIDHelpProductionR[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionR[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[1]].Size, CharactersAll[CharactersIDHelpProductionR[1]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionR[2] != 0)
         {
             Button B = GameObject.Find("ButtonRProductionHelpCharacter2").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionR[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[2]].Size, CharactersAll[CharactersIDHelpProductionR[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionR[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[2]].Size, CharactersAll[CharactersIDHelpProductionR[2]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionR[3] != 0)
         {
             Button B = GameObject.Find("ButtonRProductionHelpCharacter3").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionR[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[3]].Size, CharactersAll[CharactersIDHelpProductionR[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionR[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[3]].Size, CharactersAll[CharactersIDHelpProductionR[3]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
@@ -1561,21 +1631,21 @@ public class ControllerProduction : MonoBehaviour
         if (CharactersIDHelpProductionG[1] != 0)
         {
             Button B = GameObject.Find("ButtonGProductionHelpCharacter1").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionG[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[1]].Size, CharactersAll[CharactersIDHelpProductionG[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionG[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[1]].Size, CharactersAll[CharactersIDHelpProductionG[1]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionG[2] != 0)
         {
             Button B = GameObject.Find("ButtonGProductionHelpCharacter2").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionG[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[2]].Size, CharactersAll[CharactersIDHelpProductionG[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionG[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[2]].Size, CharactersAll[CharactersIDHelpProductionG[2]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionG[3] != 0)
         {
             Button B = GameObject.Find("ButtonGProductionHelpCharacter3").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionG[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[3]].Size, CharactersAll[CharactersIDHelpProductionG[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionG[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[3]].Size, CharactersAll[CharactersIDHelpProductionG[3]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
@@ -1583,21 +1653,21 @@ public class ControllerProduction : MonoBehaviour
         if (CharactersIDHelpProductionB[1] != 0)
         {
             Button B = GameObject.Find("ButtonBProductionHelpCharacter1").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionB[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[1]].Size, CharactersAll[CharactersIDHelpProductionB[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionB[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[1]].Size, CharactersAll[CharactersIDHelpProductionB[1]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionB[2] != 0)
         {
             Button B = GameObject.Find("ButtonBProductionHelpCharacter2").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionB[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[2]].Size, CharactersAll[CharactersIDHelpProductionB[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionB[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[2]].Size, CharactersAll[CharactersIDHelpProductionB[2]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionB[3] != 0)
         {
             Button B = GameObject.Find("ButtonBProductionHelpCharacter3").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDHelpProductionB[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[3]].Size, CharactersAll[CharactersIDHelpProductionB[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionB[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[3]].Size, CharactersAll[CharactersIDHelpProductionB[3]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
@@ -1754,7 +1824,7 @@ public class ControllerProduction : MonoBehaviour
         {
             //キャラクター
             Content.GetComponentsInChildren<Button>()[0].image.sprite
-                = Sprite.Create(CharacterClass.ReadPng(CharactersAll[CharactersIDProductionPixel[argIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[argIndex]].Size, CharactersAll[CharactersIDProductionPixel[argIndex]].Size), new Vector2(0.5f, 0.5f));
+                = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDProductionPixel[argIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[argIndex]].Size, CharactersAll[CharactersIDProductionPixel[argIndex]].Size), new Vector2(0.5f, 0.5f));
         }
     }
     public void UpdatePixelColorPixelProduction(int argIndex)
