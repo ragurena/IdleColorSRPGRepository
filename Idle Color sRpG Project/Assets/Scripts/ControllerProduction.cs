@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using OpenCvSharp;
 
@@ -20,6 +21,8 @@ static class Constants
 //生産画面のコントロール
 public class ControllerProduction : MonoBehaviour
 {
+    [SerializeField] EventSystem eventSystem;
+
     ModelProduction ModelProduction;
 
     CharacterClass[] CharactersAll = new CharacterClass[Constants.CHARACTERS_ALL_NUM + 1];
@@ -118,13 +121,15 @@ public class ControllerProduction : MonoBehaviour
 
     //カラーセレクトパネル
     [SerializeField] GameObject PanelSelectColor;
-    [SerializeField] GameObject PanelSelectColorMethod;
-    [SerializeField] GameObject PanelSelectColorMethodRGBNum;
-    [SerializeField] GameObject PanelSelectColorMethodCharacter;
 
+    [SerializeField] GameObject PanelSelectColorMethod;
+
+    [SerializeField] GameObject PanelSelectColorMethodRGBNum;
     [SerializeField] InputField InputFieldSpecificationNumR;
     [SerializeField] InputField InputFieldSpecificationNumG;
     [SerializeField] InputField InputFieldSpecificationNumB;
+
+    [SerializeField] GameObject PanelSelectColorMethodCharacter;
 
     [SerializeField] Image ImageSpecificationColorR;
     [SerializeField] Image ImageSpecificationColorG;
@@ -169,6 +174,7 @@ public class ControllerProduction : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+#if UNITY_EDITOR
         {
             //Mat tes = new Mat(5,5,MatType.CV_8U);
             //tes.SaveImage("./TestImage.bmp");
@@ -189,7 +195,77 @@ public class ControllerProduction : MonoBehaviour
             Mat PosImgRes = new Mat(PosImg.Height, PosImg.Width, MatType.CV_8U);
             PosImgRes = Pos(PosImg, 32);
             Cv2.ImWrite("./TestImageResult2.bmp", PosImgRes);
+
+
+            {
+                Mat testImageMat = new Mat(3, 3, MatType.CV_8U);
+                Vec3b pix = testImageMat.At<Vec3b>(0, 0);
+                pix[0] = 0; //B
+                pix[1] = 0; //G
+                pix[2] = 0; //R
+                testImageMat.Set<Vec3b>(0, 0, pix);
+                pix = testImageMat.At<Vec3b>(1, 0);
+                pix[0] = 128; //B
+                pix[1] = 0; //G
+                pix[2] = 0; //R
+                testImageMat.Set<Vec3b>(1, 0, pix);
+                pix = testImageMat.At<Vec3b>(2, 0);
+                pix[0] = 255; //B
+                pix[1] = 0; //G
+                pix[2] = 0; //R
+                testImageMat.Set<Vec3b>(2, 0, pix);
+                pix = testImageMat.At<Vec3b>(0, 1);
+                pix[0] = 0; //B
+                pix[1] = 0; //G
+                pix[2] = 0; //R
+                testImageMat.Set<Vec3b>(0, 1, pix);
+                pix = testImageMat.At<Vec3b>(1, 1);
+                pix[0] = 0; //B
+                pix[1] = 128; //G
+                pix[2] = 0; //R
+                testImageMat.Set<Vec3b>(1, 1, pix);
+                pix = testImageMat.At<Vec3b>(2, 1);
+                pix[0] = 0; //B
+                pix[1] = 255; //G
+                pix[2] = 0; //R
+                testImageMat.Set<Vec3b>(2, 1, pix);
+                pix = testImageMat.At<Vec3b>(0, 2);
+                pix[0] = 0; //B
+                pix[1] = 0; //G
+                pix[2] = 0; //R
+                testImageMat.Set<Vec3b>(0, 2, pix);
+                pix = testImageMat.At<Vec3b>(1, 2);
+                pix[0] = 0; //B
+                pix[1] = 0; //G
+                pix[2] = 128; //R
+                testImageMat.Set<Vec3b>(1, 2, pix);
+                pix = testImageMat.At<Vec3b>(2, 2);
+                pix[0] = 0; //B
+                pix[1] = 0; //G
+                pix[2] = 255; //R
+                testImageMat.Set<Vec3b>(2, 2, pix);
+                //Cv2.ImWrite("./TestImage9.bmp", testImageMat);
+                //Debug.Log("testImageMat.Get<Vec3b>(2,2).Item0 = " + testImageMat.Get<Vec3b>(2,2).Item0);
+                //Debug.Log("testImageMat.Get<Vec3b>(2,2).Item1 = " + testImageMat.Get<Vec3b>(2,2).Item1);
+                //Debug.Log("testImageMat.Get<Vec3b>(2,2).Item2 = " + testImageMat.Get<Vec3b>(2,2).Item2);
+                Texture2D testImageTex = OpenCvSharp.Unity.MatToTexture(testImageMat);
+                byte[] pngData = testImageTex.EncodeToPNG();
+                File.WriteAllBytes("./TestImage9.png", pngData);
+                testImageTex.SetPixel(0, 0, new Color(0, 0, 0));
+                testImageTex.SetPixel(1, 0, new Color((float)0.5, 0, 0));
+                testImageTex.SetPixel(2, 0, new Color((float)1.0, 0, 0));
+                testImageTex.SetPixel(0, 1, new Color(0, 0, 0));
+                testImageTex.SetPixel(1, 1, new Color(0, (float)0.5, 0));
+                testImageTex.SetPixel(2, 1, new Color(0, (float)1.0, 0));
+                testImageTex.SetPixel(0, 2, new Color(0, 0, 0));
+                testImageTex.SetPixel(1, 2, new Color(0, 0, (float)0.5));
+                testImageTex.SetPixel(2, 2, new Color(0, 0, (float)1.0));
+                pngData = testImageTex.EncodeToPNG();
+                File.WriteAllBytes("./TestImage99.png", pngData);
+
+            }
         }
+#endif
 
         Debug.Log("ControllerProduction Begin");
             
@@ -323,11 +399,11 @@ public class ControllerProduction : MonoBehaviour
                     }
                 }
 
-                Debug.Log("temR = " + tmpR + "\n"
-                        + "(uint)(ColorProductionPixel[1].r * 255) = " + (uint)(ColorProductionPixel[1].r * 255) + "\n"
-                        + "ProgressProductionPixel[1, 1] = " + ProgressProductionPixel[1, 1]);
-                Debug.Log("temG = " + tmpG);
-                Debug.Log("temB = " + tmpB);
+                //Debug.Log("temR = " + tmpR + "\n"
+                //        + "(uint)(ColorProductionPixel[1].r * 255) = " + (uint)(ColorProductionPixel[1].r * 255) + "\n"
+                //        + "ProgressProductionPixel[1, 1] = " + ProgressProductionPixel[1, 1]);
+                //Debug.Log("temG = " + tmpG);
+                //Debug.Log("temB = " + tmpB);
 
                 if (CurR >= tmpR)
                     ImageAttentionR.enabled = false;
@@ -1199,16 +1275,57 @@ public class ControllerProduction : MonoBehaviour
         UpdateSliderPixelProduction(ProductionPixelIndex);
     }
 
-    //カラーセレクトの色指定方法のRGB値で指定ボタンが押されたら
+
+    //カラーセレクトの色指定方法のキャラクターで指定ボタンが押されたら
     public void PushButtonSelectColorMethodCharacter()
     {
         ShowPanel(PanelSelectColorMethodCharacter);
-
-        ////パネルの初期化
-        //UpdateSlectColorMethodRGBNum("R");
-        //UpdateSlectColorMethodRGBNum("G");
-        //UpdateSlectColorMethodRGBNum("B");
     }
+
+    //カラーセレクトの色指定方法のキャラクターで指定で戻るボタンが押されたら
+    public void PushButtonBackSelectColorMethodCharacter()
+    {
+        NotShowPanel(PanelSelectColorMethodCharacter);
+        ColorTmp.r = 0.0f;
+        ColorTmp.g = 0.0f;
+        ColorTmp.b = 0.0f;
+    }
+
+    //カラーセレクトの色指定方法のキャラクターで指定でキャラクターボタンが押されたら
+    public void PushButtonSelectColorMethodCharacterCharacter()
+    {
+        Vector2 ButtonPosLeftUnder = GetButtonPosLeftUnder();
+        Debug.Log("ButtonPosLeftUnder = " + ButtonPosLeftUnder);
+
+        GameObject tmpButton = eventSystem.currentSelectedGameObject.gameObject;
+        Texture2D buttonImage = tmpButton.GetComponent<Image>().sprite.texture;
+        Vector2 buttonSize = tmpButton.GetComponent<RectTransform>().sizeDelta;
+        Vector2 pixelSize = new Vector2(buttonSize.x / buttonImage.width, buttonSize.y / buttonImage.height);
+        Vector2 clickPosImage = new Vector2(Input.mousePosition.x - ButtonPosLeftUnder.x, Input.mousePosition.y - ButtonPosLeftUnder.y);
+        Color clickColor = buttonImage.GetPixel((int)(clickPosImage.x / pixelSize.x), (int)(clickPosImage.y / pixelSize.y));
+        Debug.Log("clickColor = " + clickColor);
+        if (clickColor.a > 0.0f)
+        {
+            ColorTmp.r = clickColor.r;
+            ColorTmp.g = clickColor.g;
+            ColorTmp.b = clickColor.b;
+        }
+    }
+
+    //押したボタンの左下の座標を取得
+    public Vector2 GetButtonPosLeftUnder()
+    {
+        GameObject tmpButton = eventSystem.currentSelectedGameObject.gameObject;
+        //Debug.Log("gameObject.transform.position = " + tmpButton.transform.position);
+        //Debug.Log("Input.mousePosition = " + Input.mousePosition);
+        //Debug.Log("sizeDelta = " + tmpButton.GetComponent<RectTransform>().sizeDelta);
+        Vector2 ButtonPosLeftUnder = new Vector2(tmpButton.transform.position.x - (tmpButton.GetComponent<RectTransform>().sizeDelta.x / 2),
+                                                 tmpButton.transform.position.y - (tmpButton.GetComponent<RectTransform>().sizeDelta.y / 2));
+        //Debug.Log("ButtonPosLeftUnder = " + ButtonPosLeftUnder);
+
+        return ButtonPosLeftUnder;
+    }
+
 
 
     //ピクセル生産でスピードアップボタンが押されたら
