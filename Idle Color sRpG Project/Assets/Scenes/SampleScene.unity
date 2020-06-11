@@ -2251,10 +2251,10 @@ CanvasGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 246426248}
   m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
-  m_BlocksRaycasts: 1
-  m_IgnoreParentGroups: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!114 &246426251
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5795,6 +5795,31 @@ PrefabInstance:
       propertyPath: m_Name
       value: ImageSelectColor
       objectReference: {fileID: 0}
+    - target: {fileID: 824645222986453643, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645223538005144, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645223893798007, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645224152643088, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645224620981828, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodCharacter
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bfdab684c61f15d4c90734938e34379a, type: 3}
 --- !u!224 &761922943 stripped
@@ -7573,6 +7598,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1012974148}
   - component: {fileID: 1012974147}
+  - component: {fileID: 1012974150}
   - component: {fileID: 1012974149}
   m_Layer: 0
   m_Name: GameObject
@@ -7630,10 +7656,6 @@ MonoBehaviour:
   PanelRGBProduction: {fileID: 1051531620}
   PanelPixelProduction: {fileID: 1836616301}
   PanelSelectCharacter: {fileID: 828669683}
-  ImageSelectCharacter: {fileID: 1320206201}
-  TextSelectCharacter1: {fileID: 1336480415}
-  TextSelectCharacter2: {fileID: 470184762}
-  TextSelectCharacter3: {fileID: 905834691}
   PanelSelectColor: {fileID: 360843273}
   PanelSelectColorMethod: {fileID: 2043186009}
   PanelSelectColorMethodRGBNum: {fileID: 1408464041}
@@ -7659,6 +7681,22 @@ Transform:
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1012974149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1012974146}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e4f372406bbdc54da4cdbc500342a89, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ImageSelectCharacter: {fileID: 1320206201}
+  TextSelectCharacter1: {fileID: 1336480415}
+  TextSelectCharacter2: {fileID: 470184762}
+  TextSelectCharacter3: {fileID: 905834691}
+--- !u!114 &1012974150
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -15270,6 +15308,31 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: ImageSelectColor
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645222986453643, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodRGBNum
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645223538005144, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodRGBNum
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645223893798007, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodRGBNum
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645224152643088, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodRGBNum
+      objectReference: {fileID: 0}
+    - target: {fileID: 824645224620981828, guid: bfdab684c61f15d4c90734938e34379a,
+        type: 3}
+      propertyPath: m_TagString
+      value: SelectColorMethodRGBNum
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bfdab684c61f15d4c90734938e34379a, type: 3}
