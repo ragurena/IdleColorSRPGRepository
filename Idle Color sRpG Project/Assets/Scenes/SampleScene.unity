@@ -2487,7 +2487,7 @@ GameObject:
   - component: {fileID: 314239977}
   m_Layer: 5
   m_Name: ButtonRemoveLeft
-  m_TagString: Untagged
+  m_TagString: SelectCharacter
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2704,7 +2704,7 @@ RectTransform:
   - {fileID: 1408464042}
   - {fileID: 246426249}
   m_Father: {fileID: 2146859600}
-  m_RootOrder: 6
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -3287,7 +3287,7 @@ GameObject:
   - component: {fileID: 441754727}
   m_Layer: 5
   m_Name: ButtonRemoveRight
-  m_TagString: Untagged
+  m_TagString: SelectCharacter
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4127,7 +4127,7 @@ RectTransform:
   m_Children:
   - {fileID: 565082351}
   m_Father: {fileID: 2146859600}
-  m_RootOrder: 7
+  m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -6856,7 +6856,7 @@ RectTransform:
   - {fileID: 314239976}
   - {fileID: 441754726}
   m_Father: {fileID: 2146859600}
-  m_RootOrder: 5
+  m_RootOrder: 7
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -8073,7 +8073,7 @@ GameObject:
   - component: {fileID: 1105043080}
   m_Layer: 5
   m_Name: ButtonConfirmSelectLeft
-  m_TagString: Untagged
+  m_TagString: SelectCharacter
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8354,7 +8354,7 @@ GameObject:
   - component: {fileID: 1124888478}
   m_Layer: 5
   m_Name: ButtonConfirmSelectRight
-  m_TagString: Untagged
+  m_TagString: SelectCharacter
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -12847,7 +12847,7 @@ GameObject:
   - component: {fileID: 1735144507}
   - component: {fileID: 1735144506}
   m_Layer: 5
-  m_Name: ButtonBackConfirmSelectRight
+  m_Name: ButtonConfirmSelectRight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -15168,9 +15168,9 @@ RectTransform:
   - {fileID: 1051531621}
   - {fileID: 1836616302}
   - {fileID: 1105409388}
-  - {fileID: 828669684}
   - {fileID: 360843274}
   - {fileID: 486115408}
+  - {fileID: 828669684}
   - {fileID: 30961170}
   m_Father: {fileID: 0}
   m_RootOrder: 1

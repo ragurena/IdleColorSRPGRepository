@@ -1708,8 +1708,7 @@ public class ControllerProduction : MonoBehaviour
 
     void ControlImageSelectColor(string argTag)
     {
-
-        GameObject[] tag1_Objects; //代入用のゲームオブジェクト配列を用意
+        GameObject[] tag1_Objects;
         tag1_Objects = GameObject.FindGameObjectsWithTag(argTag);
 
         foreach (GameObject gameObject in tag1_Objects)

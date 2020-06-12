@@ -231,17 +231,19 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     //キャラクターセレクトパネルの表示
     public void ShowPanelSelectCharacter(Button ButtonTmp)
     {
-        //選択ボタンのenable設定
-        Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
-        ButtonSelect.interactable = false;//TODO:バグ
-        ButtonSelect = GameObject.Find("ButtonConfirmSelectRight").GetComponent<Button>();
-        ButtonSelect.interactable = false;
-
-        //外すボタンのenable設定
-        Button ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-        ButtonRemove.interactable = false;
-        ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-        ButtonRemove.interactable = false;
+        //選択ボタンと外すボタンのenable設定
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("SelectCharacter");
+        foreach (GameObject gameObject in tag1_Objects)
+        {
+            if (gameObject.name.Equals("ButtonConfirmSelectLeft") ||
+                gameObject.name.Equals("ButtonConfirmSelectRight") ||
+                gameObject.name.Equals("ButtonRemoveLeft") ||
+                gameObject.name.Equals("ButtonRemoveRight"))
+            {
+                gameObject.GetComponent<Button>().interactable = false;
+            }
+        }
 
         //選択キャラクターの画像とステータスの表示と外すボタンのenable設定
         if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
@@ -273,10 +275,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                     TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
                     //外すボタンのenable設定
-                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                    ButtonRemove.interactable = true;
-                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                    ButtonRemove.interactable = true;
+                    foreach (GameObject gameObject in tag1_Objects)
+                    {
+                        if (gameObject.name.Equals("ButtonRemoveLeft") ||
+                            gameObject.name.Equals("ButtonRemoveRight"))
+                        {
+                            gameObject.GetComponent<Button>().interactable = true;
+                        }
+                    }
                 }
 
             }
@@ -298,10 +304,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                     TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
                     //外すボタンのenable設定
-                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                    ButtonRemove.interactable = true;
-                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                    ButtonRemove.interactable = true;
+                    foreach (GameObject gameObject in tag1_Objects)
+                    {
+                        if (gameObject.name.Equals("ButtonRemoveLeft") ||
+                            gameObject.name.Equals("ButtonRemoveRight"))
+                        {
+                            gameObject.GetComponent<Button>().interactable = true;
+                        }
+                    }
                 }
 
             }
@@ -323,10 +333,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                     TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
                     //外すボタンのenable設定
-                    ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                    ButtonRemove.interactable = true;
-                    ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                    ButtonRemove.interactable = true;
+                    foreach (GameObject gameObject in tag1_Objects)
+                    {
+                        if (gameObject.name.Equals("ButtonRemoveLeft") ||
+                            gameObject.name.Equals("ButtonRemoveRight"))
+                        {
+                            gameObject.GetComponent<Button>().interactable = true;
+                        }
+                    }
                 }
 
             }
@@ -358,10 +372,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
                 //外すボタンのenable設定
-                ButtonRemove = GameObject.Find("ButtonRemoveLeft").GetComponent<Button>();
-                ButtonRemove.interactable = true;
-                ButtonRemove = GameObject.Find("ButtonRemoveRight").GetComponent<Button>();
-                ButtonRemove.interactable = true;
+                foreach (GameObject gameObject in tag1_Objects)
+                {
+                    if (gameObject.name.Equals("ButtonRemoveLeft") ||
+                        gameObject.name.Equals("ButtonRemoveRight"))
+                    {
+                        gameObject.GetComponent<Button>().interactable = true;
+                    }
+                }
             }
 
         }
