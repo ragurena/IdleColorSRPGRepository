@@ -700,13 +700,15 @@ public class ControllerProduction : MonoBehaviour
                 PixelListPage[3] = (byte)Slider.value;
         }
 
-        // 計測開始
-        System.Diagnostics.Stopwatch swSlider = new System.Diagnostics.Stopwatch();
-        swSlider.Start();
-        ClearPixelListPixelProduction();
-        CreatePixelListPixelProduction();
-        swSlider.Stop();
-        Debug.Log("swSlider : " + swSlider.Elapsed);
+        {
+            // 計測開始
+            System.Diagnostics.Stopwatch swSlider = new System.Diagnostics.Stopwatch();
+            swSlider.Start();
+            ClearPixelListPixelProduction();
+            CreatePixelListPixelProduction();
+            swSlider.Stop();
+            Debug.Log("swSlider : " + swSlider.Elapsed);
+        }
     }
 
 
@@ -718,7 +720,6 @@ public class ControllerProduction : MonoBehaviour
 
         ShowPanelSelectColorMethod();
     }
-
     //カラーセレクトの色指定方法の戻るボタンが押されたら
     public void PushButtonBackSelectColorMethod()
     {
@@ -739,15 +740,6 @@ public class ControllerProduction : MonoBehaviour
         UpdateSlectColorMethodRGBNum("B");
     }
 
-    //カラーセレクトの色指定方法のRGB値で指定で戻るボタンが押されたら
-    public void PushButtonBackSelectColorMethodRGBNum()
-    {
-        NotShowPanel(PanelSelectColorMethodRGBNum);
-        ColorTmp.r = 0.0f;
-        ColorTmp.g = 0.0f;
-        ColorTmp.b = 0.0f;
-    }
-
     //カラーセレクトの色指定方法パネルの表示
     public void ShowPanelSelectColorMethod()
     {
@@ -759,6 +751,15 @@ public class ControllerProduction : MonoBehaviour
     {
         NotShowPanel(PanelSelectColorMethod);
         NotShowPanel(PanelSelectColor);
+    }
+
+    //カラーセレクトの色指定方法のRGB値で指定で戻るボタンが押されたら
+    public void PushButtonBackSelectColorMethodRGBNum()
+    {
+        NotShowPanel(PanelSelectColorMethodRGBNum);
+        ColorTmp.r = 0.0f;
+        ColorTmp.g = 0.0f;
+        ColorTmp.b = 0.0f;
     }
 
     //RGB値で色指定のスライダーまたはインプットフィールドの入力があったら
@@ -905,7 +906,7 @@ public class ControllerProduction : MonoBehaviour
         }
     }
     //RGB値で色指定の決定ボタンが押されたら
-    public void PushButtonConfirmSelectColor()
+    public void PushButtonConfirmSelectColorRGBNum()
     {
         int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
@@ -935,6 +936,10 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonSelectColorMethodCharacter()
     {
         ShowPanel(PanelSelectColorMethodCharacter);
+        ColorTmp.r = 0.0f;
+        ColorTmp.g = 0.0f;
+        ColorTmp.b = 0.0f;
+        ControlImageSelectColor("SelectColorMethodCharacter");
     }
 
     //カラーセレクトの色指定方法のキャラクターで指定で戻るボタンが押されたら
@@ -944,8 +949,8 @@ public class ControllerProduction : MonoBehaviour
         ColorTmp.r = 0.0f;
         ColorTmp.g = 0.0f;
         ColorTmp.b = 0.0f;
+        ControlImageSelectColor("SelectColorMethodCharacter");
     }
-
     //カラーセレクトの色指定方法のキャラクターで指定でキャラクターボタンが押されたら
     public void PushButtonSelectColorMethodCharacterCharacter()
     {
@@ -967,7 +972,6 @@ public class ControllerProduction : MonoBehaviour
             ControlImageSelectColor("SelectColorMethodCharacter");
         }
     }
-
     //押したボタンの左下の座標を取得
     public Vector2 GetButtonPosLeftUnder()
     {
@@ -980,6 +984,32 @@ public class ControllerProduction : MonoBehaviour
         //Debug.Log("ButtonPosLeftUnder = " + ButtonPosLeftUnder);
 
         return ButtonPosLeftUnder;
+    }
+    //RGB値で色指定の決定ボタンが押されたら
+    public void PushButtonConfirmSelectColorCharacter()
+    {
+        int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+        //進捗の初期化
+        InitializeProgressProductionPixel(ProductionPixelIndex);
+
+        ColorProductionPixel[ProductionPixelIndex].r = ColorTmp.r;
+        ColorProductionPixel[ProductionPixelIndex].g = ColorTmp.g;
+        ColorProductionPixel[ProductionPixelIndex].b = ColorTmp.b;
+
+        NotShowPanel(PanelSelectColorMethodCharacter);
+        ColorTmp.r = 0;
+        ColorTmp.g = 0;
+        ColorTmp.b = 0;
+        ControlImageSelectColor("SelectColorMethodCharacter");
+
+        //どのボタンで呼び出されたか削除
+        ButtonTmp = null;
+
+        NotShowPanelSelectColorMethod();
+
+        UpdatePixelColorPixelProduction(ProductionPixelIndex);
+        UpdateSliderPixelProduction(ProductionPixelIndex);
     }
 
 
