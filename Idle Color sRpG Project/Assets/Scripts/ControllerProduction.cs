@@ -133,7 +133,8 @@ public class ControllerProduction : MonoBehaviour
 
 
     //TODO:グローバルなtmp変数はバグの温床だと分かってるけどどうしたものか...
-    Button ButtonTmp = null;
+    Button ButtonCharacterTmp = null;
+    Button ButtonColorTmp = null;
     Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
 
@@ -341,6 +342,15 @@ public class ControllerProduction : MonoBehaviour
     private float TimeElapsed = 0;
     void Update()
     {
+        //TODO:test
+        GameObject testLogText;
+        testLogText = GameObject.FindGameObjectWithTag("test");
+        testLogText.GetComponentInChildren<Text>().text = "ButtonCharacterTmp = " + ButtonCharacterTmp + "\n" +
+                                                          "ButtonColorTmp = " + ButtonColorTmp + "\n" +
+                                                          "ColorTmp = " + ColorTmp;
+
+
+
         TimeElapsed += Time.deltaTime;
 
         if (TimeElapsed >= TimeOut)
@@ -559,11 +569,11 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonSelectCharacter(string argButtonName)
     {
         //どのボタンで呼び出されたか保存
-        ButtonTmp = GameObject.Find(argButtonName).GetComponent<Button>();
+        ButtonCharacterTmp = GameObject.Find(argButtonName).GetComponent<Button>();
 
         //PanelSelectCharacterの表示
         ShowPanel(PanelSelectCharacter);
-        ControllerCharacterSelect.ShowPanelSelectCharacter(ButtonTmp);
+        ControllerCharacterSelect.ShowPanelSelectCharacter(ButtonCharacterTmp);
 
     }
 
@@ -571,7 +581,7 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonBackSelectCharacter()
     {
         //どのボタンで呼び出されたか削除
-        ButtonTmp = null;
+        ButtonCharacterTmp = null;
 
         //PanelSelectCharacterの非表示
         ControllerCharacterSelect.NotShowPanelSelectCharacter();
@@ -587,12 +597,12 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクトの決定ボタンが押されたら
     public void PushButtonConfirmSelectCharacter()
     {
-        ControllerCharacterSelect.ConfirmSelectCharacter(ButtonTmp);
+        ControllerCharacterSelect.ConfirmSelectCharacter(ButtonCharacterTmp);
 
-        if (ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
+        if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
             //進捗の初期化
-            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionPixelIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
             InitializeProgressProductionPixel(ProductionPixelIndex);
 
             //TODO:view更新、RGBのテキストだけでいい
@@ -600,7 +610,7 @@ public class ControllerProduction : MonoBehaviour
         }
 
         //どのボタンで呼び出されたか削除
-        ButtonTmp = null;
+        ButtonCharacterTmp = null;
 
         ControllerCharacterSelect.NotShowPanelSelectCharacter();
         NotShowPanel(PanelSelectCharacter);
@@ -609,11 +619,11 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクトの外すボタンが押されたら
     public void PushButtonRemoveCharacterSelect()
     {
-        ControllerCharacterSelect.RemoveCharacterSelect(ButtonTmp);
+        ControllerCharacterSelect.RemoveCharacterSelect(ButtonCharacterTmp);
 
-        if (ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
+        if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionPixelIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
 
             //進捗の初期化
             InitializeProgressProductionPixel(ProductionPixelIndex);
@@ -623,7 +633,7 @@ public class ControllerProduction : MonoBehaviour
         }
 
         //どのボタンで呼び出されたか削除
-        ButtonTmp = null;
+        ButtonCharacterTmp = null;
 
         ControllerCharacterSelect.NotShowPanelSelectCharacter();
         NotShowPanel(PanelSelectCharacter);
@@ -716,7 +726,7 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonSelectColor(string argButtonName)
     {
         //どのボタンで呼び出されたか保存
-        ButtonTmp = GameObject.Find(argButtonName).GetComponent<Button>();
+        ButtonColorTmp = GameObject.Find(argButtonName).GetComponent<Button>();
 
         ShowPanelSelectColorMethod();
     }
@@ -724,7 +734,7 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonBackSelectColorMethod()
     {
         //どのボタンで呼び出されたか削除
-        ButtonTmp = null;
+        ButtonColorTmp = null;
 
         NotShowPanelSelectColorMethod();
     }
@@ -908,7 +918,7 @@ public class ControllerProduction : MonoBehaviour
     //RGB値で色指定の決定ボタンが押されたら
     public void PushButtonConfirmSelectColorRGBNum()
     {
-        int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+        int ProductionPixelIndex = int.Parse(ButtonColorTmp.name.Substring(ButtonColorTmp.name.Length - 2, 2));
 
         //進捗の初期化
         InitializeProgressProductionPixel(ProductionPixelIndex);
@@ -923,7 +933,7 @@ public class ControllerProduction : MonoBehaviour
         ColorTmp.b = 0;
 
         //どのボタンで呼び出されたか削除
-        ButtonTmp = null;
+        ButtonColorTmp = null;
 
         NotShowPanelSelectColorMethod();
 
@@ -936,9 +946,23 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonSelectColorMethodCharacter()
     {
         ShowPanel(PanelSelectColorMethodCharacter);
+
         ColorTmp.r = 0.0f;
         ColorTmp.g = 0.0f;
         ColorTmp.b = 0.0f;
+
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("SelectColorMethodCharacter");
+        foreach (GameObject gameObject in tag1_Objects)
+        {
+            if (gameObject.name.Equals("ButtonCharacterColor"))
+            {
+                gameObject.GetComponent<Image>().sprite = null;
+                gameObject.GetComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f);
+                gameObject.GetComponentInChildren<Text>().text = "+";
+            }
+        }
+
         ControlImageSelectColor("SelectColorMethodCharacter");
     }
 
@@ -949,27 +973,56 @@ public class ControllerProduction : MonoBehaviour
         ColorTmp.r = 0.0f;
         ColorTmp.g = 0.0f;
         ColorTmp.b = 0.0f;
+
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("SelectColorMethodCharacter");
+        foreach (GameObject gameObject in tag1_Objects)
+        {
+            if (gameObject.name.Equals("ButtonCharacterColor"))
+            {
+                gameObject.GetComponent<Image>().sprite = null;
+                gameObject.GetComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f);
+                gameObject.GetComponentInChildren<Text>().text = "+";
+            }
+        }
+
+        //どのボタンで呼び出されたか削除
+        ButtonCharacterTmp = null;
+
         ControlImageSelectColor("SelectColorMethodCharacter");
     }
     //カラーセレクトの色指定方法のキャラクターで指定でキャラクターボタンが押されたら
     public void PushButtonSelectColorMethodCharacterCharacter()
     {
-        Vector2 ButtonPosLeftUnder = GetButtonPosLeftUnder();
-        Debug.Log("ButtonPosLeftUnder = " + ButtonPosLeftUnder);
+        GameObject tmpButtonCharacter = eventSystem.currentSelectedGameObject.gameObject;
 
-        GameObject tmpButton = eventSystem.currentSelectedGameObject.gameObject;
-        Texture2D buttonImage = tmpButton.GetComponent<Image>().sprite.texture;
-        Vector2 buttonSize = tmpButton.GetComponent<RectTransform>().sizeDelta;
-        Vector2 pixelSize = new Vector2(buttonSize.x / buttonImage.width, buttonSize.y / buttonImage.height);
-        Vector2 clickPosImage = new Vector2(Input.mousePosition.x - ButtonPosLeftUnder.x, Input.mousePosition.y - ButtonPosLeftUnder.y);
-        Color clickColor = buttonImage.GetPixel((int)(clickPosImage.x / pixelSize.x), (int)(clickPosImage.y / pixelSize.y));
-        Debug.Log("clickColor = " + clickColor);
-        if (clickColor.a > 0.0f)
+        if (tmpButtonCharacter.GetComponent<Image>().sprite == null)
         {
-            ColorTmp.r = clickColor.r;
-            ColorTmp.g = clickColor.g;
-            ColorTmp.b = clickColor.b;
-            ControlImageSelectColor("SelectColorMethodCharacter");
+            Debug.Log("tmpButton.GetComponent<Image>().sprite == null");
+
+            ButtonCharacterTmp = tmpButtonCharacter.GetComponent<Button>();
+            //PanelSelectCharacterの表示
+            ShowPanel(PanelSelectCharacter);
+            ControllerCharacterSelect.ShowPanelSelectCharacter(ButtonCharacterTmp); 
+        }
+        else
+        {
+            Vector2 ButtonPosLeftUnder = GetButtonPosLeftUnder();
+            Debug.Log("ButtonPosLeftUnder = " + ButtonPosLeftUnder);
+
+            Texture2D buttonImage = tmpButtonCharacter.GetComponent<Image>().sprite.texture;
+            Vector2 buttonSize = tmpButtonCharacter.GetComponent<RectTransform>().sizeDelta;
+            Vector2 pixelSize = new Vector2(buttonSize.x / buttonImage.width, buttonSize.y / buttonImage.height);
+            Vector2 clickPosImage = new Vector2(Input.mousePosition.x - ButtonPosLeftUnder.x, Input.mousePosition.y - ButtonPosLeftUnder.y);
+            Color clickColor = buttonImage.GetPixel((int)(clickPosImage.x / pixelSize.x), (int)(clickPosImage.y / pixelSize.y));
+            Debug.Log("clickColor = " + clickColor);
+            if (clickColor.a > 0.0f)
+            {
+                ColorTmp.r = clickColor.r;
+                ColorTmp.g = clickColor.g;
+                ColorTmp.b = clickColor.b;
+                ControlImageSelectColor("SelectColorMethodCharacter");
+            }
         }
     }
     //押したボタンの左下の座標を取得
@@ -985,10 +1038,10 @@ public class ControllerProduction : MonoBehaviour
 
         return ButtonPosLeftUnder;
     }
-    //RGB値で色指定の決定ボタンが押されたら
+    //カラーセレクトの色指定方法のキャラクターで色指定で決定ボタンが押されたら
     public void PushButtonConfirmSelectColorCharacter()
     {
-        int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+        int ProductionPixelIndex = int.Parse(ButtonColorTmp.name.Substring(ButtonColorTmp.name.Length - 2, 2));
 
         //進捗の初期化
         InitializeProgressProductionPixel(ProductionPixelIndex);
@@ -1004,7 +1057,20 @@ public class ControllerProduction : MonoBehaviour
         ControlImageSelectColor("SelectColorMethodCharacter");
 
         //どのボタンで呼び出されたか削除
-        ButtonTmp = null;
+        ButtonColorTmp = null;
+        ButtonCharacterTmp = null;
+
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("SelectColorMethodCharacter");
+        foreach (GameObject gameObject in tag1_Objects)
+        {
+            if (gameObject.name.Equals("ButtonCharacterColor"))
+            {
+                gameObject.GetComponent<Image>().sprite = null;
+                gameObject.GetComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f);
+                gameObject.GetComponentInChildren<Text>().text = "+";
+            }
+        }
 
         NotShowPanelSelectColorMethod();
 

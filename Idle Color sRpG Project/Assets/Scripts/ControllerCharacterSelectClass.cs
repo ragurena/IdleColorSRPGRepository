@@ -94,7 +94,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                                                            * CharactersAll[argCharacterID].GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
-
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterColor"))
+        {
+            TextSelectCharacter1.text = "";
+            TextSelectCharacter2.text = "";
+            TextSelectCharacter3.text = "";
+        }
     }
 
     //キャラクターセレクトの決定ボタンが押されたら
@@ -383,6 +389,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             }
 
         }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterColor"))
+        {
+            TextSelectCharacter1.text = "";
+            TextSelectCharacter2.text = "";
+            TextSelectCharacter3.text = "";
+        }
+
 
         //キャラクターボタン生成
         GameObject[] ArrayButtonCharacter = new GameObject[Constants.CHARACTERS_ALL_NUM + 1];
@@ -428,6 +442,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                                                                        * CharactersAll[indexCharacter].GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
                     ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
                 }
+                else
+                if (ButtonTmp.name.Contains("ButtonCharacterColor"))
+                {
+                    ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().text = "";
+                }
+
 
                 //クリックイベントを追加
                 uint CharacterID = (uint)(indexCharacter);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入

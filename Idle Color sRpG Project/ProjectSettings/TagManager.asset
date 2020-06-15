@@ -7,6 +7,7 @@ TagManager:
   - SelectColorMethodRGBNum
   - SelectColorMethodCharacter
   - SelectCharacter
+  - test
   layers:
   - Default
   - TransparentFX
