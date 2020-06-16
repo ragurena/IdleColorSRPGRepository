@@ -445,7 +445,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 else
                 if (ButtonTmp.name.Contains("ButtonCharacterColor"))
                 {
-                    ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().text = "";
+                    ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().text = CharactersAll[indexCharacter].Name;
                 }
 
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using System.IO;
+using OpenCvSharp;
 
 
 
@@ -208,6 +209,9 @@ public class CharacterClass //: MonoBehaviour
             return null;
         }
 
+        //ポスタリゼーション
+        argImage = Posterization(argImage, 16);
+
         //アルファチャンネルを二値化、透過画素の色を0
         Color[] ImageColor = argImage.GetPixels(0, 0, argImage.width, argImage.height);
         for (int x = 0; x < argImage.width; x++)
@@ -256,6 +260,36 @@ public class CharacterClass //: MonoBehaviour
         Object.DestroyImmediate(resultTexture2D);
 
         return resultImagePath;
+    }
+
+    Texture2D Posterization(Texture2D argSrcImg, int argCullNum)
+    {
+        Mat SrcImg = OpenCvSharp.Unity.TextureToMat(argSrcImg);
+
+        Mat resultMat = new Mat(SrcImg.Height, SrcImg.Width, MatType.CV_8U);
+        byte[] LUT = new byte[256];
+        for (int x = 0; x < 256; x++)
+        {
+            int num = ((x + (argCullNum / 2)) / argCullNum) * argCullNum;
+            if (num > 255)
+                num = 255;
+            LUT[x] = (byte)num;
+        }
+
+        Cv2.LUT(SrcImg, LUT, resultMat);
+
+        Texture2D resultTexture2D = OpenCvSharp.Unity.MatToTexture(resultMat);
+        
+        Color[] srcBuffer = argSrcImg.GetPixels();
+        Color[] resultBuffer = resultTexture2D.GetPixels();
+        for (int i = 0; i < SrcImg.Height * SrcImg.Width; i++)
+        {
+            resultBuffer.SetValue(new Color(resultBuffer[i].r, resultBuffer[i].g, resultBuffer[i].b, srcBuffer[i].a), i);
+        }
+        resultTexture2D.SetPixels(resultBuffer);
+        resultTexture2D.Apply();
+
+        return resultTexture2D;
     }
 
     bool CalcCharacterStats()

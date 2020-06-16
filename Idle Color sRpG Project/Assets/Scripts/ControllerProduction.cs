@@ -303,6 +303,15 @@ public class ControllerProduction : MonoBehaviour
         CharactersAll[4].MakeCharacter(Application.persistentDataPath + "/Character/WhiteSlime8" + ".png", 4, "LittleWhiteSlime");
         CharactersAll[5].MakeCharacter(Application.persistentDataPath + "/Character/RBlackCat8" + ".png", 5, "LittleRBlackCat");
         CharactersAll[8].MakeCharacter(Application.persistentDataPath + "/Character/WhiteCat8" + ".png", 8, "LittleWhiteCat");
+
+        CharactersAll[16 + 1].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_R" + ".png", 16 + 1, "RedSlime");
+        CharactersAll[16 + 2].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_G" + ".png", 16 + 2, "GreenSlime");
+        CharactersAll[16 + 3].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_B" + ".png", 16 + 3, "BlueSlime");
+        CharactersAll[16 + 5].MakeCharacter(Application.persistentDataPath + "/Character/0032_rabbit" + ".png", 16 + 5, "WhiteRabbit");
+        CharactersAll[16 + 6].MakeCharacter(Application.persistentDataPath + "/Character/0064_slimeking_R" + ".png", 16 + 6, "RedSlimeKing");
+        CharactersAll[16 + 7].MakeCharacter(Application.persistentDataPath + "/Character/0064_slimeking_G" + ".png", 16 + 7, "GreenSlimeKing");
+        CharactersAll[16 + 8].MakeCharacter(Application.persistentDataPath + "/Character/0064_slimeking_B" + ".png", 16 + 8, "BlueSlimeKing");
+
         CharactersAll[32].MakeCharacter(Application.persistentDataPath + "/Character/wanwan" + ".png", 32, "wanwan");
 
         //CharactersAll[1].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
@@ -1108,11 +1117,11 @@ public class ControllerProduction : MonoBehaviour
     {
         Debug.Log("MakeFile Begin");
 
+        //キャラクターフォルダ、正規化キャラクターフォルダの生成
         if (!(Directory.Exists(Application.persistentDataPath + "/Character")))
         {
             Directory.CreateDirectory(Application.persistentDataPath + "/Character");
         }
-
         if (!(Directory.Exists(Application.persistentDataPath + "/Character/Nomalization")))
         {
             Directory.CreateDirectory(Application.persistentDataPath + "/Character/Nomalization");
@@ -1120,6 +1129,7 @@ public class ControllerProduction : MonoBehaviour
 
 #if UNITY_EDITOR
         Debug.Log("UNITY_EDITOR");
+        //元のキャラクターのパス取得
         string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
 #elif UNITY_IPHONE //TODO:iosテスト
         Debug.Log("UNITY_IPHONE");
@@ -1129,6 +1139,7 @@ public class ControllerProduction : MonoBehaviour
 //        string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
 #endif
 
+//読み書き可能なフォルダへコピー
 #if UNITY_EDITOR || UNITY_IPHONE
         foreach (string file in files)
         {
@@ -1138,10 +1149,7 @@ public class ControllerProduction : MonoBehaviour
                 File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
             }
         }
-#endif
-
-
-#if UNITY_ANDROID && !UNITY_EDITOR
+#elif UNITY_ANDROID
         Debug.Log("UNITY_ANDROID");
 
         Debug.Log("ANDROID + 0.41 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png");
@@ -1159,55 +1167,29 @@ public class ControllerProduction : MonoBehaviour
         File.WriteAllBytes(toPath, www.bytes);
         Debug.Log("ANDROID + 0.6 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png" + " -> " + Application.persistentDataPath + "/Character/RedSlime8.png");
 
-        //TODO:リファクタリング
-        path = Application.streamingAssetsPath + "/Character/GreenSlime8.png";
-        www = new WWW(path);
-        while (!www.isDone)
-        {
-        }
-        toPath = Application.persistentDataPath + "/Character/GreenSlime8.png";
-        File.WriteAllBytes(toPath, www.bytes);
+        string[] CharacterNames = { "GreenSlime8.png" ,
+                                    "BlueSlime8.png" ,
+                                    "WhiteSlime8.png" ,
+                                    "RBlackCat8.png" ,
+                                    "WhiteCat8.png" ,
+                                    "wanwan.png",
 
-        path = Application.streamingAssetsPath + "/Character/BlueSlime8.png";
-        www = new WWW(path);
-        while (!www.isDone)
+                                    "0032_slime_R.png",
+                                    "0032_slime_G.png",
+                                    "0032_slime_B.png",
+                                    "0032_rabbit.png",
+                                    "0064_slimeking_R.png",
+                                    "0064_slimeking_G.png",
+                                    "0064_slimeking_B.png"
+                                    };
+        foreach (string curCharacterName in CharacterNames)
         {
+            path = Application.streamingAssetsPath + "/Character/" + curCharacterName;
+            www = new WWW(path);
+            while (!www.isDone){}
+            toPath = Application.persistentDataPath + "/Character/" + curCharacterName;
+            File.WriteAllBytes(toPath, www.bytes);
         }
-        toPath = Application.persistentDataPath + "/Character/BlueSlime8.png";
-        File.WriteAllBytes(toPath, www.bytes);
-
-        path = Application.streamingAssetsPath + "/Character/WhiteSlime8.png";
-        www = new WWW(path);
-        while (!www.isDone)
-        {
-        }
-        toPath = Application.persistentDataPath + "/Character/WhiteSlime8.png";
-        File.WriteAllBytes(toPath, www.bytes);
-
-        path = Application.streamingAssetsPath + "/Character/RBlackCat8.png";
-        www = new WWW(path);
-        while (!www.isDone)
-        {
-        }
-        toPath = Application.persistentDataPath + "/Character/RBlackCat8.png";
-        File.WriteAllBytes(toPath, www.bytes);
-
-        path = Application.streamingAssetsPath + "/Character/WhiteCat8.png";
-        www = new WWW(path);
-        while (!www.isDone)
-        {
-        }
-        toPath = Application.persistentDataPath + "/Character/WhiteCat8.png";
-        File.WriteAllBytes(toPath, www.bytes);
-
-        path = Application.streamingAssetsPath + "/Character/wanwan.png";
-        www = new WWW(path);
-        while (!www.isDone)
-        {
-        }
-        toPath = Application.persistentDataPath + "/Character/wanwan.png";
-        File.WriteAllBytes(toPath, www.bytes);
-
 
         //string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
         //foreach (string file in files)
