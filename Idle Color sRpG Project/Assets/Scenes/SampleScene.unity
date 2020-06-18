@@ -587,7 +587,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1423160889}
   m_Direction: 0
   m_Value: 0
-  m_Size: 0.19961722
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -4321,7 +4321,7 @@ GameObject:
   - component: {fileID: 536186493}
   - component: {fileID: 536186492}
   m_Layer: 5
-  m_Name: Scroll View
+  m_Name: ScrollViewPixelList
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5205,7 +5205,7 @@ PrefabInstance:
     - target: {fileID: 8928077502050776758, guid: fc2d3e8817a7a194f8974245d16544a0,
         type: 3}
       propertyPath: m_MaxValue
-      value: 15
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 8928077502050776758, guid: fc2d3e8817a7a194f8974245d16544a0,
         type: 3}
@@ -12598,7 +12598,7 @@ PrefabInstance:
     - target: {fileID: 8928077502050776758, guid: fc2d3e8817a7a194f8974245d16544a0,
         type: 3}
       propertyPath: m_MaxValue
-      value: 255
+      value: 16
       objectReference: {fileID: 0}
     - target: {fileID: 8928077502050776758, guid: fc2d3e8817a7a194f8974245d16544a0,
         type: 3}
@@ -13201,7 +13201,7 @@ GameObject:
   - component: {fileID: 1853231395}
   m_Layer: 5
   m_Name: ContentPixelList
-  m_TagString: Untagged
+  m_TagString: PixelList
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13262,7 +13262,7 @@ MonoBehaviour:
   m_CellSize: {x: 300, y: 85}
   m_Spacing: {x: 25, y: 25}
   m_Constraint: 1
-  m_ConstraintCount: 16
+  m_ConstraintCount: 3
 --- !u!1001 &1885100683
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13528,7 +13528,7 @@ PrefabInstance:
     - target: {fileID: 8928077502050776758, guid: fc2d3e8817a7a194f8974245d16544a0,
         type: 3}
       propertyPath: m_MaxValue
-      value: 15
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 8928077502050776758, guid: fc2d3e8817a7a194f8974245d16544a0,
         type: 3}

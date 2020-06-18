@@ -401,7 +401,6 @@ public class ControllerProduction : MonoBehaviour
 
                 if (ProductionPixelFlag)
                 {
-                    ClearPixelListPixelProduction();
                     CreatePixelListPixelProduction();
                 }
             }
@@ -662,7 +661,7 @@ public class ControllerProduction : MonoBehaviour
             }
             else
             if (argButtonName.Substring(argButtonName.Length - 3, 2) == "Up")
-                if (PixelListPage[1] < 15)
+                if (PixelListPage[1] < 5)
                     PixelListPage[1]++;
         }
         else
@@ -675,7 +674,7 @@ public class ControllerProduction : MonoBehaviour
             }
             else
             if (argButtonName.Substring(argButtonName.Length - 3, 2) == "Up")
-                if (PixelListPage[2] < 15)
+                if (PixelListPage[2] < 5)
                     PixelListPage[2]++;
         }
         else
@@ -688,11 +687,10 @@ public class ControllerProduction : MonoBehaviour
             }
             else
             if (argButtonName.Substring(argButtonName.Length - 3, 2) == "Up")
-                if (PixelListPage[3] < 254)
+                if (PixelListPage[3] < 16)
                     PixelListPage[3]++;
         }
 
-        ClearPixelListPixelProduction();
         CreatePixelListPixelProduction();
     }
     //ページのスライダーの入力があったら
@@ -703,19 +701,19 @@ public class ControllerProduction : MonoBehaviour
 
         if (strRGB.Equals("R"))
         {
-            if (Slider.value >= 0 && Slider.value <= 15)
+            if (Slider.value >= 0 && Slider.value <= 5)
                 PixelListPage[1] = (byte)Slider.value;
         }
         else
         if (strRGB.Equals("G"))
         {
-            if (Slider.value >= 0 && Slider.value <= 15)
+            if (Slider.value >= 0 && Slider.value <= 5)
                 PixelListPage[2] = (byte)Slider.value;
         }
         else
         if (strRGB.Equals("B"))
         {
-            if (Slider.value >= 0 && Slider.value <= 255)
+            if (Slider.value >= 0 && Slider.value <= 16)
                 PixelListPage[3] = (byte)Slider.value;
         }
 
@@ -723,7 +721,6 @@ public class ControllerProduction : MonoBehaviour
             // 計測開始
             System.Diagnostics.Stopwatch swSlider = new System.Diagnostics.Stopwatch();
             swSlider.Start();
-            ClearPixelListPixelProduction();
             CreatePixelListPixelProduction();
             swSlider.Stop();
             Debug.Log("swSlider : " + swSlider.Elapsed);
@@ -1104,7 +1101,6 @@ public class ControllerProduction : MonoBehaviour
 
         if (ProductionPixelFlag)
         {
-            ClearPixelListPixelProduction();
             CreatePixelListPixelProduction();
         }
     }
@@ -1518,7 +1514,6 @@ public class ControllerProduction : MonoBehaviour
     //ピクセル生産
     public void UpdatePixelProductionScene()
     {
-        ClearPixelListPixelProduction();
         CreatePixelListPixelProduction();
 
         for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
@@ -1546,22 +1541,79 @@ public class ControllerProduction : MonoBehaviour
         System.Diagnostics.Stopwatch swI = new System.Diagnostics.Stopwatch();
         System.Diagnostics.Stopwatch swU = new System.Diagnostics.Stopwatch();
 
+        //int B = PixelListPage[3];
+        //for (int G = (PixelListPage[2] * 16); G < (PixelListPage[2] * 16) + 16; G++)
+        //{
+        //    for (int R = (PixelListPage[1] * 16); R < (PixelListPage[1] * 16) + 16; R++)
+        //    {
+        //        //プレハブのインスタンス化
+        //        swI.Start();
+        //        ArrayShowPixelColorAndNum[R % 16, G % 16] = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), GameObjectContentPixelList.transform) as GameObject;
+        //        swI.Stop();
+
+        //        swU.Start();
+        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Image>()[1].color = new Color(R / 255f, G / 255f, B / 255f, 1.0f);
+        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[0].text = R.ToString();
+        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[2].text = G.ToString();
+        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[4].text = B.ToString();
+        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[5].text = CurPixels[R, G, B].ToString();
+        //        swU.Stop();
+        //    }
+        //}
+
+        int rowNum = 3;
+        int colNum = 3;
+        int cullNum = 16;
         int B = PixelListPage[3];
-        for (int G = (PixelListPage[2] * 16); G < (PixelListPage[2] * 16) + 16; G++)
+
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("PixelList");
+        foreach (GameObject gameObject in tag1_Objects)
         {
-            for (int R = (PixelListPage[1] * 16); R < (PixelListPage[1] * 16) + 16; R++)
+            if (gameObject.name.Equals("ContentPixelList"))
             {
+                Debug.Log("((PixelListPage[1] * colNum) + colNum - 1) * cullNum = " + ((PixelListPage[1] * colNum) + colNum - 1) * cullNum);
+                if (((PixelListPage[1] * colNum) + colNum - 1) * cullNum < 256)
+                    gameObject.GetComponent<GridLayoutGroup>().constraintCount = 3;
+                else
+                    gameObject.GetComponent<GridLayoutGroup>().constraintCount = 2;
+            }
+        }
+
+        ClearPixelListPixelProduction();
+
+        for (int G = (PixelListPage[2] * rowNum); G < (PixelListPage[2] * rowNum) + rowNum; G++)
+        {
+            for (int R = (PixelListPage[1] * colNum); R < (PixelListPage[1] * colNum) + colNum; R++)
+            {
+                int RColor = R * cullNum;
+                int GColor = G * cullNum;
+                int BColor = B * cullNum;
+
+                if(cullNum != 1)
+                {
+                    if (RColor == 256)
+                        RColor = 255;
+                    if (GColor == 256)
+                        GColor = 255;
+                    if (BColor == 256)
+                        BColor = 255;
+                }
+                if (RColor > 255 || GColor > 255)
+                    continue;
+
+
                 //プレハブのインスタンス化
                 swI.Start();
-                ArrayShowPixelColorAndNum[R % 16, G % 16] = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), GameObjectContentPixelList.transform) as GameObject;
+                ArrayShowPixelColorAndNum[R % colNum, G % rowNum] = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), GameObjectContentPixelList.transform) as GameObject;
                 swI.Stop();
 
                 swU.Start();
-                ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Image>()[1].color = new Color(R / 255f, G / 255f, B / 255f, 1.0f);
-                ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[0].text = R.ToString();
-                ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[2].text = G.ToString();
-                ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[4].text = B.ToString();
-                ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[5].text = CurPixels[R, G, B].ToString();
+                ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Image>()[1].color = new Color(RColor / 255f, GColor / 255f, BColor / 255f, 1.0f);
+                ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[0].text = RColor.ToString();
+                ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[2].text = GColor.ToString();
+                ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[4].text = BColor.ToString();
+                ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[5].text = CurPixels[RColor, GColor, BColor].ToString();
                 swU.Stop();
             }
         }
@@ -1574,7 +1626,9 @@ public class ControllerProduction : MonoBehaviour
     {
         if (argPrefabPixelListPageRGB.name == "PrefabPixelListPageR")
         {
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[1] * 16).ToString() + " ～ " + ((PixelListPage[1] * 16) - 1 + 16).ToString();
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[1] * 16 * 3).ToString() + " ～ " + ((PixelListPage[1] * 16 * 3) + (16 * 2)).ToString();
+            if((PixelListPage[1] * 16 * 3) + (16 * 2) > 255)
+                argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[1] * 16 * 3).ToString() + " ～ " + 255.ToString();
 
             if (PixelListPage[1] == 0)
             {
@@ -1582,7 +1636,7 @@ public class ControllerProduction : MonoBehaviour
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
             }
             else
-            if (PixelListPage[1] == 15)
+            if (PixelListPage[1] == 5)
             {
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = false;
@@ -1598,7 +1652,9 @@ public class ControllerProduction : MonoBehaviour
         else
         if (argPrefabPixelListPageRGB.name == "PrefabPixelListPageG")
         {
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[2] * 16).ToString() + " ～ " + ((PixelListPage[2] * 16) - 1 + 16).ToString();
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[2] * 16 * 3).ToString() + " ～ " + ((PixelListPage[2] * 16 * 3) + (16 * 2)).ToString();
+            if((PixelListPage[2] * 16 * 3) + (16 * 2) > 255)
+                argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[2] * 16 * 3).ToString() + " ～ " + 255.ToString();
 
             if (PixelListPage[2] == 0)
             {
@@ -1606,7 +1662,7 @@ public class ControllerProduction : MonoBehaviour
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
             }
             else
-            if (PixelListPage[2] == 15)
+            if (PixelListPage[2] == 5)
             {
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = false;
@@ -1622,7 +1678,9 @@ public class ControllerProduction : MonoBehaviour
         else
         if (argPrefabPixelListPageRGB.name == "PrefabPixelListPageB")
         {
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = PixelListPage[3].ToString();
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[3] * 16).ToString();
+            if (PixelListPage[3] * 16 > 255)
+                argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = 255.ToString();
 
             if (PixelListPage[3] == 0)
             {
@@ -1630,7 +1688,7 @@ public class ControllerProduction : MonoBehaviour
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
             }
             else
-            if (PixelListPage[3] == 255)
+            if (PixelListPage[3] == 16)
             {
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
                 argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = false;

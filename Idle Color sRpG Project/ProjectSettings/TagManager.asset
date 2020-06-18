@@ -8,6 +8,7 @@ TagManager:
   - SelectColorMethodCharacter
   - SelectCharacter
   - test
+  - PixelList
   layers:
   - Default
   - TransparentFX
