@@ -972,6 +972,8 @@ public class ControllerProduction : MonoBehaviour
                 gameObject.GetComponent<Image>().sprite = null;
                 gameObject.GetComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f);
                 gameObject.GetComponentInChildren<Text>().text = "+";
+                gameObject.GetComponentInChildren<RawImage>().texture = new Texture2D(0, 0);
+                gameObject.GetComponentInChildren<RawImage>().color = new Color(0.0f, 0.0f, 0.0f, 0.0f);
             }
         }
 
@@ -995,6 +997,8 @@ public class ControllerProduction : MonoBehaviour
                 gameObject.GetComponent<Image>().sprite = null;
                 gameObject.GetComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f);
                 gameObject.GetComponentInChildren<Text>().text = "+";
+                gameObject.GetComponentInChildren<RawImage>().texture = new Texture2D(0, 0);
+                gameObject.GetComponentInChildren<RawImage>().color = new Color(0.0f, 0.0f, 0.0f, 0.0f);
             }
         }
 
@@ -1019,9 +1023,10 @@ public class ControllerProduction : MonoBehaviour
         }
         else
         {
+            //ボタンの位置取得
             Vector2 ButtonPosLeftUnder = GetButtonPosLeftUnder();
             Debug.Log("ButtonPosLeftUnder = " + ButtonPosLeftUnder);
-
+            //クリック位置のピクセルカラーを取得
             Texture2D buttonImage = tmpButtonCharacter.GetComponent<Image>().sprite.texture;
             Vector2 buttonSize = tmpButtonCharacter.GetComponent<RectTransform>().sizeDelta;
             Vector2 pixelSize = new Vector2(buttonSize.x / buttonImage.width, buttonSize.y / buttonImage.height);
@@ -1034,6 +1039,25 @@ public class ControllerProduction : MonoBehaviour
                 ColorTmp.g = clickColor.g;
                 ColorTmp.b = clickColor.b;
                 ControlImageSelectColor("SelectColorMethodCharacter");
+
+
+                //クリックされたピクセルカラーではない部分のマスク作成
+                tmpButtonCharacter.GetComponentInChildren<RawImage>().color = new Color(0.5f, 0.5f, 0.5f, 1.0f);
+                Texture2D Mask = new Texture2D(buttonImage.width, buttonImage.height, TextureFormat.ARGB32, false);
+                for (int y = 0; y < buttonImage.height; y++)
+                {
+                    for (int x = 0; x < buttonImage.width; x++)
+                    {
+                        if (buttonImage.GetPixel(x, y).Equals(clickColor))
+                            Mask.SetPixel(x, y, new Color(0, 0, 0, 0));
+                        else
+                        {
+                            Mask.SetPixel(x, y, new Color(0.0f, 0.0f, 0.0f, 0.75f));
+                        }
+                    }
+                }
+                Mask.Apply();
+                tmpButtonCharacter.GetComponentInChildren<RawImage>().texture = Mask;
             }
         }
     }

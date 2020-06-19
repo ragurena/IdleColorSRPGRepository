@@ -399,7 +399,6 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
 
         //キャラクターボタン生成
-        //GameObject[] ArrayButtonCharacter = new GameObject[Constants.CHARACTERS_ALL_NUM + 1];
         if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
             ButtonTmp.name.Contains("GProductionHelpCharacter") ||
             ButtonTmp.name.Contains("BProductionHelpCharacter") ||
@@ -425,7 +424,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             }
         }
     }
-
+    //キャラクターボタンの作成
     private void CreateCharacterButton(int argCharacterIndex, Button argButtonTmp)
     {
         //プレハブのインスタンス化
