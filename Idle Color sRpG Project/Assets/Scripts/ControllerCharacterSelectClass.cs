@@ -399,61 +399,83 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
 
         //キャラクターボタン生成
-        GameObject[] ArrayButtonCharacter = new GameObject[Constants.CHARACTERS_ALL_NUM + 1];
-        for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
+        //GameObject[] ArrayButtonCharacter = new GameObject[Constants.CHARACTERS_ALL_NUM + 1];
+        if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
+            ButtonTmp.name.Contains("GProductionHelpCharacter") ||
+            ButtonTmp.name.Contains("BProductionHelpCharacter") ||
+            ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            if (CharactersAll[indexCharacter].OwnedNumCur != 0 && CharactersAll[indexCharacter].Whereabouts == Place.None)
+            for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
-                //プレハブのインスタンス化
-                ArrayButtonCharacter[indexCharacter] = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("ContentCharacterList").transform) as GameObject;
-
-                //spriteの指定
-                ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[indexCharacter].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[indexCharacter].Size, CharactersAll[indexCharacter].Size), new Vector2(0.5f, 0.5f));
-
-                //textの指定
-                if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
-                    ButtonTmp.name.Contains("GProductionHelpCharacter") ||
-                    ButtonTmp.name.Contains("BProductionHelpCharacter"))
+                if (CharactersAll[indexCharacter].OwnedNumCur != 0 && CharactersAll[indexCharacter].Whereabouts == Place.None)
                 {
-                    if (ButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
-                    {
-                        ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().text = "CreateR/sec : " + CharactersAll[indexCharacter].Stats[0].RCreates.ToString();
-                        ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                    }
-                    else
-                    if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
-                    {
-                        ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().text = "CreateG/sec : " + CharactersAll[indexCharacter].Stats[0].GCreates.ToString();
-                        ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                    }
-                    else
-                    if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
-                    {
-                        ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().text = "CreateB/sec : " + CharactersAll[indexCharacter].Stats[0].BCreates.ToString();
-                        ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
-                    }
+                    CreateCharacterButton(indexCharacter, ButtonTmp);
                 }
-                else
-                if (ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
-                {
-                    int ColorProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
-
-                    ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().text = "Pixel/sec : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], (uint)indexCharacter)
-                                                                       * CharactersAll[indexCharacter].GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
-                    ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-                }
-                else
-                if (ButtonTmp.name.Contains("ButtonCharacterColor"))
-                {
-                    ArrayButtonCharacter[indexCharacter].GetComponentInChildren<Text>().text = CharactersAll[indexCharacter].Name;
-                }
-
-
-                //クリックイベントを追加
-                uint CharacterID = (uint)(indexCharacter);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
-                ArrayButtonCharacter[indexCharacter].GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, ButtonTmp));
             }
         }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterColor"))
+        {
+            for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
+            {
+                if (CharactersAll[indexCharacter].OwnedNumCur != 0)
+                {
+                    CreateCharacterButton(indexCharacter, ButtonTmp);
+                }
+            }
+        }
+    }
+
+    private void CreateCharacterButton(int argCharacterIndex, Button argButtonTmp)
+    {
+        //プレハブのインスタンス化
+        GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("ContentCharacterList").transform) as GameObject;
+
+        //spriteの指定
+        GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[argCharacterIndex].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
+
+        //textの指定
+        if (argButtonTmp.name.Contains("RProductionHelpCharacter") ||
+            argButtonTmp.name.Contains("GProductionHelpCharacter") ||
+            argButtonTmp.name.Contains("BProductionHelpCharacter"))
+        {
+            if (argButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
+            {
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateR/sec : " + CharactersAll[argCharacterIndex].Stats[0].RCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
+            }
+            else
+            if (argButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
+            {
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateG/sec : " + CharactersAll[argCharacterIndex].Stats[0].GCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+            }
+            else
+            if (argButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
+            {
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateB/sec : " + CharactersAll[argCharacterIndex].Stats[0].BCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+            }
+        }
+        else
+        if (argButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
+        {
+            int ColorProductionPixelIndex = int.Parse(argButtonTmp.name.Substring(argButtonTmp.name.Length - 2, 2));
+
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], (uint)argCharacterIndex)
+                                                               * CharactersAll[argCharacterIndex].GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
+            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+        else
+        if (argButtonTmp.name.Contains("ButtonCharacterColor"))
+        {
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = CharactersAll[argCharacterIndex].Name;
+        }
+
+
+        //クリックイベントを追加
+        uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
+        GameObjectCharacterButton.GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
     }
 
     //キャラクターセレクトパネルの非表示

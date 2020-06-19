@@ -9,6 +9,9 @@ using System.IO;
 
 using UnityEngine.Networking;
 
+using UnityEngine.Advertisements;
+
+
 public enum Trigger {User, Update};
 
 static class Constants
@@ -263,6 +266,9 @@ public class ControllerProduction : MonoBehaviour
 #endif
 
         Debug.Log("ControllerProduction Begin");
+#if UNITY_ANDROID && !UNITY_EDITOR
+        Advertisement.Initialize("3635910");
+#endif
 
         ControllerCharacterSelect = GetComponent<ControllerCharacterSelectClass>();
 
@@ -1899,6 +1905,17 @@ public class ControllerProduction : MonoBehaviour
             //}
         }
 
+    }
+
+    public void ShowAd()
+    {
+        if(Advertisement.IsReady())
+        {
+            //Advertisement.GetPlacementState();
+            Advertisement.Show();
+            //return true;
+        }
+        //return false;
     }
 
 }
