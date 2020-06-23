@@ -114,6 +114,8 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] GameObject PanelPixelProduction;
     byte[] PixelListPage = new byte[3 + 1];
 
+    [SerializeField] GameObject PanelCharacterProduction;
+
     //キャラクターセレクトパネル
     [SerializeField] GameObject PanelSelectCharacter;
 
@@ -401,15 +403,13 @@ public class ControllerProduction : MonoBehaviour
 
                 UpdateSliderPixelProduction(i);
 
-                UpdateRGBProductionSliderOneColor(TextR, CurR, MaxR, SliderR, SliderCostIncreaseValueRUp, SliderCostMaxRUp);
-                UpdateRGBProductionSliderOneColor(TextG, CurG, MaxG, SliderG, SliderCostIncreaseValueGUp, SliderCostMaxGUp);
-                UpdateRGBProductionSliderOneColor(TextB, CurB, MaxB, SliderB, SliderCostIncreaseValueBUp, SliderCostMaxBUp);
-
                 if (ProductionPixelFlag)
                 {
                     CreatePixelListPixelProduction();
                 }
             }
+            UpdateRGBProductionScene();
+
             //RGB不足フラグの表示
             {
                 ulong tmpR = 0;
@@ -556,25 +556,41 @@ public class ControllerProduction : MonoBehaviour
         //UIの更新
         UpdateRGBProductionScene();
 
-
         //他のシーンを非表示
-        //PanelRGBProductionの非表示
+        //PanelPixelProductionの非表示
         NotShowPanel(PanelPixelProduction);
         ClearPixelListPixelProduction();
+        //PanelCharacterProductionの非表示
+        NotShowPanel(PanelCharacterProduction);
     }
 
     //ピクセル生産シーンボタンが押されたら
     public void PushButtonSelectScenePixelProduction()
     {
-        //PanelRGBProductionの表示
+        //PanelPixelProductionの表示
         ShowPanel(PanelPixelProduction);
         //UIの更新
         UpdatePixelProductionScene();
 
+        //他のシーンを非表示
+        //PanelRGBProductionの非表示
+        NotShowPanel(PanelRGBProduction);
+        //PanelCharacterProductionの非表示
+        NotShowPanel(PanelCharacterProduction);
+    }
+
+    //キャラクター生産シーンボタンが押されたら
+    public void PushButtonSelectSceneCharacterProduction()
+    {
+        //PanelCharacterProductionの表示
+        ShowPanel(PanelCharacterProduction);
 
         //他のシーンを非表示
         //PanelRGBProductionの非表示
         NotShowPanel(PanelRGBProduction);
+        //PanelPixelProductionの非表示
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
