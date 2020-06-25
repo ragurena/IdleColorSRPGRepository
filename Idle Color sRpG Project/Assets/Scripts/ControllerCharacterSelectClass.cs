@@ -12,6 +12,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     uint[] CharactersIDHelpProductionG;// = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
     uint[] CharactersIDHelpProductionB;// = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
     uint[] CharactersIDProductionPixel;// = new uint[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
+    uint[] CharactersIDProductionCharacter;// = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    uint[] CharactersIDProducedCharacter;// = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+
 
 
     //Button ButtonTmp;// = null;
@@ -26,9 +29,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     public void Initialize(ref CharacterClass[] argCharactersAll,
                            ref Color[] argColorProductionPixel,
                            ref uint[] argCharactersIDHelpProductionR, ref uint[] argCharactersIDHelpProductionG, ref uint[] argCharactersIDHelpProductionB,
-                           ref uint[] argCharactersIDProductionPixel)
-                           //ref Image argImageSelectCharacter,
-                           //ref Text argTextSelectCharacter1, ref Text argTextSelectCharacter2, ref Text argTextSelectCharacter3)
+                           ref uint[] argCharactersIDProductionPixel,
+                           ref uint[] argCharactersIDProductionCharacter, ref uint[] argCharactersIDProducedCharacter)
     {
         CharactersAll = argCharactersAll;
         ColorProductionPixel = argColorProductionPixel;
@@ -36,10 +38,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         CharactersIDHelpProductionG = argCharactersIDHelpProductionG;
         CharactersIDHelpProductionB = argCharactersIDHelpProductionB;
         CharactersIDProductionPixel = argCharactersIDProductionPixel;
-        //ImageSelectCharacter = argImageSelectCharacter;
-        //TextSelectCharacter1 = argTextSelectCharacter1;
-        //TextSelectCharacter2 = argTextSelectCharacter2;
-        //TextSelectCharacter3 = argTextSelectCharacter3;
+        CharactersIDProductionCharacter = argCharactersIDProductionCharacter;
+        CharactersIDProducedCharacter = argCharactersIDProducedCharacter;
     }
 
     // Start is called before the first frame update
@@ -100,6 +100,19 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             TextSelectCharacter1.text = "";
             TextSelectCharacter2.text = "";
             TextSelectCharacter3.text = "";
+        }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
+        {
+            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+            TextSelectCharacter1.text = "";
+            TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter2.text = "Pixel/sec : " + CharactersAll[argCharacterID].PaintPixels;
+            TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter3.text = "";
+            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+
         }
     }
 
@@ -166,6 +179,19 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             //居場所変更
             CharactersAll[CharacterIDTmp].Whereabouts = Place.CreatePixel;
         }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
+        {
+            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+            //前に設定されていたキャラの居場所変更
+            CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Whereabouts = Place.None;
+
+            CharactersIDProductionCharacter[ProductionCharacterIndex] = CharacterIDTmp;
+
+            //居場所変更
+            CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateCharacter;
+        }
 
         NotShowPanelSelectCharacter();
     }
@@ -229,6 +255,16 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
             CharactersIDProductionPixel[ProductionPixelIndex] = 0;
 
+        }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
+        {
+            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+            //前に設定されていたキャラの居場所変更
+            CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Whereabouts = Place.None;
+
+            CharactersIDProductionCharacter[ProductionCharacterIndex] = 0;
         }
 
         NotShowPanelSelectCharacter();
@@ -396,13 +432,42 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             TextSelectCharacter2.text = "";
             TextSelectCharacter3.text = "";
         }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
+        {
+            TextSelectCharacter1.text = "";
+            TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter2.text = "Pixel/sec : ";
+            TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter3.text = "";
+            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
+            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            if (CharactersIDProductionCharacter[ProductionCharacterIndex] != 0)
+            {
+                //選択キャラクターの画像を表示
+                ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Size, CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Size), new Vector2(0.5f, 0.5f));
+
+                TextSelectCharacter2.text = "Pixel/sec : " + CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].PaintPixels;
+
+                //外すボタンのenable設定
+                foreach (GameObject gameObject in tag1_Objects)
+                {
+                    if (gameObject.name.Equals("ButtonRemoveLeft") ||
+                        gameObject.name.Equals("ButtonRemoveRight"))
+                    {
+                        gameObject.GetComponent<Button>().interactable = true;
+                    }
+                }
+            }
+        }
 
         //キャラクターボタン生成
         if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
-            ButtonTmp.name.Contains("GProductionHelpCharacter") ||
-            ButtonTmp.name.Contains("BProductionHelpCharacter") ||
-            ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
+        ButtonTmp.name.Contains("GProductionHelpCharacter") ||
+        ButtonTmp.name.Contains("BProductionHelpCharacter") ||
+        ButtonTmp.name.Contains("ButtonPixelProductionCharacter") ||
+        ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
@@ -469,8 +534,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (argButtonTmp.name.Contains("ButtonCharacterColor"))
         {
             GameObjectCharacterButton.GetComponentInChildren<Text>().text = CharactersAll[argCharacterIndex].Name;
+            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
-
+        else
+        if (argButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
+        {
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + CharactersAll[argCharacterIndex].PaintPixels;
+            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        }
 
         //クリックイベントを追加
         uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入

@@ -19,6 +19,7 @@ static class Constants
     public const int CHARACTERS_ALL_NUM = 32;
     public const int CHARACTERS_HELP_PRODUCTION_NUM = 3;
     public const int CHARACTERS_PRODUCTION_PIXEL_NUM = 5;
+    public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = 5;
 }
 
 //生産画面のコントロール
@@ -39,6 +40,10 @@ public class ControllerProduction : MonoBehaviour
     Color[] ColorProductionPixel = new Color[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
     ushort[,] ProgressProductionPixel = new ushort[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
     //bool[,] WarningLackRGB = new bool[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
+
+    uint[] CharactersIDProductionCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    uint[] CharactersIDProducedCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    Texture[] ProgressTextureProductionCharacter = new Texture[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
 
     //現在の全カラーの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
     ulong[,,] CurPixels = new ulong[256, 256, 256];
@@ -277,7 +282,9 @@ public class ControllerProduction : MonoBehaviour
         ControllerCharacterSelect.Initialize(ref CharactersAll,
                                              ref ColorProductionPixel,
                                              ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB,
-                                             ref CharactersIDProductionPixel);
+                                             ref CharactersIDProductionPixel,
+                                             ref CharactersIDProductionCharacter, ref CharactersIDProducedCharacter);
+                                                 
         ModelProduction = GetComponent<ModelProduction>();
 
 
@@ -604,7 +611,6 @@ public class ControllerProduction : MonoBehaviour
         //PanelSelectCharacterの表示
         ShowPanel(PanelSelectCharacter);
         ControllerCharacterSelect.ShowPanelSelectCharacter(ButtonCharacterTmp);
-
     }
 
     //キャラクターセレクトの戻るボタンが押されたら
@@ -1150,6 +1156,9 @@ public class ControllerProduction : MonoBehaviour
             CreatePixelListPixelProduction();
         }
     }
+
+    //////////////////////////////////////////////////////////
+    //キャラクター生産
 
 
     ////////////////////////////////////

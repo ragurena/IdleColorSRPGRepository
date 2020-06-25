@@ -71,8 +71,8 @@ public class CharacterClass //: MonoBehaviour
     //ulong RCreates;
     //ulong GCreates;
     //ulong BCreates;
-    ////TODO:描画数
-    //ulong PaintPixels;
+    //描画数
+    public ulong PaintPixels;
 
     //TODO:瀕死フラグ
     public bool FlagFNT;
@@ -466,6 +466,7 @@ public class CharacterClass //: MonoBehaviour
             Stats[1].LUC = GradationNum;
             //観察力の算出
             Stats[1].OBS = (ulong)(Mathf.Floor(GradationNum / ImageTexture2D.height)) + 1;
+            PaintPixels = GradationNum;
         }
 
 
