@@ -593,6 +593,31 @@ PrefabInstance:
       propertyPath: m_Name
       value: ButtonCharacterProducedCharacter04
       objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSelectCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonCharacterProducedCharacter04
+      objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_AnchorMax.x
@@ -4668,6 +4693,31 @@ PrefabInstance:
       propertyPath: m_Name
       value: ButtonCharacterProducedCharacter03
       objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSelectCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonCharacterProducedCharacter03
+      objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_AnchorMax.x
@@ -5641,6 +5691,31 @@ PrefabInstance:
     - target: {fileID: 2235251834144252120, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_Name
+      value: ButtonCharacterProducedCharacter02
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSelectCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
       value: ButtonCharacterProducedCharacter02
       objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
@@ -14842,6 +14917,31 @@ PrefabInstance:
       propertyPath: m_Name
       value: ButtonCharacterProducedCharacter01
       objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSelectCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonCharacterProducedCharacter01
+      objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_AnchorMax.x
@@ -15764,6 +15864,31 @@ PrefabInstance:
     - target: {fileID: 2235251834144252120, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_Name
+      value: ButtonCharacterProducedCharacter05
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSelectCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
       value: ButtonCharacterProducedCharacter05
       objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,

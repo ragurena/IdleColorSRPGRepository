@@ -90,6 +90,9 @@ public class CharacterClass //: MonoBehaviour
     //public uint GetExistsColors(Color argColor);
     public List<ExistColor> ListExistsColors = new List<ExistColor>();
 
+    //透過ピクセル数
+    public uint APixels = 0;
+
 
     public CharacterClass()
     {
@@ -311,7 +314,7 @@ public class CharacterClass //: MonoBehaviour
         uint RPixels = 0;
         uint GPixels = 0;
         uint BPixels = 0;
-        uint APixels = 0;
+        //uint APixels = 0;
         uint NoneRGBPixels = 0;
         ListExistsColors.Clear();
 

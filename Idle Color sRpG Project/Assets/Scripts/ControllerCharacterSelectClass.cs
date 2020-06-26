@@ -112,7 +112,18 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
             TextSelectCharacter3.text = "";
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        {
+            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
+            TextSelectCharacter1.text = "";
+            TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter2.text = "Pixels : " + ((CharactersAll[argCharacterID].Size * CharactersAll[argCharacterID].Size) - CharactersAll[argCharacterID].APixels);
+            TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter3.text = "";
+            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
     }
 
@@ -192,6 +203,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             //居場所変更
             CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateCharacter;
         }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        {
+            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+            CharactersIDProducedCharacter[ProductionCharacterIndex] = CharacterIDTmp;
+        }
+
 
         NotShowPanelSelectCharacter();
     }
@@ -265,6 +284,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Whereabouts = Place.None;
 
             CharactersIDProductionCharacter[ProductionCharacterIndex] = 0;
+        }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        {
+            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+
+            CharactersIDProducedCharacter[ProductionCharacterIndex] = 0;
         }
 
         NotShowPanelSelectCharacter();
@@ -461,6 +487,36 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 }
             }
         }
+        else
+        if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        {
+            TextSelectCharacter1.text = "";
+            TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter2.text = "Pixels : ";
+            TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            TextSelectCharacter3.text = "";
+            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+
+            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            if (CharactersIDProducedCharacter[ProductionCharacterIndex] != 0)
+            {
+                //選択キャラクターの画像を表示
+                ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size, CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size), new Vector2(0.5f, 0.5f));
+
+                TextSelectCharacter2.text = "Pixels : " + ((CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size * CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size) - CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].APixels);
+
+                //外すボタンのenable設定
+                foreach (GameObject gameObject in tag1_Objects)
+                {
+                    if (gameObject.name.Equals("ButtonRemoveLeft") ||
+                        gameObject.name.Equals("ButtonRemoveRight"))
+                    {
+                        gameObject.GetComponent<Button>().interactable = true;
+                    }
+                }
+            }
+        }
+
 
         //キャラクターボタン生成
         if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
@@ -478,7 +534,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             }
         }
         else
-        if (ButtonTmp.name.Contains("ButtonCharacterColor"))
+        if (ButtonTmp.name.Contains("ButtonCharacterColor") ||
+            ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
@@ -540,6 +597,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (argButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
             GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + CharactersAll[argCharacterIndex].PaintPixels;
+            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+        else
+        if (argButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        {
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixels : " + ((CharactersAll[argCharacterIndex].Size * CharactersAll[argCharacterIndex].Size) - CharactersAll[argCharacterIndex].APixels);
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
 
