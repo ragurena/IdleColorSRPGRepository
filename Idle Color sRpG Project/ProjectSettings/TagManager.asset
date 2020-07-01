@@ -9,6 +9,7 @@ TagManager:
   - SelectCharacter
   - test
   - PixelList
+  - CharacterProduction
   layers:
   - Default
   - TransparentFX

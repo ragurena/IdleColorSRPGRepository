@@ -22,6 +22,20 @@ static class Constants
     public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = 5;
 }
 
+public class ConsumePixelClass
+{
+    public Color PixelColor;
+    public uint ToBeCurConsumePixelsNum;
+    public uint CurConsumePixelsNum;
+
+    public ConsumePixelClass(Color argPixelColor, uint argToBeCurConsumePixelsNum, uint argCurConsumePixelsNum)
+    {
+        PixelColor = argPixelColor;
+        ToBeCurConsumePixelsNum = argToBeCurConsumePixelsNum;
+        CurConsumePixelsNum = argCurConsumePixelsNum;
+    }
+}
+
 //生産画面のコントロール
 public class ControllerProduction : MonoBehaviour
 {
@@ -43,9 +57,10 @@ public class ControllerProduction : MonoBehaviour
 
     uint[] CharactersIDProductionCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     uint[] CharactersIDProducedCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
-    Texture[] ProgressTextureProductionCharacter = new Texture[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    Texture2D[] ProgressTextureProductionCharacter = new Texture2D[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    List<ConsumePixelClass>[] ConsumePixelsProductionCharacter = new List<ConsumePixelClass>[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
 
-    //現在の全カラーの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
+    //現在の全ピクセルの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
     ulong[,,] CurPixels = new ulong[256, 256, 256];
 
     //現在のRGB値
@@ -288,6 +303,12 @@ public class ControllerProduction : MonoBehaviour
         ModelProduction = GetComponent<ModelProduction>();
 
 
+
+        for (int i = 0; i < Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1; i++)
+        {
+            ConsumePixelsProductionCharacter[i] = new List<ConsumePixelClass>();
+        }
+
         MakeFile();
 
         //画面回転固定
@@ -410,9 +431,11 @@ public class ControllerProduction : MonoBehaviour
 
                 UpdateSliderPixelProduction(i);
 
+                //ピクセルが生産されたら
                 if (ProductionPixelFlag)
                 {
                     CreatePixelListPixelProduction();
+                    UpdateProductionCharacterScene();
                 }
             }
             UpdateRGBProductionScene();
@@ -643,6 +666,12 @@ public class ControllerProduction : MonoBehaviour
 
             //TODO:view更新、RGBのテキストだけでいい
             UpdatePixelProductionScene();
+        }
+        else//TODO:ButtonCharacterProductionCharacterでの更新
+        if (ButtonCharacterTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        {
+            int ProductionIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
+            InitializeProgressProductionCharacter(ProductionIndex);
         }
 
         //どのボタンで呼び出されたか削除
@@ -1157,8 +1186,54 @@ public class ControllerProduction : MonoBehaviour
         }
     }
 
-    //////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////
     //キャラクター生産
+
+    //使用ピクセルの表示
+    public void ShowConsumePixel()
+    {
+
+    }
+
+    //キャラクター生産の進捗初期化
+    public void InitializeProgressProductionCharacter(int argIndex)
+    {
+        //if(CharactersIDProducedCharacter[argIndex] == 0)
+        //{
+        //    Debug.Log("Error!!!!!!!!!!!!!!!");
+        //    return;
+        //}
+        if (ConsumePixelsProductionCharacter[argIndex].Count != 0)
+        {
+            //TODO:ピクセルを還元
+            ReductionPixelsProductionCharacter(argIndex);
+        }
+
+        //進捗ピクセルの初期化
+        ConsumePixelsProductionCharacter[argIndex].Clear();
+        foreach (ExistColor curExistColor in CharactersAll[CharactersIDProducedCharacter[argIndex]].ListExistsColors)
+        {
+            ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
+        }
+
+        //進捗画像の初期化
+        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouette(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
+        ProgressTextureProductionCharacter[argIndex].filterMode = FilterMode.Point;
+
+        //UI更新 //TODO:インデックスごとの更新でよい
+        UpdateProductionCharacterScene();
+    }
+    //ピクセルを還元
+    public void ReductionPixelsProductionCharacter(int argIndex)
+    {
+
+    }
+    //キャラクター生産
+    public void ProductionCharacter(int argIndex)
+    {
+
+    }
+
 
 
     ////////////////////////////////////
@@ -1292,7 +1367,7 @@ public class ControllerProduction : MonoBehaviour
 
 
 
-
+    //////////////////////////////////////////////////////////////////////////
     //ピクセル生産
     bool ProductionPixel(Trigger argTrigger, int argIndex, out bool ProductionPixelFlag)
     {
@@ -1421,7 +1496,6 @@ public class ControllerProduction : MonoBehaviour
 
         return true;
     }
-
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1956,6 +2030,84 @@ public class ControllerProduction : MonoBehaviour
 
     }
 
+    //キャラクター生産の表示
+    public void UpdateProductionCharacterScene()
+    {
+        GameObject[] CharacterProduction_Objects;
+        CharacterProduction_Objects = GameObject.FindGameObjectsWithTag("CharacterProduction");
+
+        foreach (GameObject CharacterProduction_gameObject in CharacterProduction_Objects)
+        {
+            if (CharacterProduction_gameObject.name.Equals("ContentCharacterProductionList"))
+            {
+                foreach (Transform gameObject in CharacterProduction_gameObject.transform)
+                {
+                    foreach (Transform child_gameObject in gameObject.transform)
+                    {
+                        if (child_gameObject.name.Contains("RawImageCharacterProduction"))
+                        {
+                            int ProductionIndex = int.Parse(child_gameObject.name.Substring(child_gameObject.name.Length - 1, 1));
+                            if (ProgressTextureProductionCharacter[ProductionIndex] != null)
+                            {
+                                child_gameObject.GetComponent<RawImage>().texture = ProgressTextureProductionCharacter[ProductionIndex];
+                            }
+                        }
+                        //TODO:使用ピクセルリストの表示
+                        if (child_gameObject.name.Contains("ScrollViewConsumePixel"))
+                        {
+                            foreach (Transform child_child_gameObject in child_gameObject)
+                            {
+                                if (child_child_gameObject.name.Contains("Viewport"))
+                                {
+                                    foreach (Transform child_child_child_gameObject in child_child_gameObject)
+                                    {
+                                        if (child_child_child_gameObject.name.Contains("Content"))
+                                        {
+                                            int ProductionIndex = int.Parse(child_gameObject.name.Substring(child_gameObject.name.Length - 2, 2));
+
+                                            //PixelListの削除
+                                            foreach (Transform child in child_child_child_gameObject.transform)
+                                            {
+                                                Destroy(child.gameObject);
+                                            }
+
+                                            if (ConsumePixelsProductionCharacter[ProductionIndex].Count != 0)
+                                            {
+                                                for (int i = 0; i < ConsumePixelsProductionCharacter[ProductionIndex].Count; i++)
+                                                {
+                                                    //プレハブのインスタンス化
+                                                    GameObject prefab = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), child_child_child_gameObject.transform) as GameObject;
+                                                    prefab.GetComponentsInChildren<Image>()[1].color = ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor;
+                                                    prefab.GetComponentsInChildren<Text>()[0].text = (ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.r * 255).ToString();
+                                                    prefab.GetComponentsInChildren<Text>()[2].text = (ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.g * 255).ToString();
+                                                    prefab.GetComponentsInChildren<Text>()[4].text = (ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.b * 255).ToString();
+                                                    prefab.GetComponentsInChildren<Text>()[5].text = ConsumePixelsProductionCharacter[ProductionIndex][i].CurConsumePixelsNum.ToString() + 
+                                                                                                     " / " +
+                                                                                                     ConsumePixelsProductionCharacter[ProductionIndex][i].ToBeCurConsumePixelsNum.ToString();
+                                                    prefab.GetComponentsInChildren<Text>()[5].color = new Color(0, 0, 0, 1);
+                                                    if(CurPixels[(int)(ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.r * 255), (int)(ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.g * 255), (int)(ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.b * 255)]
+                                                        < ConsumePixelsProductionCharacter[ProductionIndex][i].ToBeCurConsumePixelsNum - ConsumePixelsProductionCharacter[ProductionIndex][i].CurConsumePixelsNum)
+                                                    {
+                                                        prefab.GetComponentsInChildren<Text>()[5].color = new Color(1, 0, 0, 1);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                    }
+                                }
+
+                            }
+                        }
+
+
+                    }
+                }
+            }
+        }
+    }
+
+    //広告の表示
     public void ShowAd()
     {
         if(Advertisement.IsReady())

@@ -339,9 +339,9 @@ public class CharacterClass //: MonoBehaviour
                 {
                     //ExistsColors[(int)(ImageColor[x + y * ImageTexture2D.width].r * 255), (int)(ImageColor[x + y * ImageTexture2D.width].g * 255), (int)(ImageColor[x + y * ImageTexture2D.width].b * 255)]
                     //+= 1;
-                    if(ListExistsColors.Any(L => L.Color == ImageColor[x + y * ImageTexture2D.width]))
+                    if(ListExistsColors.Any(item => item.Color == ImageColor[x + y * ImageTexture2D.width]))
                     {
-                        ListExistsColors.Find(L => L.Color == ImageColor[x + y * ImageTexture2D.width]).Num++;
+                        ListExistsColors.Find(item => item.Color == ImageColor[x + y * ImageTexture2D.width]).Num++;
                     }
                     else
                     {
@@ -388,6 +388,18 @@ public class CharacterClass //: MonoBehaviour
                   "RPixelValues : " + RPixelValues + "\n" +
                   "GPixelValues : " + GPixelValues + "\n" +
                   "BPixelValues : " + BPixelValues);
+
+        //ListExistsColorsのソート
+        IOrderedEnumerable<ExistColor> sortList =
+            ListExistsColors.OrderBy(item => item.Color.r).ThenBy(item => item.Color.g).ThenBy(item => item.Color.b);
+        List< ExistColor> tmpList = new List<ExistColor>();
+        foreach (ExistColor element in sortList)
+        {
+            tmpList.Add(element);
+        }
+        ListExistsColors.Clear();
+        ListExistsColors = tmpList;
+
 
         //属性決め
         if (RPixelValues > GPixelValues && RPixelValues > BPixelValues)

@@ -50,5 +50,25 @@ public class ImagegUtility : MonoBehaviour
         return resTex;
     }
 
+    public static Texture2D MakeSilhouette(Texture2D argTexture2D)
+    {
+        Texture2D resultTexture2D = new Texture2D(argTexture2D.width, argTexture2D.height, TextureFormat.ARGB32, false);
+
+        for (int y = 0; y < argTexture2D.height; y++)
+        {
+            for (int x = 0; x < argTexture2D.width; x++)
+            {
+                if (argTexture2D.GetPixel(x, y).a == 0)
+                    resultTexture2D.SetPixel(x, y, new Color(0, 0, 0, 0));
+                else
+                {
+                    resultTexture2D.SetPixel(x, y, new Color(0.0f, 0.0f, 0.0f, 1.0f));
+                }
+            }
+        }
+        resultTexture2D.Apply();
+
+        return resultTexture2D;
+    }
 
 }

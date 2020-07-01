@@ -448,6 +448,16 @@ PrefabInstance:
       propertyPath: m_Name
       value: RawImageCharacterProduction04
       objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2138670635336789432, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -1063,7 +1073,7 @@ MonoBehaviour:
   m_Content: {fileID: 381848278}
   m_Horizontal: 1
   m_Vertical: 1
-  m_MovementType: 1
+  m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
@@ -3001,7 +3011,7 @@ GameObject:
   - component: {fileID: 381848279}
   m_Layer: 5
   m_Name: ContentCharacterProductionList
-  m_TagString: Untagged
+  m_TagString: CharacterProduction
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4548,6 +4558,16 @@ PrefabInstance:
       propertyPath: m_Name
       value: RawImageCharacterProduction03
       objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2138670635336789432, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -4937,7 +4957,7 @@ MonoBehaviour:
   m_Content: {fileID: 1853231394}
   m_Horizontal: 1
   m_Vertical: 1
-  m_MovementType: 1
+  m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
@@ -5547,6 +5567,16 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: RawImageCharacterProduction02
+      objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2138670635336789432, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
@@ -6442,7 +6472,7 @@ MonoBehaviour:
   m_Content: {fileID: 2015103162}
   m_Horizontal: 1
   m_Vertical: 1
-  m_MovementType: 1
+  m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
@@ -9759,7 +9789,7 @@ MonoBehaviour:
   m_Content: {fileID: 899998054}
   m_Horizontal: 0
   m_Vertical: 1
-  m_MovementType: 1
+  m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
@@ -14772,6 +14802,16 @@ PrefabInstance:
       propertyPath: m_Name
       value: RawImageCharacterProduction01
       objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2138670635336789432, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -15720,6 +15760,16 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: RawImageCharacterProduction05
+      objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1385670975639587159, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2138670635336789432, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
