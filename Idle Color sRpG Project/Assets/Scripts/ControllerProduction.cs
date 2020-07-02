@@ -57,7 +57,7 @@ public class ControllerProduction : MonoBehaviour
 
     uint[] CharactersIDProductionCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     uint[] CharactersIDProducedCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
-    Texture2D[] ProgressTextureProductionCharacter = new Texture2D[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    List<bool[,]> ProgressTextureProductionCharacter = new List<bool[,]>();//[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     List<ConsumePixelClass>[] ConsumePixelsProductionCharacter = new List<ConsumePixelClass>[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
 
     //現在の全ピクセルの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
@@ -306,6 +306,7 @@ public class ControllerProduction : MonoBehaviour
 
         for (int i = 0; i < Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1; i++)
         {
+            ProgressTextureProductionCharacter.Add(null);
             ConsumePixelsProductionCharacter[i] = new List<ConsumePixelClass>();
         }
 
@@ -1217,8 +1218,7 @@ public class ControllerProduction : MonoBehaviour
         }
 
         //進捗画像の初期化
-        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouette(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
-        ProgressTextureProductionCharacter[argIndex].filterMode = FilterMode.Point;
+        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
 
         //UI更新 //TODO:インデックスごとの更新でよい
         UpdateProductionCharacterScene();
@@ -2049,7 +2049,9 @@ public class ControllerProduction : MonoBehaviour
                             int ProductionIndex = int.Parse(child_gameObject.name.Substring(child_gameObject.name.Length - 1, 1));
                             if (ProgressTextureProductionCharacter[ProductionIndex] != null)
                             {
-                                child_gameObject.GetComponent<RawImage>().texture = ProgressTextureProductionCharacter[ProductionIndex];
+                                child_gameObject.GetComponent<RawImage>().texture = ImagegUtility.BoolArrayTOTexture(ProgressTextureProductionCharacter[ProductionIndex],
+                                                                                                                    //CharactersAll[CharactersIDProducedCharacter[ProductionIndex]].Size, CharactersAll[CharactersIDProducedCharacter[ProductionIndex]].Size, 
+                                                                                                                    ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[ProductionIndex]].ImagePath), new Color(0, 0, 0, 1));
                             }
                         }
                         //TODO:使用ピクセルリストの表示

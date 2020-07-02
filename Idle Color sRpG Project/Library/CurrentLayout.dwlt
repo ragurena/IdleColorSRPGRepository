@@ -42,8 +42,8 @@ MonoBehaviour:
     y: 0
     width: 210
     height: 424
-  m_MinSize: {x: 200, y: 200}
-  m_MaxSize: {x: 4000, y: 4000}
+  m_MinSize: {x: 204, y: 224}
+  m_MaxSize: {x: 4004, y: 4024}
   m_ActualView: {fileID: 17}
   m_Panes:
   - {fileID: 17}
@@ -73,7 +73,7 @@ MonoBehaviour:
   m_MinSize: {x: 406, y: 224}
   m_MaxSize: {x: 8006, y: 4024}
   vertical: 0
-  controlID: 115
+  controlID: 162
 --- !u!114 &4
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -93,8 +93,8 @@ MonoBehaviour:
     y: 424
     width: 414
     height: 205
-  m_MinSize: {x: 100, y: 100}
-  m_MaxSize: {x: 4000, y: 4000}
+  m_MinSize: {x: 102, y: 124}
+  m_MaxSize: {x: 4002, y: 4024}
   m_ActualView: {fileID: 20}
   m_Panes:
   - {fileID: 20}
@@ -124,7 +124,7 @@ MonoBehaviour:
   m_MinSize: {x: 406, y: 348}
   m_MaxSize: {x: 8006, y: 8048}
   vertical: 1
-  controlID: 114
+  controlID: 161
 --- !u!114 &6
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -175,7 +175,7 @@ MonoBehaviour:
   m_MinSize: {x: 511, y: 274}
   m_MaxSize: {x: 14006, y: 10024}
   vertical: 0
-  controlID: 33
+  controlID: 129
 --- !u!114 &8
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -195,8 +195,8 @@ MonoBehaviour:
     y: 0
     width: 384
     height: 629
-  m_MinSize: {x: 204, y: 224}
-  m_MaxSize: {x: 4004, y: 4024}
+  m_MinSize: {x: 200, y: 200}
+  m_MaxSize: {x: 4000, y: 4000}
   m_ActualView: {fileID: 19}
   m_Panes:
   - {fileID: 19}
@@ -321,7 +321,7 @@ MonoBehaviour:
   m_MinSize: {x: 1121, y: 348}
   m_MaxSize: {x: 26016, y: 10024}
   vertical: 0
-  controlID: 113
+  controlID: 141
 --- !u!114 &14
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -493,9 +493,9 @@ MonoBehaviour:
   m_isRotationLocked: 0
   m_AudioPlay: 0
   m_Position:
-    m_Target: {x: 361.3194, y: 732.047, z: 26.625}
+    m_Target: {x: 475.45007, y: 764.3013, z: 26.625}
     speed: 2
-    m_Value: {x: 361.3194, y: 732.047, z: 26.625}
+    m_Value: {x: 475.45007, y: 764.3013, z: 26.625}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 0
@@ -596,9 +596,9 @@ MonoBehaviour:
   m_SceneHierarchy:
     m_TreeViewState:
       scrollPos: {x: 0, y: 0}
-      m_SelectedIDs: 
+      m_SelectedIDs: ae240000
       m_LastClickedID: 0
-      m_ExpandedIDs: 6461f0ffa861f0ffc061f0fff862f0ff34edffff78edffff90edffffcceeffffdefbffff4c470000c2470000ee470000f8470000e0480000564b0000a64b0000f04c0000fc4d00007a5100003e5200003a5300009653000048540000b8550000ac560000ca560000
+      m_ExpandedIDs: defbffff
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -686,20 +686,20 @@ MonoBehaviour:
     m_ShowAllHits: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Resources
+    - Assets/Scripts
   m_ViewMode: 1
   m_StartGridSize: 64
   m_LastFolders:
-  - Assets/Resources
+  - Assets/Scripts
   m_LastFoldersGridSize: -1
   m_LastProjectPath: C:\Users\owner\IdleColorSRPGLocalRepository\Idle Color sRpG Project
   m_LockTracker:
     m_IsLocked: 0
   m_FolderTreeState:
     scrollPos: {x: 0, y: 0}
-    m_SelectedIDs: 962b0000
-    m_LastClickedID: 11158
-    m_ExpandedIDs: 00000000a2290000de2900008e2a0000a02a0000962b0000342c0000382c0000f02c0000102d0000182d00001c3500001e3500002035000000ca9a3b
+    m_SelectedIDs: f0290000
+    m_LastClickedID: 10736
+    m_ExpandedIDs: 00000000a2290000de2900008e2a0000a02a0000962b0000342c0000382c0000f02c0000102d0000182d000020350000223500002435000000ca9a3b
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -727,7 +727,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 00000000a2290000de2900008e2a0000a02a0000ae2a0000962b0000342c0000382c0000f02c0000102d0000182d00001c3500001e35000020350000
+    m_ExpandedIDs: 00000000a2290000de2900008e2a0000a02a0000962b0000342c0000382c0000f02c0000102d0000182d0000203500002235000024350000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
