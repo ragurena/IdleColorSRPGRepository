@@ -72,7 +72,7 @@ public class CharacterClass //: MonoBehaviour
     //ulong GCreates;
     //ulong BCreates;
     //描画数
-    public ulong PaintPixels;
+    public uint PaintPixels;
 
     //TODO:瀕死フラグ
     public bool FlagFNT;
@@ -141,9 +141,9 @@ public class CharacterClass //: MonoBehaviour
         Size = (ushort)Image.height;
 
         //ImageTexture2D = NomalizationImage(argImage);
-        Debug.Log("ImagePath : " + ImagePath);
+        Debug.Log("MakeCharacter ImagePath : " + ImagePath);
         ImagePath = NomalizationImage(Image, argImagePath);
-        Debug.Log("ImagePath : " + ImagePath);
+        Debug.Log("MakeCharacter ImagePath : " + ImagePath);
 
         ID = argID;
 

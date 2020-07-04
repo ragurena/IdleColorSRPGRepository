@@ -603,6 +603,41 @@ PrefabInstance:
       propertyPath: m_Name
       value: ButtonCharacterProducedCharacter04
       objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionRight04
+      objectReference: {fileID: 0}
     - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -627,6 +662,41 @@ PrefabInstance:
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
       value: ButtonCharacterProducedCharacter04
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionLeft04
       objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
@@ -4713,6 +4783,41 @@ PrefabInstance:
       propertyPath: m_Name
       value: ButtonCharacterProducedCharacter03
       objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionRight03
+      objectReference: {fileID: 0}
     - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -4737,6 +4842,41 @@ PrefabInstance:
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
       value: ButtonCharacterProducedCharacter03
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionLeft03
       objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
@@ -5723,6 +5863,41 @@ PrefabInstance:
       propertyPath: m_Name
       value: ButtonCharacterProducedCharacter02
       objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionRight02
+      objectReference: {fileID: 0}
     - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -5747,6 +5922,41 @@ PrefabInstance:
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
       value: ButtonCharacterProducedCharacter02
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionLeft02
       objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
@@ -14957,6 +15167,41 @@ PrefabInstance:
       propertyPath: m_Name
       value: ButtonCharacterProducedCharacter01
       objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionRight01
+      objectReference: {fileID: 0}
     - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -14981,6 +15226,41 @@ PrefabInstance:
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
       value: ButtonCharacterProducedCharacter01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionLeft01
       objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
@@ -15916,6 +16196,41 @@ PrefabInstance:
       propertyPath: m_Name
       value: ButtonCharacterProducedCharacter05
       objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 2249985908412290956, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionRight05
+      objectReference: {fileID: 0}
     - target: {fileID: 3158035363588866176, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -15940,6 +16255,41 @@ PrefabInstance:
         type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
       value: ButtonCharacterProducedCharacter05
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1012974147}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PushButtonSpeedUpProductionCharacter
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3711850683889491961, guid: af7a7c4c163262c43a323b7267e8e1f4,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_StringArgument
+      value: ButtonSpeedUpCharacterProductionLeft05
       objectReference: {fileID: 0}
     - target: {fileID: 5685316221841526906, guid: af7a7c4c163262c43a323b7267e8e1f4,
         type: 3}

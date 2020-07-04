@@ -341,6 +341,11 @@ public class ControllerProduction : MonoBehaviour
         CharactersAll[5].MakeCharacter(Application.persistentDataPath + "/Character/RBlackCat8" + ".png", 5, "LittleRBlackCat");
         CharactersAll[8].MakeCharacter(Application.persistentDataPath + "/Character/WhiteCat8" + ".png", 8, "LittleWhiteCat");
 
+        CharactersAll[9].MakeCharacter(Application.persistentDataPath + "/Character/RedSlime16" + ".png", 9, "SmallRedSlime");
+        CharactersAll[10].MakeCharacter(Application.persistentDataPath + "/Character/GreenSlime16" + ".png", 10, "SmallGreenSlime");
+        CharactersAll[11].MakeCharacter(Application.persistentDataPath + "/Character/BlueSlime16" + ".png", 11, "SmallBlueSlime");
+        CharactersAll[12].MakeCharacter(Application.persistentDataPath + "/Character/WhiteSlime16" + ".png", 12, "SmallWhiteSlime");
+
         CharactersAll[16 + 1].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_R" + ".png", 16 + 1, "RedSlime");
         CharactersAll[16 + 2].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_G" + ".png", 16 + 2, "GreenSlime");
         CharactersAll[16 + 3].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_B" + ".png", 16 + 3, "BlueSlime");
@@ -349,7 +354,7 @@ public class ControllerProduction : MonoBehaviour
         CharactersAll[16 + 7].MakeCharacter(Application.persistentDataPath + "/Character/0064_slimeking_G" + ".png", 16 + 7, "GreenSlimeKing");
         CharactersAll[16 + 8].MakeCharacter(Application.persistentDataPath + "/Character/0064_slimeking_B" + ".png", 16 + 8, "BlueSlimeKing");
 
-        CharactersAll[32].MakeCharacter(Application.persistentDataPath + "/Character/wanwan" + ".png", 32, "wanwan");
+        //CharactersAll[32].MakeCharacter(Application.persistentDataPath + "/Character/wanwan" + ".png", 32, "wanwan");
 
         //CharactersAll[1].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
         //CharactersAll[2].MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/GreenSlime8", typeof(Texture2D)) as Texture2D, 2, "LittleGreenSlime");
@@ -477,6 +482,34 @@ public class ControllerProduction : MonoBehaviour
                 else
                     ImageAttentionB.enabled = true;
             }
+
+            //キャラクター生産
+            bool ProductionCharacterFlag = false;
+            bool RepeatComplete = true;
+            for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1; i++)
+            {
+                if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
+                    break;
+
+                bool PCF = false;
+                bool RC = true;
+                ProductionCharacter(Trigger.Update, i,
+                    CharactersAll[CharactersIDProducedCharacter[i]].PaintPixels, out PCF, out RC);
+                if (PCF)
+                    ProductionCharacterFlag = true;
+                if (RC == false)
+                    RepeatComplete = false;
+            }
+            if(ProductionCharacterFlag)
+            {
+                //TODO:キャラクターの所持数表示
+            }
+            if(RepeatComplete == false)
+            {
+                //TODO:キャラクター生産停止中の警告表示
+            }
+            //UI更新
+            UpdateProductionCharacterScene();
 
         }
     }
@@ -1199,15 +1232,33 @@ public class ControllerProduction : MonoBehaviour
     //キャラクター生産の進捗初期化
     public void InitializeProgressProductionCharacter(int argIndex)
     {
-        //if(CharactersIDProducedCharacter[argIndex] == 0)
-        //{
-        //    Debug.Log("Error!!!!!!!!!!!!!!!");
-        //    return;
-        //}
         if (ConsumePixelsProductionCharacter[argIndex].Count != 0)
         {
             //TODO:ピクセルを還元
             ReductionPixelsProductionCharacter(argIndex);
+        }
+        else
+        {
+            //進捗ピクセルの初期化
+            ConsumePixelsProductionCharacter[argIndex].Clear();
+            foreach (ExistColor curExistColor in CharactersAll[CharactersIDProducedCharacter[argIndex]].ListExistsColors)
+            {
+                ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
+            }
+            //進捗画像の初期化
+            ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
+        }
+
+        //UI更新 //TODO:インデックスごとの更新でよい
+        UpdateProductionCharacterScene();
+    }
+    //ピクセルを還元
+    public void ReductionPixelsProductionCharacter(int argIndex)
+    {
+        foreach (ConsumePixelClass ConsumePixel in ConsumePixelsProductionCharacter[argIndex])
+        {
+            CurPixels[(int)ConsumePixel.PixelColor.r * 255, (int)ConsumePixel.PixelColor.g * 255, (int)ConsumePixel.PixelColor.b * 255]
+                += ConsumePixel.CurConsumePixelsNum;
         }
 
         //進捗ピクセルの初期化
@@ -1216,25 +1267,114 @@ public class ControllerProduction : MonoBehaviour
         {
             ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
         }
-
         //進捗画像の初期化
         ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
-
-        //UI更新 //TODO:インデックスごとの更新でよい
-        UpdateProductionCharacterScene();
-    }
-    //ピクセルを還元
-    public void ReductionPixelsProductionCharacter(int argIndex)
-    {
-
     }
     //キャラクター生産
-    public void ProductionCharacter(int argIndex)
+    public bool ProductionCharacter(Trigger argTrigger, int argIndex, uint argRepeatNum, out bool ProductionCharacterFlag, out bool RepeatComplete)
     {
+        ProductionCharacterFlag = false;
+        RepeatComplete = false;
 
+        if (CharactersIDProductionCharacter[argIndex] == 0 || CharactersIDProducedCharacter[argIndex] == 0)
+            return false;
+
+        Debug.Log("ProductionCharacter1");
+
+        int curRepeatNum = 0;
+        Texture2D ProductionCharacterTexture2D = ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath);
+
+        for (int y = ProductionCharacterTexture2D.height - 1; y >= 0; y--)
+        {
+            for (int x = 0; x < ProductionCharacterTexture2D.width; x++)
+            {
+                if(ProgressTextureProductionCharacter[argIndex][x,y] == false)
+                {
+                    Color color = ProductionCharacterTexture2D.GetPixel(x, y);
+                    if (CurPixels[(int)(color.r * 255), (int)(color.g * 255), (int)(color.b * 255)] > 0)
+                    {
+                        Debug.Log("ProductionCharacter2");
+
+                        CurPixels[(int)(color.r * 255), (int)(color.g * 255), (int)(color.b * 255)]--;
+                        ProgressTextureProductionCharacter[argIndex][x, y] = true;
+                        foreach(ConsumePixelClass ConsumePixel in ConsumePixelsProductionCharacter[argIndex])
+                        {
+                            if(ConsumePixel.PixelColor.Equals(color))
+                            {
+                                Debug.Log("ProductionCharacter3");
+                                ConsumePixel.CurConsumePixelsNum++;
+                                break;
+                            }
+                        }
+                        curRepeatNum++;
+                    }
+                }
+                if(curRepeatNum == argRepeatNum)
+                {
+                    RepeatComplete = true;
+                    break;
+                }
+            }
+            if (RepeatComplete == true)
+            {
+                break;
+            }
+        }
+
+        bool ProductionCharacterComplete = true;
+        for (int y = 0; y < ProductionCharacterTexture2D.height; y++)
+        {
+            for (int x = 0; x < ProductionCharacterTexture2D.width; x++)
+            {
+                if (ProgressTextureProductionCharacter[argIndex][x, y] == false)
+                {
+                    ProductionCharacterComplete = false;
+                    break;
+                }
+            }
+            if (ProductionCharacterComplete == false)
+                break;
+        }
+
+        if (ProductionCharacterComplete)
+        {
+            CharactersAll[CharactersIDProducedCharacter[argIndex]].OwnedNumCur++;
+
+            //進捗ピクセルの初期化
+            ConsumePixelsProductionCharacter[argIndex].Clear();
+            foreach (ExistColor curExistColor in CharactersAll[CharactersIDProducedCharacter[argIndex]].ListExistsColors)
+            {
+                ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
+            }
+            //進捗画像の初期化
+            ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
+
+            ProductionCharacterFlag = true;
+        }
+
+        return true;
     }
 
 
+    //キャラクター生産でスピードアップボタンが押されたら
+    public void PushButtonSpeedUpProductionCharacter(string argName)
+    {
+        int ProductionCharacterIndex = int.Parse(argName.Substring(argName.Length - 2, 2));
+
+        bool ProductionCharacterFlag;
+        bool RepeatComplete;
+        ProductionCharacter(Trigger.User, ProductionCharacterIndex, 1, out ProductionCharacterFlag, out RepeatComplete);
+        if (ProductionCharacterFlag)
+        {
+            //TODO:キャラクターの所持数表示
+        }
+        if (RepeatComplete == false)
+        {
+            //TODO:キャラクター生産停止中の警告表示
+        }
+        //UI更新
+        UpdateProductionCharacterScene();
+    }
 
     ////////////////////////////////////
     //Model?
@@ -1298,7 +1438,13 @@ public class ControllerProduction : MonoBehaviour
                                     "WhiteSlime8.png" ,
                                     "RBlackCat8.png" ,
                                     "WhiteCat8.png" ,
-                                    "wanwan.png",
+
+                                    "RedSlime16.png",
+                                    "GreenSlime16.png",
+                                    "BlueSlime16.png",
+                                    "WhiteSlime16.png",
+
+                                    //"wanwan.png",
 
                                     "0032_slime_R.png",
                                     "0032_slime_G.png",

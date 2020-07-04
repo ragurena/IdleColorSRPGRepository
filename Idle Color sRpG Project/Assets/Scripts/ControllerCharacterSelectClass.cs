@@ -517,7 +517,6 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             }
         }
 
-
         //キャラクターボタン生成
         if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
         ButtonTmp.name.Contains("GProductionHelpCharacter") ||
@@ -529,6 +528,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             {
                 if (CharactersAll[indexCharacter].OwnedNumCur != 0 && CharactersAll[indexCharacter].Whereabouts == Place.None)
                 {
+                    Debug.Log("CreateCharacterButton呼び出し");
                     CreateCharacterButton(indexCharacter, ButtonTmp);
                 }
             }
@@ -549,6 +549,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     //キャラクターボタンの作成
     private void CreateCharacterButton(int argCharacterIndex, Button argButtonTmp)
     {
+        Debug.Log("CreateCharacterButton argCharacterIndex = " + argCharacterIndex + " \n Path = " + CharactersAll[argCharacterIndex].ImagePath);
+
         //プレハブのインスタンス化
         GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("ContentCharacterList").transform) as GameObject;
 
