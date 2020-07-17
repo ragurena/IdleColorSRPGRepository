@@ -2200,7 +2200,7 @@ public class ControllerProduction : MonoBehaviour
                                                                                                                     ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[ProductionIndex]].ImagePath), new Color(0, 0, 0, 1));
                             }
                         }
-                        //TODO:使用ピクセルリストの表示
+                        //使用ピクセルリストの表示
                         if (child_gameObject.name.Contains("ScrollViewConsumePixel"))
                         {
                             foreach (Transform child_child_gameObject in child_gameObject)
@@ -2253,6 +2253,48 @@ public class ControllerProduction : MonoBehaviour
                 }
             }
         }
+
+        //TODO:ためし
+        ShowCharacterOwnedNum();
+    }
+
+    //TODO:TODO!
+    //キャラクター生産のキャラクター所持数の表示
+    public void ShowCharacterOwnedNum()
+    {
+        GameObject gameObjectCharacterList = null;
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("CharacterProduction");
+        foreach (GameObject gameObject in tag1_Objects)
+        {
+            if (gameObject.name.Equals("ContentCharacterList"))
+            {
+                gameObjectCharacterList = gameObject;
+            }
+        }
+
+        //表示の初期化
+        //キャラクターボタンの削除
+        foreach (Transform child in gameObjectCharacterList.transform)
+        {
+            Destroy(child.gameObject);
+        }
+
+        //表示プレハブの作成
+        for (int i = 0; i < Constants.CHARACTERS_ALL_NUM; i++)
+        {
+            if (CharactersAll[i].OwnedNumCur != 0)
+            {
+                //プレハブのインスタンス化
+                GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), gameObjectCharacterList.transform) as GameObject;
+                //spriteの指定
+                GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[i].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[i].Size, CharactersAll[i].Size), new Vector2(0.5f, 0.5f));
+                //textの指定
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "OwnedNum : " + CharactersAll[i].OwnedNumCur;
+                GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            }
+        }
+
     }
 
     //広告の表示

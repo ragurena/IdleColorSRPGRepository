@@ -551,8 +551,19 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     {
         Debug.Log("CreateCharacterButton argCharacterIndex = " + argCharacterIndex + " \n Path = " + CharactersAll[argCharacterIndex].ImagePath);
 
+        GameObject gameObjectCharacterList = null;
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("SelectCharacter");
+        foreach (GameObject gameObject in tag1_Objects)
+        {
+            if (gameObject.name.Equals("ContentCharacterList"))
+            {
+                gameObjectCharacterList = gameObject;
+            }
+        }
+
         //プレハブのインスタンス化
-        GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), GameObject.Find("ContentCharacterList").transform) as GameObject;
+        GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), gameObjectCharacterList.transform) as GameObject;
 
         //spriteの指定
         GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[argCharacterIndex].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
@@ -619,8 +630,18 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         //どのキャラクターが選ばれたか削除
         CharacterIDTmp = 0;
 
+        GameObject gameObjectCharacterList = null;
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("SelectCharacter");
+        foreach (GameObject gameObject in tag1_Objects)
+        {
+            if (gameObject.name.Equals("ContentCharacterList"))
+            {
+                gameObjectCharacterList = gameObject;
+            }
+        }
         //キャラクターボタンの削除
-        foreach (Transform child in GameObject.Find("ContentCharacterList").transform)
+        foreach (Transform child in gameObjectCharacterList.transform)
         {
             Destroy(child.gameObject);
         }
