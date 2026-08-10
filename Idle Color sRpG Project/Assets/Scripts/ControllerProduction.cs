@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using OpenCvSharp;
+//using OpenCvSharp;
 
 using System.IO;
 
 using UnityEngine.Networking;
 
 using UnityEngine.Advertisements;
+
 
 
 public enum Trigger {User, Update};
@@ -164,125 +165,85 @@ public class ControllerProduction : MonoBehaviour
 
 
 
-    //テスト　ポスタリゼーション
-    Mat Pos(Mat argSrcImg,int argCullNum)
-    {
-        Mat resultMat = new Mat(argSrcImg.Height, argSrcImg.Width, MatType.CV_8U);
-        //Mat LUT = new Mat(256, 1, MatType.CV_8U);
-        byte[] LUT = new byte[256];
-        for (int x = 0; x < 256; x++)
-        {
-            //var px = LUT.Get<Vec3b>(0, x);
-            //px[0] = (byte)(x / 16);
-            //px[1] = (byte)(x / 16);
-            //px[2] = (byte)(x / 16);
-            //LUT.Set(0, x, px);
-            int num = ((x + (argCullNum / 2)) / argCullNum) * argCullNum;
-            if (num > 255)
-                num = 255;
-            LUT[x] = (byte)num;
-        }
+    ////テスト　ポスタリゼーション
+    //Mat Pos(Mat argSrcImg,int argCullNum)
+    //{
+    //    Mat resultMat = new Mat(argSrcImg.Height, argSrcImg.Width, MatType.CV_8U);
+    //    //Mat LUT = new Mat(256, 1, MatType.CV_8U);
+    //    byte[] LUT = new byte[256];
+    //    for (int x = 0; x < 256; x++)
+    //    {
+    //        //var px = LUT.Get<Vec3b>(0, x);
+    //        //px[0] = (byte)(x / 16);
+    //        //px[1] = (byte)(x / 16);
+    //        //px[2] = (byte)(x / 16);
+    //        //LUT.Set(0, x, px);
+    //        int num = ((x + (argCullNum / 2)) / argCullNum) * argCullNum;
+    //        if (num > 255)
+    //            num = 255;
+    //        LUT[x] = (byte)num;
+    //    }
 
-        Cv2.LUT(argSrcImg, LUT, resultMat);
+    //    Cv2.LUT(argSrcImg, LUT, resultMat);
 
-        //Cv2.ImWrite(Application.streamingAssetsPath + "/Character/TestImageResult2.bmp", resultMat);
+    //    //Cv2.ImWrite(Application.streamingAssetsPath + "/Character/TestImageResult2.bmp", resultMat);
 
-        return resultMat;
-    }
+    //    return resultMat;
+    //}
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Start is called before the first frame update
-    void Start()
+    IEnumerator Start()
     {
+        Debug.Log("==================== [LOG 1] Start 始まったよ！ ====================");
+
 #if UNITY_EDITOR
         {
             //Mat tes = new Mat(5,5,MatType.CV_8U);
             //tes.SaveImage("./TestImage.bmp");
             //Cv2.ImWrite("TestImage.png", tes);
 
-            //Mat PosImg = Cv2.ImRead(Application.streamingAssetsPath + "/Character/TestImage.png");
-            //Mat PosImg = Cv2.ImRead(@"TestImage.bmp");
-            Texture2D image = ImagegUtility.ReadPng("TestImage.png");
-            Mat PosImg = OpenCvSharp.Unity.TextureToMat(image);
-            //Mat PosImg = new Mat(5, 5, MatType.CV_8U); 
-            //Mat PosImg = Cv2.ImRead(Application.streamingAssetsPath + "/Character/RedSlime8.png");
-            //Mat PosImg = new Mat(5, 5, MatType.CV_8U);
-            Debug.Log("PosImg.Height = " + PosImg.Height);
-            //Cv2.ImWrite(Application.streamingAssetsPath + "/Character/TestImageResult1.png", PosImg);
-            PosImg.SaveImage("./TestImage1.bmp");
-            //Cv2.ImWrite("TestImageResult1.bmp", PosImg);
-            Cv2.ImWrite("./TestImageResult1.bmp", PosImg);
-            Mat PosImgRes = new Mat(PosImg.Height, PosImg.Width, MatType.CV_8U);
-            PosImgRes = Pos(PosImg, 32);
-            Cv2.ImWrite("./TestImageResult2.bmp", PosImgRes);
+            ////Mat PosImg = Cv2.ImRead(Application.streamingAssetsPath + "/Character/TestImage.png");
+            ////Mat PosImg = Cv2.ImRead(@"TestImage.bmp");
+            //Texture2D image = ImagegUtility.ReadPng("TestImage.png");
+            //Mat PosImg = OpenCvSharp.Unity.TextureToMat(image);
+            ////Mat PosImg = new Mat(5, 5, MatType.CV_8U); 
+            ////Mat PosImg = Cv2.ImRead(Application.streamingAssetsPath + "/Character/RedSlime8.png");
+            ////Mat PosImg = new Mat(5, 5, MatType.CV_8U);
+            //Debug.Log("PosImg.Height = " + PosImg.Height);
+            ////Cv2.ImWrite(Application.streamingAssetsPath + "/Character/TestImageResult1.png", PosImg);
+            //PosImg.SaveImage("./TestImage1.bmp");
+            ////Cv2.ImWrite("TestImageResult1.bmp", PosImg);
+            //Cv2.ImWrite("./TestImageResult1.bmp", PosImg);
+            //Mat PosImgRes = new Mat(PosImg.Height, PosImg.Width, MatType.CV_8U);
+            //PosImgRes = Pos(PosImg, 32);
+            //Cv2.ImWrite("./TestImageResult2.bmp", PosImgRes);
 
 
             {
-                Mat testImageMat = new Mat(3, 3, MatType.CV_8U);
-                Vec3b pix = testImageMat.At<Vec3b>(0, 0);
-                pix[0] = 0; //B
-                pix[1] = 0; //G
-                pix[2] = 0; //R
-                testImageMat.Set<Vec3b>(0, 0, pix);
-                pix = testImageMat.At<Vec3b>(1, 0);
-                pix[0] = 128; //B
-                pix[1] = 0; //G
-                pix[2] = 0; //R
-                testImageMat.Set<Vec3b>(1, 0, pix);
-                pix = testImageMat.At<Vec3b>(2, 0);
-                pix[0] = 255; //B
-                pix[1] = 0; //G
-                pix[2] = 0; //R
-                testImageMat.Set<Vec3b>(2, 0, pix);
-                pix = testImageMat.At<Vec3b>(0, 1);
-                pix[0] = 0; //B
-                pix[1] = 0; //G
-                pix[2] = 0; //R
-                testImageMat.Set<Vec3b>(0, 1, pix);
-                pix = testImageMat.At<Vec3b>(1, 1);
-                pix[0] = 0; //B
-                pix[1] = 128; //G
-                pix[2] = 0; //R
-                testImageMat.Set<Vec3b>(1, 1, pix);
-                pix = testImageMat.At<Vec3b>(2, 1);
-                pix[0] = 0; //B
-                pix[1] = 255; //G
-                pix[2] = 0; //R
-                testImageMat.Set<Vec3b>(2, 1, pix);
-                pix = testImageMat.At<Vec3b>(0, 2);
-                pix[0] = 0; //B
-                pix[1] = 0; //G
-                pix[2] = 0; //R
-                testImageMat.Set<Vec3b>(0, 2, pix);
-                pix = testImageMat.At<Vec3b>(1, 2);
-                pix[0] = 0; //B
-                pix[1] = 0; //G
-                pix[2] = 128; //R
-                testImageMat.Set<Vec3b>(1, 2, pix);
-                pix = testImageMat.At<Vec3b>(2, 2);
-                pix[0] = 0; //B
-                pix[1] = 0; //G
-                pix[2] = 255; //R
-                testImageMat.Set<Vec3b>(2, 2, pix);
-                //Cv2.ImWrite("./TestImage9.bmp", testImageMat);
-                //Debug.Log("testImageMat.Get<Vec3b>(2,2).Item0 = " + testImageMat.Get<Vec3b>(2,2).Item0);
-                //Debug.Log("testImageMat.Get<Vec3b>(2,2).Item1 = " + testImageMat.Get<Vec3b>(2,2).Item1);
-                //Debug.Log("testImageMat.Get<Vec3b>(2,2).Item2 = " + testImageMat.Get<Vec3b>(2,2).Item2);
-                Texture2D testImageTex = OpenCvSharp.Unity.MatToTexture(testImageMat);
-                byte[] pngData = testImageTex.EncodeToPNG();
-                File.WriteAllBytes("./TestImage9.png", pngData);
-                testImageTex.SetPixel(0, 0, new Color(0, 0, 0));
-                testImageTex.SetPixel(1, 0, new Color((float)0.5, 0, 0));
-                testImageTex.SetPixel(2, 0, new Color((float)1.0, 0, 0));
-                testImageTex.SetPixel(0, 1, new Color(0, 0, 0));
-                testImageTex.SetPixel(1, 1, new Color(0, (float)0.5, 0));
-                testImageTex.SetPixel(2, 1, new Color(0, (float)1.0, 0));
-                testImageTex.SetPixel(0, 2, new Color(0, 0, 0));
-                testImageTex.SetPixel(1, 2, new Color(0, 0, (float)0.5));
-                testImageTex.SetPixel(2, 2, new Color(0, 0, (float)1.0));
-                pngData = testImageTex.EncodeToPNG();
-                File.WriteAllBytes("./TestImage99.png", pngData);
+                // 3x3 の Texture2D を作成
+                Texture2D testImageTex = new Texture2D(3, 3, TextureFormat.RGBA32, false);
 
+                // ピクセル色のセット (Colorは 0.0f ～ 1.0f で指定)
+                testImageTex.SetPixel(0, 0, new Color(0.0f, 0.0f, 0.0f));
+                testImageTex.SetPixel(1, 0, new Color(0.5f, 0.0f, 0.0f));
+                testImageTex.SetPixel(2, 0, new Color(1.0f, 0.0f, 0.0f));
+
+                testImageTex.SetPixel(0, 1, new Color(0.0f, 0.0f, 0.0f));
+                testImageTex.SetPixel(1, 1, new Color(0.0f, 0.5f, 0.0f));
+                testImageTex.SetPixel(2, 1, new Color(0.0f, 1.0f, 0.0f));
+
+                testImageTex.SetPixel(0, 2, new Color(0.0f, 0.0f, 0.0f));
+                testImageTex.SetPixel(1, 2, new Color(0.0f, 0.0f, 0.5f));
+                testImageTex.SetPixel(2, 2, new Color(0.0f, 0.0f, 1.0f));
+
+                // 変更を適用
+                testImageTex.Apply();
+
+                // PNGに変換して保存
+                byte[] pngData = testImageTex.EncodeToPNG();
+                string savePath = System.IO.Path.Combine(Application.persistentDataPath, "TestImage99.png");
+                System.IO.File.WriteAllBytes(savePath, pngData);
             }
         }
 #endif
@@ -310,7 +271,9 @@ public class ControllerProduction : MonoBehaviour
             ConsumePixelsProductionCharacter[i] = new List<ConsumePixelClass>();
         }
 
-        MakeFile();
+        // ② MakeFile が完全に終わるまで、ここで待機する！
+        yield return StartCoroutine(MakeFile());
+        Debug.Log("==================== [LOG 3] MakeFile 終わったよ！ ====================");
 
         //画面回転固定
         //縦
@@ -328,6 +291,19 @@ public class ControllerProduction : MonoBehaviour
         {
             CharactersAll[i] = new CharacterClass();
         }
+
+        // 1. スマホ内の保存パスを表示
+        string testPath = Application.persistentDataPath + "/Character/RedSlime8.png";
+        Debug.Log("【CHECK1】画像のパス: " + testPath);
+
+        // 2. スマホの中に実際に画像ファイルが存在しているかチェック
+        bool isExist = System.IO.File.Exists(testPath);
+        Debug.Log("【CHECK2】ファイルは存在するか？ : " + isExist);
+
+        // 3. 画像ファイルを読めたかチェック（ImagegUtilityなどを使っている場所の前後に書く）
+        Texture2D tex = ImagegUtility.ReadPng("RedSlime8.png"); // ※実際の読み込み処理のコード
+        Debug.Log("【CHECK3】テクスチャ読み込み結果 : " + (tex != null ? "成功！" : "失敗（null）"));
+
 
         //IDと配列番号を一致させる、0は初期値のままで
         //CharactersAll[1].MakeCharacter(Resources.Load("Character/RedSlime8", typeof(Texture2D)) as Texture2D, 1, "LittleRedSlime");
@@ -1379,11 +1355,12 @@ public class ControllerProduction : MonoBehaviour
     ////////////////////////////////////
     //Model?
 
-    void MakeFile()
+    IEnumerator MakeFile()
     {
+        Debug.Log("==================== [LOG 2] MakeFile 始まったよ！ ====================");
         Debug.Log("MakeFile Begin");
 
-        //キャラクターフォルダ、正規化キャラクターフォルダの生成
+        // キャラクターフォルダ、正規化キャラクターフォルダの生成
         if (!(Directory.Exists(Application.persistentDataPath + "/Character")))
         {
             Directory.CreateDirectory(Application.persistentDataPath + "/Character");
@@ -1395,122 +1372,83 @@ public class ControllerProduction : MonoBehaviour
 
 #if UNITY_EDITOR
         Debug.Log("UNITY_EDITOR");
-        //元のキャラクターのパス取得
         string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
-#elif UNITY_IPHONE //TODO:iosテスト
-        Debug.Log("UNITY_IPHONE");
-        string[] files = System.IO.Directory.GetFiles(Application.dataPath + "/Raw" + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
-//#else
-//        Debug.Log("ELSE");
-//        string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
-#endif
 
-//読み書き可能なフォルダへコピー
-#if UNITY_EDITOR || UNITY_IPHONE
         foreach (string file in files)
         {
             if (!(File.Exists(Application.persistentDataPath + "/Character/" + Path.GetFileName(file))))
             {
-                Debug.Log("コピー　" + file + "->" + Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
+                Debug.Log("コピー " + file + "->" + Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
                 File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
             }
         }
+
+#elif UNITY_IPHONE
+    Debug.Log("UNITY_IPHONE");
+    string[] files = System.IO.Directory.GetFiles(Application.dataPath + "/Raw" + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
+
+    foreach (string file in files)
+    {
+        if (!(File.Exists(Application.persistentDataPath + "/Character/" + Path.GetFileName(file))))
+        {
+            Debug.Log("コピー " + file + "->" + Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
+            File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
+        }
+    }
+
 #elif UNITY_ANDROID
-        Debug.Log("UNITY_ANDROID");
+    Debug.Log("UNITY_ANDROID");
 
-        Debug.Log("ANDROID + 0.41 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png");
-        string path = Application.streamingAssetsPath + "/Character/RedSlime8.png";
-        //string path = Application.streamingAssetsPath + "/Character";
-        Debug.Log("ANDROID + 0.42 + " + path);
-        WWW www = new WWW(path);
-        while (!www.isDone)
+    string[] CharacterNames = { 
+        "RedSlime8.png",
+        "GreenSlime8.png",
+        "BlueSlime8.png",
+        "WhiteSlime8.png",
+        "RBlackCat8.png",
+        "WhiteCat8.png",
+        "RedSlime16.png",
+        "GreenSlime16.png",
+        "BlueSlime16.png",
+        "WhiteSlime16.png",
+        "0032_slime_R.png",
+        "0032_slime_G.png",
+        "0032_slime_B.png",
+        "0032_rabbit.png",
+        "0064_slimeking_R.png",
+        "0064_slimeking_G.png",
+        "0064_slimeking_B.png"
+    };
+
+    foreach (string curCharacterName in CharacterNames)
+    {
+        string toPath = Application.persistentDataPath + "/Character/" + curCharacterName;
+
+        // すでにファイルが存在すればスキップ（毎回コピーする無駄を省く）
+        if (File.Exists(toPath)) continue;
+
+        string path = Application.streamingAssetsPath + "/Character/" + curCharacterName;
+
+        // 古い「WWW」と「while」を使わず、新しい UnityWebRequest と yield return で安全に待つ
+        using (UnityWebRequest www = UnityWebRequest.Get(path))
         {
+            yield return www.SendWebRequest(); // 読み込み完了までフリーズせずに待つ
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                File.WriteAllBytes(toPath, www.downloadHandler.data);
+                Debug.Log("コピー成功: " + curCharacterName);
+            }
+            else
+            {
+                Debug.LogError("コピー失敗: " + curCharacterName + " エラー: " + www.error);
+            }
         }
-        Debug.Log("ANDROID + 0.51 + " + Application.persistentDataPath + "/Character/RedSlime8.png");
-        string toPath = Application.persistentDataPath + "/Character/RedSlime8.png";
-        //string toPath = Application.persistentDataPath + "/Character";
-        Debug.Log("ANDROID + 0.52 + " + toPath);
-        File.WriteAllBytes(toPath, www.bytes);
-        Debug.Log("ANDROID + 0.6 + " + Application.streamingAssetsPath + "/Character/RedSlime8.png" + " -> " + Application.persistentDataPath + "/Character/RedSlime8.png");
-
-        string[] CharacterNames = { "GreenSlime8.png" ,
-                                    "BlueSlime8.png" ,
-                                    "WhiteSlime8.png" ,
-                                    "RBlackCat8.png" ,
-                                    "WhiteCat8.png" ,
-
-                                    "RedSlime16.png",
-                                    "GreenSlime16.png",
-                                    "BlueSlime16.png",
-                                    "WhiteSlime16.png",
-
-                                    //"wanwan.png",
-
-                                    "0032_slime_R.png",
-                                    "0032_slime_G.png",
-                                    "0032_slime_B.png",
-                                    "0032_rabbit.png",
-                                    "0064_slimeking_R.png",
-                                    "0064_slimeking_G.png",
-                                    "0064_slimeking_B.png"
-                                    };
-        foreach (string curCharacterName in CharacterNames)
-        {
-            path = Application.streamingAssetsPath + "/Character/" + curCharacterName;
-            www = new WWW(path);
-            while (!www.isDone){}
-            toPath = Application.persistentDataPath + "/Character/" + curCharacterName;
-            File.WriteAllBytes(toPath, www.bytes);
-        }
-
-        //string[] files = System.IO.Directory.GetFiles(Application.streamingAssetsPath + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
-        //foreach (string file in files)
-        //{
-        //    WWW www = new WWW(file);
-        //    while (!www.isDone)
-        //    {
-        //    }
-
-        //    if (!(File.Exists(Application.persistentDataPath + "/Character/" + Path.GetFileName(file))))
-        //    {
-        //        File.WriteAllBytes(toPath, www.bytes);
-
-        //        Debug.Log("コピー　" + file + "->" + Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
-        //        File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
-        //    }
-        //}
-
-
-
-        ////後で試したい
-        ////WWW www = new WWW(Application.streamingAssetsPath + "/Character");
-        ////while (!www.isDone) { }
-        ////Debug.Log("0.211 + " + www.bytes);
-        //////string[] files = System.IO.Directory.GetFiles(www.bytes, "*.png", System.IO.SearchOption.AllDirectories);
-        ////File.WriteAllBytes(Application.persistentDataPath + "/Character", www.bytes);
-
-        ////WWW www = new WWW("jar:file://" + Application.dataPath + "!/assets");// + "/Character");
-        //Debug.Log("0.2101 + " + Application.streamingAssetsPath + "/Character");
-        //WWW www = new WWW(Application.streamingAssetsPath + "/Character");
-        ////yield return www;
-        //while (!www.isDone) { }
-        //string TxtTmp = string.Empty;
-        //TextReader TR = new StringReader(www.text);
-        //string filesTmp = string.Empty;
-        //for (int i = 0; (TxtTmp = TR.ReadLine()) != null; i++)
-        //{
-        //    Debug.Log("0.211 + " + i + " + " + TxtTmp);
-        //    filesTmp = filesTmp + TxtTmp + ' ';
-        //}
-        //string[] files = filesTmp.Split(' ');
-        //Debug.Log("0.212 + " + files);
-
-        ////string[] files = System.IO.Directory.GetFiles("jar:file://" + Application.dataPath + "!/assets" + "/Character", "*.png", System.IO.SearchOption.AllDirectories);
+    }
 #endif
 
         Debug.Log("MakeFile End");
+        yield break; // ←★これを追加！（「ここでコルーチン終了」という意味です）
     }
-
 
 
     //////////////////////////////////////////////////////////////////////////
@@ -2297,9 +2235,14 @@ public class ControllerProduction : MonoBehaviour
 
     }
 
+
     //広告の表示
     public void ShowAd()
     {
+        // 最新バージョン移行時のエラー回避のため、一時的にコメントアウト中
+        UnityEngine.Debug.LogWarning("【デバッグ】Unity 6移行エラーのため、広告表示処理はコメントアウトされています。");
+
+        /*
         if(Advertisement.IsReady())
         {
             //Advertisement.GetPlacementState();
@@ -2307,6 +2250,8 @@ public class ControllerProduction : MonoBehaviour
             //return true;
         }
         //return false;
+        */
     }
+
 
 }

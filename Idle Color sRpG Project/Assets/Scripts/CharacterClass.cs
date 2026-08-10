@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using System.IO;
-using OpenCvSharp;
+//using OpenCvSharp;
 
 
 
@@ -265,34 +265,43 @@ public class CharacterClass //: MonoBehaviour
         return resultImagePath;
     }
 
-    Texture2D Posterization(Texture2D argSrcImg, int argCullNum)
+    /// <summary>
+    /// Unity標準機能（C#）だけで動く減色（ポスタリゼーション）処理
+    /// </summary>
+    /// <param name="srcTex">読み込んだ元画像</param>
+    /// <param name="levels">色の段階数（例: 4〜8）</param>
+    public static Texture2D Posterization(Texture2D srcTex, int levels = 4)
     {
-        Mat SrcImg = OpenCvSharp.Unity.TextureToMat(argSrcImg);
+        if (srcTex == null) return null;
 
-        Mat resultMat = new Mat(SrcImg.Height, SrcImg.Width, MatType.CV_8U);
-        byte[] LUT = new byte[256];
-        for (int x = 0; x < 256; x++)
+        // 1. 元画像のピクセルを取得
+        Color[] pixels = srcTex.GetPixels();
+        Color[] newPixels = new Color[pixels.Length];
+
+        float step = 1.0f / (levels - 1);
+
+        // 2. 各ピクセルの RGB を段階分けして減色
+        for (int i = 0; i < pixels.Length; i++)
         {
-            int num = ((x + (argCullNum / 2)) / argCullNum) * argCullNum;
-            if (num > 255)
-                num = 255;
-            LUT[x] = (byte)num;
+            Color c = pixels[i];
+
+            // アルファ値（透明度）がある場所だけ減色処理
+            if (c.a > 0.01f)
+            {
+                c.r = Mathf.Round(c.r * (levels - 1)) * step;
+                c.g = Mathf.Round(c.g * (levels - 1)) * step;
+                c.b = Mathf.Round(c.b * (levels - 1)) * step;
+            }
+
+            newPixels[i] = c;
         }
 
-        Cv2.LUT(SrcImg, LUT, resultMat);
+        // 3. 新しい Texture2D を作成してピクセルを適用
+        Texture2D resultTex = new Texture2D(srcTex.width, srcTex.height, TextureFormat.RGBA32, false);
+        resultTex.SetPixels(newPixels);
+        resultTex.Apply();
 
-        Texture2D resultTexture2D = OpenCvSharp.Unity.MatToTexture(resultMat);
-        
-        Color[] srcBuffer = argSrcImg.GetPixels();
-        Color[] resultBuffer = resultTexture2D.GetPixels();
-        for (int i = 0; i < SrcImg.Height * SrcImg.Width; i++)
-        {
-            resultBuffer.SetValue(new Color(resultBuffer[i].r, resultBuffer[i].g, resultBuffer[i].b, srcBuffer[i].a), i);
-        }
-        resultTexture2D.SetPixels(resultBuffer);
-        resultTexture2D.Apply();
-
-        return resultTexture2D;
+        return resultTex;
     }
 
     bool CalcCharacterStats()

@@ -18,36 +18,38 @@ public class ImagegUtility : MonoBehaviour
         
     }
 
-    public static Texture2D ReadPng(string argImagePath)
+    public static Texture2D ReadPng(string fileNameOrPath)
     {
-        FileStream fs = new FileStream(argImagePath, FileMode.Open, FileAccess.Read);
-        BinaryReader br = new BinaryReader(fs);
+        // 1. 渡された文字列がフルパスか、ファイル名だけかを判別して正しいパスを作る
+        string fullPath = fileNameOrPath;
 
-        byte[] readBinary = br.ReadBytes((int)br.BaseStream.Length);
-
-        br.Close();
-        fs.Close();
-
-        int w = 0;
-        int h = 0;
-
-        int pos = 16;
-        for (int i = 0; i < 4; i++)
+        // persistentDataPath が含まれていない場合は、Character フォルダ以下のフルパスを作成
+        if (!fileNameOrPath.Contains(Application.persistentDataPath))
         {
-            w = w * 256 + readBinary[pos++];
-        }
-        for (int i = 0; i < 4; i++)
-        {
-            h = h * 256 + readBinary[pos++];
+            // ファイル名だけ（例: "RedSlime8.png"）を取り出す
+            string fileName = System.IO.Path.GetFileName(fileNameOrPath);
+            fullPath = System.IO.Path.Combine(Application.persistentDataPath, "Character", fileName);
         }
 
-        Texture2D resTex = new Texture2D(w, h);
-        resTex.LoadImage(readBinary);
+        // パス区切り文字を綺麗に統一する
+        fullPath = fullPath.Replace('\\', '/');
 
-        //テクスチャの設定
-        resTex.filterMode = FilterMode.Point;
+        // 2. ファイルの存在チェック
+        if (!System.IO.File.Exists(fullPath))
+        {
+            Debug.LogError("ファイルが存在しません: " + fullPath);
+            return null;
+        }
 
-        return resTex;
+        // 3. 画像ファイルをバイト配列として読み込み、Texture2Dに変換（Android/PC共通で100%動く方式）
+        byte[] bytes = System.IO.File.ReadAllBytes(fullPath);
+        Texture2D texture = new Texture2D(2, 2);
+        if (texture.LoadImage(bytes))
+        {
+            return texture;
+        }
+
+        return null;
     }
 
     public static Texture2D MakeSilhouetteTexture(Texture2D argTexture2D)

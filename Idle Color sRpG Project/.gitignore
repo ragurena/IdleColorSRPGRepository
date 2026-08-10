@@ -1,0 +1,21 @@
+# Visual Studio 一時ファイル
+.vs/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+
+# Unity 一時ファイル
+[L/l]ibrary/
+[T/t]emp/
+[O/o]bj/
+[B/b]uild/
+[B/b]uilds/
+[L/l]ogs/
+[M/m]emoryCaptures/
+
+# OS自動生成ファイル
+.DS_Store
+Thumbs.db
