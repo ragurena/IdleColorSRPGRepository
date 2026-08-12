@@ -3,7 +3,7 @@
     "m_SelectedProcess": {
         "deviceId": "48061JEKB10583",
         "name": "com.RagronaCompany.IdleColorsRpGProduct",
-        "processId": 3213,
+        "processId": 11208,
         "exited": false
     },
     "m_SelectedPriority": 0,
@@ -48,6 +48,12 @@
             "deviceId": "48061JEKB10583",
             "name": "com.RagronaCompany.IdleColorsRpGProduct",
             "processId": 3213,
+            "exited": false
+        },
+        {
+            "deviceId": "48061JEKB10583",
+            "name": "com.RagronaCompany.IdleColorsRpGProduct",
+            "processId": 11208,
             "exited": false
         }
     ],

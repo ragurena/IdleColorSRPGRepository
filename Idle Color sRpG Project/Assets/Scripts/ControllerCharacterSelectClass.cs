@@ -566,7 +566,34 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), gameObjectCharacterList.transform) as GameObject;
 
         //spriteの指定
-        GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[argCharacterIndex].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
+        //GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[argCharacterIndex].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
+        // --- 修正案：画像パスの安全チェック ---
+        Sprite characterSprite = null;
+
+        // パスがちゃんと入っているかチェック
+        if (!string.IsNullOrWhiteSpace(CharactersAll[argCharacterIndex].ImagePath))
+        {
+            // パスがあるときだけ画像を読み込む
+            Texture2D tex = ImagegUtility.ReadPng(CharactersAll[argCharacterIndex].ImagePath);
+            if (tex != null)
+            {
+                characterSprite = Sprite.Create(tex, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
+            }
+        }
+
+        // もし画像が読み込めなかった（パスが空、またはファイルがなかった）場合の予備
+        if (characterSprite == null)
+        {
+            // 代わりの「NO IMAGE」的な仮スプライトを入れる（または Resources から読み込むなど）
+            characterSprite = Resources.Load<Sprite>("NoImageSprite"); 
+            Debug.LogWarning($"{argCharacterIndex}番目のキャラの画像パスが空のため、スプライトを生成できませんでした。");
+        }
+
+        // 確定したスプライトをセットする
+        GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = characterSprite;
+
+
+
 
         //textの指定
         if (argButtonTmp.name.Contains("RProductionHelpCharacter") ||

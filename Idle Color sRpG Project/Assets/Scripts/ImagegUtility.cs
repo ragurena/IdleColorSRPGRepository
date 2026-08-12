@@ -20,37 +20,60 @@ public class ImagegUtility : MonoBehaviour
 
     public static Texture2D ReadPng(string fileNameOrPath)
     {
+        // 0. 安全チェック（nullや空文字のときは即座に理由をログに出す）
+        if (string.IsNullOrWhiteSpace(fileNameOrPath))
+        {
+            Debug.LogWarning("[ReadPng] 引数のパスが空っぽ(nullまたは空文字)です。");
+            return null;
+        }
+
         // 1. 渡された文字列がフルパスか、ファイル名だけかを判別して正しいパスを作る
         string fullPath = fileNameOrPath;
 
-        // persistentDataPath が含まれていない場合は、Character フォルダ以下のフルパスを作成
         if (!fileNameOrPath.Contains(Application.persistentDataPath))
         {
-            // ファイル名だけ（例: "RedSlime8.png"）を取り出す
             string fileName = System.IO.Path.GetFileName(fileNameOrPath);
             fullPath = System.IO.Path.Combine(Application.persistentDataPath, "Character", fileName);
         }
 
-        // パス区切り文字を綺麗に統一する
         fullPath = fullPath.Replace('\\', '/');
+        Debug.Log("[ReadPng] 読み込みを試みる最終パス: " + fullPath);
 
         // 2. ファイルの存在チェック
         if (!System.IO.File.Exists(fullPath))
         {
-            Debug.LogError("ファイルが存在しません: " + fullPath);
+            // ★あえて LogError ではなく Log にしてゲームが止まるのを防ぎつつ原因を表示
+            Debug.LogWarning("[ReadPng] 指定されたパスにファイルが存在しません: " + fullPath);
             return null;
         }
 
-        // 3. 画像ファイルをバイト配列として読み込み、Texture2Dに変換（Android/PC共通で100%動く方式）
-        byte[] bytes = System.IO.File.ReadAllBytes(fullPath);
-        Texture2D texture = new Texture2D(2, 2);
-        if (texture.LoadImage(bytes))
+        // 3. 画像ファイルをバイト配列として読み込み、Texture2Dに変換
+        try
         {
-            return texture;
+            byte[] bytes = System.IO.File.ReadAllBytes(fullPath);
+            Debug.Log($"[ReadPng] ファイルの読み込みに成功。バイト数: {bytes.Length} bytes");
+            Texture2D texture = new Texture2D(2, 2);
+            if (texture.LoadImage(bytes))
+            {
+                Debug.Log("[ReadPng] Texture2Dへの変換(LoadImage)に成功しました！");
+                return texture;
+            }
+            else
+            {
+                Debug.LogError("[ReadPng] ファイルは存在しますが、画像(PNG)としてのデコードに失敗しました。ファイルが破損しているか、PNG形式ではない可能性があります。");
+            }
+
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("[ReadPng] ファイルの読み込み中にエラーが発生しました: " + e.Message);
         }
 
         return null;
+
     }
+
+
 
     public static Texture2D MakeSilhouetteTexture(Texture2D argTexture2D)
     {

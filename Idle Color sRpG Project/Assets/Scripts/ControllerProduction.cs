@@ -165,32 +165,6 @@ public class ControllerProduction : MonoBehaviour
 
 
 
-    ////テスト　ポスタリゼーション
-    //Mat Pos(Mat argSrcImg,int argCullNum)
-    //{
-    //    Mat resultMat = new Mat(argSrcImg.Height, argSrcImg.Width, MatType.CV_8U);
-    //    //Mat LUT = new Mat(256, 1, MatType.CV_8U);
-    //    byte[] LUT = new byte[256];
-    //    for (int x = 0; x < 256; x++)
-    //    {
-    //        //var px = LUT.Get<Vec3b>(0, x);
-    //        //px[0] = (byte)(x / 16);
-    //        //px[1] = (byte)(x / 16);
-    //        //px[2] = (byte)(x / 16);
-    //        //LUT.Set(0, x, px);
-    //        int num = ((x + (argCullNum / 2)) / argCullNum) * argCullNum;
-    //        if (num > 255)
-    //            num = 255;
-    //        LUT[x] = (byte)num;
-    //    }
-
-    //    Cv2.LUT(argSrcImg, LUT, resultMat);
-
-    //    //Cv2.ImWrite(Application.streamingAssetsPath + "/Character/TestImageResult2.bmp", resultMat);
-
-    //    return resultMat;
-    //}
-
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Start is called before the first frame update
     IEnumerator Start()
@@ -199,25 +173,6 @@ public class ControllerProduction : MonoBehaviour
 
 #if UNITY_EDITOR
         {
-            //Mat tes = new Mat(5,5,MatType.CV_8U);
-            //tes.SaveImage("./TestImage.bmp");
-            //Cv2.ImWrite("TestImage.png", tes);
-
-            ////Mat PosImg = Cv2.ImRead(Application.streamingAssetsPath + "/Character/TestImage.png");
-            ////Mat PosImg = Cv2.ImRead(@"TestImage.bmp");
-            //Texture2D image = ImagegUtility.ReadPng("TestImage.png");
-            //Mat PosImg = OpenCvSharp.Unity.TextureToMat(image);
-            ////Mat PosImg = new Mat(5, 5, MatType.CV_8U); 
-            ////Mat PosImg = Cv2.ImRead(Application.streamingAssetsPath + "/Character/RedSlime8.png");
-            ////Mat PosImg = new Mat(5, 5, MatType.CV_8U);
-            //Debug.Log("PosImg.Height = " + PosImg.Height);
-            ////Cv2.ImWrite(Application.streamingAssetsPath + "/Character/TestImageResult1.png", PosImg);
-            //PosImg.SaveImage("./TestImage1.bmp");
-            ////Cv2.ImWrite("TestImageResult1.bmp", PosImg);
-            //Cv2.ImWrite("./TestImageResult1.bmp", PosImg);
-            //Mat PosImgRes = new Mat(PosImg.Height, PosImg.Width, MatType.CV_8U);
-            //PosImgRes = Pos(PosImg, 32);
-            //Cv2.ImWrite("./TestImageResult2.bmp", PosImgRes);
 
 
             {
@@ -359,6 +314,18 @@ public class ControllerProduction : MonoBehaviour
 
         //UIの更新
         UpdateRGBProductionScene();
+
+        // --- 起動時にスライダーの最大値を階調数（GameConfig.GRADATION_LEVELS）に合わせる処理 ---
+        // ヒエラルキーの構造（PrefabPixelListPageR ➔ SliderPixelListPageR）に合わせて安全に取得します
+        Slider sliderR = GameObject.Find("PrefabPixelListPageR")?.transform.Find("SliderPixelListPageR")?.GetComponent<Slider>();
+        if (sliderR != null) sliderR.maxValue = Mathf.RoundToInt(GameConfig.GRADATION_LEVELS / 3f)-1;
+
+        Slider sliderG = GameObject.Find("PrefabPixelListPageG")?.transform.Find("SliderPixelListPageG")?.GetComponent<Slider>();
+        if (sliderG != null) sliderG.maxValue = Mathf.RoundToInt(GameConfig.GRADATION_LEVELS / 3f)-1;
+
+        Slider sliderB = GameObject.Find("PrefabPixelListPageB")?.transform.Find("SliderPixelListPageB")?.GetComponent<Slider>();
+        if (sliderB != null) sliderB.maxValue = GameConfig.GRADATION_LEVELS;
+
 
 
         Debug.Log("ControllerProduction End");
@@ -728,7 +695,7 @@ public class ControllerProduction : MonoBehaviour
             }
             else
             if (argButtonName.Substring(argButtonName.Length - 3, 2) == "Up")
-                if (PixelListPage[1] < 5)
+                if (PixelListPage[1] < Mathf.CeilToInt(GameConfig.GRADATION_LEVELS / 3))
                     PixelListPage[1]++;
         }
         else
@@ -741,7 +708,7 @@ public class ControllerProduction : MonoBehaviour
             }
             else
             if (argButtonName.Substring(argButtonName.Length - 3, 2) == "Up")
-                if (PixelListPage[2] < 5)
+                if (PixelListPage[2] < Mathf.CeilToInt(GameConfig.GRADATION_LEVELS / 3))
                     PixelListPage[2]++;
         }
         else
@@ -754,7 +721,7 @@ public class ControllerProduction : MonoBehaviour
             }
             else
             if (argButtonName.Substring(argButtonName.Length - 3, 2) == "Up")
-                if (PixelListPage[3] < 16)
+                if (PixelListPage[3] < GameConfig.GRADATION_LEVELS)
                     PixelListPage[3]++;
         }
 
@@ -768,19 +735,19 @@ public class ControllerProduction : MonoBehaviour
 
         if (strRGB.Equals("R"))
         {
-            if (Slider.value >= 0 && Slider.value <= 5)
+            if (Slider.value >= 0 && Slider.value <= Mathf.CeilToInt(GameConfig.GRADATION_LEVELS / 3))
                 PixelListPage[1] = (byte)Slider.value;
         }
         else
         if (strRGB.Equals("G"))
         {
-            if (Slider.value >= 0 && Slider.value <= 5)
+            if (Slider.value >= 0 && Slider.value <= Mathf.CeilToInt(GameConfig.GRADATION_LEVELS / 3))
                 PixelListPage[2] = (byte)Slider.value;
         }
         else
         if (strRGB.Equals("B"))
         {
-            if (Slider.value >= 0 && Slider.value <= 16)
+            if (Slider.value >= 0 && Slider.value <= GameConfig.GRADATION_LEVELS)
                 PixelListPage[3] = (byte)Slider.value;
         }
 
@@ -1740,43 +1707,28 @@ public class ControllerProduction : MonoBehaviour
     }
     public void CreatePixelListPixelProduction()
     {
-        //ページ指定部分
+        // ページ指定部分
         ShowPagePixelListPixelProduction(GameObject.Find("PrefabPixelListPageR"));
         ShowPagePixelListPixelProduction(GameObject.Find("PrefabPixelListPageG"));
         ShowPagePixelListPixelProduction(GameObject.Find("PrefabPixelListPageB"));
 
         GameObject GameObjectContentPixelList = GameObject.Find("ContentPixelList");
 
-        //PixelListの生成
-        GameObject[,] ArrayShowPixelColorAndNum = new GameObject[16, 16];
+        // PixelListの生成
+        GameObject[,] ArrayShowPixelColorAndNum = new GameObject[GameConfig.GRADATION_LEVELS, GameConfig.GRADATION_LEVELS];
 
         // 計測開始
         System.Diagnostics.Stopwatch swI = new System.Diagnostics.Stopwatch();
         System.Diagnostics.Stopwatch swU = new System.Diagnostics.Stopwatch();
 
-        //int B = PixelListPage[3];
-        //for (int G = (PixelListPage[2] * 16); G < (PixelListPage[2] * 16) + 16; G++)
-        //{
-        //    for (int R = (PixelListPage[1] * 16); R < (PixelListPage[1] * 16) + 16; R++)
-        //    {
-        //        //プレハブのインスタンス化
-        //        swI.Start();
-        //        ArrayShowPixelColorAndNum[R % 16, G % 16] = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), GameObjectContentPixelList.transform) as GameObject;
-        //        swI.Stop();
-
-        //        swU.Start();
-        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Image>()[1].color = new Color(R / 255f, G / 255f, B / 255f, 1.0f);
-        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[0].text = R.ToString();
-        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[2].text = G.ToString();
-        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[4].text = B.ToString();
-        //        ArrayShowPixelColorAndNum[R % 16, G % 16].GetComponentsInChildren<Text>()[5].text = CurPixels[R, G, B].ToString();
-        //        swU.Stop();
-        //    }
-        //}
-
         int rowNum = 3;
         int colNum = 3;
-        int cullNum = 16;
+
+        // ★修正ポイント1：1階調あたりの「色幅」を計算する
+        // GRADATION_LEVELSが 16 の時は 256 / 16 = 16 刻み
+        // GRADATION_LEVELSが  8 の時は 256 /  8 = 32 刻み に自動的になります
+        int colorStep = 256 / GameConfig.GRADATION_LEVELS;
+
         int B = PixelListPage[3];
 
         GameObject[] tag1_Objects;
@@ -1785,11 +1737,8 @@ public class ControllerProduction : MonoBehaviour
         {
             if (gameObject.name.Equals("ContentPixelList"))
             {
-                Debug.Log("((PixelListPage[1] * colNum) + colNum - 1) * cullNum = " + ((PixelListPage[1] * colNum) + colNum - 1) * cullNum);
-                if (((PixelListPage[1] * colNum) + colNum - 1) * cullNum < 256)
-                    gameObject.GetComponent<GridLayoutGroup>().constraintCount = 3;
-                else
-                    gameObject.GetComponent<GridLayoutGroup>().constraintCount = 2;
+                // 最後のページかどうかに関わらず、横に3個並べたい場合は常に「3」にする
+                gameObject.GetComponent<GridLayoutGroup>().constraintCount = 3;
             }
         }
 
@@ -1799,24 +1748,23 @@ public class ControllerProduction : MonoBehaviour
         {
             for (int R = (PixelListPage[1] * colNum); R < (PixelListPage[1] * colNum) + colNum; R++)
             {
-                int RColor = R * cullNum;
-                int GColor = G * cullNum;
-                int BColor = B * cullNum;
-
-                if(cullNum != 1)
+                // ★修正ポイント3：cullNum ではなく、計算した色幅（colorStep）を掛ける
+                int RColor = R * colorStep;
+                int GColor = G * colorStep;
+                int BColor = B * colorStep;
+                // 256を超えないように255に丸める処理（元のロジックを維持）
+                if (GameConfig.GRADATION_LEVELS != 1)
                 {
-                    if (RColor == 256)
-                        RColor = 255;
-                    if (GColor == 256)
-                        GColor = 255;
-                    if (BColor == 256)
-                        BColor = 255;
+                    if (RColor >= 256) RColor = 255;
+                    if (GColor >= 256) GColor = 255;
+                    if (BColor >= 256) BColor = 255;
                 }
-                if (RColor > 255 || GColor > 255)
-                    continue;
 
+                // 255を超えた色をスキップするのではなく、255のマスとして生成して表示させる
+                if (RColor > 255 && RColor - colorStep >= 255) continue;
+                if (GColor > 255 && GColor - colorStep >= 255) continue;
 
-                //プレハブのインスタンス化
+                // プレハブのインスタンス化
                 swI.Start();
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum] = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), GameObjectContentPixelList.transform) as GameObject;
                 swI.Stop();
@@ -1829,92 +1777,82 @@ public class ControllerProduction : MonoBehaviour
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[5].text = CurPixels[RColor, GColor, BColor].ToString();
                 swU.Stop();
             }
+
         }
 
         Debug.Log("swI : " + swI.Elapsed);
         Debug.Log("swU : " + swU.Elapsed);
 
     }
-    public void ShowPagePixelListPixelProduction(GameObject argPrefabPixelListPageRGB)//TODO:ポスカゼーションを考える
+
+
+    public void ShowPagePixelListPixelProduction(GameObject argPrefabPixelListPageRGB)
     {
+        // 1ステップあたりの「色幅」を計算（8階調なら32刻み）
+        int colorStep = 256 / GameConfig.GRADATION_LEVELS;
+
+        // ★修正：-1 を削除し、割り算の切り上げ（CeilToInt）で純粋な最大ページ数を割り出す
+        // 8階調のとき：Bは最大「7ページ」(0～7の8段階) になるようにします
+        int maxPageR = Mathf.CeilToInt(GameConfig.GRADATION_LEVELS / 3f) - 1;
+        int maxPageG = Mathf.CeilToInt(GameConfig.GRADATION_LEVELS / 3f) - 1;
+        int maxPageB = GameConfig.GRADATION_LEVELS; // 👈 ここは 0 から数えるので -1 で合っていますが、前後の条件を調整します
+
+
         if (argPrefabPixelListPageRGB.name == "PrefabPixelListPageR")
         {
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[1] * 16 * 3).ToString() + " ～ " + ((PixelListPage[1] * 16 * 3) + (16 * 2)).ToString();
-            if((PixelListPage[1] * 16 * 3) + (16 * 2) > 255)
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[1] * 16 * 3).ToString() + " ～ " + 255.ToString();
+            int currentPage = PixelListPage[1];
+            // ラベルテキストの計算（colorStep を基準にする）
+            int minVal = currentPage * colorStep * 3;
+            int maxVal = (currentPage * colorStep * 3) + (colorStep * 2);
+            if (maxVal > 255) maxVal = 255;
 
-            if (PixelListPage[1] == 0)
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = false;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
-            }
-            else
-            if (PixelListPage[1] == 5)
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = false;
-            }
-            else
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
-            }
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = minVal.ToString() + " ～ " + maxVal.ToString();
 
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Slider>()[0].value = PixelListPage[1];
+            // ボタンの有効・無効化（動的に計算した maxPageR を使う）
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = (currentPage > 0);
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = (currentPage < maxPageR);
+
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Slider>()[0].value = currentPage;
+
         }
         else
         if (argPrefabPixelListPageRGB.name == "PrefabPixelListPageG")
         {
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[2] * 16 * 3).ToString() + " ～ " + ((PixelListPage[2] * 16 * 3) + (16 * 2)).ToString();
-            if((PixelListPage[2] * 16 * 3) + (16 * 2) > 255)
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[2] * 16 * 3).ToString() + " ～ " + 255.ToString();
+            int currentPage = PixelListPage[2];
+            // ラベルテキストの計算
+            int minVal = currentPage * colorStep * 3;
+            int maxVal = (currentPage * colorStep * 3) + (colorStep * 2);
+            if (maxVal > 255) maxVal = 255;
 
-            if (PixelListPage[2] == 0)
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = false;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
-            }
-            else
-            if (PixelListPage[2] == 5)
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = false;
-            }
-            else
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
-            }
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = minVal.ToString() + " ～ " + maxVal.ToString();
 
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Slider>()[0].value = PixelListPage[2];
+            // ボタンの有効・無効化（動的に計算した maxPageG を使う）
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = (currentPage > 0);
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = (currentPage < maxPageG);
+
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Slider>()[0].value = currentPage;
+
         }
         else
         if (argPrefabPixelListPageRGB.name == "PrefabPixelListPageB")
         {
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = (PixelListPage[3] * 16).ToString();
-            if (PixelListPage[3] * 16 > 255)
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = 255.ToString();
+            int currentPage = PixelListPage[3];
+            // Bは範囲ではなく単一の数値を表示（255を超えないように丸める）
+            int val = currentPage * colorStep;
+            if (val > 255) val = 255;
 
-            if (PixelListPage[3] == 0)
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = false;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
-            }
-            else
-            if (PixelListPage[3] == 16)
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = false;
-            }
-            else
-            {
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = true;
-                argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = true;
-            }
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Text>()[2].text = val.ToString();
 
-            argPrefabPixelListPageRGB.GetComponentsInChildren<Slider>()[0].value = PixelListPage[3];
+            // ボタンの有効・無効化（動的に計算した maxPageB を使う）
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[0].interactable = (currentPage > 0);
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Button>()[1].interactable = (currentPage < maxPageB);
+
+            argPrefabPixelListPageRGB.GetComponentsInChildren<Slider>()[0].value = currentPage;
+
         }
+
     }
+
     public void ClearPixelListPixelProduction()
     {
         GameObject GameObjectContentPixelList = GameObject.Find("ContentPixelList");
