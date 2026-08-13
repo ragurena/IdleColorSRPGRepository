@@ -23,7 +23,13 @@ public class SaveClass// : MonoBehaviour
         ulong CostMaxRUp, ulong CostMaxGUp, ulong CostMaxBUp,
         ulong IncreaseValueR, ulong IncreaseValueG, ulong IncreaseValueB,
         ulong CostIncreaseValueRUp, ulong CostIncreaseValueGUp, ulong CostIncreaseValueBUp,
-        uint[] CharactersIDHelpProductionR, uint[] CharactersIDHelpProductionG, uint[] CharactersIDHelpProductionB)
+        uint[] CharactersIDHelpProductionR, uint[] CharactersIDHelpProductionG, uint[] CharactersIDHelpProductionB,
+
+        uint[] CharactersIDProductionPixel,
+        Color[] ColorProductionPixel,
+        uint[] CharactersIDProductionCharacter,
+        uint[] CharactersIDProducedCharacter
+        )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
         //Debug.Log("セーブ : " + Application.streamingAssetsPath + "/ICS.csv");
@@ -123,6 +129,33 @@ public class SaveClass// : MonoBehaviour
             sw.WriteLine("CharactersIDHelpProductionB[" + i.ToString() + "]," + CharactersIDHelpProductionB[i].ToString());
         }
 
+        // ピクセル生産枠の保存
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        {
+            sw.WriteLine("CharactersIDProductionPixel[" + i.ToString() + "]," +
+                CharactersIDProductionPixel[i].ToString());
+
+            sw.WriteLine("ColorProductionPixel[" + i.ToString() + "].r," +
+                ColorProductionPixel[i].r.ToString());
+
+            sw.WriteLine("ColorProductionPixel[" + i.ToString() + "].g," +
+                ColorProductionPixel[i].g.ToString());
+
+            sw.WriteLine("ColorProductionPixel[" + i.ToString() + "].b," +
+                ColorProductionPixel[i].b.ToString());
+        }
+
+        // キャラクター生産枠の保存
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        {
+            sw.WriteLine("CharactersIDProductionCharacter[" + i.ToString() + "]," +
+                CharactersIDProductionCharacter[i].ToString());
+
+            sw.WriteLine("CharactersIDProducedCharacter[" + i.ToString() + "]," +
+                CharactersIDProducedCharacter[i].ToString());
+        }
+
+
         sw.Flush();
         sw.Close();
     }
@@ -133,7 +166,14 @@ public class SaveClass// : MonoBehaviour
         ref ulong CostMaxRUp, ref ulong CostMaxGUp, ref ulong CostMaxBUp,
         ref ulong IncreaseValueR, ref ulong IncreaseValueG, ref ulong IncreaseValueB,
         ref ulong CostIncreaseValueRUp, ref ulong CostIncreaseValueGUp, ref ulong CostIncreaseValueBUp,
-        ref uint[] CharactersIDHelpProductionR, ref uint[] CharactersIDHelpProductionG, ref uint[] CharactersIDHelpProductionB)
+        ref uint[] CharactersIDHelpProductionR, ref uint[] CharactersIDHelpProductionG, ref uint[] CharactersIDHelpProductionB,
+
+        // ★追加
+        ref uint[] CharactersIDProductionPixel,
+        ref Color[] ColorProductionPixel,
+        ref uint[] CharactersIDProductionCharacter,
+        ref uint[] CharactersIDProducedCharacter
+        )
     {
         Debug.Log("ロード : " + Application.persistentDataPath + "/ICS.csv");
         //Debug.Log("ロード : " + Application.streamingAssetsPath + "/ICS.csv");
@@ -265,6 +305,77 @@ public class SaveClass// : MonoBehaviour
                     }
                 }
             }
+
+            else
+            if (values[0].StartsWith("CharactersIDProductionPixel"))
+            {
+                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+                {
+                    if (values[0].Equals("CharactersIDProductionPixel[" + i.ToString() + "]"))
+                    {
+                        CharactersIDProductionPixel[i] =
+                            (uint)(int.Parse(values[1]));
+                        break;
+                    }
+                }
+            }
+
+            else
+            if (values[0].StartsWith("ColorProductionPixel"))
+            {
+                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+                {
+                    if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].r"))
+                    {
+                        ColorProductionPixel[i].r =
+                            float.Parse(values[1]);
+                        break;
+                    }
+
+                    if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].g"))
+                    {
+                        ColorProductionPixel[i].g =
+                            float.Parse(values[1]);
+                        break;
+                    }
+
+                    if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].b"))
+                    {
+                        ColorProductionPixel[i].b =
+                            float.Parse(values[1]);
+                        break;
+                    }
+                }
+            }
+
+            else
+            if (values[0].StartsWith("CharactersIDProductionCharacter"))
+            {
+                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+                {
+                    if (values[0].Equals("CharactersIDProductionCharacter[" + i.ToString() + "]"))
+                    {
+                        CharactersIDProductionCharacter[i] =
+                            (uint)(int.Parse(values[1]));
+                        break;
+                    }
+                }
+            }
+
+            else
+            if (values[0].StartsWith("CharactersIDProducedCharacter"))
+            {
+                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+                {
+                    if (values[0].Equals("CharactersIDProducedCharacter[" + i.ToString() + "]"))
+                    {
+                        CharactersIDProducedCharacter[i] =
+                            (uint)(int.Parse(values[1]));
+                        break;
+                    }
+                }
+            }
+
 
             else
             if (values[0].StartsWith("CharactersAll"))

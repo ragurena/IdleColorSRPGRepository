@@ -309,7 +309,13 @@ public class ControllerProduction : MonoBehaviour
             ref CostMaxRUp, ref CostMaxGUp, ref CostMaxBUp,
             ref IncreaseValueR, ref IncreaseValueG, ref IncreaseValueB,
             ref CostIncreaseValueRUp, ref CostIncreaseValueGUp, ref CostIncreaseValueBUp,
-            ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB);
+            ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB,
+
+            ref CharactersIDProductionPixel,
+            ref ColorProductionPixel,
+            ref CharactersIDProductionCharacter,
+            ref CharactersIDProducedCharacter
+            );
 
 
         //UIの更新
@@ -472,7 +478,14 @@ public class ControllerProduction : MonoBehaviour
             CostMaxRUp, CostMaxGUp, CostMaxBUp,
             IncreaseValueR, IncreaseValueG, IncreaseValueB,
             CostIncreaseValueRUp, CostIncreaseValueGUp, CostIncreaseValueBUp,
-            CharactersIDHelpProductionR, CharactersIDHelpProductionG, CharactersIDHelpProductionB);
+            CharactersIDHelpProductionR, CharactersIDHelpProductionG, CharactersIDHelpProductionB,
+
+            // ★追加
+            CharactersIDProductionPixel,
+            ColorProductionPixel,
+            CharactersIDProductionCharacter,
+            CharactersIDProducedCharacter
+            );
     }
 
     //デリートセーブボタンが押されたら
