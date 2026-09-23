@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -60,7 +60,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     public void SelectCharacterCharacter(uint argCharacterID, Button ButtonTmp)
     {
         Debug.Log("SelectCharacterID : " + argCharacterID);
-        ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[argCharacterID].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[argCharacterID].Size, CharactersAll[argCharacterID].Size), new Vector2(0.5f, 0.5f));
+        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[argCharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterID].Size, CharactersAll[argCharacterID].Size), new Vector2(0.5f, 0.5f));
         CharacterIDTmp = argCharacterID;
         Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
         ButtonSelect.interactable = true;
@@ -333,7 +333,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 if (CharactersIDHelpProductionR[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
                     TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
@@ -362,7 +362,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 if (CharactersIDHelpProductionG[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
                     TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
@@ -391,7 +391,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 if (CharactersIDHelpProductionB[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
                     TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
@@ -429,7 +429,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             if (CharactersIDProductionPixel[ProductionPixelIndex] != 0)
             {
                 //選択キャラクターの画像を表示
-                ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size), new Vector2(0.5f, 0.5f));
+                ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size), new Vector2(0.5f, 0.5f));
                 //選択キャラクターのステータスを表示
                 TextSelectCharacter1.text = "      SPD       : " + CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Stats[0].SPD;
                 TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
@@ -472,7 +472,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             if (CharactersIDProductionCharacter[ProductionCharacterIndex] != 0)
             {
                 //選択キャラクターの画像を表示
-                ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Size, CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Size), new Vector2(0.5f, 0.5f));
+                ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Size, CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Size), new Vector2(0.5f, 0.5f));
 
                 TextSelectCharacter2.text = "Pixel/sec : " + CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].PaintPixels;
 
@@ -501,7 +501,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             if (CharactersIDProducedCharacter[ProductionCharacterIndex] != 0)
             {
                 //選択キャラクターの画像を表示
-                ImageSelectCharacter.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size, CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size), new Vector2(0.5f, 0.5f));
+                ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size, CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size), new Vector2(0.5f, 0.5f));
 
                 TextSelectCharacter2.text = "Pixels : " + ((CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size * CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size) - CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].APixels);
 
@@ -566,7 +566,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), gameObjectCharacterList.transform) as GameObject;
 
         //spriteの指定
-        //GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[argCharacterIndex].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
+        //GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(CharactersAll[argCharacterIndex].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
         // --- 修正案：画像パスの安全チェック ---
         Sprite characterSprite = null;
 
@@ -574,7 +574,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (!string.IsNullOrWhiteSpace(CharactersAll[argCharacterIndex].ImagePath))
         {
             // パスがあるときだけ画像を読み込む
-            Texture2D tex = ImagegUtility.ReadPng(CharactersAll[argCharacterIndex].ImagePath);
+            Texture2D tex = CharactersAll[argCharacterIndex].ImageTexture2D;
             if (tex != null)
             {
                 characterSprite = Sprite.Create(tex, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));

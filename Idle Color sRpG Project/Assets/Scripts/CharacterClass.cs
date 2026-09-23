@@ -27,8 +27,8 @@ public class CharacterClass //: MonoBehaviour
 {
     //キャラクターのID
     public uint ID;
-    //キャラクターのTexture2D型の画像
-    //public Texture2D ImageTexture2D;
+    //正規化済みのキャラクター画像。生産中はこれを使い、PNGは読み直さない
+    public Texture2D ImageTexture2D;
     public string ImagePath;
     //キャラクターの名前
     public string Name;
@@ -123,10 +123,13 @@ public class CharacterClass //: MonoBehaviour
     {
         Debug.Log("argImagePath : " + argImagePath);
 
-        Texture2D Image = null;// 1. パスがちゃんと指定されている場合だけ読み込みを試みる
+        Texture2D Image = null;
+        bool destroySourceImage = false;
+        // 1. パスがちゃんと指定されている場合だけ読み込みを試みる
         if (!string.IsNullOrWhiteSpace(argImagePath))
         {
             Image = ImagegUtility.ReadPng(argImagePath);
+            destroySourceImage = Image != null;
         }// 2. パスが空、または画像の読み込みに失敗した場合は、Resourcesの仮画像(NoImageSprite)を使う
         if (Image == null)
         {
@@ -191,7 +194,8 @@ public class CharacterClass //: MonoBehaviour
                 "BCreates : " + Stats[1].BCreates
             );
 
-        Object.DestroyImmediate(Image);
+        if (destroySourceImage)
+            Object.DestroyImmediate(Image);
 
         return true;
     }
@@ -255,6 +259,8 @@ public class CharacterClass //: MonoBehaviour
 
         Texture2D resultTexture2D = argImage;
         resultTexture2D.SetPixels(0, 0, argImage.width, argImage.height, ImageColor);
+        resultTexture2D.Apply();
+        ImageTexture2D = resultTexture2D;
 
         //resultTexture2Dの画像出力
         string FileName = Path.GetFileName(argImagePath);
@@ -262,9 +268,6 @@ public class CharacterClass //: MonoBehaviour
         Debug.Log("resultImagePath : " + resultImagePath);
         File.WriteAllBytes(resultImagePath, resultTexture2D.EncodeToPNG());
         //File.WriteAllBytes("Assets/Resources/" + resultImagePath + ".png", new Texture2D(resultTexture2D.width, resultTexture2D.height, TextureFormat.RGBA32, false).EncodeToPNG());
-
-
-        Object.DestroyImmediate(resultTexture2D);
 
         return resultImagePath;
     }
@@ -310,8 +313,8 @@ public class CharacterClass //: MonoBehaviour
 
     bool CalcCharacterStats()
     {
-        //Texture2D ImageTexture2D = Resources.Load(ImagePath, typeof(Texture2D)) as Texture2D;
-        Texture2D ImageTexture2D = ImagegUtility.ReadPng(ImagePath);
+        if (ImageTexture2D == null)
+            ImageTexture2D = ImagegUtility.ReadPng(ImagePath);
 
         if (ImageTexture2D == null)
         {
@@ -541,8 +544,6 @@ public class CharacterClass //: MonoBehaviour
         Stats[1].RCreates = RPixels;
         Stats[1].GCreates = GPixels;
         Stats[1].BCreates = BPixels;
-
-        Object.DestroyImmediate(ImageTexture2D);
 
         return true;
     }

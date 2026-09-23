@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -60,6 +61,7 @@ public class ControllerProduction : MonoBehaviour
     uint[] CharactersIDProducedCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     List<bool[,]> ProgressTextureProductionCharacter = new List<bool[,]>();//[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     List<ConsumePixelClass>[] ConsumePixelsProductionCharacter = new List<ConsumePixelClass>[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    Texture[] ProductionCharacterViewTexture = new Texture[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
 
     //現在の全ピクセルの個数(CurColors[0,0,0]が黒、CurColors[255,0,0]が赤)
     ulong[,,] CurPixels = new ulong[256, 256, 256];
@@ -330,6 +332,7 @@ public class ControllerProduction : MonoBehaviour
                 InitProgressProductionCharacterWithoutReduction(i);
         }
 
+        UpdateProductionCharacterScene();
 
         //UIの更新
         UpdateRGBProductionScene();
@@ -392,6 +395,7 @@ public class ControllerProduction : MonoBehaviour
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
             //ピクセルの生産
+            bool pixelsProduced = false;
             for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
             {
                 bool ProductionPixelFlag;
@@ -402,8 +406,8 @@ public class ControllerProduction : MonoBehaviour
                 //ピクセルが生産されたら
                 if (ProductionPixelFlag)
                 {
+                    pixelsProduced = true;
                     CreatePixelListPixelProduction();
-                    UpdateProductionCharacterScene();
                 }
             }
             UpdateRGBProductionScene();
@@ -448,6 +452,7 @@ public class ControllerProduction : MonoBehaviour
             //キャラクター生産
             bool ProductionCharacterFlag = false;
             bool RepeatComplete = true;
+            bool characterPainted = false;
             for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1; i++)
             {
                 if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
@@ -455,23 +460,27 @@ public class ControllerProduction : MonoBehaviour
 
                 bool PCF = false;
                 bool RC = true;
+                bool painted = false;
                 ProductionCharacter(Trigger.Update, i,
-                    CharactersAll[CharactersIDProducedCharacter[i]].PaintPixels, out PCF, out RC);
+                    CharactersAll[CharactersIDProducedCharacter[i]].PaintPixels, out PCF, out RC, out painted);
+                if (painted || PCF)
+                {
+                    characterPainted = true;
+                    UpdateProductionCharacterProgressImage(i);
+                }
                 if (PCF)
                     ProductionCharacterFlag = true;
                 if (RC == false)
                     RepeatComplete = false;
             }
+            if (pixelsProduced || characterPainted)
+                UpdateProductionCharacterConsumeViews();
             if(ProductionCharacterFlag)
-            {
-                //TODO:キャラクターの所持数表示
-            }
+                ShowCharacterOwnedNum();
             if(RepeatComplete == false)
             {
                 //TODO:キャラクター生産停止中の警告表示
             }
-            //UI更新
-            UpdateProductionCharacterScene();
 
         }
     }
@@ -1209,7 +1218,7 @@ public class ControllerProduction : MonoBehaviour
         {
             ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
         }
-        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
+        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImageTexture2D);
     }
 
     //キャラクター生産の進捗初期化
@@ -1229,11 +1238,11 @@ public class ControllerProduction : MonoBehaviour
                 ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
             }
             //進捗画像の初期化
-            ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
+            ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImageTexture2D);
         }
 
-        //UI更新 //TODO:インデックスごとの更新でよい
-        UpdateProductionCharacterScene();
+        UpdateProductionCharacterProgressImage(argIndex);
+        UpdateProductionCharacterConsumeViews();
     }
     //ピクセルを還元
     public void ReductionPixelsProductionCharacter(int argIndex)
@@ -1251,13 +1260,14 @@ public class ControllerProduction : MonoBehaviour
             ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
         }
         //進捗画像の初期化
-        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
+        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImageTexture2D);
     }
     //キャラクター生産
-    public bool ProductionCharacter(Trigger argTrigger, int argIndex, uint argRepeatNum, out bool ProductionCharacterFlag, out bool RepeatComplete)
+    public bool ProductionCharacter(Trigger argTrigger, int argIndex, uint argRepeatNum, out bool ProductionCharacterFlag, out bool RepeatComplete, out bool paintedPixel)
     {
         ProductionCharacterFlag = false;
         RepeatComplete = false;
+        paintedPixel = false;
 
         if (CharactersIDProductionCharacter[argIndex] == 0 || CharactersIDProducedCharacter[argIndex] == 0)
             return false;
@@ -1265,10 +1275,11 @@ public class ControllerProduction : MonoBehaviour
         if (ProgressTextureProductionCharacter[argIndex] == null)
             return false;
 
-        Debug.Log("ProductionCharacter1");
 
         int curRepeatNum = 0;
-        Texture2D ProductionCharacterTexture2D = ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath);
+        Texture2D ProductionCharacterTexture2D = CharactersAll[CharactersIDProducedCharacter[argIndex]].ImageTexture2D;
+        if (ProductionCharacterTexture2D == null)
+            return false;
 
         for (int y = ProductionCharacterTexture2D.height - 1; y >= 0; y--)
         {
@@ -1279,7 +1290,6 @@ public class ControllerProduction : MonoBehaviour
                     Color color = ProductionCharacterTexture2D.GetPixel(x, y);
                     if (CurPixels[(int)(color.r * 255), (int)(color.g * 255), (int)(color.b * 255)] > 0)
                     {
-                        Debug.Log("ProductionCharacter2");
 
                         CurPixels[(int)(color.r * 255), (int)(color.g * 255), (int)(color.b * 255)]--;
                         ProgressTextureProductionCharacter[argIndex][x, y] = true;
@@ -1287,7 +1297,6 @@ public class ControllerProduction : MonoBehaviour
                         {
                             if(ConsumePixel.PixelColor.Equals(color))
                             {
-                                Debug.Log("ProductionCharacter3");
                                 ConsumePixel.CurConsumePixelsNum++;
                                 break;
                             }
@@ -1306,6 +1315,8 @@ public class ControllerProduction : MonoBehaviour
                 break;
             }
         }
+
+        paintedPixel = curRepeatNum > 0;
 
         bool ProductionCharacterComplete = true;
         for (int y = 0; y < ProductionCharacterTexture2D.height; y++)
@@ -1333,7 +1344,7 @@ public class ControllerProduction : MonoBehaviour
                 ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
             }
             //進捗画像の初期化
-            ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
+            ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImageTexture2D);
 
             ProductionCharacterFlag = true;
         }
@@ -1349,17 +1360,17 @@ public class ControllerProduction : MonoBehaviour
 
         bool ProductionCharacterFlag;
         bool RepeatComplete;
-        ProductionCharacter(Trigger.User, ProductionCharacterIndex, 1, out ProductionCharacterFlag, out RepeatComplete);
+        bool paintedPixel;
+        ProductionCharacter(Trigger.User, ProductionCharacterIndex, 1, out ProductionCharacterFlag, out RepeatComplete, out paintedPixel);
+        if (paintedPixel || ProductionCharacterFlag)
+            UpdateProductionCharacterProgressImage(ProductionCharacterIndex);
+        UpdateProductionCharacterConsumeViews();
         if (ProductionCharacterFlag)
-        {
-            //TODO:キャラクターの所持数表示
-        }
+            ShowCharacterOwnedNum();
         if (RepeatComplete == false)
         {
             //TODO:キャラクター生産停止中の警告表示
         }
-        //UI更新
-        UpdateProductionCharacterScene();
     }
 
     ////////////////////////////////////
@@ -1670,21 +1681,21 @@ public class ControllerProduction : MonoBehaviour
         if(CharactersIDHelpProductionR[1] != 0)
         {
             Button B = GameObject.Find("ButtonRProductionHelpCharacter1").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionR[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[1]].Size, CharactersAll[CharactersIDHelpProductionR[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[1]].Size, CharactersAll[CharactersIDHelpProductionR[1]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionR[2] != 0)
         {
             Button B = GameObject.Find("ButtonRProductionHelpCharacter2").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionR[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[2]].Size, CharactersAll[CharactersIDHelpProductionR[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[2]].Size, CharactersAll[CharactersIDHelpProductionR[2]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionR[3] != 0)
         {
             Button B = GameObject.Find("ButtonRProductionHelpCharacter3").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionR[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[3]].Size, CharactersAll[CharactersIDHelpProductionR[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[3]].Size, CharactersAll[CharactersIDHelpProductionR[3]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
@@ -1692,21 +1703,21 @@ public class ControllerProduction : MonoBehaviour
         if (CharactersIDHelpProductionG[1] != 0)
         {
             Button B = GameObject.Find("ButtonGProductionHelpCharacter1").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionG[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[1]].Size, CharactersAll[CharactersIDHelpProductionG[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[1]].Size, CharactersAll[CharactersIDHelpProductionG[1]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionG[2] != 0)
         {
             Button B = GameObject.Find("ButtonGProductionHelpCharacter2").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionG[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[2]].Size, CharactersAll[CharactersIDHelpProductionG[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[2]].Size, CharactersAll[CharactersIDHelpProductionG[2]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionG[3] != 0)
         {
             Button B = GameObject.Find("ButtonGProductionHelpCharacter3").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionG[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[3]].Size, CharactersAll[CharactersIDHelpProductionG[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[3]].Size, CharactersAll[CharactersIDHelpProductionG[3]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
@@ -1714,21 +1725,21 @@ public class ControllerProduction : MonoBehaviour
         if (CharactersIDHelpProductionB[1] != 0)
         {
             Button B = GameObject.Find("ButtonBProductionHelpCharacter1").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionB[1]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[1]].Size, CharactersAll[CharactersIDHelpProductionB[1]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[1]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[1]].Size, CharactersAll[CharactersIDHelpProductionB[1]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionB[2] != 0)
         {
             Button B = GameObject.Find("ButtonBProductionHelpCharacter2").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionB[2]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[2]].Size, CharactersAll[CharactersIDHelpProductionB[2]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[2]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[2]].Size, CharactersAll[CharactersIDHelpProductionB[2]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
         if (CharactersIDHelpProductionB[3] != 0)
         {
             Button B = GameObject.Find("ButtonBProductionHelpCharacter3").GetComponent<Button>();
-            B.image.sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDHelpProductionB[3]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[3]].Size, CharactersAll[CharactersIDHelpProductionB[3]].Size), new Vector2(0.5f, 0.5f));
+            B.image.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[3]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[3]].Size, CharactersAll[CharactersIDHelpProductionB[3]].Size), new Vector2(0.5f, 0.5f));
             B.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             B.GetComponentInChildren<Text>().text = "";
         }
@@ -1759,10 +1770,6 @@ public class ControllerProduction : MonoBehaviour
 
         // PixelListの生成
         GameObject[,] ArrayShowPixelColorAndNum = new GameObject[GameConfig.GRADATION_LEVELS, GameConfig.GRADATION_LEVELS];
-
-        // 計測開始
-        System.Diagnostics.Stopwatch swI = new System.Diagnostics.Stopwatch();
-        System.Diagnostics.Stopwatch swU = new System.Diagnostics.Stopwatch();
 
         int rowNum = 3;
         int colNum = 3;
@@ -1808,23 +1815,16 @@ public class ControllerProduction : MonoBehaviour
                 if (GColor > 255 && GColor - colorStep >= 255) continue;
 
                 // プレハブのインスタンス化
-                swI.Start();
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum] = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), GameObjectContentPixelList.transform) as GameObject;
-                swI.Stop();
 
-                swU.Start();
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Image>()[1].color = new Color(RColor / 255f, GColor / 255f, BColor / 255f, 1.0f);
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[0].text = RColor.ToString();
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[2].text = GColor.ToString();
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[4].text = BColor.ToString();
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[5].text = CurPixels[RColor, GColor, BColor].ToString();
-                swU.Stop();
             }
 
         }
-
-        Debug.Log("swI : " + swI.Elapsed);
-        Debug.Log("swU : " + swU.Elapsed);
 
     }
 
@@ -1918,7 +1918,7 @@ public class ControllerProduction : MonoBehaviour
         {
             //キャラクター
             Content.GetComponentsInChildren<Button>()[0].image.sprite
-                = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[CharactersIDProductionPixel[argIndex]].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[argIndex]].Size, CharactersAll[CharactersIDProductionPixel[argIndex]].Size), new Vector2(0.5f, 0.5f));
+                = Sprite.Create(CharactersAll[CharactersIDProductionPixel[argIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[argIndex]].Size, CharactersAll[CharactersIDProductionPixel[argIndex]].Size), new Vector2(0.5f, 0.5f));
         }
     }
     public void UpdatePixelColorPixelProduction(int argIndex)
@@ -2095,86 +2095,157 @@ public class ControllerProduction : MonoBehaviour
 
     }
 
-    //キャラクター生産の表示
+    //起動時など、進捗画像・消費ピクセル・所持数をまとめて描く
     public void UpdateProductionCharacterScene()
     {
-        GameObject[] CharacterProduction_Objects;
-        CharacterProduction_Objects = GameObject.FindGameObjectsWithTag("CharacterProduction");
+        UpdateAllProductionCharacterProgressImages();
+        UpdateProductionCharacterConsumeViews();
+        ShowCharacterOwnedNum();
+    }
 
-        foreach (GameObject CharacterProduction_gameObject in CharacterProduction_Objects)
+    void ForEachProductionCharacterView(Action<int, RawImage, Transform> visit)
+    {
+        GameObject productionList = null;
+        GameObject[] taggedObjects = GameObject.FindGameObjectsWithTag("CharacterProduction");
+        foreach (GameObject taggedObject in taggedObjects)
         {
-            if (CharacterProduction_gameObject.name.Equals("ContentCharacterProductionList"))
+            if (taggedObject.name.Equals("ContentCharacterProductionList"))
             {
-                foreach (Transform gameObject in CharacterProduction_gameObject.transform)
-                {
-                    foreach (Transform child_gameObject in gameObject.transform)
-                    {
-                        if (child_gameObject.name.Contains("RawImageCharacterProduction"))
-                        {
-                            int ProductionIndex = int.Parse(child_gameObject.name.Substring(child_gameObject.name.Length - 1, 1));
-                            if (ProgressTextureProductionCharacter[ProductionIndex] != null)
-                            {
-                                child_gameObject.GetComponent<RawImage>().texture = ImagegUtility.BoolArrayTOTexture(ProgressTextureProductionCharacter[ProductionIndex],
-                                                                                                                    //CharactersAll[CharactersIDProducedCharacter[ProductionIndex]].Size, CharactersAll[CharactersIDProducedCharacter[ProductionIndex]].Size, 
-                                                                                                                    ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[ProductionIndex]].ImagePath), new Color(0, 0, 0, 1));
-                            }
-                        }
-                        //使用ピクセルリストの表示
-                        if (child_gameObject.name.Contains("ScrollViewConsumePixel"))
-                        {
-                            foreach (Transform child_child_gameObject in child_gameObject)
-                            {
-                                if (child_child_gameObject.name.Contains("Viewport"))
-                                {
-                                    foreach (Transform child_child_child_gameObject in child_child_gameObject)
-                                    {
-                                        if (child_child_child_gameObject.name.Contains("Content"))
-                                        {
-                                            int ProductionIndex = int.Parse(child_gameObject.name.Substring(child_gameObject.name.Length - 2, 2));
-
-                                            //PixelListの削除
-                                            foreach (Transform child in child_child_child_gameObject.transform)
-                                            {
-                                                Destroy(child.gameObject);
-                                            }
-
-                                            if (ConsumePixelsProductionCharacter[ProductionIndex].Count != 0)
-                                            {
-                                                for (int i = 0; i < ConsumePixelsProductionCharacter[ProductionIndex].Count; i++)
-                                                {
-                                                    //プレハブのインスタンス化
-                                                    GameObject prefab = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), child_child_child_gameObject.transform) as GameObject;
-                                                    prefab.GetComponentsInChildren<Image>()[1].color = ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor;
-                                                    prefab.GetComponentsInChildren<Text>()[0].text = (ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.r * 255).ToString();
-                                                    prefab.GetComponentsInChildren<Text>()[2].text = (ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.g * 255).ToString();
-                                                    prefab.GetComponentsInChildren<Text>()[4].text = (ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.b * 255).ToString();
-                                                    prefab.GetComponentsInChildren<Text>()[5].text = ConsumePixelsProductionCharacter[ProductionIndex][i].CurConsumePixelsNum.ToString() + 
-                                                                                                     " / " +
-                                                                                                     ConsumePixelsProductionCharacter[ProductionIndex][i].ToBeCurConsumePixelsNum.ToString();
-                                                    prefab.GetComponentsInChildren<Text>()[5].color = new Color(0, 0, 0, 1);
-                                                    if(CurPixels[(int)(ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.r * 255), (int)(ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.g * 255), (int)(ConsumePixelsProductionCharacter[ProductionIndex][i].PixelColor.b * 255)]
-                                                        < ConsumePixelsProductionCharacter[ProductionIndex][i].ToBeCurConsumePixelsNum - ConsumePixelsProductionCharacter[ProductionIndex][i].CurConsumePixelsNum)
-                                                    {
-                                                        prefab.GetComponentsInChildren<Text>()[5].color = new Color(1, 0, 0, 1);
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                    }
-                                }
-
-                            }
-                        }
-
-
-                    }
-                }
+                productionList = taggedObject;
+                break;
             }
         }
+        if (productionList == null)
+            return;
 
-        //TODO:ためし
-        ShowCharacterOwnedNum();
+        foreach (Transform slot in productionList.transform)
+        {
+            RawImage progressImage = null;
+            Transform consumeContent = null;
+            int productionIndex = -1;
+            foreach (Transform child in slot)
+            {
+                if (child.name.Contains("RawImageCharacterProduction"))
+                {
+                    productionIndex = int.Parse(child.name.Substring(child.name.Length - 1, 1));
+                    progressImage = child.GetComponent<RawImage>();
+                }
+                if (child.name.Contains("ScrollViewConsumePixel"))
+                {
+                    if (productionIndex < 0)
+                        productionIndex = int.Parse(child.name.Substring(child.name.Length - 2, 2));
+                    consumeContent = FindConsumePixelContent(child);
+                }
+            }
+            if (productionIndex < 0)
+                continue;
+            visit(productionIndex, progressImage, consumeContent);
+        }
+    }
+
+    Transform FindConsumePixelContent(Transform scrollView)
+    {
+        foreach (Transform viewport in scrollView)
+        {
+            if (!viewport.name.Contains("Viewport"))
+                continue;
+            foreach (Transform content in viewport)
+            {
+                if (content.name.Contains("Content"))
+                    return content;
+            }
+        }
+        return null;
+    }
+
+    void UpdateAllProductionCharacterProgressImages()
+    {
+        ForEachProductionCharacterView((productionIndex, progressImage, consumeContent) =>
+        {
+            if (progressImage != null)
+                AssignProductionCharacterProgressImage(productionIndex, progressImage);
+        });
+    }
+
+    void UpdateProductionCharacterProgressImage(int productionIndex)
+    {
+        ForEachProductionCharacterView((index, progressImage, consumeContent) =>
+        {
+            if (index == productionIndex && progressImage != null)
+                AssignProductionCharacterProgressImage(productionIndex, progressImage);
+        });
+    }
+
+    void AssignProductionCharacterProgressImage(int productionIndex, RawImage progressImage)
+    {
+        if (productionIndex < 0 || productionIndex >= ProgressTextureProductionCharacter.Count)
+            return;
+        if (ProgressTextureProductionCharacter[productionIndex] == null)
+            return;
+
+        uint characterId = CharactersIDProducedCharacter[productionIndex];
+        if (characterId == 0)
+            return;
+
+        Texture2D sourceTexture = CharactersAll[characterId].ImageTexture2D;
+        if (sourceTexture == null)
+            return;
+
+        Texture view = ImagegUtility.BoolArrayTOTexture(ProgressTextureProductionCharacter[productionIndex],
+            sourceTexture, new Color(0, 0, 0, 1));
+        Texture previous = ProductionCharacterViewTexture[productionIndex];
+        ProductionCharacterViewTexture[productionIndex] = view;
+        progressImage.texture = view;
+        if (previous != null)
+            Destroy(previous);
+    }
+
+    void UpdateProductionCharacterConsumeViews()
+    {
+        ForEachProductionCharacterView((productionIndex, progressImage, consumeContent) =>
+        {
+            if (consumeContent == null)
+                return;
+            if (productionIndex < 0 || productionIndex >= ConsumePixelsProductionCharacter.Length)
+                return;
+            ApplyConsumePixelList(consumeContent, productionIndex);
+        });
+    }
+
+    void ApplyConsumePixelList(Transform content, int productionIndex)
+    {
+        List<ConsumePixelClass> pixels = ConsumePixelsProductionCharacter[productionIndex];
+        if (content.childCount != pixels.Count)
+        {
+            foreach (Transform child in content)
+                Destroy(child.gameObject);
+
+            for (int i = 0; i < pixels.Count; i++)
+            {
+                GameObject row = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), content) as GameObject;
+                ApplyConsumePixelRow(row, pixels[i]);
+            }
+            return;
+        }
+
+        for (int i = 0; i < pixels.Count; i++)
+            ApplyConsumePixelRow(content.GetChild(i).gameObject, pixels[i]);
+    }
+
+    void ApplyConsumePixelRow(GameObject row, ConsumePixelClass consumePixel)
+    {
+        row.GetComponentsInChildren<Image>()[1].color = consumePixel.PixelColor;
+        Text[] texts = row.GetComponentsInChildren<Text>();
+        texts[0].text = (consumePixel.PixelColor.r * 255).ToString();
+        texts[2].text = (consumePixel.PixelColor.g * 255).ToString();
+        texts[4].text = (consumePixel.PixelColor.b * 255).ToString();
+        texts[5].text = consumePixel.CurConsumePixelsNum.ToString() + " / " + consumePixel.ToBeCurConsumePixelsNum.ToString();
+
+        int r = (int)(consumePixel.PixelColor.r * 255);
+        int g = (int)(consumePixel.PixelColor.g * 255);
+        int b = (int)(consumePixel.PixelColor.b * 255);
+        uint remaining = consumePixel.ToBeCurConsumePixelsNum - consumePixel.CurConsumePixelsNum;
+        texts[5].color = CurPixels[r, g, b] < remaining ? new Color(1, 0, 0, 1) : new Color(0, 0, 0, 1);
     }
 
     //TODO:TODO!
@@ -2207,7 +2278,7 @@ public class ControllerProduction : MonoBehaviour
                 //プレハブのインスタンス化
                 GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), gameObjectCharacterList.transform) as GameObject;
                 //spriteの指定
-                GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(ImagegUtility.ReadPng(CharactersAll[i].ImagePath), new UnityEngine.Rect(0, 0, CharactersAll[i].Size, CharactersAll[i].Size), new Vector2(0.5f, 0.5f));
+                GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(CharactersAll[i].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[i].Size, CharactersAll[i].Size), new Vector2(0.5f, 0.5f));
                 //textの指定
                 GameObjectCharacterButton.GetComponentInChildren<Text>().text = "OwnedNum : " + CharactersAll[i].OwnedNumCur;
                 GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
