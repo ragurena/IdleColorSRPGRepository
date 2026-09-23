@@ -313,9 +313,22 @@ public class ControllerProduction : MonoBehaviour
 
             ref CharactersIDProductionPixel,
             ref ColorProductionPixel,
+            ref ProgressProductionPixel,
             ref CharactersIDProductionCharacter,
-            ref CharactersIDProducedCharacter
+            ref CharactersIDProducedCharacter,
+            ProgressTextureProductionCharacter,
+            ConsumePixelsProductionCharacter,
+            ref CurPixels
             );
+
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        {
+            if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
+                continue;
+
+            if (ProgressTextureProductionCharacter[i] == null)
+                InitProgressProductionCharacterWithoutReduction(i);
+        }
 
 
         //UIの更新
@@ -480,11 +493,14 @@ public class ControllerProduction : MonoBehaviour
             CostIncreaseValueRUp, CostIncreaseValueGUp, CostIncreaseValueBUp,
             CharactersIDHelpProductionR, CharactersIDHelpProductionG, CharactersIDHelpProductionB,
 
-            // ★追加
             CharactersIDProductionPixel,
             ColorProductionPixel,
+            ProgressProductionPixel,
             CharactersIDProductionCharacter,
-            CharactersIDProducedCharacter
+            CharactersIDProducedCharacter,
+            ProgressTextureProductionCharacter,
+            ConsumePixelsProductionCharacter,
+            CurPixels
             );
     }
 
@@ -1185,6 +1201,17 @@ public class ControllerProduction : MonoBehaviour
 
     }
 
+    //キャラクター生産の進捗初期化（ロード時用・ピクセル還元なし）
+    public void InitProgressProductionCharacterWithoutReduction(int argIndex)
+    {
+        ConsumePixelsProductionCharacter[argIndex].Clear();
+        foreach (ExistColor curExistColor in CharactersAll[CharactersIDProducedCharacter[argIndex]].ListExistsColors)
+        {
+            ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
+        }
+        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(ImagegUtility.ReadPng(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImagePath));
+    }
+
     //キャラクター生産の進捗初期化
     public void InitializeProgressProductionCharacter(int argIndex)
     {
@@ -1233,6 +1260,9 @@ public class ControllerProduction : MonoBehaviour
         RepeatComplete = false;
 
         if (CharactersIDProductionCharacter[argIndex] == 0 || CharactersIDProducedCharacter[argIndex] == 0)
+            return false;
+
+        if (ProgressTextureProductionCharacter[argIndex] == null)
             return false;
 
         Debug.Log("ProductionCharacter1");

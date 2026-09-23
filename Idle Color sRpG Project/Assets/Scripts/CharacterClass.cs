@@ -7,7 +7,7 @@ using System.IO;
 
 
 
-public enum CharacterType { None, Fire, Grass, Water };
+public enum CharacterType { None, Fire, Grass, Water, Light, Dark };
 public enum Place { None, CreateR, CreateG, CreateB, CreatePixel, CreateCharacter, Hospital, Battle };
 
 public class ExistColor
@@ -327,6 +327,8 @@ public class CharacterClass //: MonoBehaviour
         uint RPixels = 0;
         uint GPixels = 0;
         uint BPixels = 0;
+        uint LightPixels = 0;
+        uint DarkPixels = 0;
         //uint APixels = 0;　//TODO:再計算するとバグる？
         uint NoneRGBPixels = 0;
         ListExistsColors.Clear();
@@ -362,27 +364,38 @@ public class CharacterClass //: MonoBehaviour
                 {
                     APixels++;
                 }
-                else 
-                if ((ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].g) &&
-                    (ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].b))
-                {
-                    RPixels++;
-                }
-                else
-                if ((ImageColor[x + y * ImageTexture2D.width].g > ImageColor[x + y * ImageTexture2D.width].r) &&
-                    (ImageColor[x + y * ImageTexture2D.width].g > ImageColor[x + y * ImageTexture2D.width].b))
-                {
-                    GPixels++;
-                }
-                else
-                if ((ImageColor[x + y * ImageTexture2D.width].b > ImageColor[x + y * ImageTexture2D.width].r) &&
-                    (ImageColor[x + y * ImageTexture2D.width].b > ImageColor[x + y * ImageTexture2D.width].g))
-                {
-                    BPixels++;
-                }
                 else
                 {
-                    NoneRGBPixels++;
+                    float brightness =
+                        (ImageColor[x + y * ImageTexture2D.width].r +
+                         ImageColor[x + y * ImageTexture2D.width].g +
+                         ImageColor[x + y * ImageTexture2D.width].b) * 255f / 3f;
+                    if (brightness > 128f)
+                        LightPixels++;
+                    else
+                        DarkPixels++;
+
+                    if ((ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].g) &&
+                        (ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].b))
+                    {
+                        RPixels++;
+                    }
+                    else
+                    if ((ImageColor[x + y * ImageTexture2D.width].g > ImageColor[x + y * ImageTexture2D.width].r) &&
+                        (ImageColor[x + y * ImageTexture2D.width].g > ImageColor[x + y * ImageTexture2D.width].b))
+                    {
+                        GPixels++;
+                    }
+                    else
+                    if ((ImageColor[x + y * ImageTexture2D.width].b > ImageColor[x + y * ImageTexture2D.width].r) &&
+                        (ImageColor[x + y * ImageTexture2D.width].b > ImageColor[x + y * ImageTexture2D.width].g))
+                    {
+                        BPixels++;
+                    }
+                    else
+                    {
+                        NoneRGBPixels++;
+                    }
                 }
 
             }
@@ -421,25 +434,52 @@ public class CharacterClass //: MonoBehaviour
         }
         else
         {
-            CharacterType = CharacterType.None;
+            uint opaquePixels = RPixels + GPixels + BPixels + NoneRGBPixels;
+            if (opaquePixels == 0)
+            {
+                CharacterType = CharacterType.None;
+            }
+            else
+            {
+                float averageBrightness =
+                    (RPixelValues + GPixelValues + BPixelValues) / (float)(opaquePixels * 3);
+                CharacterType = averageBrightness > 128f
+                    ? CharacterType.Light
+                    : CharacterType.Dark;
+            }
         }
 
-        //攻撃力の算出
-        Stats[1].ATK = RPixelValues + GPixelValues + BPixelValues;
-
-        //防御力の算出
+        //攻撃力の算出（タイプと一致するピクセル数）
+        switch (CharacterType)
         {
-            uint MaxPixelValues = RPixelValues;
-            if (MaxPixelValues < GPixelValues)
-                MaxPixelValues = GPixelValues;
-            if (MaxPixelValues < BPixelValues)
-                MaxPixelValues = BPixelValues;
-
-            Stats[1].DEF = MaxPixelValues;
+            case CharacterType.Fire:
+                Stats[1].ATK = RPixels;
+                break;
+            case CharacterType.Grass:
+                Stats[1].ATK = GPixels;
+                break;
+            case CharacterType.Water:
+                Stats[1].ATK = BPixels;
+                break;
+            case CharacterType.Light:
+                Stats[1].ATK = LightPixels;
+                break;
+            case CharacterType.Dark:
+                Stats[1].ATK = DarkPixels;
+                break;
+            default:
+                Stats[1].ATK = 0;
+                break;
         }
+
+        //防御力・運の算出（不透明ピクセルの4連結の島）
+        uint islandCount;
+        uint largestIslandSize;
+        CountOpaqueIslands(ImageColor, ImageTexture2D.width, ImageTexture2D.height, out islandCount, out largestIslandSize);
+        Stats[1].DEF = largestIslandSize;
 
         //体力の算出
-        Stats[1].HPMax = (RPixels + GPixels + BPixels + NoneRGBPixels) * (255 + 255 + 255);
+        Stats[1].HPMax = RPixels + GPixels + BPixels + NoneRGBPixels;
         Stats[1].HPCur = Stats[1].HPMax;
         if (Stats[1].HPMax == 0)
         {
@@ -464,9 +504,9 @@ public class CharacterClass //: MonoBehaviour
             }
 
             //運の算出
-            Stats[1].LUC = GradationNum;
+            Stats[1].LUC = islandCount;
             //観察力の算出
-            Stats[1].OBS = (ulong)(Mathf.Floor(GradationNum / ImageTexture2D.height)) + 1;
+            Stats[1].OBS = GradationNum;
             PaintPixels = GradationNum;
         }
 
@@ -559,6 +599,54 @@ public class CharacterClass //: MonoBehaviour
         result = Size + GetExistsColors(new Color(r / 255, g / 255, b / 255));
 
         return result;
+    }
+
+    void CountOpaqueIslands(Color[] imageColor, int width, int height, out uint islandCount, out uint largestIslandSize)
+    {
+        islandCount = 0;
+        largestIslandSize = 0;
+        bool[] visited = new bool[width * height];
+        int[] dx = { 1, -1, 0, 0 };
+        int[] dy = { 0, 0, 1, -1 };
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int start = x + y * width;
+                if (visited[start] || imageColor[start].a == 0.0f)
+                    continue;
+
+                islandCount++;
+                uint size = 0;
+                Stack<int> stack = new Stack<int>();
+                stack.Push(start);
+                visited[start] = true;
+
+                while (stack.Count > 0)
+                {
+                    int i = stack.Pop();
+                    size++;
+                    int cx = i % width;
+                    int cy = i / width;
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int nx = cx + dx[d];
+                        int ny = cy + dy[d];
+                        if (nx < 0 || nx >= width || ny < 0 || ny >= height)
+                            continue;
+                        int ni = nx + ny * width;
+                        if (visited[ni] || imageColor[ni].a == 0.0f)
+                            continue;
+                        visited[ni] = true;
+                        stack.Push(ni);
+                    }
+                }
+
+                if (size > largestIslandSize)
+                    largestIslandSize = size;
+            }
+        }
     }
 
 }

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using System.IO;
 
@@ -27,8 +28,12 @@ public class SaveClass// : MonoBehaviour
 
         uint[] CharactersIDProductionPixel,
         Color[] ColorProductionPixel,
+        ushort[,] ProgressProductionPixel,
         uint[] CharactersIDProductionCharacter,
-        uint[] CharactersIDProducedCharacter
+        uint[] CharactersIDProducedCharacter,
+        List<bool[,]> ProgressTextureProductionCharacter,
+        List<ConsumePixelClass>[] ConsumePixelsProductionCharacter,
+        ulong[,,] CurPixels
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -93,8 +98,6 @@ public class SaveClass// : MonoBehaviour
 
         }
 
-        //TODO:CurPixelsのセーブ・ロード
-
         sw.WriteLine("CurR," + CurR);
         sw.WriteLine("CurG," + CurG);
         sw.WriteLine("CurB," + CurB);
@@ -143,6 +146,46 @@ public class SaveClass// : MonoBehaviour
 
             sw.WriteLine("ColorProductionPixel[" + i.ToString() + "].b," +
                 ColorProductionPixel[i].b.ToString());
+
+            sw.WriteLine("ProgressProductionPixel[" + i.ToString() + "].r," +
+                ProgressProductionPixel[i, 1].ToString());
+            sw.WriteLine("ProgressProductionPixel[" + i.ToString() + "].g," +
+                ProgressProductionPixel[i, 2].ToString());
+            sw.WriteLine("ProgressProductionPixel[" + i.ToString() + "].b," +
+                ProgressProductionPixel[i, 3].ToString());
+        }
+
+        // CurPixels（非ゼロのみ）
+        int curPixelsCount = 0;
+        for (int r = 0; r < 256; r++)
+        {
+            for (int g = 0; g < 256; g++)
+            {
+                for (int b = 0; b < 256; b++)
+                {
+                    if (CurPixels[r, g, b] > 0)
+                        curPixelsCount++;
+                }
+            }
+        }
+        sw.WriteLine("CurPixels.Count," + curPixelsCount.ToString());
+        int curPixelsIndex = 0;
+        for (int r = 0; r < 256; r++)
+        {
+            for (int g = 0; g < 256; g++)
+            {
+                for (int b = 0; b < 256; b++)
+                {
+                    if (CurPixels[r, g, b] > 0)
+                    {
+                        sw.WriteLine("CurPixels[" + curPixelsIndex.ToString() + "].r," + r.ToString());
+                        sw.WriteLine("CurPixels[" + curPixelsIndex.ToString() + "].g," + g.ToString());
+                        sw.WriteLine("CurPixels[" + curPixelsIndex.ToString() + "].b," + b.ToString());
+                        sw.WriteLine("CurPixels[" + curPixelsIndex.ToString() + "].num," + CurPixels[r, g, b].ToString());
+                        curPixelsIndex++;
+                    }
+                }
+            }
         }
 
         // キャラクター生産枠の保存
@@ -153,6 +196,49 @@ public class SaveClass// : MonoBehaviour
 
             sw.WriteLine("CharactersIDProducedCharacter[" + i.ToString() + "]," +
                 CharactersIDProducedCharacter[i].ToString());
+
+            if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
+                continue;
+
+            sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "].Count," +
+                ConsumePixelsProductionCharacter[i].Count.ToString());
+            for (int j = 0; j < ConsumePixelsProductionCharacter[i].Count; j++)
+            {
+                ConsumePixelClass consumePixel = ConsumePixelsProductionCharacter[i][j];
+                sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].r," +
+                    consumePixel.PixelColor.r.ToString());
+                sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].g," +
+                    consumePixel.PixelColor.g.ToString());
+                sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].b," +
+                    consumePixel.PixelColor.b.ToString());
+                sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].ToBe," +
+                    consumePixel.ToBeCurConsumePixelsNum.ToString());
+                sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].Cur," +
+                    consumePixel.CurConsumePixelsNum.ToString());
+            }
+
+            if (ProgressTextureProductionCharacter[i] != null)
+            {
+                bool[,] progressTexture = ProgressTextureProductionCharacter[i];
+                int width = progressTexture.GetLength(0);
+                int height = progressTexture.GetLength(1);
+                sw.WriteLine("ProgressTextureProductionCharacter[" + i.ToString() + "].width," + width.ToString());
+                sw.WriteLine("ProgressTextureProductionCharacter[" + i.ToString() + "].height," + height.ToString());
+
+                StringBuilder progressData = new StringBuilder();
+                bool first = true;
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        if (!first)
+                            progressData.Append(',');
+                        progressData.Append(progressTexture[x, y].ToString().ToLower());
+                        first = false;
+                    }
+                }
+                sw.WriteLine("ProgressTextureProductionCharacter[" + i.ToString() + "].data," + progressData.ToString());
+            }
         }
 
 
@@ -171,8 +257,12 @@ public class SaveClass// : MonoBehaviour
         // ★追加
         ref uint[] CharactersIDProductionPixel,
         ref Color[] ColorProductionPixel,
+        ref ushort[,] ProgressProductionPixel,
         ref uint[] CharactersIDProductionCharacter,
-        ref uint[] CharactersIDProducedCharacter
+        ref uint[] CharactersIDProducedCharacter,
+        List<bool[,]> ProgressTextureProductionCharacter,
+        List<ConsumePixelClass>[] ConsumePixelsProductionCharacter,
+        ref ulong[,,] CurPixels
         )
     {
         Debug.Log("ロード : " + Application.persistentDataPath + "/ICS.csv");
@@ -194,6 +284,24 @@ public class SaveClass// : MonoBehaviour
         //StreamReader sr = new StreamReader("Assets/Resources/ICS.csv");
         StreamReader sr = new StreamReader(Application.persistentDataPath + "/ICS.csv");
         //StreamReader sr = new StreamReader(Application.streamingAssetsPath + "/ICS.csv");
+
+        for (int r = 0; r < 256; r++)
+        {
+            for (int g = 0; g < 256; g++)
+            {
+                for (int b = 0; b < 256; b++)
+                {
+                    CurPixels[r, g, b] = 0;
+                }
+            }
+        }
+
+        int[] progressTextureWidth = new int[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+        int[] progressTextureHeight = new int[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+        int curPixelsLoadIndex = -1;
+        int curPixelsLoadR = 0;
+        int curPixelsLoadG = 0;
+        int curPixelsLoadB = 0;
 
         while (!sr.EndOfStream)
         {
@@ -344,6 +452,157 @@ public class SaveClass// : MonoBehaviour
                         ColorProductionPixel[i].b =
                             float.Parse(values[1]);
                         break;
+                    }
+                }
+            }
+
+            else
+            if (values[0].StartsWith("ProgressProductionPixel"))
+            {
+                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+                {
+                    if (values[0].Equals("ProgressProductionPixel[" + i.ToString() + "].r"))
+                    {
+                        ProgressProductionPixel[i, 1] = (ushort)(int.Parse(values[1]));
+                        break;
+                    }
+
+                    if (values[0].Equals("ProgressProductionPixel[" + i.ToString() + "].g"))
+                    {
+                        ProgressProductionPixel[i, 2] = (ushort)(int.Parse(values[1]));
+                        break;
+                    }
+
+                    if (values[0].Equals("ProgressProductionPixel[" + i.ToString() + "].b"))
+                    {
+                        ProgressProductionPixel[i, 3] = (ushort)(int.Parse(values[1]));
+                        break;
+                    }
+                }
+            }
+
+            else
+            if (values[0].Equals("CurPixels.Count"))
+            {
+                curPixelsLoadIndex = -1;
+            }
+
+            else
+            if (values[0].StartsWith("CurPixels["))
+            {
+                int entryStart = values[0].IndexOf('[') + 1;
+                int entryEnd = values[0].IndexOf(']');
+                int entryIndex = int.Parse(values[0].Substring(entryStart, entryEnd - entryStart));
+                string field = values[0].Substring(entryEnd + 2);
+
+                if (field.Equals("r"))
+                {
+                    curPixelsLoadIndex = entryIndex;
+                    curPixelsLoadR = int.Parse(values[1]);
+                }
+                else
+                if (field.Equals("g"))
+                {
+                    curPixelsLoadG = int.Parse(values[1]);
+                }
+                else
+                if (field.Equals("b"))
+                {
+                    curPixelsLoadB = int.Parse(values[1]);
+                }
+                else
+                if (field.Equals("num") && curPixelsLoadIndex == entryIndex)
+                {
+                    CurPixels[curPixelsLoadR, curPixelsLoadG, curPixelsLoadB] = ulong.Parse(values[1]);
+                }
+            }
+
+            else
+            if (values[0].StartsWith("ConsumePixelsProductionCharacter"))
+            {
+                int slotStart = values[0].IndexOf('[') + 1;
+                int slotEnd = values[0].IndexOf(']');
+                int slotIndex = int.Parse(values[0].Substring(slotStart, slotEnd - slotStart));
+
+                if (values[0].Equals("ConsumePixelsProductionCharacter[" + slotIndex.ToString() + "].Count"))
+                {
+                    int count = int.Parse(values[1]);
+                    ConsumePixelsProductionCharacter[slotIndex].Clear();
+                    for (int k = 0; k < count; k++)
+                    {
+                        ConsumePixelsProductionCharacter[slotIndex].Add(new ConsumePixelClass(Color.black, 0, 0));
+                    }
+                }
+                else
+                {
+                    int entryStart = values[0].IndexOf('[', slotEnd) + 1;
+                    int entryEnd = values[0].IndexOf(']', entryStart);
+                    int entryIndex = int.Parse(values[0].Substring(entryStart, entryEnd - entryStart));
+                    string field = values[0].Substring(entryEnd + 2);
+
+                    if (entryIndex < ConsumePixelsProductionCharacter[slotIndex].Count)
+                    {
+                        ConsumePixelClass consumePixel = ConsumePixelsProductionCharacter[slotIndex][entryIndex];
+                        Color pixelColor = consumePixel.PixelColor;
+
+                        if (field.Equals("r"))
+                            pixelColor.r = float.Parse(values[1]);
+                        else
+                        if (field.Equals("g"))
+                            pixelColor.g = float.Parse(values[1]);
+                        else
+                        if (field.Equals("b"))
+                            pixelColor.b = float.Parse(values[1]);
+                        else
+                        if (field.Equals("ToBe"))
+                            consumePixel.ToBeCurConsumePixelsNum = uint.Parse(values[1]);
+                        else
+                        if (field.Equals("Cur"))
+                            consumePixel.CurConsumePixelsNum = uint.Parse(values[1]);
+
+                        consumePixel.PixelColor = pixelColor;
+                    }
+                }
+            }
+
+            else
+            if (values[0].StartsWith("ProgressTextureProductionCharacter"))
+            {
+                int slotStart = values[0].IndexOf('[') + 1;
+                int slotEnd = values[0].IndexOf(']');
+                int slotIndex = int.Parse(values[0].Substring(slotStart, slotEnd - slotStart));
+                string field = values[0].Substring(slotEnd + 2);
+
+                if (field.Equals("width"))
+                {
+                    progressTextureWidth[slotIndex] = int.Parse(values[1]);
+                }
+                else
+                if (field.Equals("height"))
+                {
+                    progressTextureHeight[slotIndex] = int.Parse(values[1]);
+                }
+                else
+                if (field.Equals("data"))
+                {
+                    int width = progressTextureWidth[slotIndex];
+                    int height = progressTextureHeight[slotIndex];
+                    if (width > 0 && height > 0)
+                    {
+                        bool[,] progressTexture = new bool[width, height];
+                        int dataIndex = 1;
+                        for (int y = 0; y < height; y++)
+                        {
+                            for (int x = 0; x < width; x++)
+                            {
+                                if (dataIndex < values.Length)
+                                {
+                                    progressTexture[x, y] = values[dataIndex].Equals("true");
+                                    dataIndex++;
+                                }
+                            }
+                        }
+                        ProgressTextureProductionCharacter[slotIndex] = progressTexture;
                     }
                 }
             }
