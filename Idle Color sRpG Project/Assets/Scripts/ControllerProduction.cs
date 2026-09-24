@@ -22,6 +22,8 @@ static class Constants
     public const int CHARACTERS_HELP_PRODUCTION_NUM = 3;
     public const int CHARACTERS_PRODUCTION_PIXEL_NUM = 5;
     public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = 5;
+    public const int BATTLE_PARTY_SET_NUM = 5;
+    public const int BATTLE_FORMATION_SIZE = 3;
 }
 
 public class ConsumePixelClass
@@ -59,6 +61,9 @@ public class ControllerProduction : MonoBehaviour
 
     uint[] CharactersIDProductionCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     uint[] CharactersIDProducedCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    // [セット1..5, x1..3, y1..3]。0は空き。セットをまたいだ同じキャラは許可する
+    uint[,,] BattlePartyCharacterIds = new uint[Constants.BATTLE_PARTY_SET_NUM + 1, Constants.BATTLE_FORMATION_SIZE + 1, Constants.BATTLE_FORMATION_SIZE + 1];
+    int ActiveBattlePartySet = 0;
     List<bool[,]> ProgressTextureProductionCharacter = new List<bool[,]>();//[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     List<ConsumePixelClass>[] ConsumePixelsProductionCharacter = new List<ConsumePixelClass>[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     Texture[] ProductionCharacterViewTexture = new Texture[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
@@ -320,7 +325,9 @@ public class ControllerProduction : MonoBehaviour
             ref CharactersIDProducedCharacter,
             ProgressTextureProductionCharacter,
             ConsumePixelsProductionCharacter,
-            ref CurPixels
+            ref CurPixels,
+            ref BattlePartyCharacterIds,
+            ref ActiveBattlePartySet
             );
 
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
@@ -456,7 +463,7 @@ public class ControllerProduction : MonoBehaviour
             for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1; i++)
             {
                 if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
-                    break;
+                    continue;
 
                 bool PCF = false;
                 bool RC = true;
@@ -509,7 +516,9 @@ public class ControllerProduction : MonoBehaviour
             CharactersIDProducedCharacter,
             ProgressTextureProductionCharacter,
             ConsumePixelsProductionCharacter,
-            CurPixels
+            CurPixels,
+            BattlePartyCharacterIds,
+            ActiveBattlePartySet
             );
     }
 
@@ -1370,6 +1379,162 @@ public class ControllerProduction : MonoBehaviour
         if (RepeatComplete == false)
         {
             //TODO:キャラクター生産停止中の警告表示
+        }
+    }
+
+    //バトル編成。1セットは3x3。同じセット内の同じキャラは移動扱いにする
+    public bool SetBattlePartyCharacter(int setIndex, int x, int y, uint characterId)
+    {
+        if (!IsBattlePartyCell(setIndex, x, y))
+            return false;
+
+        if (characterId != 0)
+        {
+            if (characterId > Constants.CHARACTERS_ALL_NUM || CharactersAll[characterId] == null || CharactersAll[characterId].ID != characterId)
+                return false;
+            if (setIndex == ActiveBattlePartySet)
+                return false;
+
+            for (int cellX = 1; cellX <= Constants.BATTLE_FORMATION_SIZE; cellX++)
+            {
+                for (int cellY = 1; cellY <= Constants.BATTLE_FORMATION_SIZE; cellY++)
+                {
+                    if (cellX == x && cellY == y)
+                        continue;
+                    if (BattlePartyCharacterIds[setIndex, cellX, cellY] == characterId)
+                        BattlePartyCharacterIds[setIndex, cellX, cellY] = 0;
+                }
+            }
+        }
+
+        BattlePartyCharacterIds[setIndex, x, y] = characterId;
+        return true;
+    }
+
+    public uint GetBattlePartyCharacter(int setIndex, int x, int y)
+    {
+        if (!IsBattlePartyCell(setIndex, x, y))
+            return 0;
+        return BattlePartyCharacterIds[setIndex, x, y];
+    }
+
+    public void ClearBattlePartySet(int setIndex)
+    {
+        if (setIndex < 1 || setIndex > Constants.BATTLE_PARTY_SET_NUM)
+            return;
+        if (setIndex == ActiveBattlePartySet)
+            return;
+
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+                BattlePartyCharacterIds[setIndex, x, y] = 0;
+        }
+    }
+
+    bool IsBattlePartyCell(int setIndex, int x, int y)
+    {
+        return setIndex >= 1 && setIndex <= Constants.BATTLE_PARTY_SET_NUM
+            && x >= 1 && x <= Constants.BATTLE_FORMATION_SIZE
+            && y >= 1 && y <= Constants.BATTLE_FORMATION_SIZE;
+    }
+
+    //出撃中だけ Whereabouts を Battle にする。編成に入っているだけでは生産に残る
+    public bool EnterBattle(int setIndex)
+    {
+        if (setIndex < 1 || setIndex > Constants.BATTLE_PARTY_SET_NUM)
+            return false;
+
+        LeaveBattle();
+
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+            {
+                uint characterId = BattlePartyCharacterIds[setIndex, x, y];
+                if (characterId == 0)
+                    continue;
+
+                ReleaseCharacterFromProduction(characterId);
+                CharactersAll[characterId].Whereabouts = Place.Battle;
+            }
+        }
+
+        ActiveBattlePartySet = setIndex;
+        RefreshProductionAssignmentViews();
+        return true;
+    }
+
+    public void LeaveBattle()
+    {
+        for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
+        {
+            if (CharactersAll[i] != null && CharactersAll[i].Whereabouts == Place.Battle)
+                CharactersAll[i].Whereabouts = Place.None;
+        }
+        ActiveBattlePartySet = 0;
+    }
+
+    void ReleaseCharacterFromProduction(uint characterId)
+    {
+        for (int i = 1; i <= Constants.CHARACTERS_HELP_PRODUCTION_NUM; i++)
+        {
+            if (CharactersIDHelpProductionR[i] == characterId)
+                CharactersIDHelpProductionR[i] = 0;
+            if (CharactersIDHelpProductionG[i] == characterId)
+                CharactersIDHelpProductionG[i] = 0;
+            if (CharactersIDHelpProductionB[i] == characterId)
+                CharactersIDHelpProductionB[i] = 0;
+        }
+
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        {
+            if (CharactersIDProductionPixel[i] == characterId)
+                CharactersIDProductionPixel[i] = 0;
+        }
+
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        {
+            if (CharactersIDProductionCharacter[i] == characterId)
+                CharactersIDProductionCharacter[i] = 0;
+        }
+    }
+
+    void RefreshProductionAssignmentViews()
+    {
+        UpdateRGBProductionHelpCharacter();
+        ClearEmptyHelpProductionButton("ButtonRProductionHelpCharacter", CharactersIDHelpProductionR, new Color(50 / 255f, 0.0f, 0.0f, 1.0f));
+        ClearEmptyHelpProductionButton("ButtonGProductionHelpCharacter", CharactersIDHelpProductionG, new Color(0.0f, 50 / 255f, 0.0f, 1.0f));
+        ClearEmptyHelpProductionButton("ButtonBProductionHelpCharacter", CharactersIDHelpProductionB, new Color(0.0f, 0.0f, 50 / 255f, 1.0f));
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+            UpdateCharacterPixelProduction(i);
+
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        {
+            if (CharactersIDProductionCharacter[i] != 0)
+                continue;
+            GameObject buttonObject = GameObject.Find("ButtonCharacterProductionCharacter" + i.ToString("00"));
+            if (buttonObject == null)
+                continue;
+            Button button = buttonObject.GetComponent<Button>();
+            button.image.sprite = null;
+            button.GetComponentInChildren<Text>().text = "+";
+        }
+    }
+
+    void ClearEmptyHelpProductionButton(string buttonPrefix, uint[] characterIds, Color emptyColor)
+    {
+        for (int i = 1; i <= Constants.CHARACTERS_HELP_PRODUCTION_NUM; i++)
+        {
+            if (characterIds[i] != 0)
+                continue;
+            GameObject buttonObject = GameObject.Find(buttonPrefix + i.ToString());
+            if (buttonObject == null)
+                continue;
+            Button button = buttonObject.GetComponent<Button>();
+            button.image.sprite = null;
+            button.image.color = emptyColor;
+            button.GetComponentInChildren<Text>().text = "+";
         }
     }
 

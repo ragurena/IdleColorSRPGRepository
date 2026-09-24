@@ -33,7 +33,9 @@ public class SaveClass// : MonoBehaviour
         uint[] CharactersIDProducedCharacter,
         List<bool[,]> ProgressTextureProductionCharacter,
         List<ConsumePixelClass>[] ConsumePixelsProductionCharacter,
-        ulong[,,] CurPixels
+        ulong[,,] CurPixels,
+        uint[,,] BattlePartyCharacterIds,
+        int ActiveBattlePartySet
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -241,6 +243,20 @@ public class SaveClass// : MonoBehaviour
             }
         }
 
+        for (int setIndex = 1; setIndex <= Constants.BATTLE_PARTY_SET_NUM; setIndex++)
+        {
+            for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+            {
+                for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+                {
+                    sw.WriteLine("BattlePartyCharacterIds[" + setIndex.ToString() + "][" + x.ToString() + "][" + y.ToString() + "]," +
+                        BattlePartyCharacterIds[setIndex, x, y].ToString());
+                }
+            }
+        }
+
+
+        sw.WriteLine("ActiveBattlePartySet," + ActiveBattlePartySet.ToString());
 
         sw.Flush();
         sw.Close();
@@ -262,7 +278,9 @@ public class SaveClass// : MonoBehaviour
         ref uint[] CharactersIDProducedCharacter,
         List<bool[,]> ProgressTextureProductionCharacter,
         List<ConsumePixelClass>[] ConsumePixelsProductionCharacter,
-        ref ulong[,,] CurPixels
+        ref ulong[,,] CurPixels,
+        ref uint[,,] BattlePartyCharacterIds,
+        ref int ActiveBattlePartySet
         )
     {
         Debug.Log("ロード : " + Application.persistentDataPath + "/ICS.csv");
@@ -604,6 +622,32 @@ public class SaveClass// : MonoBehaviour
                         }
                         ProgressTextureProductionCharacter[slotIndex] = progressTexture;
                     }
+                }
+            }
+
+            else
+            if (values[0].Equals("ActiveBattlePartySet"))
+            {
+                ActiveBattlePartySet = int.Parse(values[1]);
+            }
+
+            else
+            if (values[0].StartsWith("BattlePartyCharacterIds["))
+            {
+                int setStart = values[0].IndexOf('[') + 1;
+                int setEnd = values[0].IndexOf(']', setStart);
+                int xStart = values[0].IndexOf('[', setEnd) + 1;
+                int xEnd = values[0].IndexOf(']', xStart);
+                int yStart = values[0].IndexOf('[', xEnd) + 1;
+                int yEnd = values[0].IndexOf(']', yStart);
+                int setIndex = int.Parse(values[0].Substring(setStart, setEnd - setStart));
+                int x = int.Parse(values[0].Substring(xStart, xEnd - xStart));
+                int y = int.Parse(values[0].Substring(yStart, yEnd - yStart));
+                if (setIndex >= 1 && setIndex <= Constants.BATTLE_PARTY_SET_NUM
+                    && x >= 1 && x <= Constants.BATTLE_FORMATION_SIZE
+                    && y >= 1 && y <= Constants.BATTLE_FORMATION_SIZE)
+                {
+                    BattlePartyCharacterIds[setIndex, x, y] = (uint)int.Parse(values[1]);
                 }
             }
 
