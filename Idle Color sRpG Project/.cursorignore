@@ -1,0 +1,36 @@
+# Unity自動生成フォルダー（AIのコンテキストから完全に除外）
+/[lL]ibrary/
+/[tT]emp/
+/[oO]bj/
+/[bB]uild/
+/[bB]uilds/
+/[lL]ogs/
+/[uU]ser[sS]ettings/
+/MemoryCaptures/
+
+# アセットやパッケージ（AIが読み込む必要のないコード）
+/[aA]ssets/Plugins/
+/[pP]ackages/
+
+# プロジェクトファイル
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+
+# グラフィックやサウンドなどのバイナリ資産（AIが解析できないもの）
+*.meta
+*.unity
+*.asset
+*.prefab
+*.fbx
+*.obj
+*.png
+*.jpg
+*.tga
+*.mp3
+*.wav
+*.ogg

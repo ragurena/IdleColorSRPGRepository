@@ -15,6 +15,13 @@
 [B/b]uilds/
 [L/l]ogs/
 [M/m]emoryCaptures/
+[U/u]ser[S/s]ettings/
+/[A/a]ssets/_Recovery/
+/[A/a]ssets/_Recovery.meta
+
+# ビルド成果物
+*.apk
+*.aab
 
 # OS自動生成ファイル
 .DS_Store
