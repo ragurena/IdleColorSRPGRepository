@@ -125,6 +125,73 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             TextSelectCharacter3.text = "";
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
+        else
+        if (ControllerBattlePartyClass.IsCellButton(ButtonTmp))
+        {
+            ShowBattleStats(argCharacterID);
+        }
+    }
+
+    public uint GetSelectedCharacterID()
+    {
+        return CharacterIDTmp;
+    }
+
+    //バトル編成のマスから呼ばれたキャラクターセレクトパネルの表示
+    public void ShowPanelSelectCharacterBattleParty(Button ButtonTmp, uint argCurrentCharacterID)
+    {
+        GameObject[] tag1_Objects;
+        tag1_Objects = GameObject.FindGameObjectsWithTag("SelectCharacter");
+        foreach (GameObject gameObject in tag1_Objects)
+        {
+            if (gameObject.name.Equals("ButtonConfirmSelectLeft") ||
+                gameObject.name.Equals("ButtonConfirmSelectRight"))
+            {
+                gameObject.GetComponent<Button>().interactable = false;
+            }
+            else
+            if (gameObject.name.Equals("ButtonRemoveLeft") ||
+                gameObject.name.Equals("ButtonRemoveRight"))
+            {
+                gameObject.GetComponent<Button>().interactable = argCurrentCharacterID != 0;
+            }
+        }
+
+        ShowBattleStats(argCurrentCharacterID);
+        if (argCurrentCharacterID != 0 && CharactersAll[argCurrentCharacterID].ImageTexture2D != null)
+        {
+            ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[argCurrentCharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCurrentCharacterID].Size, CharactersAll[argCurrentCharacterID].Size), new Vector2(0.5f, 0.5f));
+        }
+
+        //編成に入っているだけでは Whereabouts は変わらないので、所持キャラ全員を候補にする
+        for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
+        {
+            if (CharactersAll[indexCharacter].OwnedNumCur != 0)
+            {
+                CreateCharacterButton(indexCharacter, ButtonTmp);
+            }
+        }
+    }
+
+    //バトル用ステータスの表示。0なら項目名だけ
+    void ShowBattleStats(uint argCharacterID)
+    {
+        TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+
+        if (argCharacterID == 0)
+        {
+            TextSelectCharacter1.text = "HP : ";
+            TextSelectCharacter2.text = "ATK : " + "   DEF : ";
+            TextSelectCharacter3.text = "SPD : " + "   LUC : ";
+            return;
+        }
+
+        StatisticsClass stats = CharactersAll[argCharacterID].Stats[0];
+        TextSelectCharacter1.text = "HP : " + stats.HPMax + "   " + CharactersAll[argCharacterID].CharacterType;
+        TextSelectCharacter2.text = "ATK : " + stats.ATK + "   DEF : " + stats.DEF;
+        TextSelectCharacter3.text = "SPD : " + stats.SPD + "   LUC : " + stats.LUC;
     }
 
     //キャラクターセレクトの決定ボタンが押されたら
@@ -643,6 +710,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (argButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
             GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixels : " + ((CharactersAll[argCharacterIndex].Size * CharactersAll[argCharacterIndex].Size) - CharactersAll[argCharacterIndex].APixels);
+            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+        else
+        if (ControllerBattlePartyClass.IsCellButton(argButtonTmp))
+        {
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "HP " + CharactersAll[argCharacterIndex].Stats[0].HPMax + " / ATK " + CharactersAll[argCharacterIndex].Stats[0].ATK;
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
 

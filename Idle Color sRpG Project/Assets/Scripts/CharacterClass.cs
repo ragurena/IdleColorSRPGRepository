@@ -259,6 +259,7 @@ public class CharacterClass //: MonoBehaviour
 
         Texture2D resultTexture2D = argImage;
         resultTexture2D.SetPixels(0, 0, argImage.width, argImage.height, ImageColor);
+        resultTexture2D.filterMode = FilterMode.Point;
         resultTexture2D.Apply();
         ImageTexture2D = resultTexture2D;
 

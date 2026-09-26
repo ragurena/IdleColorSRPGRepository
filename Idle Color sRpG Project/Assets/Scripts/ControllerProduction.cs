@@ -47,6 +47,7 @@ public class ControllerProduction : MonoBehaviour
 
     ModelProduction ModelProduction;
     ControllerCharacterSelectClass ControllerCharacterSelect;
+    ControllerBattlePartyClass ControllerBattleParty;
 
     CharacterClass[] CharactersAll = new CharacterClass[Constants.CHARACTERS_ALL_NUM + 1];
 
@@ -144,6 +145,8 @@ public class ControllerProduction : MonoBehaviour
 
     [SerializeField] GameObject PanelCharacterProduction;
 
+    [SerializeField] GameObject PanelBattleParty;
+
     //キャラクターセレクトパネル
     [SerializeField] GameObject PanelSelectCharacter;
 
@@ -222,6 +225,9 @@ public class ControllerProduction : MonoBehaviour
                                              ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB,
                                              ref CharactersIDProductionPixel,
                                              ref CharactersIDProductionCharacter, ref CharactersIDProducedCharacter);
+
+        ControllerBattleParty = GetComponent<ControllerBattlePartyClass>();
+        ControllerBattleParty.Initialize(ref CharactersAll, this);
                                                  
         ModelProduction = GetComponent<ModelProduction>();
 
@@ -616,6 +622,8 @@ public class ControllerProduction : MonoBehaviour
         ClearPixelListPixelProduction();
         //PanelCharacterProductionの非表示
         NotShowPanel(PanelCharacterProduction);
+        //PanelBattlePartyの非表示
+        NotShowPanel(PanelBattleParty);
     }
 
     //ピクセル生産シーンボタンが押されたら
@@ -631,6 +639,8 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelRGBProduction);
         //PanelCharacterProductionの非表示
         NotShowPanel(PanelCharacterProduction);
+        //PanelBattlePartyの非表示
+        NotShowPanel(PanelBattleParty);
     }
 
     //キャラクター生産シーンボタンが押されたら
@@ -645,6 +655,26 @@ public class ControllerProduction : MonoBehaviour
         //PanelPixelProductionの非表示
         NotShowPanel(PanelPixelProduction);
         ClearPixelListPixelProduction();
+        //PanelBattlePartyの非表示
+        NotShowPanel(PanelBattleParty);
+    }
+
+    //バトル編成シーンボタンが押されたら
+    public void PushButtonSelectSceneBattleParty()
+    {
+        //PanelBattlePartyの表示
+        ShowPanel(PanelBattleParty);
+        //UIの更新
+        ControllerBattleParty.Open();
+
+        //他のシーンを非表示
+        //PanelRGBProductionの非表示
+        NotShowPanel(PanelRGBProduction);
+        //PanelPixelProductionの非表示
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
+        //PanelCharacterProductionの非表示
+        NotShowPanel(PanelCharacterProduction);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -657,6 +687,14 @@ public class ControllerProduction : MonoBehaviour
 
         //PanelSelectCharacterの表示
         ShowPanel(PanelSelectCharacter);
+        if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
+        {
+            int x, y;
+            ControllerBattlePartyClass.GetCellPosition(ButtonCharacterTmp, out x, out y);
+            ControllerCharacterSelect.ShowPanelSelectCharacterBattleParty(ButtonCharacterTmp,
+                GetBattlePartyCharacter(ControllerBattleParty.GetCurrentSetIndex(), x, y));
+            return;
+        }
         ControllerCharacterSelect.ShowPanelSelectCharacter(ButtonCharacterTmp);
     }
 
@@ -680,6 +718,12 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクトの決定ボタンが押されたら
     public void PushButtonConfirmSelectCharacter()
     {
+        if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
+        {
+            SetBattlePartyCharacterFromSelectCharacter(ControllerCharacterSelect.GetSelectedCharacterID());
+            return;
+        }
+
         ControllerCharacterSelect.ConfirmSelectCharacter(ButtonCharacterTmp);
 
         if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
@@ -708,6 +752,12 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクトの外すボタンが押されたら
     public void PushButtonRemoveCharacterSelect()
     {
+        if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
+        {
+            SetBattlePartyCharacterFromSelectCharacter(0);
+            return;
+        }
+
         ControllerCharacterSelect.RemoveCharacterSelect(ButtonCharacterTmp);
 
         if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
@@ -1411,6 +1461,27 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
+    //キャラクターセレクトパネルから編成のマスへ反映する。0なら外す
+    void SetBattlePartyCharacterFromSelectCharacter(uint characterId)
+    {
+        int x, y;
+        ControllerBattlePartyClass.GetCellPosition(ButtonCharacterTmp, out x, out y);
+        SetBattlePartyCharacter(ControllerBattleParty.GetCurrentSetIndex(), x, y, characterId);
+
+        //どのボタンで呼び出されたか削除
+        ButtonCharacterTmp = null;
+
+        ControllerCharacterSelect.NotShowPanelSelectCharacter();
+        NotShowPanel(PanelSelectCharacter);
+
+        ControllerBattleParty.Refresh();
+    }
+
+    public int GetActiveBattlePartySet()
+    {
+        return ActiveBattlePartySet;
+    }
+
     public uint GetBattlePartyCharacter(int setIndex, int x, int y)
     {
         if (!IsBattlePartyCell(setIndex, x, y))
@@ -2078,12 +2149,14 @@ public class ControllerProduction : MonoBehaviour
         if (CharactersAll[CharactersIDProductionPixel[argIndex]].ImagePath == null)
         {
             Content.GetComponentsInChildren<Button>()[0].image.sprite = null;
+            Content.GetComponentsInChildren<Button>()[0].GetComponentInChildren<Text>().text = "+";
         }
         else
         {
             //キャラクター
             Content.GetComponentsInChildren<Button>()[0].image.sprite
                 = Sprite.Create(CharactersAll[CharactersIDProductionPixel[argIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[argIndex]].Size, CharactersAll[CharactersIDProductionPixel[argIndex]].Size), new Vector2(0.5f, 0.5f));
+            Content.GetComponentsInChildren<Button>()[0].GetComponentInChildren<Text>().text = "";
         }
     }
     public void UpdatePixelColorPixelProduction(int argIndex)
@@ -2263,9 +2336,39 @@ public class ControllerProduction : MonoBehaviour
     //起動時など、進捗画像・消費ピクセル・所持数をまとめて描く
     public void UpdateProductionCharacterScene()
     {
+        UpdateProductionCharacterButtons();
         UpdateAllProductionCharacterProgressImages();
         UpdateProductionCharacterConsumeViews();
         ShowCharacterOwnedNum();
+    }
+
+    //作成担当キャラと作成するキャラのボタンを、保存されている割り当てに合わせる
+    void UpdateProductionCharacterButtons()
+    {
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        {
+            UpdateProductionCharacterButton("ButtonCharacterProductionCharacter" + i.ToString("00"), CharactersIDProductionCharacter[i]);
+            UpdateProductionCharacterButton("ButtonCharacterProducedCharacter" + i.ToString("00"), CharactersIDProducedCharacter[i]);
+        }
+    }
+
+    void UpdateProductionCharacterButton(string argButtonName, uint argCharacterID)
+    {
+        GameObject buttonObject = GameObject.Find(argButtonName);
+        if (buttonObject == null)
+            return;
+        Button button = buttonObject.GetComponent<Button>();
+
+        if (argCharacterID == 0 || CharactersAll[argCharacterID].ImageTexture2D == null)
+        {
+            button.image.sprite = null;
+            button.GetComponentInChildren<Text>().text = "+";
+            return;
+        }
+
+        button.image.sprite = Sprite.Create(CharactersAll[argCharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterID].Size, CharactersAll[argCharacterID].Size), new Vector2(0.5f, 0.5f));
+        button.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+        button.GetComponentInChildren<Text>().text = "";
     }
 
     void ForEachProductionCharacterView(Action<int, RawImage, Transform> visit)
