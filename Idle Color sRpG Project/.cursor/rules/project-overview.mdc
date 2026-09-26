@@ -1,0 +1,28 @@
+---
+description: Idle Color sRpG のプロジェクト概要と、ヒトハさんとの進め方
+alwaysApply: true
+---
+
+# Idle Color sRpG
+
+Unity 6 (6000.3) の縦画面スマホ向け放置ゲーム。キャラクターのドット絵(PNG)の色からステータスを算出し、
+RGB生産 → ピクセル生産 → キャラ生産 の流れでキャラを増やして、バトル編成・出撃する。
+
+## 主なスクリプト (Assets/Scripts)
+- `ControllerProduction.cs`: ゲーム全体の中心。データ保持、画面切り替え、生産処理、バトル編成データ(`EnterBattle` / `LeaveBattle`)
+- `ControllerCharacterSelectClass.cs`: 共通のキャラ選択パネル。呼び出し元ボタンの名前で処理を分岐する
+- `ControllerBattlePartyClass.cs`: バトル編成パネル(5セット x 3x3マス、x=列 後/中/前・敵は右)
+- `CharacterClass.cs` / `StatisticsClass.cs`: キャラとステータス。`Stats[0]` がトータル
+- `SaveClass.cs`: `persistentDataPath/ICS.csv` へのセーブ・ロード。保存項目を増やしたらここも更新する
+
+## ヒトハさんとの進め方
+- 日本語で会話する。Unity エディタの操作には慣れていないので、Hierarchy の作り方・名前・Inspector の設定は
+  ステップバイステップで、メニューの場所まで具体的に書く
+- `.cursorignore` でシーン・プレハブ・`.meta` は AI から読めない。エディタの状態はスクリーンショットで確認してもらう
+- 大きな機能は、先に画面構成や仕様を提案して決めてから実装する
+- ビルド・実行はヒトハさんが Unity で行う。未確認のことは未確認と伝える
+
+## Git
+- ヒトハさんは Git に不慣れ。「コミットプッシュして」と言われたら `master` にコミット・プッシュしてよい
+- コミットするのは作業に関係するファイルだけ(スクリプト、`.meta`、変更したシーン等)。確認してから add する
+- コミットメッセージは日本語で「〜する。」の形(例: `バトル編成パネルを追加し、キャラ画像をドット表示にする。`)

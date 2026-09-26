@@ -1,0 +1,33 @@
+---
+description: Unity スクリプトの書き方の決まり(UI、名前での検索、配列の添字など)
+globs: Assets/Scripts/**/*.cs
+alwaysApply: false
+---
+
+# Unity スクリプトの決まり
+
+## UI
+- UI は `UnityEngine.UI` の Legacy `Button` / `Text` を使う。TextMeshPro は使わない
+  (コードが `GetComponentInChildren<Text>()` で文字を読み書きしているため)
+- パネルの表示・非表示は GameObject の有効/無効ではなく CanvasGroup で切り替える。
+  `ControllerProduction.ShowPanel` / `NotShowPanel` を使い、パネル GameObject は常にアクティブにしておく
+- 新しい画面パネルを追加したら、既存の `PushButtonSelectScene〜` 全部で非表示にする処理も足す
+
+## ボタン名で処理を探す作り
+- `GameObject.Find` やボタン名の `Contains` / 末尾の数字で対象を判定している
+  (例: `ButtonPixelProductionCharacter01`, `ButtonBattlePartyCell13`)
+- ボタン名の規則を変えるとき・新しく決めるときは、ヒトハさんに正確な名前を伝える。
+  同じ名前のボタンが複数あると壊れるので、既存パネルの複製はしないよう案内する
+
+## データ
+- キャラ ID や枠の配列は 1 始まり。`0` は「空き」。`CharactersAll[0]` は空のダミー
+- 定数は `ControllerProduction.cs` 冒頭の `Constants` にまとめる
+- 画面の見た目を変える割り当て処理を足したら、再起動時(ロード後)の表示復元も忘れずに足す
+
+## サブコントローラー
+- 画面ごとのコントローラー(`ControllerCharacterSelectClass`, `ControllerBattlePartyClass`)は
+  `ControllerProduction` と同じ GameObject に付け、`GetComponent` で取得して `Initialize` で参照を渡す
+
+## キャラ画像
+- ドット絵なので Texture2D は `FilterMode.Point` にする
+- 画像は `CharacterClass.ImageTexture2D` を使い、PNG を読み直さない。null のときは `NoImageSprite` で代替する
