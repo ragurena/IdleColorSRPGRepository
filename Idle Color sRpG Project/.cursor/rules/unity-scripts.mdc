@@ -25,7 +25,7 @@ alwaysApply: false
 - 画面の見た目を変える割り当て処理を足したら、再起動時(ロード後)の表示復元も忘れずに足す
 
 ## サブコントローラー
-- 画面ごとのコントローラー(`ControllerCharacterSelectClass`, `ControllerBattlePartyClass`)は
+- 画面ごとのコントローラー(`ControllerCharacterSelectClass`, `ControllerBattlePartyClass`, `ControllerBattleStageClass`)は
   `ControllerProduction` と同じ GameObject に付け、`GetComponent` で取得して `Initialize` で参照を渡す
 
 ## キャラ画像

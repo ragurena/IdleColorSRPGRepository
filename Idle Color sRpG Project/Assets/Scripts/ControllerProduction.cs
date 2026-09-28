@@ -24,6 +24,9 @@ static class Constants
     public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = 5;
     public const int BATTLE_PARTY_SET_NUM = 5;
     public const int BATTLE_FORMATION_SIZE = 3;
+    public const int BATTLE_STAGE_NUM = 5;
+    public const int BATTLE_STAGE_FLOOR_MAX = 100;
+    public const int BATTLE_STAGE_FLOOR_STEP = 10;
 }
 
 public class ConsumePixelClass
@@ -48,6 +51,7 @@ public class ControllerProduction : MonoBehaviour
     ModelProduction ModelProduction;
     ControllerCharacterSelectClass ControllerCharacterSelect;
     ControllerBattlePartyClass ControllerBattleParty;
+    ControllerBattleStageClass ControllerBattleStage;
 
     CharacterClass[] CharactersAll = new CharacterClass[Constants.CHARACTERS_ALL_NUM + 1];
 
@@ -65,6 +69,10 @@ public class ControllerProduction : MonoBehaviour
     // [セット1..5, x1..3, y1..3]。0は空き。セットをまたいだ同じキャラは許可する
     uint[,,] BattlePartyCharacterIds = new uint[Constants.BATTLE_PARTY_SET_NUM + 1, Constants.BATTLE_FORMATION_SIZE + 1, Constants.BATTLE_FORMATION_SIZE + 1];
     int ActiveBattlePartySet = 0;
+    int ActiveBattleStage = 0;
+    int ActiveBattleFloorFrom = 0;
+    int ActiveBattleFloorTo = 0;
+    int ClearedBattleStage = 0;
     List<bool[,]> ProgressTextureProductionCharacter = new List<bool[,]>();//[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     List<ConsumePixelClass>[] ConsumePixelsProductionCharacter = new List<ConsumePixelClass>[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     Texture[] ProductionCharacterViewTexture = new Texture[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
@@ -147,6 +155,8 @@ public class ControllerProduction : MonoBehaviour
 
     [SerializeField] GameObject PanelBattleParty;
 
+    [SerializeField] GameObject PanelBattleStage;
+
     //キャラクターセレクトパネル
     [SerializeField] GameObject PanelSelectCharacter;
 
@@ -228,6 +238,10 @@ public class ControllerProduction : MonoBehaviour
 
         ControllerBattleParty = GetComponent<ControllerBattlePartyClass>();
         ControllerBattleParty.Initialize(ref CharactersAll, this);
+
+        ControllerBattleStage = GetComponent<ControllerBattleStageClass>();
+        if (ControllerBattleStage != null)
+            ControllerBattleStage.Initialize(ref CharactersAll, this);
                                                  
         ModelProduction = GetComponent<ModelProduction>();
 
@@ -333,8 +347,22 @@ public class ControllerProduction : MonoBehaviour
             ConsumePixelsProductionCharacter,
             ref CurPixels,
             ref BattlePartyCharacterIds,
-            ref ActiveBattlePartySet
+            ref ActiveBattlePartySet,
+            ref ActiveBattleStage,
+            ref ActiveBattleFloorFrom,
+            ref ActiveBattleFloorTo,
+            ref ClearedBattleStage
             );
+
+        if (ActiveBattlePartySet == 0 || ActiveBattleStage < 1 || ActiveBattleStage > Constants.BATTLE_STAGE_NUM)
+            ActiveBattleStage = 0;
+        if (ActiveBattlePartySet == 0 || !IsBattleFloorRange(ActiveBattleFloorFrom, ActiveBattleFloorTo))
+        {
+            ActiveBattleFloorFrom = 0;
+            ActiveBattleFloorTo = 0;
+        }
+        if (ClearedBattleStage < 0 || ClearedBattleStage > Constants.BATTLE_STAGE_NUM)
+            ClearedBattleStage = 0;
 
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
         {
@@ -524,7 +552,11 @@ public class ControllerProduction : MonoBehaviour
             ConsumePixelsProductionCharacter,
             CurPixels,
             BattlePartyCharacterIds,
-            ActiveBattlePartySet
+            ActiveBattlePartySet,
+            ActiveBattleStage,
+            ActiveBattleFloorFrom,
+            ActiveBattleFloorTo,
+            ClearedBattleStage
             );
     }
 
@@ -624,6 +656,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelCharacterProduction);
         //PanelBattlePartyの非表示
         NotShowPanel(PanelBattleParty);
+        NotShowBattleStagePanel();
     }
 
     //ピクセル生産シーンボタンが押されたら
@@ -641,6 +674,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelCharacterProduction);
         //PanelBattlePartyの非表示
         NotShowPanel(PanelBattleParty);
+        NotShowBattleStagePanel();
     }
 
     //キャラクター生産シーンボタンが押されたら
@@ -657,6 +691,7 @@ public class ControllerProduction : MonoBehaviour
         ClearPixelListPixelProduction();
         //PanelBattlePartyの非表示
         NotShowPanel(PanelBattleParty);
+        NotShowBattleStagePanel();
     }
 
     //バトル編成シーンボタンが押されたら
@@ -675,6 +710,30 @@ public class ControllerProduction : MonoBehaviour
         ClearPixelListPixelProduction();
         //PanelCharacterProductionの非表示
         NotShowPanel(PanelCharacterProduction);
+        NotShowBattleStagePanel();
+    }
+
+    //バトルステージ選択シーンボタンが押されたら
+    public void PushButtonSelectSceneBattleStage()
+    {
+        if (PanelBattleStage == null)
+            return;
+
+        ShowPanel(PanelBattleStage);
+        if (ControllerBattleStage != null)
+            ControllerBattleStage.Open();
+
+        NotShowPanel(PanelRGBProduction);
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
+        NotShowPanel(PanelCharacterProduction);
+        NotShowPanel(PanelBattleParty);
+    }
+
+    void NotShowBattleStagePanel()
+    {
+        if (PanelBattleStage != null)
+            NotShowPanel(PanelBattleStage);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1510,7 +1569,7 @@ public class ControllerProduction : MonoBehaviour
             && y >= 1 && y <= Constants.BATTLE_FORMATION_SIZE;
     }
 
-    //出撃中だけ Whereabouts を Battle にする。編成に入っているだけでは生産に残る
+    //出撃中だけ Whereabouts を Battle にする。別セットを出すときは、今のセットを撤退してから入れ替える
     public bool EnterBattle(int setIndex)
     {
         if (setIndex < 1 || setIndex > Constants.BATTLE_PARTY_SET_NUM)
@@ -1532,8 +1591,95 @@ public class ControllerProduction : MonoBehaviour
         }
 
         ActiveBattlePartySet = setIndex;
+        ActiveBattleStage = 0;
         RefreshProductionAssignmentViews();
         return true;
+    }
+
+    //ステージ選択パネルからの出撃。1人以上いるセットだけ成功する。別セットが出ていれば先に撤退する
+    public bool EnterBattleStage(int stageIndex, int setIndex, int floorFrom, int floorTo)
+    {
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
+            return false;
+        if (!IsBattleStageUnlocked(stageIndex))
+            return false;
+        if (!IsBattleFloorRange(floorFrom, floorTo))
+            return false;
+        if (!HasBattlePartyMember(setIndex))
+            return false;
+        if (!EnterBattle(setIndex))
+            return false;
+
+        ActiveBattleStage = stageIndex;
+        ActiveBattleFloorFrom = floorFrom;
+        ActiveBattleFloorTo = floorTo;
+        return true;
+    }
+
+    //10階区切り。始まりは 1,11,21... 終わりは 10,20,30... で、終わりは始まり以上
+    public static bool IsBattleFloorRange(int floorFrom, int floorTo)
+    {
+        int step = Constants.BATTLE_STAGE_FLOOR_STEP;
+        if (floorFrom < 1 || floorTo > Constants.BATTLE_STAGE_FLOOR_MAX || floorTo < floorFrom)
+            return false;
+        if ((floorFrom - 1) % step != 0)
+            return false;
+        if (floorTo % step != 0)
+            return false;
+        return true;
+    }
+
+    public int GetActiveBattleStage()
+    {
+        return ActiveBattleStage;
+    }
+
+    public int GetActiveBattleFloorFrom()
+    {
+        return ActiveBattleFloorFrom;
+    }
+
+    public int GetActiveBattleFloorTo()
+    {
+        return ActiveBattleFloorTo;
+    }
+
+    public int GetClearedBattleStage()
+    {
+        return ClearedBattleStage;
+    }
+
+    //ステージ1は最初から開放。以降は、1つ前をクリアしているときだけ開放
+    public bool IsBattleStageUnlocked(int stageIndex)
+    {
+        return stageIndex >= 1 && stageIndex <= Constants.BATTLE_STAGE_NUM
+            && stageIndex <= ClearedBattleStage + 1;
+    }
+
+    //出撃中のステージをクリアしたことにする。次のステージが開放される
+    public bool MarkBattleStageCleared()
+    {
+        if (!IsBattleStageUnlocked(ActiveBattleStage))
+            return false;
+        if (ActiveBattleStage > ClearedBattleStage)
+            ClearedBattleStage = ActiveBattleStage;
+        return true;
+    }
+
+    bool HasBattlePartyMember(int setIndex)
+    {
+        if (setIndex < 1 || setIndex > Constants.BATTLE_PARTY_SET_NUM)
+            return false;
+
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+            {
+                if (BattlePartyCharacterIds[setIndex, x, y] != 0)
+                    return true;
+            }
+        }
+        return false;
     }
 
     public void LeaveBattle()
@@ -1544,6 +1690,9 @@ public class ControllerProduction : MonoBehaviour
                 CharactersAll[i].Whereabouts = Place.None;
         }
         ActiveBattlePartySet = 0;
+        ActiveBattleStage = 0;
+        ActiveBattleFloorFrom = 0;
+        ActiveBattleFloorTo = 0;
     }
 
     void ReleaseCharacterFromProduction(uint characterId)

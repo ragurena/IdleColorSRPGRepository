@@ -9,9 +9,10 @@ Unity 6 (6000.3) の縦画面スマホ向け放置ゲーム。キャラクター
 RGB生産 → ピクセル生産 → キャラ生産 の流れでキャラを増やして、バトル編成・出撃する。
 
 ## 主なスクリプト (Assets/Scripts)
-- `ControllerProduction.cs`: ゲーム全体の中心。データ保持、画面切り替え、生産処理、バトル編成データ(`EnterBattle` / `LeaveBattle`)
+- `ControllerProduction.cs`: ゲーム全体の中心。データ保持、画面切り替え、生産処理、バトル編成データ(`EnterBattle` / `EnterBattleStage` / `LeaveBattle`)
 - `ControllerCharacterSelectClass.cs`: 共通のキャラ選択パネル。呼び出し元ボタンの名前で処理を分岐する
 - `ControllerBattlePartyClass.cs`: バトル編成パネル(5セット x 3x3マス、x=列 後/中/前・敵は右)
+- `ControllerBattleStageClass.cs`: バトルステージ選択パネル。ステージと編成セットを選んで出撃する
 - `CharacterClass.cs` / `StatisticsClass.cs`: キャラとステータス。`Stats[0]` がトータル
 - `SaveClass.cs`: `persistentDataPath/ICS.csv` へのセーブ・ロード。保存項目を増やしたらここも更新する
 

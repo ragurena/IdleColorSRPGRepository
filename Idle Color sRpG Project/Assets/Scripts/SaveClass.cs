@@ -35,7 +35,11 @@ public class SaveClass// : MonoBehaviour
         List<ConsumePixelClass>[] ConsumePixelsProductionCharacter,
         ulong[,,] CurPixels,
         uint[,,] BattlePartyCharacterIds,
-        int ActiveBattlePartySet
+        int ActiveBattlePartySet,
+        int ActiveBattleStage,
+        int ActiveBattleFloorFrom,
+        int ActiveBattleFloorTo,
+        int ClearedBattleStage
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -257,6 +261,10 @@ public class SaveClass// : MonoBehaviour
 
 
         sw.WriteLine("ActiveBattlePartySet," + ActiveBattlePartySet.ToString());
+        sw.WriteLine("ActiveBattleStage," + ActiveBattleStage.ToString());
+        sw.WriteLine("ActiveBattleFloorFrom," + ActiveBattleFloorFrom.ToString());
+        sw.WriteLine("ActiveBattleFloorTo," + ActiveBattleFloorTo.ToString());
+        sw.WriteLine("ClearedBattleStage," + ClearedBattleStage.ToString());
 
         sw.Flush();
         sw.Close();
@@ -280,7 +288,11 @@ public class SaveClass// : MonoBehaviour
         List<ConsumePixelClass>[] ConsumePixelsProductionCharacter,
         ref ulong[,,] CurPixels,
         ref uint[,,] BattlePartyCharacterIds,
-        ref int ActiveBattlePartySet
+        ref int ActiveBattlePartySet,
+        ref int ActiveBattleStage,
+        ref int ActiveBattleFloorFrom,
+        ref int ActiveBattleFloorTo,
+        ref int ClearedBattleStage
         )
     {
         Debug.Log("ロード : " + Application.persistentDataPath + "/ICS.csv");
@@ -629,6 +641,30 @@ public class SaveClass// : MonoBehaviour
             if (values[0].Equals("ActiveBattlePartySet"))
             {
                 ActiveBattlePartySet = int.Parse(values[1]);
+            }
+
+            else
+            if (values[0].Equals("ActiveBattleStage"))
+            {
+                ActiveBattleStage = int.Parse(values[1]);
+            }
+
+            else
+            if (values[0].Equals("ActiveBattleFloorFrom"))
+            {
+                ActiveBattleFloorFrom = int.Parse(values[1]);
+            }
+
+            else
+            if (values[0].Equals("ActiveBattleFloorTo"))
+            {
+                ActiveBattleFloorTo = int.Parse(values[1]);
+            }
+
+            else
+            if (values[0].Equals("ClearedBattleStage"))
+            {
+                ClearedBattleStage = int.Parse(values[1]);
             }
 
             else
