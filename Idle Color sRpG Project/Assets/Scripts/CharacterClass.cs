@@ -48,6 +48,8 @@ public class CharacterClass //: MonoBehaviour
     //TODO:経験値
     public ulong Exp;
     public ulong ExpMax;
+    //戦闘の残機。0のときHPが0になると戦闘不能。最大は BattleBalanceConfig.MaxLives
+    public int Lives;
 
     //ステータス　0:トータル　1:基本ステータス　2:レベルステータス　3:武器ステータス　4:装飾品ステータス
     public StatisticsClass[] Stats = new StatisticsClass[5];
@@ -572,6 +574,31 @@ public class CharacterClass //: MonoBehaviour
         Stats[0].PaintPixels = Stats[1].PaintPixels + Stats[2].PaintPixels + Stats[3].PaintPixels + Stats[4].PaintPixels;
 
         return true;
+    }
+
+    //レベルアップ分はレベルステータス(Stats[2])へ足し、トータルを作り直す。
+    //現在HPは最大HPの増加分だけ増える。
+    public void AddBattleLevelGrowth(long hpDelta, long atkDelta, long defDelta, long spdDelta)
+    {
+        if (hpDelta < 0)
+            hpDelta = 0;
+        if (atkDelta < 0)
+            atkDelta = 0;
+        if (defDelta < 0)
+            defDelta = 0;
+        if (spdDelta < 0)
+            spdDelta = 0;
+
+        Stats[2].HPMax += (ulong)hpDelta;
+        Stats[2].HPCur += (ulong)hpDelta;
+        Stats[2].ATK += (ulong)atkDelta;
+        Stats[2].DEF += (ulong)defDelta;
+
+        long spd = Stats[2].SPD + spdDelta;
+        if (spd > byte.MaxValue)
+            spd = byte.MaxValue;
+        Stats[2].SPD = (byte)spd;
+        CalcTotalStats();
     }
 
     public uint GetExistsColors(Color argColor)

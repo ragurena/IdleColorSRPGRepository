@@ -39,7 +39,8 @@ public class SaveClass// : MonoBehaviour
         int ActiveBattleStage,
         int ActiveBattleFloorFrom,
         int ActiveBattleFloorTo,
-        int ClearedBattleStage
+        int ClearedBattleStage,
+        Dictionary<int, int> ItemCounts
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -74,6 +75,7 @@ public class SaveClass// : MonoBehaviour
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Level," + CharactersAll[i].Level);
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Exp," + CharactersAll[i].Exp);
             sw.WriteLine("CharactersAll[" + i.ToString() + "].ExpMax," + CharactersAll[i].ExpMax);
+            sw.WriteLine("CharactersAll[" + i.ToString() + "].Lives," + CharactersAll[i].Lives.ToString());
 
             for (int j = 0; j < 5; j++)
             {
@@ -266,6 +268,12 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("ActiveBattleFloorTo," + ActiveBattleFloorTo.ToString());
         sw.WriteLine("ClearedBattleStage," + ClearedBattleStage.ToString());
 
+        if (ItemCounts != null)
+        {
+            foreach (KeyValuePair<int, int> item in ItemCounts)
+                sw.WriteLine("ItemCount[" + item.Key.ToString() + "]," + item.Value.ToString());
+        }
+
         sw.Flush();
         sw.Close();
     }
@@ -292,7 +300,8 @@ public class SaveClass// : MonoBehaviour
         ref int ActiveBattleStage,
         ref int ActiveBattleFloorFrom,
         ref int ActiveBattleFloorTo,
-        ref int ClearedBattleStage
+        ref int ClearedBattleStage,
+        ref Dictionary<int, int> ItemCounts
         )
     {
         Debug.Log("ロード : " + Application.persistentDataPath + "/ICS.csv");
@@ -668,6 +677,16 @@ public class SaveClass// : MonoBehaviour
             }
 
             else
+            if (values[0].StartsWith("ItemCount["))
+            {
+                int idStart = values[0].IndexOf('[') + 1;
+                int idEnd = values[0].IndexOf(']', idStart);
+                int itemId = int.Parse(values[0].Substring(idStart, idEnd - idStart));
+                if (ItemCounts != null)
+                    ItemCounts[itemId] = int.Parse(values[1]);
+            }
+
+            else
             if (values[0].StartsWith("BattlePartyCharacterIds["))
             {
                 int setStart = values[0].IndexOf('[') + 1;
@@ -761,6 +780,12 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].ExpMax"))
                     {
                         CharactersAll[i].ExpMax = (uint)(int.Parse(values[1]));
+                        break;
+                    }
+
+                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].Lives"))
+                    {
+                        CharactersAll[i].Lives = int.Parse(values[1]);
                         break;
                     }
 

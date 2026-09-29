@@ -52,6 +52,9 @@ public class ControllerProduction : MonoBehaviour
     ControllerCharacterSelectClass ControllerCharacterSelect;
     ControllerBattlePartyClass ControllerBattleParty;
     ControllerBattleStageClass ControllerBattleStage;
+    ControllerBattleClass ControllerBattle;
+    BattleBalanceConfig BattleBalance = BattleBalanceConfig.CreateDefault();
+    Dictionary<int, int> ItemCounts = new Dictionary<int, int>();
 
     CharacterClass[] CharactersAll = new CharacterClass[Constants.CHARACTERS_ALL_NUM + 1];
 
@@ -351,7 +354,8 @@ public class ControllerProduction : MonoBehaviour
             ref ActiveBattleStage,
             ref ActiveBattleFloorFrom,
             ref ActiveBattleFloorTo,
-            ref ClearedBattleStage
+            ref ClearedBattleStage,
+            ref ItemCounts
             );
 
         if (ActiveBattlePartySet == 0 || ActiveBattleStage < 1 || ActiveBattleStage > Constants.BATTLE_STAGE_NUM)
@@ -389,7 +393,10 @@ public class ControllerProduction : MonoBehaviour
         Slider sliderB = GameObject.Find("PrefabPixelListPageB")?.transform.Find("SliderPixelListPageB")?.GetComponent<Slider>();
         if (sliderB != null) sliderB.maxValue = GameConfig.GRADATION_LEVELS;
 
-
+        ControllerBattle = GetComponent<ControllerBattleClass>();
+        if (ControllerBattle == null)
+            ControllerBattle = gameObject.AddComponent<ControllerBattleClass>();
+        ControllerBattle.Initialize(this);
 
         Debug.Log("ControllerProduction End");
     }
@@ -533,7 +540,11 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonSave()
     {
         GameObject.Find("ButtonSave").GetComponent<Button>().GetComponentInChildren<Text>().text = Application.persistentDataPath + "/ICS.csv";
+        SaveGame();
+    }
 
+    public void SaveGame()
+    {
         SaveClass SC = new SaveClass();
         SC.Save(CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
             CurR, CurG, CurB,
@@ -556,7 +567,8 @@ public class ControllerProduction : MonoBehaviour
             ActiveBattleStage,
             ActiveBattleFloorFrom,
             ActiveBattleFloorTo,
-            ClearedBattleStage
+            ClearedBattleStage,
+            ItemCounts
             );
     }
 
@@ -722,6 +734,22 @@ public class ControllerProduction : MonoBehaviour
         ShowPanel(PanelBattleStage);
         if (ControllerBattleStage != null)
             ControllerBattleStage.Open();
+
+        NotShowPanel(PanelRGBProduction);
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
+        NotShowPanel(PanelCharacterProduction);
+        NotShowPanel(PanelBattleParty);
+    }
+
+    public void ReturnFromBattle()
+    {
+        if (PanelBattleStage == null)
+            return;
+
+        ShowPanel(PanelBattleStage);
+        if (ControllerBattleStage != null)
+            ControllerBattleStage.Refresh();
 
         NotShowPanel(PanelRGBProduction);
         NotShowPanel(PanelPixelProduction);
@@ -1693,6 +1721,181 @@ public class ControllerProduction : MonoBehaviour
         ActiveBattleStage = 0;
         ActiveBattleFloorFrom = 0;
         ActiveBattleFloorTo = 0;
+    }
+
+    public bool IsBattleRepeatOn()
+    {
+        return ControllerBattleStage != null && ControllerBattleStage.IsRepeatOn();
+    }
+
+    public bool BeginAutoBattle()
+    {
+        if (ControllerBattle == null)
+            return false;
+        if (ControllerBattle.IsRunning())
+            return true;
+        if (ActiveBattleStage == 0 || ActiveBattlePartySet == 0)
+            return false;
+        ControllerBattle.Begin(ActiveBattleStage, ActiveBattlePartySet, ActiveBattleFloorFrom, ActiveBattleFloorTo);
+        return ControllerBattle.IsRunning();
+    }
+
+    public BattleBalanceConfig GetBattleBalance()
+    {
+        return BattleBalance;
+    }
+
+    public CharacterClass GetCharacter(uint characterId)
+    {
+        if (characterId == 0 || characterId > Constants.CHARACTERS_ALL_NUM)
+            return null;
+        return CharactersAll[characterId];
+    }
+
+    public string GetRgbText()
+    {
+        return "R " + CurR.ToString() + "   G " + CurG.ToString() + "   B " + CurB.ToString();
+    }
+
+    public void AddBattleRgb(CharacterAttribute attribute, long amount)
+    {
+        long r;
+        long g;
+        long b;
+        BattleRewardCalculator.SplitRgb(attribute, amount, out r, out g, out b);
+        AddRgbChannel(ref CurR, MaxR, r);
+        AddRgbChannel(ref CurG, MaxG, g);
+        AddRgbChannel(ref CurB, MaxB, b);
+    }
+
+    void AddRgbChannel(ref ulong current, ulong max, long amount)
+    {
+        if (amount <= 0)
+            return;
+        ulong add = (ulong)amount;
+        if (ModelProduction != null)
+            ModelProduction.Increase(ref current, add, max);
+        else if (current >= max)
+            current = max;
+        else if (max - current < add)
+            current = max;
+        else
+            current += add;
+    }
+
+    public void AddBattleItem(int itemId, int count)
+    {
+        if (count <= 0)
+            return;
+        int current = 0;
+        ItemCounts.TryGetValue(itemId, out current);
+        long sum = (long)current + count;
+        if (sum > int.MaxValue)
+            sum = int.MaxValue;
+        ItemCounts[itemId] = (int)sum;
+    }
+
+    public int GrantBattleExp(BattleUnit unit, long gain, BattleBalanceConfig config)
+    {
+        if (unit == null || !unit.IsAlly || config == null)
+            return 0;
+        CharacterClass character = GetCharacter(unit.CharacterId);
+        if (character == null || character.ID != unit.CharacterId)
+            return 0;
+
+        long level = (long)character.Level;
+        long exp = (long)character.Exp;
+        long expMax = (long)character.ExpMax;
+        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config, () =>
+        {
+            LevelGrowth growth = BattleLevelGrowth.Grow(unit.HpMax, unit.Atk, unit.Def, unit.Spd, config);
+            character.AddBattleLevelGrowth(growth.HpDelta, growth.AtkDelta, growth.DefDelta, growth.SpdDelta);
+            long newMax = (long)character.Stats[0].HPMax;
+            long delta = newMax - unit.HpMax;
+            if (delta < 0)
+                delta = 0;
+            unit.HpMax = newMax;
+            unit.Hp += delta;
+            if (unit.Hp > unit.HpMax)
+                unit.Hp = unit.HpMax;
+            unit.Atk = (long)character.Stats[0].ATK;
+            unit.Def = (long)character.Stats[0].DEF;
+            unit.Spd = character.Stats[0].SPD;
+            if (unit.Spd < 1)
+                unit.Spd = 1;
+        });
+
+        if (level < 0)
+            level = 0;
+        if (exp < 0)
+            exp = 0;
+        if (expMax < 0)
+            expMax = 0;
+        character.Level = (ulong)level;
+        character.Exp = (ulong)exp;
+        character.ExpMax = (ulong)expMax;
+        return levels;
+    }
+
+    public string RecruitFromBattle(uint characterId, List<BattleUnit> units)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null || character.ID != characterId)
+            return null;
+
+        if (character.OwnedNumCur == 0)
+        {
+            character.OwnedNumCur = 1;
+            return character.Name + " が仲間になった";
+        }
+
+        int lives = character.Lives;
+        if (units != null)
+        {
+            for (int i = 0; i < units.Count; i++)
+            {
+                if (units[i].IsAlly && units[i].CharacterId == characterId)
+                {
+                    lives = units[i].Lives;
+                    break;
+                }
+            }
+        }
+
+        if (lives < BattleBalance.MaxLives)
+            lives++;
+        character.Lives = lives;
+        if (units != null)
+        {
+            for (int i = 0; i < units.Count; i++)
+            {
+                if (units[i].IsAlly && units[i].CharacterId == characterId)
+                    units[i].Lives = lives;
+            }
+        }
+        return character.Name + " の残機が1増えた";
+    }
+
+    public void SyncAllyLivesFromBattle(List<BattleUnit> units)
+    {
+        if (units == null)
+            return;
+        for (int i = 0; i < units.Count; i++)
+        {
+            BattleUnit unit = units[i];
+            if (!unit.IsAlly)
+                continue;
+            CharacterClass character = GetCharacter(unit.CharacterId);
+            if (character == null || character.ID != unit.CharacterId)
+                continue;
+            int lives = unit.Lives;
+            if (lives < 0)
+                lives = 0;
+            if (lives > BattleBalance.MaxLives)
+                lives = BattleBalance.MaxLives;
+            unit.Lives = lives;
+            character.Lives = lives;
+        }
     }
 
     void ReleaseCharacterFromProduction(uint characterId)
@@ -2680,6 +2883,9 @@ public class ControllerProduction : MonoBehaviour
             }
         }
 
+        if (gameObjectCharacterList == null)
+            return;
+
         //表示の初期化
         //キャラクターボタンの削除
         foreach (Transform child in gameObjectCharacterList.transform)
@@ -2692,6 +2898,8 @@ public class ControllerProduction : MonoBehaviour
         {
             if (CharactersAll[i].OwnedNumCur != 0)
             {
+                if (CharactersAll[i].ImageTexture2D == null)
+                    continue;
                 //プレハブのインスタンス化
                 GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), gameObjectCharacterList.transform) as GameObject;
                 //spriteの指定

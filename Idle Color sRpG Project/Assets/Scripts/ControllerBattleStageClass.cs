@@ -12,6 +12,13 @@ public class ControllerBattleStageClass : MonoBehaviour
     static readonly string[] StageNames = { "", "草原", "森", "洞窟", "遺跡", "城" };
     static readonly ulong[] StageRecommendedHP = { 0, 100, 300, 800, 2000, 5000 };
 
+    public static string GetStageName(int stageIndex)
+    {
+        if (stageIndex < 1 || stageIndex >= StageNames.Length)
+            return "ステージ" + stageIndex.ToString();
+        return StageNames[stageIndex];
+    }
+
     CharacterClass[] CharactersAll;
     ControllerProduction ControllerProduction;
 
@@ -26,6 +33,9 @@ public class ControllerBattleStageClass : MonoBehaviour
     [SerializeField] Slider SliderBattleFloorFrom;
     [SerializeField] Slider SliderBattleFloorTo;
     [SerializeField] Button ButtonSortieBattleStage;
+    [SerializeField] Button ButtonBattleRepeat;
+
+    bool RepeatBattle;
 
     Image[,] CellImages = new Image[Constants.BATTLE_FORMATION_SIZE + 1, Constants.BATTLE_FORMATION_SIZE + 1];
 
@@ -83,6 +93,17 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         if (ButtonSortieBattleStage != null)
             ButtonSortieBattleStage.onClick.AddListener(PushButtonSortieOrWithdraw);
+
+        if (ButtonBattleRepeat == null)
+        {
+            GameObject repeatObject = GameObject.Find("ButtonBattleRepeat");
+            if (repeatObject != null)
+                ButtonBattleRepeat = repeatObject.GetComponent<Button>();
+        }
+        if (ButtonBattleRepeat != null)
+            ButtonBattleRepeat.onClick.AddListener(PushButtonBattleRepeat);
+        else
+            Debug.LogWarning("ButtonBattleRepeat が見つかりません");
 
         SetupFloorSlider(SliderBattleFloorFrom, true);
         SetupFloorSlider(SliderBattleFloorTo, false);
@@ -149,10 +170,25 @@ public class ControllerBattleStageClass : MonoBehaviour
         else
         {
             GetSelectedFloorRange(out int floorFrom, out int floorTo);
-            ControllerProduction.EnterBattleStage(CurrentStageIndex, CurrentSetIndex, floorFrom, floorTo);
+            if (ControllerProduction.EnterBattleStage(CurrentStageIndex, CurrentSetIndex, floorFrom, floorTo))
+            {
+                if (!ControllerProduction.BeginAutoBattle())
+                    ControllerProduction.LeaveBattle();
+            }
         }
 
         Refresh();
+    }
+
+    public void PushButtonBattleRepeat()
+    {
+        RepeatBattle = !RepeatBattle;
+        Refresh();
+    }
+
+    public bool IsRepeatOn()
+    {
+        return RepeatBattle;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -286,6 +322,14 @@ public class ControllerBattleStageClass : MonoBehaviour
             Text label = ButtonSortieBattleStage.GetComponentInChildren<Text>();
             if (label != null)
                 label.text = withdrawMode ? "撤退" : "出撃";
+        }
+
+        if (ButtonBattleRepeat != null)
+        {
+            ButtonBattleRepeat.image.color = RepeatBattle ? ColorButtonSelected : ColorButtonNormal;
+            Text repeatLabel = ButtonBattleRepeat.GetComponentInChildren<Text>();
+            if (repeatLabel != null)
+                repeatLabel.text = RepeatBattle ? "繰り返し\nON" : "繰り返し\nOFF";
         }
 
         if (TextBattleFloorRange != null)
