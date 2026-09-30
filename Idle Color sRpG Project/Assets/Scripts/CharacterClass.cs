@@ -36,10 +36,22 @@ public class CharacterClass //: MonoBehaviour
     public ushort Size;
     //TODO:観察ピクセル数
     public uint KnownPixels;
+    //図鑑で倒したことがある。倒すまではシルエット
+    public bool CatalogOpened;
     //属性
     public CharacterType CharacterType;
-    //TODO:所有数
+    //代表カラーと弱点カラー。0〜255。起動時に画像から計算し、セーブしない
+    public int RepresentativeR;
+    public int RepresentativeG;
+    public int RepresentativeB;
+    public int WeaknessR;
+    public int WeaknessG;
+    public int WeaknessB;
+    //このキャラが攻撃を受けると不利なタイプ。起動時に属性から決める
+    public CharacterType WeaknessType;
+    //これまでに到達した所持数の最大。戦闘で減っても下がらない
     public ulong OwnedNumMax;
+    //現在の所持数。戦闘の残機と同じ。1のときにHPが0になると0になって戦闘不能。最大は BattleBalanceConfig.MaxOwnedCount
     public ulong OwnedNumCur;
     //TODO:転生回数
     public ulong ReincarnationTimes;
@@ -48,8 +60,33 @@ public class CharacterClass //: MonoBehaviour
     //TODO:経験値
     public ulong Exp;
     public ulong ExpMax;
-    //戦闘の残機。0のときHPが0になると戦闘不能。最大は BattleBalanceConfig.MaxLives
-    public int Lives;
+
+    public void GainOwned(int amount, int cap)
+    {
+        if (amount <= 0)
+            return;
+        ulong next = OwnedNumCur + (ulong)amount;
+        if (cap >= 0 && next > (ulong)cap)
+            next = (ulong)cap;
+        OwnedNumCur = next;
+        RaiseOwnedMax();
+    }
+
+    public void SetOwnedCur(int count, int cap)
+    {
+        if (count < 0)
+            count = 0;
+        if (cap >= 0 && count > cap)
+            count = cap;
+        OwnedNumCur = (ulong)count;
+        RaiseOwnedMax();
+    }
+
+    public void RaiseOwnedMax()
+    {
+        if (OwnedNumCur > OwnedNumMax)
+            OwnedNumMax = OwnedNumCur;
+    }
 
     //ステータス　0:トータル　1:基本ステータス　2:レベルステータス　3:武器ステータス　4:装飾品ステータス
     public StatisticsClass[] Stats = new StatisticsClass[5];
@@ -125,6 +162,15 @@ public class CharacterClass //: MonoBehaviour
     {
         Debug.Log("argImagePath : " + argImagePath);
 
+        string normalizedPath = NormalizedImagePath(argImagePath);
+        if (!string.IsNullOrEmpty(normalizedPath) && File.Exists(normalizedPath))
+        {
+            ImagePath = LoadNormalizedImage(normalizedPath);
+            if (ImagePath == null)
+                return false;
+            return FinishMakeCharacter(argID, argName);
+        }
+
         Texture2D Image = null;
         bool destroySourceImage = false;
         // 1. パスがちゃんと指定されている場合だけ読み込みを試みる
@@ -163,13 +209,30 @@ public class CharacterClass //: MonoBehaviour
         Debug.Log("MakeCharacter ImagePath : " + ImagePath);
         ImagePath = NomalizationImage(Image, argImagePath);
         Debug.Log("MakeCharacter ImagePath : " + ImagePath);
+        if (ImagePath == null)
+        {
+            if (destroySourceImage)
+                Object.DestroyImmediate(Image);
+            return false;
+        }
 
+        bool made = FinishMakeCharacter(argID, argName);
+
+        if (destroySourceImage)
+            Object.DestroyImmediate(Image);
+
+        return made;
+    }
+
+    bool FinishMakeCharacter(uint argID, string argName)
+    {
         ID = argID;
 
         Name = argName;
 
         //TODO:OwnedNumCur仮置き
         OwnedNumCur = 1;
+        RaiseOwnedMax();
 
         Whereabouts = Place.None;
 
@@ -196,10 +259,31 @@ public class CharacterClass //: MonoBehaviour
                 "BCreates : " + Stats[1].BCreates
             );
 
-        if (destroySourceImage)
-            Object.DestroyImmediate(Image);
-
         return true;
+    }
+
+    string NormalizedImagePath(string argImagePath)
+    {
+        if (string.IsNullOrWhiteSpace(argImagePath))
+            return null;
+        string fileName = Path.GetFileName(argImagePath);
+        if (string.IsNullOrEmpty(fileName) || argImagePath.Length < fileName.Length)
+            return null;
+        return argImagePath.Substring(0, argImagePath.Length - fileName.Length) + "Nomalization/Nomalization_" + fileName;
+    }
+
+    string LoadNormalizedImage(string resultImagePath)
+    {
+        ImageTexture2D = ImagegUtility.ReadPng(resultImagePath);
+        if (ImageTexture2D == null)
+        {
+            Debug.Log("Error!!!!!!!!!");
+            return null;
+        }
+        ImageTexture2D.filterMode = FilterMode.Point;
+        ImageTexture2D.Apply();
+        Size = (ushort)ImageTexture2D.height;
+        return resultImagePath;
     }
 
     //Texture2D NomalizationImage(Texture2D argImage)
@@ -235,6 +319,10 @@ public class CharacterClass //: MonoBehaviour
             return null;
         }
 
+        string existingPath = NormalizedImagePath(argImagePath);
+        if (!string.IsNullOrEmpty(existingPath) && File.Exists(existingPath))
+            return LoadNormalizedImage(existingPath);
+
         //ポスタリゼーション
         argImage = Posterization(argImage, GameConfig.GRADATION_LEVELS);
 
@@ -263,44 +351,45 @@ public class CharacterClass //: MonoBehaviour
         resultTexture2D.SetPixels(0, 0, argImage.width, argImage.height, ImageColor);
         resultTexture2D.filterMode = FilterMode.Point;
         resultTexture2D.Apply();
-        ImageTexture2D = resultTexture2D;
 
-        //resultTexture2Dの画像出力
+        // オリジナルは書き換えず、ポスタリゼーション済みを別ファイルに保存する
         string FileName = Path.GetFileName(argImagePath);
-        string resultImagePath = argImagePath.Substring(0, argImagePath.Length - FileName.Length) + "Nomalization/Nomalization_" + FileName;
+        string resultDirectory = argImagePath.Substring(0, argImagePath.Length - FileName.Length) + "Nomalization";
+        if (!Directory.Exists(resultDirectory))
+            Directory.CreateDirectory(resultDirectory);
+        string resultImagePath = resultDirectory + "/Nomalization_" + FileName;
         Debug.Log("resultImagePath : " + resultImagePath);
         File.WriteAllBytes(resultImagePath, resultTexture2D.EncodeToPNG());
-        //File.WriteAllBytes("Assets/Resources/" + resultImagePath + ".png", new Texture2D(resultTexture2D.width, resultTexture2D.height, TextureFormat.RGBA32, false).EncodeToPNG());
+        Object.DestroyImmediate(resultTexture2D);
 
-        return resultImagePath;
+        // 表示も数値も、保存したファイルを読み直したものを使う
+        return LoadNormalizedImage(resultImagePath);
     }
 
     /// <summary>
-    /// Unity標準機能（C#）だけで動く減色（ポスタリゼーション）処理
+    /// ピクセル生産と同じ階調へ減色する。8階調なら各色 0, 32, 64, 96, 128, 160, 192, 224。
     /// </summary>
     /// <param name="srcTex">読み込んだ元画像</param>
     /// <param name="levels">色の段階数（例: 4〜8）</param>
     public static Texture2D Posterization(Texture2D srcTex, int levels = 4)
     {
         if (srcTex == null) return null;
+        if (levels < 2)
+            levels = 2;
 
-        // 1. 元画像のピクセルを取得
         Color[] pixels = srcTex.GetPixels();
         Color[] newPixels = new Color[pixels.Length];
+        int step = 256 / levels;
 
-        float step = 1.0f / (levels - 1);
-
-        // 2. 各ピクセルの RGB を段階分けして減色
         for (int i = 0; i < pixels.Length; i++)
         {
             Color c = pixels[i];
 
-            // アルファ値（透明度）がある場所だけ減色処理
             if (c.a > 0.01f)
             {
-                c.r = Mathf.Round(c.r * (levels - 1)) * step;
-                c.g = Mathf.Round(c.g * (levels - 1)) * step;
-                c.b = Mathf.Round(c.b * (levels - 1)) * step;
+                c.r = SnapChannel(c.r, step, levels);
+                c.g = SnapChannel(c.g, step, levels);
+                c.b = SnapChannel(c.b, step, levels);
             }
 
             newPixels[i] = c;
@@ -312,6 +401,27 @@ public class CharacterClass //: MonoBehaviour
         resultTex.Apply();
 
         return resultTex;
+    }
+
+    // 0〜255 を、ピクセル一覧と同じ刻みのいちばん近い値にする
+    static float SnapChannel(float channel, int step, int levels)
+    {
+        int value = Mathf.RoundToInt(channel * 255f);
+        if (value < 0)
+            value = 0;
+        if (value > 255)
+            value = 255;
+
+        int index = (value + step / 2) / step;
+        if (index < 0)
+            index = 0;
+        if (index >= levels)
+            index = levels - 1;
+
+        int snapped = index * step;
+        if (snapped > 255)
+            snapped = 255;
+        return snapped / 255f;
     }
 
     bool CalcCharacterStats()
@@ -335,7 +445,8 @@ public class CharacterClass //: MonoBehaviour
         uint BPixels = 0;
         uint LightPixels = 0;
         uint DarkPixels = 0;
-        //uint APixels = 0;　//TODO:再計算するとバグる？
+        ulong opaqueRgbSum = 0;
+        APixels = 0;
         uint NoneRGBPixels = 0;
         ListExistsColors.Clear();
 
@@ -380,6 +491,11 @@ public class CharacterClass //: MonoBehaviour
                         LightPixels++;
                     else
                         DarkPixels++;
+
+                    int channelR = (int)(ImageColor[x + y * ImageTexture2D.width].r * 255f);
+                    int channelG = (int)(ImageColor[x + y * ImageTexture2D.width].g * 255f);
+                    int channelB = (int)(ImageColor[x + y * ImageTexture2D.width].b * 255f);
+                    opaqueRgbSum += (ulong)channelR + (ulong)channelG + (ulong)channelB;
 
                     if ((ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].g) &&
                         (ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].b))
@@ -455,43 +571,47 @@ public class CharacterClass //: MonoBehaviour
             }
         }
 
-        //攻撃力の算出（タイプと一致するピクセル数）
+        uint opaqueCount = RPixels + GPixels + BPixels + NoneRGBPixels;
+        uint matchedPixels = 0;
         switch (CharacterType)
         {
             case CharacterType.Fire:
-                Stats[1].ATK = RPixels;
+                matchedPixels = RPixels;
                 break;
             case CharacterType.Grass:
-                Stats[1].ATK = GPixels;
+                matchedPixels = GPixels;
                 break;
             case CharacterType.Water:
-                Stats[1].ATK = BPixels;
+                matchedPixels = BPixels;
                 break;
             case CharacterType.Light:
-                Stats[1].ATK = LightPixels;
+                matchedPixels = LightPixels;
                 break;
             case CharacterType.Dark:
-                Stats[1].ATK = DarkPixels;
+                matchedPixels = DarkPixels;
                 break;
             default:
-                Stats[1].ATK = 0;
+                matchedPixels = 0;
                 break;
         }
+        Stats[1].ATK = matchedPixels;
+        Stats[1].DEF = opaqueCount - matchedPixels;
 
-        //防御力・運の算出（不透明ピクセルの4連結の島）
+        //運の算出に使う、不透明ピクセルの4連結の島
         uint islandCount;
         uint largestIslandSize;
         CountOpaqueIslands(ImageColor, ImageTexture2D.width, ImageTexture2D.height, out islandCount, out largestIslandSize);
-        Stats[1].DEF = largestIslandSize;
 
-        //体力の算出
-        Stats[1].HPMax = RPixels + GPixels + BPixels + NoneRGBPixels;
+        //体力 = 不透明ピクセルの R+G+B の合計 / 画像の一辺。端数は切り上げ
+        int side = ImageTexture2D.width;
+        if (side < 1)
+            side = 1;
+        long rgbSum = opaqueRgbSum > long.MaxValue ? long.MaxValue : (long)opaqueRgbSum;
+        long hp = BattleMath.CeilDivPositive(rgbSum, side);
+        if (hp < 1)
+            hp = 1;
+        Stats[1].HPMax = (ulong)hp;
         Stats[1].HPCur = Stats[1].HPMax;
-        if (Stats[1].HPMax == 0)
-        {
-            Stats[1].HPMax = 1;
-            Stats[1].HPCur = 1;
-        }
 
         //素早さの算出
         //SPD = APixels;
@@ -547,8 +667,127 @@ public class CharacterClass //: MonoBehaviour
         Stats[1].RCreates = RPixels;
         Stats[1].GCreates = GPixels;
         Stats[1].BCreates = BPixels;
+        SetRepresentativeColors();
 
         return true;
+    }
+
+    void SetRepresentativeColors()
+    {
+        WeaknessType = ToCharacterType(AttributeWeakness.Of(ToBattleAttribute(CharacterType)));
+
+        ExistColor best = null;
+        if (ListExistsColors != null)
+        {
+            for (int i = 0; i < ListExistsColors.Count; i++)
+            {
+                ExistColor color = ListExistsColors[i];
+                if (best == null || color.Num > best.Num)
+                    best = color;
+            }
+        }
+
+        if (best == null)
+        {
+            RepresentativeR = 0;
+            RepresentativeG = 0;
+            RepresentativeB = 0;
+            WeaknessR = 0;
+            WeaknessG = 0;
+            WeaknessB = 0;
+            return;
+        }
+
+        RepresentativeR = ColorChannel(best.Color.r);
+        RepresentativeG = ColorChannel(best.Color.g);
+        RepresentativeB = ColorChannel(best.Color.b);
+        HsvComplement.Complementary(RepresentativeR, RepresentativeG, RepresentativeB, out WeaknessR, out WeaknessG, out WeaknessB);
+    }
+
+    static CharacterAttribute ToBattleAttribute(CharacterType type)
+    {
+        switch (type)
+        {
+            case CharacterType.Fire: return CharacterAttribute.Fire;
+            case CharacterType.Grass: return CharacterAttribute.Grass;
+            case CharacterType.Water: return CharacterAttribute.Water;
+            case CharacterType.Light: return CharacterAttribute.Light;
+            case CharacterType.Dark: return CharacterAttribute.Dark;
+            default: return CharacterAttribute.None;
+        }
+    }
+
+    static CharacterType ToCharacterType(CharacterAttribute type)
+    {
+        switch (type)
+        {
+            case CharacterAttribute.Fire: return CharacterType.Fire;
+            case CharacterAttribute.Grass: return CharacterType.Grass;
+            case CharacterAttribute.Water: return CharacterType.Water;
+            case CharacterAttribute.Light: return CharacterType.Light;
+            case CharacterAttribute.Dark: return CharacterType.Dark;
+            default: return CharacterType.None;
+        }
+    }
+
+    static int ColorChannel(float value)
+    {
+        int channel = (int)(value * 255f);
+        if (channel < 0)
+            return 0;
+        if (channel > 255)
+            return 255;
+        return channel;
+    }
+
+    //画像から基礎ステータス(Stats[1])を計算し、レベル回数ぶん成長を掛け直してトータルを更新する。
+    public bool RecalculateBaseStats(BattleBalanceConfig config)
+    {
+        if (ImageTexture2D == null && string.IsNullOrEmpty(ImagePath))
+            return false;
+        if (CalcCharacterStats() == false)
+            return false;
+        RebuildLevelStats(config);
+        return true;
+    }
+
+    //Stats[2]を、基礎ステータスへ成長率をレベル回数ぶん掛けた増加分にする。
+    public void RebuildLevelStats(BattleBalanceConfig config)
+    {
+        if (config == null)
+            config = BattleBalanceConfig.CreateDefault();
+
+        long grownHp;
+        long grownAtk;
+        long grownDef;
+        long grownSpd;
+        BattleLevelGrowth.ApplyLevels((long)Stats[1].HPMax, (long)Stats[1].ATK, (long)Stats[1].DEF, Stats[1].SPD, (long)Level, config, out grownHp, out grownAtk, out grownDef, out grownSpd);
+
+        long hpBonus = grownHp - (long)Stats[1].HPMax;
+        long atkBonus = grownAtk - (long)Stats[1].ATK;
+        long defBonus = grownDef - (long)Stats[1].DEF;
+        long spdBonus = grownSpd - Stats[1].SPD;
+        if (hpBonus < 0)
+            hpBonus = 0;
+        if (atkBonus < 0)
+            atkBonus = 0;
+        if (defBonus < 0)
+            defBonus = 0;
+        if (spdBonus < 0)
+            spdBonus = 0;
+        if (spdBonus > byte.MaxValue)
+            spdBonus = byte.MaxValue;
+
+        Stats[2].HPMax = (ulong)hpBonus;
+        Stats[2].HPCur = (ulong)hpBonus;
+        Stats[2].ATK = (ulong)atkBonus;
+        Stats[2].DEF = (ulong)defBonus;
+        Stats[2].SPD = (byte)spdBonus;
+        long need = config.ExpToNext((long)Level);
+        if (need < 1)
+            need = 1;
+        ExpMax = (ulong)need;
+        CalcTotalStats();
     }
 
     bool CalcTotalStats()

@@ -28,6 +28,33 @@ public static class BattleDamageCalculator
             return minimum;
         return raw;
     }
+
+    public static long AttackForWeakness(long attack, bool colorWeakness, bool typeWeakness, BattleBalanceConfig config)
+    {
+        if (attack < 0)
+            attack = 0;
+        double multiplier = 1.0;
+        if (colorWeakness)
+        {
+            double colorMultiplier = config != null ? config.WeaknessAttackMultiplier : 3.0;
+            if (colorMultiplier > 0.0)
+                multiplier *= colorMultiplier;
+        }
+        if (typeWeakness)
+        {
+            double typeMultiplier = config != null ? config.WeaknessTypeAttackMultiplier : 2.0;
+            if (typeMultiplier > 0.0)
+                multiplier *= typeMultiplier;
+        }
+        if (multiplier == 1.0)
+            return attack;
+        return BattleMath.CeilToLong(attack * multiplier);
+    }
+
+    public static bool IsWeaknessHit(int attackerR, int attackerG, int attackerB, int weaknessR, int weaknessG, int weaknessB)
+    {
+        return attackerR == weaknessR && attackerG == weaknessG && attackerB == weaknessB;
+    }
 }
 
 public enum AttackType
@@ -79,6 +106,12 @@ public static class BattleRewardCalculator
         if (multiplier < 0.0)
             multiplier = 0.0;
         return BattleMath.CeilToLong(opaquePixels * (double)attributeValue * multiplier);
+    }
+
+    // 倒したときの経験値を、その時点で生き残っている味方の人数で割る。端数は切り上げ。
+    public static long ExpShare(long totalExp, int survivorCount)
+    {
+        return BattleMath.CeilDivPositive(totalExp, survivorCount);
     }
 
     public static double ExpOrbDropProbability(long luc, BattleBalanceConfig config)
@@ -172,6 +205,38 @@ public static class BattleLevelGrowth
         if (growth.SpdDelta < 0)
             growth.SpdDelta = 0;
         return growth;
+    }
+
+    //基礎ステータスに、レベル回数だけ成長率を掛けた結果。レベル0は基礎のまま。
+    public static void ApplyLevels(long hp, long atk, long def, long spd, long level, BattleBalanceConfig config, out long grownHp, out long grownAtk, out long grownDef, out long grownSpd)
+    {
+        if (hp < 0)
+            hp = 0;
+        if (atk < 0)
+            atk = 0;
+        if (def < 0)
+            def = 0;
+        if (spd < 0)
+            spd = 0;
+        grownHp = hp;
+        grownAtk = atk;
+        grownDef = def;
+        grownSpd = spd;
+        if (config == null || level <= 0)
+            return;
+        if (level > config.MaxLevel)
+            level = config.MaxLevel;
+
+        for (long i = 0; i < level; i++)
+        {
+            LevelGrowth growth = Grow(grownHp, grownAtk, grownDef, grownSpd, config);
+            if (growth.NewHpMax < grownHp || growth.NewAtk < grownAtk || growth.NewDef < grownDef || growth.NewSpd < grownSpd)
+                break;
+            grownHp = growth.NewHpMax;
+            grownAtk = growth.NewAtk;
+            grownDef = growth.NewDef;
+            grownSpd = growth.NewSpd;
+        }
     }
 
     static long GrowStat(long current, double rate)

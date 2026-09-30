@@ -20,15 +20,17 @@ public static class BattleCharacterFactory
         BattleUnit unit = Create(character, true, x, y, unitId);
         if (unit == null)
             return null;
-        unit.Lives = ClampLives(character.Lives, config);
+        int owned = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+        unit.Lives = ClampLives(owned, config);
         return unit;
     }
 
-    public static BattleUnit CreateEnemy(CharacterClass character, int x, int y, int unitId, double statMultiplier, BattleBalanceConfig config)
+    public static BattleUnit CreateEnemy(CharacterClass character, int x, int y, int unitId, double statMultiplier, int level, BattleBalanceConfig config)
     {
         BattleUnit unit = Create(character, false, x, y, unitId);
         if (unit == null)
             return null;
+        ApplyEnemyLevel(character, unit, level, config);
         if (statMultiplier < 0.0)
             statMultiplier = 0.0;
         if (statMultiplier != 1.0)
@@ -87,33 +89,41 @@ public static class BattleCharacterFactory
                 opaque = area - (int)character.APixels;
         }
         unit.OpaquePixels = opaque;
-
-        ExistColor best = null;
-        if (character.ListExistsColors != null)
-        {
-            for (int i = 0; i < character.ListExistsColors.Count; i++)
-            {
-                ExistColor color = character.ListExistsColors[i];
-                if (best == null || color.Num > best.Num)
-                    best = color;
-            }
-        }
-        if (best == null)
-            return;
-
-        unit.RepresentativeR = Channel(best.Color.r);
-        unit.RepresentativeG = Channel(best.Color.g);
-        unit.RepresentativeB = Channel(best.Color.b);
+        unit.RepresentativeR = character.RepresentativeR;
+        unit.RepresentativeG = character.RepresentativeG;
+        unit.RepresentativeB = character.RepresentativeB;
+        unit.WeaknessR = character.WeaknessR;
+        unit.WeaknessG = character.WeaknessG;
+        unit.WeaknessB = character.WeaknessB;
+        unit.WeaknessAttribute = ToAttribute(character.WeaknessType);
     }
 
-    static int Channel(float value)
+    static void ApplyEnemyLevel(CharacterClass character, BattleUnit unit, int level, BattleBalanceConfig config)
     {
-        int channel = (int)(value * 255f);
-        if (channel < 0)
-            return 0;
-        if (channel > 255)
-            return 255;
-        return channel;
+        if (character.Stats == null || character.Stats[1] == null)
+            return;
+        long grownHp;
+        long grownAtk;
+        long grownDef;
+        long grownSpd;
+        BattleLevelGrowth.ApplyLevels(
+            (long)character.Stats[1].HPMax,
+            (long)character.Stats[1].ATK,
+            (long)character.Stats[1].DEF,
+            character.Stats[1].SPD,
+            level,
+            config,
+            out grownHp,
+            out grownAtk,
+            out grownDef,
+            out grownSpd);
+        unit.HpMax = grownHp < 1 ? 1 : grownHp;
+        unit.Hp = unit.HpMax;
+        unit.Atk = grownAtk < 0 ? 0 : grownAtk;
+        unit.Def = grownDef < 0 ? 0 : grownDef;
+        unit.Spd = grownSpd < 1 ? 1 : grownSpd;
+        unit.Luc = (long)character.Stats[1].LUC;
+        unit.Obs = (long)character.Stats[1].OBS;
     }
 
     static long Scale(long value, double multiplier)

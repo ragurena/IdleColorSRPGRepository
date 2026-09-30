@@ -10,9 +10,11 @@ public enum BattleOutcome
 public interface IBattleRewardSink
 {
     void GrantRgb(CharacterAttribute attribute, long amount);
+    void GrantPixels(int r, int g, int b, long count);
     void GrantExp(BattleUnit ally, long exp);
     void GrantItem(int itemId, int count);
     void Recruit(uint characterId);
+    void NoteDefeated(uint characterId);
 }
 
 public struct BattleAttackResult
@@ -123,7 +125,12 @@ public sealed class BattleFloorFight
             return result;
         }
 
-        long damage = BattleDamageCalculator.Calculate(actor.Atk, target.Def, _config);
+        bool colorWeakness = BattleDamageCalculator.IsWeaknessHit(
+            actor.RepresentativeR, actor.RepresentativeG, actor.RepresentativeB,
+            target.WeaknessR, target.WeaknessG, target.WeaknessB);
+        bool typeWeakness = AttributeWeakness.IsHit(actor.Attribute, target.WeaknessAttribute);
+        long attack = BattleDamageCalculator.AttackForWeakness(actor.Atk, colorWeakness, typeWeakness, _config);
+        long damage = BattleDamageCalculator.Calculate(attack, target.Def, _config);
         KnockoutResult knockout = BattleKnockout.Apply(target, damage, _config.MaxLives);
         if (knockout != KnockoutResult.Alive)
             CancelRemainingActions(target.UnitId);
@@ -133,12 +140,19 @@ public sealed class BattleFloorFight
 
         ResolveIfSideMissing();
 
+        string weaknessMark = "";
+        if (colorWeakness && typeWeakness)
+            weaknessMark = " 弱点";
+        else if (colorWeakness)
+            weaknessMark = " 弱点";
+        else if (typeWeakness)
+            weaknessMark = " タイプ";
         if (knockout == KnockoutResult.Revived)
-            result.Log = actor.Name + " → " + target.Name + " に " + damage + " 。残機で復活";
+            result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " 。残機で復活";
         else if (knockout == KnockoutResult.Defeated)
-            result.Log = actor.Name + " → " + target.Name + " に " + damage + " 。戦闘不能";
+            result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " 。戦闘不能";
         else
-            result.Log = actor.Name + " → " + target.Name + " に " + damage + " （HP " + target.Hp + "）";
+            result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " （HP " + target.Hp + "）";
         result.Outcome = Outcome;
         return result;
     }
@@ -209,15 +223,32 @@ public static class BattleDefeatProcessor
         long rgb = BattleRewardCalculator.RgbGain(killer.Obs, enemy.OpaquePixels, attributeValue, config);
         sink.GrantRgb(enemy.Attribute, rgb);
 
+        long pixels = killer.Luc;
+        if (pixels < 0)
+            pixels = 0;
+        if (pixels > 0)
+            sink.GrantPixels(enemy.RepresentativeR, enemy.RepresentativeG, enemy.RepresentativeB, pixels);
+
         long exp = BattleRewardCalculator.ExpGain(enemy.OpaquePixels, attributeValue, config);
+        int survivors = 0;
         if (units != null)
+        {
+            for (int i = 0; i < units.Count; i++)
+            {
+                BattleUnit ally = units[i];
+                if (ally.IsAlly && ally.IsLiving())
+                    survivors++;
+            }
+        }
+        long share = BattleRewardCalculator.ExpShare(exp, survivors);
+        if (units != null && share > 0)
         {
             for (int i = 0; i < units.Count; i++)
             {
                 BattleUnit ally = units[i];
                 if (!ally.IsAlly || !ally.IsLiving())
                     continue;
-                sink.GrantExp(ally, exp);
+                sink.GrantExp(ally, share);
             }
         }
 
@@ -228,5 +259,7 @@ public static class BattleDefeatProcessor
         double recruitProbability = BattleRewardCalculator.RecruitProbability(killer.Luc, killer.Obs, config);
         if (rng.NextDouble() < recruitProbability)
             sink.Recruit(enemy.CharacterId);
+
+        sink.NoteDefeated(enemy.CharacterId);
     }
 }

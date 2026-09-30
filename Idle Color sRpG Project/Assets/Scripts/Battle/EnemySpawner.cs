@@ -6,13 +6,20 @@ public class EnemySpawnEntry
     public int Weight;
     public int MinCount;
     public int MaxCount;
+    public int Level;
 
     public EnemySpawnEntry(uint characterId, int weight, int minCount, int maxCount)
+        : this(characterId, weight, minCount, maxCount, 0)
+    {
+    }
+
+    public EnemySpawnEntry(uint characterId, int weight, int minCount, int maxCount, int level)
     {
         CharacterId = characterId;
         Weight = weight;
         MinCount = minCount;
         MaxCount = maxCount < minCount ? minCount : maxCount;
+        Level = level < 0 ? 0 : level;
     }
 }
 
@@ -28,6 +35,7 @@ public class BossFloorSpawn
     public uint CharacterId;
     public int MinCount;
     public int MaxCount;
+    public int Level;
 
     public BossFloorSpawn(int floor, uint characterId, int minCount, int maxCount)
     {
@@ -88,9 +96,9 @@ public static class EnemySpawner
         return rng.NextInt(min, max + 1);
     }
 
-    public static List<uint> RollTypes(IReadOnlyList<EnemySpawnEntry> entries, int total, IBattleRandom rng)
+    public static List<EnemySpawnEntry> RollTypes(IReadOnlyList<EnemySpawnEntry> entries, int total, IBattleRandom rng)
     {
-        var result = new List<uint>();
+        var result = new List<EnemySpawnEntry>();
         if (entries == null || total <= 0)
             return result;
 
@@ -100,7 +108,7 @@ public static class EnemySpawner
             EnemySpawnEntry picked = PickWeighted(entries, placed, rng);
             if (picked == null)
                 break;
-            result.Add(picked.CharacterId);
+            result.Add(picked);
             int count;
             placed.TryGetValue(picked.CharacterId, out count);
             placed[picked.CharacterId] = count + 1;

@@ -48,6 +48,25 @@ public class ControllerBattleClass : MonoBehaviour
         return _running;
     }
 
+    // 戦闘中に生産で増えた所持数を、出撃中の残機にも足す。足さないと次の攻撃で戦闘側の残機に戻される
+    public void AddAllyLives(uint characterId, int amount)
+    {
+        if (!_running || amount <= 0 || characterId == 0)
+            return;
+        for (int i = 0; i < _units.Count; i++)
+        {
+            BattleUnit unit = _units[i];
+            if (!unit.IsAlly || unit.CharacterId != characterId)
+                continue;
+            long next = (long)unit.Lives + amount;
+            if (next > _config.MaxLives)
+                next = _config.MaxLives;
+            if (next < 0)
+                next = 0;
+            unit.Lives = (int)next;
+        }
+    }
+
     public void Begin(int stageIndex, int setIndex, int floorFrom, int floorTo)
     {
         if (_running)
@@ -204,6 +223,8 @@ public class ControllerBattleClass : MonoBehaviour
                 if (id == 0)
                     continue;
                 CharacterClass character = _production.GetCharacter(id);
+                if (character == null || character.OwnedNumCur == 0)
+                    continue;
                 BattleUnit unit = BattleCharacterFactory.CreateAlly(character, x, y, _nextUnitId++, _config);
                 if (unit != null)
                     _units.Add(unit);
@@ -214,31 +235,31 @@ public class ControllerBattleClass : MonoBehaviour
     void SpawnEnemies(StageBattleContent content, int floor)
     {
         BossFloorSpawn boss = content.FindBoss(floor);
-        var ids = new List<uint>();
+        var picks = new List<EnemySpawnEntry>();
         double multiplier = 1.0;
         var rng = new SystemBattleRandom();
         if (boss != null)
         {
             int count = EnemySpawner.RollBossCount(boss, _config.MaxUnits, rng);
             for (int i = 0; i < count; i++)
-                ids.Add(boss.CharacterId);
+                picks.Add(new EnemySpawnEntry(boss.CharacterId, 1, 1, 1, boss.Level));
         }
         else
         {
             FloorBandSpawn band = content.GetBand(floor);
             multiplier = band.StatMultiplier;
             int total = EnemySpawner.RollTotalCount(band.Entries, _config.MaxUnits, rng);
-            ids = EnemySpawner.RollTypes(band.Entries, total, rng);
+            picks = EnemySpawner.RollTypes(band.Entries, total, rng);
         }
 
-        if (ids.Count > _config.MaxUnits)
-            ids.RemoveRange(_config.MaxUnits, ids.Count - _config.MaxUnits);
+        if (picks.Count > _config.MaxUnits)
+            picks.RemoveRange(_config.MaxUnits, picks.Count - _config.MaxUnits);
 
-        List<CellPosition> cells = BattlePlacement.ShuffleCells(_config.FormationSize, ids.Count, rng);
-        for (int i = 0; i < ids.Count && i < cells.Count; i++)
+        List<CellPosition> cells = BattlePlacement.ShuffleCells(_config.FormationSize, picks.Count, rng);
+        for (int i = 0; i < picks.Count && i < cells.Count; i++)
         {
-            CharacterClass character = _production.GetCharacter(ids[i]);
-            BattleUnit enemy = BattleCharacterFactory.CreateEnemy(character, cells[i].X, cells[i].Y, _nextUnitId++, multiplier, _config);
+            CharacterClass character = _production.GetCharacter(picks[i].CharacterId);
+            BattleUnit enemy = BattleCharacterFactory.CreateEnemy(character, cells[i].X, cells[i].Y, _nextUnitId++, multiplier, picks[i].Level, _config);
             if (enemy != null)
                 _units.Add(enemy);
         }
@@ -547,6 +568,13 @@ public class ControllerBattleClass : MonoBehaviour
                 _view.AddLog(AttributeColorValue.DisplayName(attribute) + " +" + amount.ToString());
         }
 
+        public void GrantPixels(int r, int g, int b, long count)
+        {
+            _view._production.AddBattlePixels(r, g, b, count);
+            if (count > 0)
+                _view.AddLog("ピクセル " + r.ToString() + "," + g.ToString() + "," + b.ToString() + " +" + count.ToString());
+        }
+
         public void GrantExp(BattleUnit ally, long exp)
         {
             int levels = _view._production.GrantBattleExp(ally, exp, _view._config);
@@ -567,6 +595,11 @@ public class ControllerBattleClass : MonoBehaviour
             string message = _view._production.RecruitFromBattle(characterId, _view._units);
             if (!string.IsNullOrEmpty(message))
                 _view.AddLog(message);
+        }
+
+        public void NoteDefeated(uint characterId)
+        {
+            _view._production.MarkCatalogDefeated(characterId);
         }
     }
 }

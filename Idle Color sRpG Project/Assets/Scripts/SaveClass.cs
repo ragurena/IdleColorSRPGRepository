@@ -65,6 +65,8 @@ public class SaveClass// : MonoBehaviour
         StreamWriter sw = new StreamWriter(Application.persistentDataPath + "/ICS.csv");
         //StreamWriter sw = new StreamWriter(Application.streamingAssetsPath + "/ICS.csv");
 
+        sw.WriteLine("DataVersion," + GameConfig.DataVersion.ToString());
+
         //TODO:CharactersAllのセーブ・ロード
         for (int i = 1; i < CharactersAllIndexNum; i++)
         {
@@ -74,24 +76,6 @@ public class SaveClass// : MonoBehaviour
             sw.WriteLine("CharactersAll[" + i.ToString() + "].ReincarnationTimes," + CharactersAll[i].ReincarnationTimes);
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Level," + CharactersAll[i].Level);
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Exp," + CharactersAll[i].Exp);
-            sw.WriteLine("CharactersAll[" + i.ToString() + "].ExpMax," + CharactersAll[i].ExpMax);
-            sw.WriteLine("CharactersAll[" + i.ToString() + "].Lives," + CharactersAll[i].Lives.ToString());
-
-            for (int j = 0; j < 5; j++)
-            {
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].HPMax," + CharactersAll[i].Stats[j].HPMax);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].HPCur," + CharactersAll[i].Stats[j].HPCur);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].ATK," + CharactersAll[i].Stats[j].ATK);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].DEF," + CharactersAll[i].Stats[j].DEF);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].SPD," + CharactersAll[i].Stats[j].SPD);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].LUC," + CharactersAll[i].Stats[j].LUC);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].OBS," + CharactersAll[i].Stats[j].OBS);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].HealPower," + CharactersAll[i].Stats[j].HealPower);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].RCreates," + CharactersAll[i].Stats[j].RCreates);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].GCreates," + CharactersAll[i].Stats[j].GCreates);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].BCreates," + CharactersAll[i].Stats[j].BCreates);
-                sw.WriteLine("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].PaintPixels," + CharactersAll[i].Stats[j].PaintPixels);
-            }
 
             if (CharactersAll[i].FlagFNT)
             {
@@ -103,6 +87,7 @@ public class SaveClass// : MonoBehaviour
             }
 
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Whereabouts," + CharactersAll[i].Whereabouts);
+            sw.WriteLine("CharactersAll[" + i.ToString() + "].CatalogOpened," + (CharactersAll[i].CatalogOpened ? "true" : "false"));
 
         }
 
@@ -278,6 +263,67 @@ public class SaveClass// : MonoBehaviour
         sw.Close();
     }
 
+    // セーブが無い、または版の行が無いときは空文字
+    public static string ReadDataVersion()
+    {
+        string path = Application.persistentDataPath + "/ICS.csv";
+        if (!File.Exists(path))
+            return "";
+
+        using (StreamReader sr = new StreamReader(path))
+        {
+            while (!sr.EndOfStream)
+            {
+                string line = sr.ReadLine();
+                if (string.IsNullOrEmpty(line))
+                    continue;
+                string[] values = line.Split(',');
+                if (values.Length < 2 || !values[0].Equals("DataVersion"))
+                    continue;
+                return values[1];
+            }
+        }
+        return "";
+    }
+
+    public static bool IsOlderDataVersion(string savedVersion)
+    {
+        return CompareVersions(savedVersion, GameConfig.DataVersion) < 0;
+    }
+
+    static int CompareVersions(string left, string right)
+    {
+        int[] a = ParseVersion(left);
+        int[] b = ParseVersion(right);
+        int n = a.Length > b.Length ? a.Length : b.Length;
+        for (int i = 0; i < n; i++)
+        {
+            int av = i < a.Length ? a[i] : 0;
+            int bv = i < b.Length ? b[i] : 0;
+            if (av < bv)
+                return -1;
+            if (av > bv)
+                return 1;
+        }
+        return 0;
+    }
+
+    static int[] ParseVersion(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+            return new int[0];
+        string[] parts = version.Split('.');
+        int[] nums = new int[parts.Length];
+        for (int i = 0; i < parts.Length; i++)
+        {
+            int n;
+            if (!int.TryParse(parts[i], out n) || n < 0)
+                return new int[0];
+            nums[i] = n;
+        }
+        return nums;
+    }
+
     public void Load(ref CharacterClass[] CharactersAll, int CharactersAllIndexNum,
         ref ulong CurR, ref ulong CurG, ref ulong CurB,
         ref ulong MaxR, ref ulong MaxG, ref ulong MaxB,
@@ -348,6 +394,10 @@ public class SaveClass// : MonoBehaviour
             string line = sr.ReadLine();
             string[] values = line.Split(',');
 
+            if (values[0].Equals("DataVersion"))
+            {
+            }
+            else
             if (values[0].Equals("CurR"))
             {
                 CurR = (ulong)(int.Parse(values[1]));
@@ -756,6 +806,13 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].OwnedNumCur"))
                     {
                         CharactersAll[i].OwnedNumCur = (uint)(int.Parse(values[1]));
+                        if (CharactersAll[i].OwnedNumCur > BattleBalanceConfig.MaxOwnedCount)
+                        {
+                            if (CharactersAll[i].OwnedNumMax < CharactersAll[i].OwnedNumCur)
+                                CharactersAll[i].OwnedNumMax = CharactersAll[i].OwnedNumCur;
+                            CharactersAll[i].OwnedNumCur = BattleBalanceConfig.MaxOwnedCount;
+                        }
+                        CharactersAll[i].RaiseOwnedMax();
                         break;
                     }
 
@@ -774,18 +831,6 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].Exp"))
                     {
                         CharactersAll[i].Exp = (uint)(int.Parse(values[1]));
-                        break;
-                    }
-
-                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].ExpMax"))
-                    {
-                        CharactersAll[i].ExpMax = (uint)(int.Parse(values[1]));
-                        break;
-                    }
-
-                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].Lives"))
-                    {
-                        CharactersAll[i].Lives = int.Parse(values[1]);
                         break;
                     }
 
@@ -840,95 +885,9 @@ public class SaveClass// : MonoBehaviour
 
                     }
 
-                    bool FlagHit = false;
-                    for (int j = 0; j < 5; j++)
+                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].CatalogOpened"))
                     {
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].HPMax"))
-                        {
-                            CharactersAll[i].Stats[j].HPMax = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].HPCur"))
-                        {
-                            CharactersAll[i].Stats[j].HPCur = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].ATK"))
-                        {
-                            CharactersAll[i].Stats[j].ATK = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].DEF"))
-                        {
-                            CharactersAll[i].Stats[j].DEF = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].SPD"))
-                        {
-                            CharactersAll[i].Stats[j].SPD = (byte)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].LUC"))
-                        {
-                            CharactersAll[i].Stats[j].LUC = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].OBS"))
-                        {
-                            CharactersAll[i].Stats[j].OBS = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].HealPower"))
-                        {
-                            CharactersAll[i].Stats[j].HealPower = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].RCreates"))
-                        {
-                            CharactersAll[i].Stats[j].RCreates = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].GCreates"))
-                        {
-                            CharactersAll[i].Stats[j].GCreates = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].BCreates"))
-                        {
-                            CharactersAll[i].Stats[j].BCreates = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-
-                        if (values[0].Equals("CharactersAll[" + i.ToString() + "].Stats[" + j.ToString() + "].PaintPixels"))
-                        {
-                            CharactersAll[i].Stats[j].PaintPixels = (uint)(int.Parse(values[1]));
-                            FlagHit = true;
-                            break;
-                        }
-                    }
-                    if (FlagHit == true)
-                    {
+                        CharactersAll[i].CatalogOpened = values[1].Equals("true");
                         break;
                     }
 

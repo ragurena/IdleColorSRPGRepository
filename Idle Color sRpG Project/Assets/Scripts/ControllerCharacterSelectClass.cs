@@ -163,12 +163,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[argCurrentCharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCurrentCharacterID].Size, CharactersAll[argCurrentCharacterID].Size), new Vector2(0.5f, 0.5f));
         }
 
-        //編成に入っているだけでは Whereabouts は変わらないので、所持キャラ全員を候補にする
+        //編成に入っているだけでは Whereabouts は変わらない。最大所持数が 1 以上を候補にする
         for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
         {
-            if (CharactersAll[indexCharacter].OwnedNumCur != 0)
+            if (CharactersAll[indexCharacter].OwnedNumMax != 0)
             {
-                CreateCharacterButton(indexCharacter, ButtonTmp);
+                CreateCharacterButton(indexCharacter, ButtonTmp, false);
             }
         }
     }
@@ -210,6 +210,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             {
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
+                ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
                 //前に設定されていたキャラの居場所変更
                 CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Whereabouts = Place.None;
                 CharactersIDHelpProductionR[HelpProductionIndex] = CharacterIDTmp;
@@ -222,6 +223,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             {
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
+                ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
                 //前に設定されていたキャラの居場所変更
                 CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Whereabouts = Place.None;
                 CharactersIDHelpProductionG[HelpProductionIndex] = CharacterIDTmp;
@@ -234,6 +236,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             {
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
+                ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
                 //前に設定されていたキャラの居場所変更
                 CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Whereabouts = Place.None;
                 CharactersIDHelpProductionB[HelpProductionIndex] = CharacterIDTmp;
@@ -248,6 +251,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
+            ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
             //前に設定されていたキャラの居場所変更
             CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Whereabouts = Place.None;
 
@@ -262,6 +266,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
+            ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
             //前に設定されていたキャラの居場所変更
             CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Whereabouts = Place.None;
 
@@ -593,10 +598,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
-                if (CharactersAll[indexCharacter].OwnedNumCur != 0 && CharactersAll[indexCharacter].Whereabouts == Place.None)
+                if (CharactersAll[indexCharacter].OwnedNumMax != 0)
                 {
-                    Debug.Log("CreateCharacterButton呼び出し");
-                    CreateCharacterButton(indexCharacter, ButtonTmp);
+                    CreateCharacterButton(indexCharacter, ButtonTmp, true);
                 }
             }
         }
@@ -606,15 +610,15 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
-                if (CharactersAll[indexCharacter].OwnedNumCur != 0)
+                if (CharactersAll[indexCharacter].OwnedNumMax != 0)
                 {
-                    CreateCharacterButton(indexCharacter, ButtonTmp);
+                    CreateCharacterButton(indexCharacter, ButtonTmp, true);
                 }
             }
         }
     }
     //キャラクターボタンの作成
-    private void CreateCharacterButton(int argCharacterIndex, Button argButtonTmp)
+    private void CreateCharacterButton(int argCharacterIndex, Button argButtonTmp, bool warnIfUsedInOtherProduction)
     {
         Debug.Log("CreateCharacterButton argCharacterIndex = " + argCharacterIndex + " \n Path = " + CharactersAll[argCharacterIndex].ImagePath);
 
@@ -719,9 +723,136 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
 
+        if (warnIfUsedInOtherProduction && IsUsedInOtherProduction((uint)argCharacterIndex, argButtonTmp))
+            AddFaintWarningMark(GameObjectCharacterButton);
+
         //クリックイベントを追加
         uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
         GameObjectCharacterButton.GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
+    }
+
+    static bool IsProductionPlace(Place place)
+    {
+        return place == Place.CreateR || place == Place.CreateG || place == Place.CreateB
+            || place == Place.CreatePixel || place == Place.CreateCharacter;
+    }
+
+    bool IsUsedInOtherProduction(uint characterId, Button sourceButton)
+    {
+        if (characterId == 0 || !IsProductionPlace(CharactersAll[characterId].Whereabouts))
+            return false;
+        return !IsCharacterInSourceSlot(characterId, sourceButton);
+    }
+
+    bool IsCharacterInSourceSlot(uint characterId, Button sourceButton)
+    {
+        if (sourceButton == null)
+            return false;
+        string name = sourceButton.name;
+        if (name.StartsWith("ButtonRProductionHelpCharacter"))
+            return CharactersIDHelpProductionR[int.Parse(name.Substring(name.Length - 1, 1))] == characterId;
+        if (name.StartsWith("ButtonGProductionHelpCharacter"))
+            return CharactersIDHelpProductionG[int.Parse(name.Substring(name.Length - 1, 1))] == characterId;
+        if (name.StartsWith("ButtonBProductionHelpCharacter"))
+            return CharactersIDHelpProductionB[int.Parse(name.Substring(name.Length - 1, 1))] == characterId;
+        if (name.Contains("ButtonPixelProductionCharacter"))
+            return CharactersIDProductionPixel[int.Parse(name.Substring(name.Length - 2, 2))] == characterId;
+        if (name.Contains("ButtonCharacterProductionCharacter"))
+            return CharactersIDProductionCharacter[int.Parse(name.Substring(name.Length - 2, 2))] == characterId;
+        return false;
+    }
+
+    void ReleaseCharacterFromOtherProduction(uint characterId, Button destination)
+    {
+        if (characterId == 0)
+            return;
+
+        for (int i = 1; i <= Constants.CHARACTERS_HELP_PRODUCTION_NUM; i++)
+        {
+            if (CharactersIDHelpProductionR[i] == characterId && !IsSameButton(destination, "ButtonRProductionHelpCharacter" + i))
+            {
+                CharactersIDHelpProductionR[i] = 0;
+                ClearProductionButton("ButtonRProductionHelpCharacter" + i, new Color(50 / 255f, 0.0f, 0.0f, 1.0f));
+            }
+            if (CharactersIDHelpProductionG[i] == characterId && !IsSameButton(destination, "ButtonGProductionHelpCharacter" + i))
+            {
+                CharactersIDHelpProductionG[i] = 0;
+                ClearProductionButton("ButtonGProductionHelpCharacter" + i, new Color(0.0f, 50 / 255f, 0.0f, 1.0f));
+            }
+            if (CharactersIDHelpProductionB[i] == characterId && !IsSameButton(destination, "ButtonBProductionHelpCharacter" + i))
+            {
+                CharactersIDHelpProductionB[i] = 0;
+                ClearProductionButton("ButtonBProductionHelpCharacter" + i, new Color(0.0f, 0.0f, 50 / 255f, 1.0f));
+            }
+        }
+
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        {
+            if (CharactersIDProductionPixel[i] == characterId && !IsSameButton(destination, "ButtonPixelProductionCharacter" + i.ToString("00")))
+            {
+                CharactersIDProductionPixel[i] = 0;
+                ClearProductionButton("ButtonPixelProductionCharacter" + i.ToString("00"), Color.white);
+            }
+        }
+
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        {
+            if (CharactersIDProductionCharacter[i] == characterId && !IsSameButton(destination, "ButtonCharacterProductionCharacter" + i.ToString("00")))
+            {
+                CharactersIDProductionCharacter[i] = 0;
+                ClearProductionButton("ButtonCharacterProductionCharacter" + i.ToString("00"), Color.white);
+            }
+        }
+    }
+
+    static bool IsSameButton(Button button, string buttonName)
+    {
+        return button != null && button.name == buttonName;
+    }
+
+    static void ClearProductionButton(string buttonName, Color emptyColor)
+    {
+        GameObject buttonObject = GameObject.Find(buttonName);
+        if (buttonObject == null)
+            return;
+        Button button = buttonObject.GetComponent<Button>();
+        if (button == null || button.image == null)
+            return;
+        button.image.sprite = null;
+        button.image.color = emptyColor;
+        Text label = button.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = "+";
+    }
+
+    public static void AddFaintWarningMark(GameObject buttonObject)
+    {
+        Text source = buttonObject.GetComponentInChildren<Text>();
+        GameObject markObject = new GameObject("ProductionWarning", typeof(RectTransform));
+        markObject.transform.SetParent(buttonObject.transform, false);
+        RectTransform rect = markObject.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        Text mark = markObject.AddComponent<Text>();
+        mark.font = source != null && source.font != null
+            ? source.font
+            : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        mark.text = "!";
+        mark.fontSize = 72;
+        mark.fontStyle = FontStyle.Bold;
+        mark.alignment = TextAnchor.MiddleCenter;
+        mark.color = new Color(1.0f, 0.75f, 0.05f, 0.7f);
+        mark.raycastTarget = false;
+        mark.resizeTextForBestFit = true;
+        mark.resizeTextMinSize = 24;
+        mark.resizeTextMaxSize = 80;
+
+        Outline outline = markObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        outline.effectDistance = new Vector2(2.5f, 2.5f);
     }
 
     //キャラクターセレクトパネルの非表示

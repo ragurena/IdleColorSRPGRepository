@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 //using OpenCvSharp;
 
@@ -53,6 +54,8 @@ public class ControllerProduction : MonoBehaviour
     ControllerBattlePartyClass ControllerBattleParty;
     ControllerBattleStageClass ControllerBattleStage;
     ControllerBattleClass ControllerBattle;
+    ControllerCatalogClass ControllerCatalog;
+    GameObject PanelCatalog;
     BattleBalanceConfig BattleBalance = BattleBalanceConfig.CreateDefault();
     Dictionary<int, int> ItemCounts = new Dictionary<int, int>();
 
@@ -295,25 +298,15 @@ public class ControllerProduction : MonoBehaviour
         //CharactersAll[1].MakeCharacter(Application.dataPath + "/Resources/Character/RedSlime8", 1, "LittleRedSlime");
         //CharactersAll[1].MakeCharacter("Character/RedSlime8", 1, "LittleRedSlime");
         //CharactersAll[1].MakeCharacter(Application.dataPath + "/Resources/" + "Character/RedSlime8" + ".png", 1, "LittleRedSlime");
-        CharactersAll[1].MakeCharacter(Application.persistentDataPath + "/Character/RedSlime8" + ".png", 1, "LittleRedSlime");
-        CharactersAll[2].MakeCharacter(Application.persistentDataPath + "/Character/GreenSlime8" + ".png", 2, "LittleGreenSlime");
-        CharactersAll[3].MakeCharacter(Application.persistentDataPath + "/Character/BlueSlime8" + ".png", 3, "LittleBlueSlime");
-        CharactersAll[4].MakeCharacter(Application.persistentDataPath + "/Character/WhiteSlime8" + ".png", 4, "LittleWhiteSlime");
-        CharactersAll[5].MakeCharacter(Application.persistentDataPath + "/Character/RBlackCat8" + ".png", 5, "LittleRBlackCat");
-        CharactersAll[8].MakeCharacter(Application.persistentDataPath + "/Character/WhiteCat8" + ".png", 8, "LittleWhiteCat");
+        bool rebuildImages = File.Exists(Application.persistentDataPath + "/ICS.csv")
+            && SaveClass.IsOlderDataVersion(SaveClass.ReadDataVersion());
+        if (rebuildImages)
+        {
+            Debug.Log("セーブの版が古いので、減色画像を作り直す");
+            ClearNormalizedCharacterImages();
+        }
 
-        CharactersAll[9].MakeCharacter(Application.persistentDataPath + "/Character/RedSlime16" + ".png", 9, "SmallRedSlime");
-        CharactersAll[10].MakeCharacter(Application.persistentDataPath + "/Character/GreenSlime16" + ".png", 10, "SmallGreenSlime");
-        CharactersAll[11].MakeCharacter(Application.persistentDataPath + "/Character/BlueSlime16" + ".png", 11, "SmallBlueSlime");
-        CharactersAll[12].MakeCharacter(Application.persistentDataPath + "/Character/WhiteSlime16" + ".png", 12, "SmallWhiteSlime");
-
-        CharactersAll[16 + 1].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_R" + ".png", 16 + 1, "RedSlime");
-        CharactersAll[16 + 2].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_G" + ".png", 16 + 2, "GreenSlime");
-        CharactersAll[16 + 3].MakeCharacter(Application.persistentDataPath + "/Character/0032_slime_B" + ".png", 16 + 3, "BlueSlime");
-        CharactersAll[16 + 5].MakeCharacter(Application.persistentDataPath + "/Character/0032_rabbit" + ".png", 16 + 5, "WhiteRabbit");
-        CharactersAll[16 + 6].MakeCharacter(Application.persistentDataPath + "/Character/0064_slimeking_R" + ".png", 16 + 6, "RedSlimeKing");
-        CharactersAll[16 + 7].MakeCharacter(Application.persistentDataPath + "/Character/0064_slimeking_G" + ".png", 16 + 7, "GreenSlimeKing");
-        CharactersAll[16 + 8].MakeCharacter(Application.persistentDataPath + "/Character/0064_slimeking_B" + ".png", 16 + 8, "BlueSlimeKing");
+        CharacterRoster.RegisterAll(CharactersAll);
 
         //CharactersAll[32].MakeCharacter(Application.persistentDataPath + "/Character/wanwan" + ".png", 32, "wanwan");
 
@@ -358,6 +351,12 @@ public class ControllerProduction : MonoBehaviour
             ref ItemCounts
             );
 
+        for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
+        {
+            if (CharactersAll[i] != null && CharactersAll[i].ID != 0)
+                CharactersAll[i].RecalculateBaseStats(BattleBalance);
+        }
+
         if (ActiveBattlePartySet == 0 || ActiveBattleStage < 1 || ActiveBattleStage > Constants.BATTLE_STAGE_NUM)
             ActiveBattleStage = 0;
         if (ActiveBattlePartySet == 0 || !IsBattleFloorRange(ActiveBattleFloorFrom, ActiveBattleFloorTo))
@@ -373,9 +372,12 @@ public class ControllerProduction : MonoBehaviour
             if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
                 continue;
 
-            if (ProgressTextureProductionCharacter[i] == null)
+            if (rebuildImages || ProgressTextureProductionCharacter[i] == null)
                 InitProgressProductionCharacterWithoutReduction(i);
         }
+
+        if (rebuildImages)
+            SaveGame();
 
         UpdateProductionCharacterScene();
 
@@ -397,6 +399,18 @@ public class ControllerProduction : MonoBehaviour
         if (ControllerBattle == null)
             ControllerBattle = gameObject.AddComponent<ControllerBattleClass>();
         ControllerBattle.Initialize(this);
+
+        ControllerCatalog = GetComponent<ControllerCatalogClass>();
+        if (ControllerCatalog == null)
+            ControllerCatalog = gameObject.AddComponent<ControllerCatalogClass>();
+        if (PanelRGBProduction != null)
+        {
+            ControllerCatalog.Initialize(this, PanelRGBProduction);
+            PanelCatalog = ControllerCatalog.Panel;
+            if (PanelCatalog != null)
+                NotShowPanel(PanelCatalog);
+        }
+        WireCatalogButton();
 
         Debug.Log("ControllerProduction End");
     }
@@ -572,6 +586,16 @@ public class ControllerProduction : MonoBehaviour
             );
     }
 
+    static void ClearNormalizedCharacterImages()
+    {
+        string dir = Application.persistentDataPath + "/Character/Nomalization";
+        if (!Directory.Exists(dir))
+            return;
+        string[] files = Directory.GetFiles(dir, "Nomalization_*.png");
+        for (int i = 0; i < files.Length; i++)
+            File.Delete(files[i]);
+    }
+
     //デリートセーブボタンが押されたら
     public void PushButtonDeleteSave()
     {
@@ -669,6 +693,7 @@ public class ControllerProduction : MonoBehaviour
         //PanelBattlePartyの非表示
         NotShowPanel(PanelBattleParty);
         NotShowBattleStagePanel();
+        NotShowCatalogPanel();
     }
 
     //ピクセル生産シーンボタンが押されたら
@@ -687,6 +712,7 @@ public class ControllerProduction : MonoBehaviour
         //PanelBattlePartyの非表示
         NotShowPanel(PanelBattleParty);
         NotShowBattleStagePanel();
+        NotShowCatalogPanel();
     }
 
     //キャラクター生産シーンボタンが押されたら
@@ -704,6 +730,7 @@ public class ControllerProduction : MonoBehaviour
         //PanelBattlePartyの非表示
         NotShowPanel(PanelBattleParty);
         NotShowBattleStagePanel();
+        NotShowCatalogPanel();
     }
 
     //バトル編成シーンボタンが押されたら
@@ -723,6 +750,7 @@ public class ControllerProduction : MonoBehaviour
         //PanelCharacterProductionの非表示
         NotShowPanel(PanelCharacterProduction);
         NotShowBattleStagePanel();
+        NotShowCatalogPanel();
     }
 
     //バトルステージ選択シーンボタンが押されたら
@@ -740,6 +768,24 @@ public class ControllerProduction : MonoBehaviour
         ClearPixelListPixelProduction();
         NotShowPanel(PanelCharacterProduction);
         NotShowPanel(PanelBattleParty);
+        NotShowCatalogPanel();
+    }
+
+    public void PushButtonSelectSceneCatalog()
+    {
+        if (PanelCatalog == null)
+            return;
+
+        ShowPanel(PanelCatalog);
+        if (ControllerCatalog != null)
+            ControllerCatalog.Open();
+
+        NotShowPanel(PanelRGBProduction);
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
+        NotShowPanel(PanelCharacterProduction);
+        NotShowPanel(PanelBattleParty);
+        NotShowBattleStagePanel();
     }
 
     public void ReturnFromBattle()
@@ -756,6 +802,44 @@ public class ControllerProduction : MonoBehaviour
         ClearPixelListPixelProduction();
         NotShowPanel(PanelCharacterProduction);
         NotShowPanel(PanelBattleParty);
+        NotShowCatalogPanel();
+    }
+
+    void NotShowCatalogPanel()
+    {
+        if (PanelCatalog != null)
+            NotShowPanel(PanelCatalog);
+    }
+
+    void WireCatalogButton()
+    {
+        GameObject buttonObject = GameObject.Find("ButtonSelectScene6");
+        if (buttonObject == null)
+        {
+            Debug.LogWarning("ButtonSelectScene6 が見つかりません");
+            return;
+        }
+
+        Text label = buttonObject.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = "図鑑";
+
+        Button button = buttonObject.GetComponent<Button>();
+        if (button == null)
+            return;
+        button.onClick.RemoveListener(PushButtonSelectSceneCatalog);
+        button.onClick.AddListener(PushButtonSelectSceneCatalog);
+    }
+
+    public void MarkCatalogDefeated(uint characterId)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null || character.ID != characterId || character.CatalogOpened)
+            return;
+        character.CatalogOpened = true;
+        SaveGame();
+        if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerCatalog.Refresh();
     }
 
     void NotShowBattleStagePanel()
@@ -1242,7 +1326,8 @@ public class ControllerProduction : MonoBehaviour
             Texture2D buttonImage = tmpButtonCharacter.GetComponent<Image>().sprite.texture;
             Vector2 buttonSize = tmpButtonCharacter.GetComponent<RectTransform>().sizeDelta;
             Vector2 pixelSize = new Vector2(buttonSize.x / buttonImage.width, buttonSize.y / buttonImage.height);
-            Vector2 clickPosImage = new Vector2(Input.mousePosition.x - ButtonPosLeftUnder.x, Input.mousePosition.y - ButtonPosLeftUnder.y);
+            Vector2 pointer = PointerScreenPosition();
+            Vector2 clickPosImage = new Vector2(pointer.x - ButtonPosLeftUnder.x, pointer.y - ButtonPosLeftUnder.y);
             Color clickColor = buttonImage.GetPixel((int)(clickPosImage.x / pixelSize.x), (int)(clickPosImage.y / pixelSize.y));
             Debug.Log("clickColor = " + clickColor);
             if (clickColor.a > 0.0f)
@@ -1273,6 +1358,17 @@ public class ControllerProduction : MonoBehaviour
             }
         }
     }
+    // Input System 有効時は UnityEngine.Input を読むと例外になる
+    Vector2 PointerScreenPosition()
+    {
+        if (Pointer.current == null)
+        {
+            Debug.LogWarning("ポインタ位置を取得できません");
+            return Vector2.zero;
+        }
+        return Pointer.current.position.ReadValue();
+    }
+
     //押したボタンの左下の座標を取得
     public Vector2 GetButtonPosLeftUnder()
     {
@@ -1395,7 +1491,7 @@ public class ControllerProduction : MonoBehaviour
     {
         foreach (ConsumePixelClass ConsumePixel in ConsumePixelsProductionCharacter[argIndex])
         {
-            CurPixels[(int)ConsumePixel.PixelColor.r * 255, (int)ConsumePixel.PixelColor.g * 255, (int)ConsumePixel.PixelColor.b * 255]
+            CurPixels[(int)(ConsumePixel.PixelColor.r * 255), (int)(ConsumePixel.PixelColor.g * 255), (int)(ConsumePixel.PixelColor.b * 255)]
                 += ConsumePixel.CurConsumePixelsNum;
         }
 
@@ -1481,7 +1577,12 @@ public class ControllerProduction : MonoBehaviour
 
         if (ProductionCharacterComplete)
         {
-            CharactersAll[CharactersIDProducedCharacter[argIndex]].OwnedNumCur++;
+            CharacterClass produced = CharactersAll[CharactersIDProducedCharacter[argIndex]];
+            int ownedBefore = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
+            produced.GainOwned(1, BattleBalance.MaxLives);
+            int ownedAfter = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
+            if (ownedAfter > ownedBefore && ControllerBattle != null)
+                ControllerBattle.AddAllyLives(produced.ID, ownedAfter - ownedBefore);
 
             //進捗ピクセルの初期化
             ConsumePixelsProductionCharacter[argIndex].Clear();
@@ -1768,6 +1869,20 @@ public class ControllerProduction : MonoBehaviour
         AddRgbChannel(ref CurB, MaxB, b);
     }
 
+    public void AddBattlePixels(int r, int g, int b, long count)
+    {
+        if (CurPixels == null || count <= 0)
+            return;
+        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+            return;
+        ulong add = (ulong)count;
+        ulong current = CurPixels[r, g, b];
+        if (ulong.MaxValue - current < add)
+            CurPixels[r, g, b] = ulong.MaxValue;
+        else
+            CurPixels[r, g, b] = current + add;
+    }
+
     void AddRgbChannel(ref ulong current, ulong max, long amount)
     {
         if (amount <= 0)
@@ -1806,24 +1921,8 @@ public class ControllerProduction : MonoBehaviour
         long level = (long)character.Level;
         long exp = (long)character.Exp;
         long expMax = (long)character.ExpMax;
-        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config, () =>
-        {
-            LevelGrowth growth = BattleLevelGrowth.Grow(unit.HpMax, unit.Atk, unit.Def, unit.Spd, config);
-            character.AddBattleLevelGrowth(growth.HpDelta, growth.AtkDelta, growth.DefDelta, growth.SpdDelta);
-            long newMax = (long)character.Stats[0].HPMax;
-            long delta = newMax - unit.HpMax;
-            if (delta < 0)
-                delta = 0;
-            unit.HpMax = newMax;
-            unit.Hp += delta;
-            if (unit.Hp > unit.HpMax)
-                unit.Hp = unit.HpMax;
-            unit.Atk = (long)character.Stats[0].ATK;
-            unit.Def = (long)character.Stats[0].DEF;
-            unit.Spd = character.Stats[0].SPD;
-            if (unit.Spd < 1)
-                unit.Spd = 1;
-        });
+        long previousHpMax = unit.HpMax;
+        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config);
 
         if (level < 0)
             level = 0;
@@ -1834,6 +1933,24 @@ public class ControllerProduction : MonoBehaviour
         character.Level = (ulong)level;
         character.Exp = (ulong)exp;
         character.ExpMax = (ulong)expMax;
+        if (levels > 0)
+        {
+            character.RebuildLevelStats(config);
+            long newMax = (long)character.Stats[0].HPMax;
+            long delta = newMax - previousHpMax;
+            unit.HpMax = newMax;
+            if (delta > 0)
+                unit.Hp += delta;
+            if (unit.Hp > unit.HpMax)
+                unit.Hp = unit.HpMax;
+            if (unit.HpMax < 1)
+                unit.HpMax = 1;
+            unit.Atk = (long)character.Stats[0].ATK;
+            unit.Def = (long)character.Stats[0].DEF;
+            unit.Spd = character.Stats[0].SPD;
+            if (unit.Spd < 1)
+                unit.Spd = 1;
+        }
         return levels;
     }
 
@@ -1843,13 +1960,8 @@ public class ControllerProduction : MonoBehaviour
         if (character == null || character.ID != characterId)
             return null;
 
-        if (character.OwnedNumCur == 0)
-        {
-            character.OwnedNumCur = 1;
-            return character.Name + " が仲間になった";
-        }
-
-        int lives = character.Lives;
+        int lives = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+        bool alreadyOwned = lives > 0;
         if (units != null)
         {
             for (int i = 0; i < units.Count; i++)
@@ -1857,6 +1969,7 @@ public class ControllerProduction : MonoBehaviour
                 if (units[i].IsAlly && units[i].CharacterId == characterId)
                 {
                     lives = units[i].Lives;
+                    alreadyOwned = true;
                     break;
                 }
             }
@@ -1864,15 +1977,21 @@ public class ControllerProduction : MonoBehaviour
 
         if (lives < BattleBalance.MaxLives)
             lives++;
-        character.Lives = lives;
+        int ownedBeforeRecruit = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+        character.SetOwnedCur(lives, BattleBalance.MaxLives);
         if (units != null)
         {
             for (int i = 0; i < units.Count; i++)
             {
                 if (units[i].IsAlly && units[i].CharacterId == characterId)
-                    units[i].Lives = lives;
+                    units[i].Lives = (int)character.OwnedNumCur;
             }
         }
+        int ownedAfterRecruit = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+        if (ownedAfterRecruit != ownedBeforeRecruit)
+            ShowCharacterOwnedNum();
+        if (!alreadyOwned)
+            return character.Name + " が仲間になった";
         return character.Name + " の残機が1増えた";
     }
 
@@ -1880,6 +1999,7 @@ public class ControllerProduction : MonoBehaviour
     {
         if (units == null)
             return;
+        bool ownedChanged = false;
         for (int i = 0; i < units.Count; i++)
         {
             BattleUnit unit = units[i];
@@ -1894,8 +2014,14 @@ public class ControllerProduction : MonoBehaviour
             if (lives > BattleBalance.MaxLives)
                 lives = BattleBalance.MaxLives;
             unit.Lives = lives;
-            character.Lives = lives;
+            int ownedBefore = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+            character.SetOwnedCur(lives, BattleBalance.MaxLives);
+            unit.Lives = (int)character.OwnedNumCur;
+            if ((int)character.OwnedNumCur != ownedBefore)
+                ownedChanged = true;
         }
+        if (ownedChanged)
+            ShowCharacterOwnedNum();
     }
 
     void ReleaseCharacterFromProduction(uint characterId)
@@ -2008,28 +2134,10 @@ public class ControllerProduction : MonoBehaviour
 #elif UNITY_ANDROID
     Debug.Log("UNITY_ANDROID");
 
-    string[] CharacterNames = { 
-        "RedSlime8.png",
-        "GreenSlime8.png",
-        "BlueSlime8.png",
-        "WhiteSlime8.png",
-        "RBlackCat8.png",
-        "WhiteCat8.png",
-        "RedSlime16.png",
-        "GreenSlime16.png",
-        "BlueSlime16.png",
-        "WhiteSlime16.png",
-        "0032_slime_R.png",
-        "0032_slime_G.png",
-        "0032_slime_B.png",
-        "0032_rabbit.png",
-        "0064_slimeking_R.png",
-        "0064_slimeking_G.png",
-        "0064_slimeking_B.png"
-    };
-
-    foreach (string curCharacterName in CharacterNames)
+    CharacterDefinition[] roster = CharacterRoster.All;
+    for (int rosterIndex = 0; rosterIndex < roster.Length; rosterIndex++)
     {
+        string curCharacterName = roster[rosterIndex].FileName;
         string toPath = Application.persistentDataPath + "/Character/" + curCharacterName;
 
         // すでにファイルが存在すればスキップ（毎回コピーする無駄を省く）
@@ -2886,30 +2994,63 @@ public class ControllerProduction : MonoBehaviour
         if (gameObjectCharacterList == null)
             return;
 
-        //表示の初期化
-        //キャラクターボタンの削除
-        foreach (Transform child in gameObjectCharacterList.transform)
+        Transform list = gameObjectCharacterList.transform;
+        for (int childIndex = list.childCount - 1; childIndex >= 0; childIndex--)
         {
-            Destroy(child.gameObject);
+            Transform child = list.GetChild(childIndex);
+            if (!child.name.StartsWith("OwnedCharacter"))
+                Destroy(child.gameObject);
         }
 
-        //表示プレハブの作成
-        for (int i = 0; i < Constants.CHARACTERS_ALL_NUM; i++)
+        int shown = 0;
+        bool added = false;
+        for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
         {
-            if (CharactersAll[i].OwnedNumCur != 0)
+            if (CharactersAll[i] == null || CharactersAll[i].OwnedNumMax == 0 || CharactersAll[i].ImageTexture2D == null)
+                continue;
+
+            string buttonName = "OwnedCharacter" + i.ToString();
+            Transform existing = list.Find(buttonName);
+            if (existing != null)
             {
-                if (CharactersAll[i].ImageTexture2D == null)
-                    continue;
-                //プレハブのインスタンス化
-                GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), gameObjectCharacterList.transform) as GameObject;
-                //spriteの指定
-                GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(CharactersAll[i].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[i].Size, CharactersAll[i].Size), new Vector2(0.5f, 0.5f));
-                //textの指定
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "OwnedNum : " + CharactersAll[i].OwnedNumCur;
-                GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+                Text label = OwnedCountLabel(existing);
+                if (label != null)
+                    label.text = "OwnedNum : " + CharactersAll[i].OwnedNumCur;
+                existing.SetSiblingIndex(shown);
+                shown++;
+                continue;
             }
+
+            GameObject characterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), list) as GameObject;
+            characterButton.name = buttonName;
+            characterButton.transform.SetSiblingIndex(shown);
+            characterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(CharactersAll[i].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[i].Size, CharactersAll[i].Size), new Vector2(0.5f, 0.5f));
+            Text createdLabel = characterButton.GetComponentInChildren<Text>();
+            createdLabel.text = "OwnedNum : " + CharactersAll[i].OwnedNumCur;
+            createdLabel.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            if (CharactersAll[i].Whereabouts == Place.CreateR ||
+                CharactersAll[i].Whereabouts == Place.CreateG ||
+                CharactersAll[i].Whereabouts == Place.CreateB ||
+                CharactersAll[i].Whereabouts == Place.CreatePixel ||
+                CharactersAll[i].Whereabouts == Place.CreateCharacter)
+                ControllerCharacterSelectClass.AddFaintWarningMark(characterButton);
+            shown++;
+            added = true;
         }
 
+        if (added)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(list as RectTransform);
+    }
+
+    static Text OwnedCountLabel(Transform button)
+    {
+        Text[] labels = button.GetComponentsInChildren<Text>();
+        for (int i = 0; i < labels.Length; i++)
+        {
+            if (labels[i].gameObject.name != "ProductionWarning")
+                return labels[i];
+        }
+        return null;
     }
 
 

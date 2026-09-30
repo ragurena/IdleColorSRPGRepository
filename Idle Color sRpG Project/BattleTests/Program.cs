@@ -30,6 +30,11 @@ sealed class RecordingSink : IBattleRewardSink
         Calls.Add("rgb");
     }
 
+    public void GrantPixels(int r, int g, int b, long count)
+    {
+        Calls.Add("pixel");
+    }
+
     public void GrantExp(BattleUnit ally, long exp)
     {
         Calls.Add("exp");
@@ -43,6 +48,11 @@ sealed class RecordingSink : IBattleRewardSink
     public void Recruit(uint characterId)
     {
         Calls.Add("recruit");
+    }
+
+    public void NoteDefeated(uint characterId)
+    {
+        Calls.Add("catalog");
     }
 }
 
@@ -59,6 +69,7 @@ static class Program
         TestActions(config);
         TestGrowth(config);
         TestAttribute();
+        TestComplement();
         TestRewards(config);
         TestTurnOrder(config);
         TestTargeting();
@@ -105,6 +116,18 @@ static class Program
         Check(BattleDamageCalculator.Calculate(10, 3, config) == 7, "damage 7");
         Check(BattleDamageCalculator.Calculate(3, 10, config) == 1, "minimum damage");
         Check(BattleDamageCalculator.Calculate(5, 5, config) == 1, "equal atk def");
+        Check(BattleDamageCalculator.AttackForWeakness(10, true, false, config) == 30, "weakness color attack");
+        Check(BattleDamageCalculator.AttackForWeakness(10, false, true, config) == 20, "weakness type attack");
+        Check(BattleDamageCalculator.AttackForWeakness(10, true, true, config) == 60, "weakness color and type");
+        Check(BattleDamageCalculator.Calculate(BattleDamageCalculator.AttackForWeakness(10, true, false, config), 3, config) == 27, "weakness damage");
+        Check(BattleDamageCalculator.IsWeaknessHit(0, 255, 255, 0, 255, 255), "weakness match");
+        Check(AttributeWeakness.Of(CharacterAttribute.Fire) == CharacterAttribute.Water, "fire weak to water");
+        Check(AttributeWeakness.Of(CharacterAttribute.Grass) == CharacterAttribute.Fire, "grass weak to fire");
+        Check(AttributeWeakness.Of(CharacterAttribute.Water) == CharacterAttribute.Grass, "water weak to grass");
+        Check(AttributeWeakness.Of(CharacterAttribute.Light) == CharacterAttribute.Dark, "light weak to dark");
+        Check(AttributeWeakness.Of(CharacterAttribute.Dark) == CharacterAttribute.Light, "dark weak to light");
+        Check(AttributeWeakness.IsHit(CharacterAttribute.Water, CharacterAttribute.Water), "type hit");
+        Check(!AttributeWeakness.IsHit(CharacterAttribute.Fire, CharacterAttribute.None), "type none");
     }
 
     static void TestActions(BattleBalanceConfig config)
@@ -125,6 +148,27 @@ static class Program
         Check(growth.NewAtk == 21 && growth.AtkDelta == 1, "atk growth");
         Check(growth.NewDef == 11 && growth.DefDelta == 1, "def growth");
         Check(growth.NewSpd == 51 && growth.SpdDelta == 1, "spd growth");
+        long hp2;
+        long atk2;
+        long def2;
+        long spd2;
+        BattleLevelGrowth.ApplyLevels(100, 20, 10, 50, 2, config, out hp2, out atk2, out def2, out spd2);
+        Check(hp2 == 121 && atk2 == 23 && def2 == 12 && spd2 == 52, "two levels from base");
+    }
+
+    static void TestComplement()
+    {
+        int r;
+        int g;
+        int b;
+        HsvComplement.Complementary(255, 0, 0, out r, out g, out b);
+        Check(r == 0 && g == 255 && b == 255, "complement red");
+        HsvComplement.Complementary(0, 255, 0, out r, out g, out b);
+        Check(r == 255 && g == 0 && b == 255, "complement green");
+        HsvComplement.Complementary(0, 0, 255, out r, out g, out b);
+        Check(r == 255 && g == 255 && b == 0, "complement blue");
+        HsvComplement.Complementary(128, 128, 128, out r, out g, out b);
+        Check(r == 128 && g == 128 && b == 128, "complement gray");
     }
 
     static void TestAttribute()
@@ -141,6 +185,9 @@ static class Program
         Check(BattleRewardCalculator.RgbGain(1, 1, 1, config) == 1, "rgb ceil");
         Check(BattleRewardCalculator.RgbGain(2, 5, 3, config) == 3, "rgb exact");
         Check(BattleRewardCalculator.ExpGain(10, 10, config) == 100, "exp");
+        Check(BattleRewardCalculator.ExpShare(100, 1) == 100, "exp share 1");
+        Check(BattleRewardCalculator.ExpShare(100, 3) == 34, "exp share 3");
+        Check(BattleRewardCalculator.ExpShare(100, 0) == 0, "exp share 0");
         long r, g, b;
         BattleRewardCalculator.SplitRgb(CharacterAttribute.Fire, 10, out r, out g, out b);
         Check(r == 10 && g == 0 && b == 0, "split fire");
@@ -190,12 +237,12 @@ static class Program
         BattleUnit unit = Unit(1, false, 10, 1, 1);
         unit.Hp = 10;
         unit.HpMax = 40;
-        unit.Lives = 1;
+        unit.Lives = 2;
         KnockoutResult revived = BattleKnockout.Apply(unit, 10, config.MaxLives);
-        Check(revived == KnockoutResult.Revived && unit.Hp == 40 && unit.Lives == 0 && unit.InBattle, "revive");
+        Check(revived == KnockoutResult.Revived && unit.Hp == 40 && unit.Lives == 1 && unit.InBattle, "revive while a spare remains");
 
         KnockoutResult dead = BattleKnockout.Apply(unit, 40, config.MaxLives);
-        Check(dead == KnockoutResult.Defeated && !unit.InBattle && unit.Hp == 0, "incapacitated");
+        Check(dead == KnockoutResult.Defeated && !unit.InBattle && unit.Hp == 0 && unit.Lives == 0, "last life falls");
     }
 
     static void TestWeightedAndBoss()
@@ -220,6 +267,10 @@ static class Program
         StageBattleContent stage = BattleStageCatalog.Get(1);
         Check(stage.FindBoss(10) != null && stage.FindBoss(11) == null, "boss floor");
         Check(stage.FindBoss(100) != null, "floor 100 boss");
+        Check(stage.GetBand(1).Entries[0].CharacterId == 1 && stage.GetBand(1).Entries[0].Level == 1, "band 1");
+        Check(stage.GetBand(1).Entries[1].Level == 1, "band level per character");
+        Check(stage.GetBand(1).Entries[0].Weight == 50, "band weight");
+        Check(stage.FindBoss(100).Level == 10, "boss level");
     }
 
     static void TestDefeatOrder(BattleBalanceConfig config)
@@ -245,8 +296,8 @@ static class Program
         fight.Begin(new List<BattleUnit> { ally, enemy });
         fight.Step();
         Check(fight.Outcome == BattleOutcome.FloorCleared, "floor cleared");
-        Check(sink.Calls.Count == 4, "reward count");
-        Check(sink.Calls[0] == "rgb" && sink.Calls[1] == "exp" && sink.Calls[2] == "item" && sink.Calls[3] == "recruit", "reward order");
+        Check(sink.Calls.Count == 6, "reward count");
+        Check(sink.Calls[0] == "rgb" && sink.Calls[1] == "pixel" && sink.Calls[2] == "exp" && sink.Calls[3] == "item" && sink.Calls[4] == "recruit" && sink.Calls[5] == "catalog", "reward order");
     }
 
     static void TestReviveCancelsAction(BattleBalanceConfig config)
@@ -259,13 +310,13 @@ static class Program
         enemy.Atk = 80;
         enemy.Hp = 5;
         enemy.HpMax = 100;
-        enemy.Lives = 1;
+        enemy.Lives = 2;
         enemy.Def = 0;
 
         var fight = new BattleFloorFight(config, new FixedRandom(), new RecordingSink());
         fight.Begin(new List<BattleUnit> { ally, enemy });
         fight.Step();
-        Check(enemy.Lives == 0 && enemy.Hp == 100 && enemy.InBattle, "revived before next action");
+        Check(enemy.Lives == 1 && enemy.Hp == 100 && enemy.InBattle, "revived before next action");
         fight.Step();
         Check(ally.Hp == 100 && enemy.Hp == 90, "revived enemy lost this turn's action");
     }
@@ -296,7 +347,10 @@ static class Program
             Hp = 10,
             HpMax = 10,
             Name = "U" + id.ToString(),
-            InBattle = true
+            InBattle = true,
+            WeaknessR = -1,
+            WeaknessG = -1,
+            WeaknessB = -1
         };
     }
 

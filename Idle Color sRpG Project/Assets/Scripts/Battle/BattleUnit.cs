@@ -26,6 +26,10 @@ public sealed class BattleUnit
     public int RepresentativeR;
     public int RepresentativeG;
     public int RepresentativeB;
+    public int WeaknessR;
+    public int WeaknessG;
+    public int WeaknessB;
+    public CharacterAttribute WeaknessAttribute;
     public CharacterAttribute Attribute;
     public bool InBattle = true;
     public int ActionsThisTurn;
@@ -51,7 +55,7 @@ public static class BattleKnockout
             return KnockoutResult.Alive;
         }
 
-        if (unit.Lives >= 1)
+        if (unit.Lives >= 2)
         {
             unit.Lives--;
             if (unit.Lives > maxLives)
@@ -63,6 +67,8 @@ public static class BattleKnockout
             return KnockoutResult.Revived;
         }
 
+        if (unit.Lives > 0)
+            unit.Lives--;
         unit.Hp = 0;
         unit.InBattle = false;
         return KnockoutResult.Defeated;

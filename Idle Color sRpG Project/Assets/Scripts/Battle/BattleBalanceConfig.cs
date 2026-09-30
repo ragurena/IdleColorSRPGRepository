@@ -38,8 +38,14 @@ public class BattleBalanceConfig
     public double RecruitRatePerPoint = 0.002;
     public double RecruitRateCap = 0.05;
 
-    public int MaxLives = 255;
+    public const int MaxOwnedCount = 255;
+    public int MaxLives = MaxOwnedCount;
     public int EnemyInitialLives = 0;
+
+    // 攻撃側の代表カラーが、受ける側の弱点カラーと一致したときの攻撃力倍率
+    public double WeaknessAttackMultiplier = 3.0;
+    // 攻撃側のタイプが、受ける側の弱点タイプと一致したときの攻撃力倍率。色と重なると両方を掛ける
+    public double WeaknessTypeAttackMultiplier = 2.0;
 
     public double ActionIntervalSeconds = 0.28;
     public double FastActionIntervalSeconds = 0.02;
