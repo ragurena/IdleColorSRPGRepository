@@ -22,6 +22,8 @@ public struct BattleAttackResult
     public bool Acted;
     public string Log;
     public BattleOutcome Outcome;
+    public BattleUnit Actor;
+    public BattleUnit Target;
 }
 
 public sealed class BattleFloorFight
@@ -116,7 +118,9 @@ public sealed class BattleFloorFight
     {
         var result = new BattleAttackResult();
         result.Acted = true;
+        result.Actor = actor;
         BattleUnit target = BattleTargeting.Select(Units, actor.IsAlly, _rng);
+        result.Target = target;
         if (target == null)
         {
             ResolveIfSideMissing();

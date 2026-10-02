@@ -75,6 +75,7 @@ static class Program
         TestTargeting();
         TestKnockout(config);
         TestWeightedAndBoss();
+        TestFusion();
         TestDefeatOrder(config);
         TestReviveCancelsAction(config);
         TestAllyPriorityWhenBothGone(config);
@@ -185,6 +186,11 @@ static class Program
         Check(BattleRewardCalculator.RgbGain(1, 1, 1, config) == 1, "rgb ceil");
         Check(BattleRewardCalculator.RgbGain(2, 5, 3, config) == 3, "rgb exact");
         Check(BattleRewardCalculator.ExpGain(10, 10, config) == 100, "exp");
+        Check(BattleRewardCalculator.ExpGain(43, 0, config) == 43, "exp black");
+        Check(BattleRewardCalculator.ExpGain(0, 0, config) == 0, "exp empty");
+        Check(config.ExpToNext(0, 43) == 43, "exp table lv0");
+        Check(config.ExpToNext(1, 43) == 122, "exp table lv1");
+        Check(config.ExpToNext(2, 10) == 52, "exp table lv2");
         Check(BattleRewardCalculator.ExpShare(100, 1) == 100, "exp share 1");
         Check(BattleRewardCalculator.ExpShare(100, 3) == 34, "exp share 3");
         Check(BattleRewardCalculator.ExpShare(100, 0) == 0, "exp share 0");
@@ -264,6 +270,21 @@ static class Program
         rng.IntValue = 1;
         Check(EnemySpawner.RollTotalCount(entries, 9, rng) == 1, "total min");
 
+        var band = new List<EnemySpawnEntry>
+        {
+            new EnemySpawnEntry(6, 33, 1, 2),
+            new EnemySpawnEntry(9, 1, 1, 3)
+        };
+        rng.DoubleValue = 0.5;
+        List<EnemySpawnEntry> missed = EnemySpawner.Roll(band, 9, rng);
+        Check(CountId(missed, 6) == 1 && CountId(missed, 9) == 1, "extras miss");
+        rng.DoubleValue = 0.0;
+        List<EnemySpawnEntry> hit = EnemySpawner.Roll(band, 9, rng);
+        Check(CountId(hit, 6) == 2 && CountId(hit, 9) == 3, "extras hit");
+        rng.DoubleValue = 0.02;
+        List<EnemySpawnEntry> partial = EnemySpawner.Roll(band, 9, rng);
+        Check(CountId(partial, 6) == 2 && CountId(partial, 9) == 1, "only weight that hits");
+
         StageBattleContent stage = BattleStageCatalog.Get(1);
         Check(stage.FindBoss(10) != null && stage.FindBoss(11) == null, "boss floor");
         Check(stage.FindBoss(100) != null, "floor 100 boss");
@@ -271,6 +292,16 @@ static class Program
         Check(stage.GetBand(1).Entries[1].Level == 1, "band level per character");
         Check(stage.GetBand(1).Entries[0].Weight == 50, "band weight");
         Check(stage.FindBoss(100).Level == 10, "boss level");
+    }
+
+    static void TestFusion()
+    {
+        Check(FusionBonus.NextCost(0) == 2 && FusionBonus.NextCost(3) == 5, "fusion cost");
+        Check(!FusionBonus.CanFuse(2, 0) && FusionBonus.CanFuse(3, 0), "fusion keeps one");
+        Check(!FusionBonus.CanFuse(5, 3), "fusion later cost");
+        Check(FusionBonus.Bonus(50, 1) == 3, "fusion ceil");
+        Check(FusionBonus.Bonus(100, 3) == 15, "fusion percent");
+        Check(FusionBonus.Bonus(40, 0) == 0, "fusion none");
     }
 
     static void TestDefeatOrder(BattleBalanceConfig config)
@@ -360,6 +391,17 @@ static class Program
         unit.Hp = 0;
         unit.InBattle = false;
         return unit;
+    }
+
+    static int CountId(List<EnemySpawnEntry> picks, uint id)
+    {
+        int count = 0;
+        for (int i = 0; i < picks.Count; i++)
+        {
+            if (picks[i].CharacterId == id)
+                count++;
+        }
+        return count;
     }
 
     static void Check(bool condition, string name)

@@ -102,6 +102,9 @@ public static class BattleRewardCalculator
             opaquePixels = 0;
         if (attributeValue < 0)
             attributeValue = 0;
+        // 黒体は代表色が 0 で属性値も 0 になる。ピクセルがある敵は最低 1 にする。
+        if (opaquePixels > 0 && attributeValue < 1)
+            attributeValue = 1;
         double multiplier = config.ExpMultiplier;
         if (multiplier < 0.0)
             multiplier = 0.0;
@@ -251,12 +254,12 @@ public static class BattleLevelGrowth
 
 public static class BattleExperience
 {
-    public static int Add(ref long level, ref long exp, ref long expMax, long gain, BattleBalanceConfig config)
+    public static int Add(ref long level, ref long exp, ref long expMax, long gain, BattleBalanceConfig config, long opaquePixels)
     {
-        return Add(ref level, ref exp, ref expMax, gain, config, null);
+        return Add(ref level, ref exp, ref expMax, gain, config, opaquePixels, null);
     }
 
-    public static int Add(ref long level, ref long exp, ref long expMax, long gain, BattleBalanceConfig config, System.Action onLevel)
+    public static int Add(ref long level, ref long exp, ref long expMax, long gain, BattleBalanceConfig config, long opaquePixels, System.Action onLevel)
     {
         if (gain < 0)
             gain = 0;
@@ -265,7 +268,7 @@ public static class BattleExperience
         if (exp < 0)
             exp = 0;
         if (expMax <= 0)
-            expMax = config.ExpToNext(level);
+            expMax = config.ExpToNext(level, opaquePixels);
 
         exp += gain;
         int levelsGained = 0;
@@ -280,7 +283,7 @@ public static class BattleExperience
             levelsGained++;
             if (onLevel != null)
                 onLevel();
-            expMax = config.ExpToNext(level);
+            expMax = config.ExpToNext(level, opaquePixels);
         }
 
         if (level >= config.MaxLevel)

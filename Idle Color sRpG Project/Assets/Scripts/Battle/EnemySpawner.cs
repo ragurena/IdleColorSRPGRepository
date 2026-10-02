@@ -62,8 +62,50 @@ public class FloorItemDrop
 
 public static class EnemySpawner
 {
-    // 総数は各敵の最少合計〜最多合計。重みは相対値で、合計が100でなくても正規化する。
-    // ある種類が最多に達したら、その種類は以降の抽選から外す。
+    // 最少は必ず出す。最少を超える分は、1体ごとに重みを100分率として判定し、外れた体は出さない。
+    // 重み1は1%、33は33%。空きマスがあっても、外れた分で最多までは埋めない。
+    public static List<EnemySpawnEntry> Roll(IReadOnlyList<EnemySpawnEntry> entries, int maxUnits, IBattleRandom rng)
+    {
+        var result = new List<EnemySpawnEntry>();
+        if (entries == null || rng == null || maxUnits < 1)
+            return result;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            int min = entries[i].MinCount;
+            if (min < 0)
+                min = 0;
+            for (int n = 0; n < min; n++)
+            {
+                if (result.Count >= maxUnits)
+                    return result;
+                result.Add(entries[i]);
+            }
+        }
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            EnemySpawnEntry entry = entries[i];
+            int min = entry.MinCount;
+            if (min < 0)
+                min = 0;
+            int max = entry.MaxCount < min ? min : entry.MaxCount;
+            double chance = entry.Weight / 100.0;
+            if (chance < 0.0)
+                chance = 0.0;
+            if (chance > 1.0)
+                chance = 1.0;
+            for (int n = min; n < max; n++)
+            {
+                if (result.Count >= maxUnits)
+                    return result;
+                if (rng.NextDouble() < chance)
+                    result.Add(entry);
+            }
+        }
+        return result;
+    }
+
     public static int RollTotalCount(IReadOnlyList<EnemySpawnEntry> entries, int maxUnits, IBattleRandom rng)
     {
         int min = 0;

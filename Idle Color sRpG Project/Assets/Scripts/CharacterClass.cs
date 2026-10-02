@@ -55,6 +55,8 @@ public class CharacterClass //: MonoBehaviour
     public ulong OwnedNumCur;
     //TODO:転生回数
     public ulong ReincarnationTimes;
+    //残機合成の回数。1回につき、基礎＋レベル成長後の HP/ATK/DEF と RGB生産量が5%増える。
+    public ulong FusionCount;
     //TODO:レベル
     public ulong Level;
     //TODO:経験値
@@ -131,6 +133,19 @@ public class CharacterClass //: MonoBehaviour
 
     //透過ピクセル数
     public uint APixels = 0;
+
+    // 画像の一辺の二乗から透過を引いた数。0にはしない。
+    public int OpaquePixelCount()
+    {
+        int area = Size * Size;
+        if (area < 1)
+            return 1;
+        int transparent = APixels > (uint)area ? area : (int)APixels;
+        int opaque = area - transparent;
+        if (opaque < 1)
+            return 1;
+        return opaque;
+    }
 
 
     public CharacterClass()
@@ -367,7 +382,7 @@ public class CharacterClass //: MonoBehaviour
     }
 
     /// <summary>
-    /// ピクセル生産と同じ階調へ減色する。8階調なら各色 0, 32, 64, 96, 128, 160, 192, 224。
+    /// ピクセル生産と同じ階調へ減色する。8階調なら各色 0, 32, 64, 96, 128, 160, 192, 224。255以上は255。
     /// </summary>
     /// <param name="srcTex">読み込んだ元画像</param>
     /// <param name="levels">色の段階数（例: 4〜8）</param>
@@ -409,8 +424,8 @@ public class CharacterClass //: MonoBehaviour
         int value = Mathf.RoundToInt(channel * 255f);
         if (value < 0)
             value = 0;
-        if (value > 255)
-            value = 255;
+        if (value >= 255)
+            return 1f;
 
         int index = (value + step / 2) / step;
         if (index < 0)
@@ -783,7 +798,7 @@ public class CharacterClass //: MonoBehaviour
         Stats[2].ATK = (ulong)atkBonus;
         Stats[2].DEF = (ulong)defBonus;
         Stats[2].SPD = (byte)spdBonus;
-        long need = config.ExpToNext((long)Level);
+        long need = config.ExpToNext((long)Level, OpaquePixelCount());
         if (need < 1)
             need = 1;
         ExpMax = (ulong)need;
@@ -792,10 +807,13 @@ public class CharacterClass //: MonoBehaviour
 
     bool CalcTotalStats()
     {
-        Stats[0].HPMax = Stats[1].HPMax + Stats[2].HPMax + Stats[3].HPMax + Stats[4].HPMax;
-        Stats[0].HPCur = Stats[1].HPCur + Stats[2].HPCur + Stats[3].HPCur + Stats[4].HPCur;
-        Stats[0].ATK = Stats[1].ATK + Stats[2].ATK + Stats[3].ATK + Stats[4].ATK;
-        Stats[0].DEF = Stats[1].DEF + Stats[2].DEF + Stats[3].DEF + Stats[4].DEF;
+        ulong fusionHp = FusionStatBonus(Stats[1].HPMax, Stats[2].HPMax);
+        ulong fusionAtk = FusionStatBonus(Stats[1].ATK, Stats[2].ATK);
+        ulong fusionDef = FusionStatBonus(Stats[1].DEF, Stats[2].DEF);
+        Stats[0].HPMax = Stats[1].HPMax + Stats[2].HPMax + Stats[3].HPMax + Stats[4].HPMax + fusionHp;
+        Stats[0].HPCur = Stats[1].HPCur + Stats[2].HPCur + Stats[3].HPCur + Stats[4].HPCur + fusionHp;
+        Stats[0].ATK = Stats[1].ATK + Stats[2].ATK + Stats[3].ATK + Stats[4].ATK + fusionAtk;
+        Stats[0].DEF = Stats[1].DEF + Stats[2].DEF + Stats[3].DEF + Stats[4].DEF + fusionDef;
         if (Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD <= 100)
         {
             Stats[0].SPD = (byte)(Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD);
@@ -807,12 +825,31 @@ public class CharacterClass //: MonoBehaviour
         Stats[0].LUC = Stats[1].LUC + Stats[2].LUC + Stats[3].LUC + Stats[4].LUC;
         Stats[0].OBS = Stats[1].OBS + Stats[2].OBS + Stats[3].OBS + Stats[4].OBS;
         Stats[0].HealPower = Stats[1].HealPower + Stats[2].HealPower + Stats[3].HealPower + Stats[4].HealPower;
-        Stats[0].RCreates = Stats[1].RCreates + Stats[2].RCreates + Stats[3].RCreates + Stats[4].RCreates;
-        Stats[0].GCreates = Stats[1].GCreates + Stats[2].GCreates + Stats[3].GCreates + Stats[4].GCreates;
-        Stats[0].BCreates = Stats[1].BCreates + Stats[2].BCreates + Stats[3].BCreates + Stats[4].BCreates;
+        Stats[0].RCreates = Stats[1].RCreates + Stats[2].RCreates + Stats[3].RCreates + Stats[4].RCreates + FusionStatBonus(Stats[1].RCreates, Stats[2].RCreates);
+        Stats[0].GCreates = Stats[1].GCreates + Stats[2].GCreates + Stats[3].GCreates + Stats[4].GCreates + FusionStatBonus(Stats[1].GCreates, Stats[2].GCreates);
+        Stats[0].BCreates = Stats[1].BCreates + Stats[2].BCreates + Stats[3].BCreates + Stats[4].BCreates + FusionStatBonus(Stats[1].BCreates, Stats[2].BCreates);
         Stats[0].PaintPixels = Stats[1].PaintPixels + Stats[2].PaintPixels + Stats[3].PaintPixels + Stats[4].PaintPixels;
 
         return true;
+    }
+
+    ulong FusionStatBonus(ulong baseStat, ulong levelStat)
+    {
+        long grown = ToStatLong(baseStat) + ToStatLong(levelStat);
+        if (grown < 0)
+            grown = long.MaxValue;
+        long count = FusionCount > (ulong)long.MaxValue ? long.MaxValue : (long)FusionCount;
+        long bonus = FusionBonus.Bonus(grown, count);
+        if (bonus < 0)
+            bonus = 0;
+        return (ulong)bonus;
+    }
+
+    static long ToStatLong(ulong value)
+    {
+        if (value > (ulong)long.MaxValue)
+            return long.MaxValue;
+        return (long)value;
     }
 
     //レベルアップ分はレベルステータス(Stats[2])へ足し、トータルを作り直す。

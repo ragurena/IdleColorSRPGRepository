@@ -8360,7 +8360,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -200}
+  m_AnchoredPosition: {x: 0, y: 200}
   m_SizeDelta: {x: 500, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &687683895
@@ -11638,7 +11638,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 350, y: 340}
+  m_AnchoredPosition: {x: 400, y: 340}
   m_SizeDelta: {x: 250, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &880001003
@@ -13273,7 +13273,7 @@ GameObject:
   - component: {fileID: 1028199905}
   - component: {fileID: 1028199904}
   m_Layer: 5
-  m_Name: ButtonSelectScene5
+  m_Name: ButtonSelectSceneBattleStage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -13698,7 +13698,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 200}
+  m_AnchoredPosition: {x: 0, y: -200}
   m_SizeDelta: {x: 500, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1071508279
@@ -14322,7 +14322,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Button
+  m_Text: Coming Soon...
 --- !u!222 &1112835947
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -23246,7 +23246,7 @@ GameObject:
   - component: {fileID: 1924545842}
   - component: {fileID: 1924545841}
   m_Layer: 5
-  m_Name: ButtonSelectScene6
+  m_Name: ButtonSelectSceneZukan
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -24586,8 +24586,8 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1071508278}
   - {fileID: 687683894}
+  - {fileID: 1071508278}
   - {fileID: 1774241623}
   - {fileID: 545062050}
   m_Father: {fileID: 360843274}

@@ -156,8 +156,20 @@ public class ControllerCatalogClass : MonoBehaviour
         }
 
         StatisticsClass stats = character.Stats[0];
+        long expNeed = (long)character.ExpMax;
+        if (expNeed <= 0 && _production != null)
+        {
+            BattleBalanceConfig config = _production.GetBattleBalance();
+            if (config != null)
+                expNeed = config.ExpToNext((long)character.Level, character.OpaquePixelCount());
+        }
+        if (expNeed < 1)
+            expNeed = 1;
+        long fusionCount = character.FusionCount > (ulong)long.MaxValue ? long.MaxValue : (long)character.FusionCount;
         _detail.text = character.Name + "\n"
             + "Lv " + character.Level + "\n"
+            + "経験値 " + character.Exp + " / " + expNeed + "\n"
+            + "合成 " + fusionCount.ToString() + "回（+" + FusionBonus.Percent(fusionCount).ToString() + "%）\n"
             + TypeName(character.CharacterType) + "    弱点 " + TypeName(character.WeaknessType) + "\n"
             + "HP " + stats.HPMax + "\n"
             + "ATK " + stats.ATK + "    DEF " + stats.DEF + "\n"
@@ -222,6 +234,11 @@ public class ControllerCatalogClass : MonoBehaviour
         panelRect.sizeDelta = sourceRect.sizeDelta;
         panelRect.localScale = Vector3.one;
         Panel.GetComponent<Image>().color = new Color(0.93f, 0.93f, 0.96f, 1f);
+        Panel.GetComponent<Image>().raycastTarget = true;
+        CanvasGroup group = Panel.GetComponent<CanvasGroup>();
+        group.alpha = 0f;
+        group.interactable = false;
+        group.blocksRaycasts = false;
 
         Text title = CreateText("TextCatalogTitle", Panel.transform, 40, TextAnchor.MiddleCenter);
         Place(title.rectTransform, 0f, 610f, 1000f, 56f);

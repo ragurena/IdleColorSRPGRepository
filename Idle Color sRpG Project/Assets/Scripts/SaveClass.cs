@@ -40,6 +40,7 @@ public class SaveClass// : MonoBehaviour
         int ActiveBattleFloorFrom,
         int ActiveBattleFloorTo,
         int ClearedBattleStage,
+        int[] ClearedBattleFloor,
         Dictionary<int, int> ItemCounts
         )
     {
@@ -76,6 +77,7 @@ public class SaveClass// : MonoBehaviour
             sw.WriteLine("CharactersAll[" + i.ToString() + "].ReincarnationTimes," + CharactersAll[i].ReincarnationTimes);
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Level," + CharactersAll[i].Level);
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Exp," + CharactersAll[i].Exp);
+            sw.WriteLine("CharactersAll[" + i.ToString() + "].FusionCount," + CharactersAll[i].FusionCount);
 
             if (CharactersAll[i].FlagFNT)
             {
@@ -252,6 +254,11 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("ActiveBattleFloorFrom," + ActiveBattleFloorFrom.ToString());
         sw.WriteLine("ActiveBattleFloorTo," + ActiveBattleFloorTo.ToString());
         sw.WriteLine("ClearedBattleStage," + ClearedBattleStage.ToString());
+        if (ClearedBattleFloor != null)
+        {
+            for (int stage = 1; stage < ClearedBattleFloor.Length; stage++)
+                sw.WriteLine("ClearedBattleFloor[" + stage.ToString() + "]," + ClearedBattleFloor[stage].ToString());
+        }
 
         if (ItemCounts != null)
         {
@@ -289,6 +296,11 @@ public class SaveClass// : MonoBehaviour
     public static bool IsOlderDataVersion(string savedVersion)
     {
         return CompareVersions(savedVersion, GameConfig.DataVersion) < 0;
+    }
+
+    public static bool IsOlderThan(string savedVersion, string version)
+    {
+        return CompareVersions(savedVersion, version) < 0;
     }
 
     static int CompareVersions(string left, string right)
@@ -347,6 +359,7 @@ public class SaveClass// : MonoBehaviour
         ref int ActiveBattleFloorFrom,
         ref int ActiveBattleFloorTo,
         ref int ClearedBattleStage,
+        ref int[] ClearedBattleFloor,
         ref Dictionary<int, int> ItemCounts
         )
     {
@@ -365,6 +378,9 @@ public class SaveClass// : MonoBehaviour
 
             return;
         }
+
+        // キャラを途中に入れた版より古いセーブは、入れた位置以降の ID をずらす
+        string savedVersion = ReadDataVersion();
 
         //StreamReader sr = new StreamReader("Assets/Resources/ICS.csv");
         StreamReader sr = new StreamReader(Application.persistentDataPath + "/ICS.csv");
@@ -485,19 +501,19 @@ public class SaveClass// : MonoBehaviour
                 {
                     if (values[0].Equals("CharactersIDHelpProductionR[" + i.ToString() + "]"))
                     {
-                        CharactersIDHelpProductionR[i] = (uint)(int.Parse(values[1]));
+                        CharactersIDHelpProductionR[i] = ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                         break;
                     }
 
                     if (values[0].Equals("CharactersIDHelpProductionG[" + i.ToString() + "]"))
                     {
-                        CharactersIDHelpProductionG[i] = (uint)(int.Parse(values[1]));
+                        CharactersIDHelpProductionG[i] = ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                         break;
                     }
 
                     if (values[0].Equals("CharactersIDHelpProductionB[" + i.ToString() + "]"))
                     {
-                        CharactersIDHelpProductionB[i] = (uint)(int.Parse(values[1]));
+                        CharactersIDHelpProductionB[i] = ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                         break;
                     }
                 }
@@ -511,7 +527,7 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("CharactersIDProductionPixel[" + i.ToString() + "]"))
                     {
                         CharactersIDProductionPixel[i] =
-                            (uint)(int.Parse(values[1]));
+                            ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                         break;
                     }
                 }
@@ -727,6 +743,16 @@ public class SaveClass// : MonoBehaviour
             }
 
             else
+            if (values[0].StartsWith("ClearedBattleFloor["))
+            {
+                int stageStart = values[0].IndexOf('[') + 1;
+                int stageEnd = values[0].IndexOf(']', stageStart);
+                int stageIndex = int.Parse(values[0].Substring(stageStart, stageEnd - stageStart));
+                if (ClearedBattleFloor != null && stageIndex >= 1 && stageIndex < ClearedBattleFloor.Length)
+                    ClearedBattleFloor[stageIndex] = int.Parse(values[1]);
+            }
+
+            else
             if (values[0].StartsWith("ItemCount["))
             {
                 int idStart = values[0].IndexOf('[') + 1;
@@ -752,7 +778,7 @@ public class SaveClass// : MonoBehaviour
                     && x >= 1 && x <= Constants.BATTLE_FORMATION_SIZE
                     && y >= 1 && y <= Constants.BATTLE_FORMATION_SIZE)
                 {
-                    BattlePartyCharacterIds[setIndex, x, y] = (uint)int.Parse(values[1]);
+                    BattlePartyCharacterIds[setIndex, x, y] = ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                 }
             }
 
@@ -764,7 +790,7 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("CharactersIDProductionCharacter[" + i.ToString() + "]"))
                     {
                         CharactersIDProductionCharacter[i] =
-                            (uint)(int.Parse(values[1]));
+                            ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                         break;
                     }
                 }
@@ -778,7 +804,7 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("CharactersIDProducedCharacter[" + i.ToString() + "]"))
                     {
                         CharactersIDProducedCharacter[i] =
-                            (uint)(int.Parse(values[1]));
+                            ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                         break;
                     }
                 }
@@ -791,53 +817,65 @@ public class SaveClass// : MonoBehaviour
 
                 for (int i = 1; i < CharactersAllIndexNum; i++)
                 {
+                    int slot = ShiftedCharacterSlot(i, savedVersion);
+                    if (slot < 1 || slot >= CharactersAllIndexNum || CharactersAll[slot] == null)
+                        continue;
+                    if (IsInsertedCharacterSlot(slot, savedVersion))
+                        continue;
+
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].KnownPixels"))
                     {
-                        CharactersAll[i].KnownPixels = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].KnownPixels = (uint)(int.Parse(values[1]));
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].OwnedNumMax"))
                     {
-                        CharactersAll[i].OwnedNumMax = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].OwnedNumMax = (uint)(int.Parse(values[1]));
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].OwnedNumCur"))
                     {
-                        CharactersAll[i].OwnedNumCur = (uint)(int.Parse(values[1]));
-                        if (CharactersAll[i].OwnedNumCur > BattleBalanceConfig.MaxOwnedCount)
+                        CharactersAll[slot].OwnedNumCur = (uint)(int.Parse(values[1]));
+                        if (CharactersAll[slot].OwnedNumCur > BattleBalanceConfig.MaxOwnedCount)
                         {
-                            if (CharactersAll[i].OwnedNumMax < CharactersAll[i].OwnedNumCur)
-                                CharactersAll[i].OwnedNumMax = CharactersAll[i].OwnedNumCur;
-                            CharactersAll[i].OwnedNumCur = BattleBalanceConfig.MaxOwnedCount;
+                            if (CharactersAll[slot].OwnedNumMax < CharactersAll[slot].OwnedNumCur)
+                                CharactersAll[slot].OwnedNumMax = CharactersAll[slot].OwnedNumCur;
+                            CharactersAll[slot].OwnedNumCur = BattleBalanceConfig.MaxOwnedCount;
                         }
-                        CharactersAll[i].RaiseOwnedMax();
+                        CharactersAll[slot].RaiseOwnedMax();
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].ReincarnationTimes"))
                     {
-                        CharactersAll[i].ReincarnationTimes = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].ReincarnationTimes = (uint)(int.Parse(values[1]));
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].Level"))
                     {
-                        CharactersAll[i].Level = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].Level = (uint)(int.Parse(values[1]));
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].Exp"))
                     {
-                        CharactersAll[i].Exp = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].Exp = (uint)(int.Parse(values[1]));
+                        break;
+                    }
+
+                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].FusionCount"))
+                    {
+                        CharactersAll[slot].FusionCount = ulong.Parse(values[1]);
                         break;
                     }
 
                     //TODO:FlagFNTテスト
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].FlagFNT"))
                     {
-                        CharactersAll[i].FlagFNT = values[1].Equals("true");
+                        CharactersAll[slot].FlagFNT = values[1].Equals("true");
                         break;
                     }
 
@@ -845,49 +883,49 @@ public class SaveClass// : MonoBehaviour
                     {
                         if (values[1].Equals("None"))
                         {
-                            CharactersAll[i].Whereabouts = Place.None;
+                            CharactersAll[slot].Whereabouts = Place.None;
                         }
                         else
                         if (values[1].Equals("CreateR"))
                         {
-                            CharactersAll[i].Whereabouts = Place.CreateR;
+                            CharactersAll[slot].Whereabouts = Place.CreateR;
                         }
                         else
                         if (values[1].Equals("CreateG"))
                         {
-                            CharactersAll[i].Whereabouts = Place.CreateG;
+                            CharactersAll[slot].Whereabouts = Place.CreateG;
                         }
                         else
                         if (values[1].Equals("CreateB"))
                         {
-                            CharactersAll[i].Whereabouts = Place.CreateB;
+                            CharactersAll[slot].Whereabouts = Place.CreateB;
                         }
                         else
                         if (values[1].Equals("CreatePixel"))
                         {
-                            CharactersAll[i].Whereabouts = Place.CreatePixel;
+                            CharactersAll[slot].Whereabouts = Place.CreatePixel;
                         }
                         else
                         if (values[1].Equals("CreateCharacter"))
                         {
-                            CharactersAll[i].Whereabouts = Place.CreateCharacter;
+                            CharactersAll[slot].Whereabouts = Place.CreateCharacter;
                         }
                         else
                         if (values[1].Equals("Hospital"))
                         {
-                            CharactersAll[i].Whereabouts = Place.Hospital;
+                            CharactersAll[slot].Whereabouts = Place.Hospital;
                         }
                         else
                         if (values[1].Equals("Battle"))
                         {
-                            CharactersAll[i].Whereabouts = Place.Battle;
+                            CharactersAll[slot].Whereabouts = Place.Battle;
                         }
 
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].CatalogOpened"))
                     {
-                        CharactersAll[i].CatalogOpened = values[1].Equals("true");
+                        CharactersAll[slot].CatalogOpened = values[1].Equals("true");
                         break;
                     }
 
@@ -897,5 +935,37 @@ public class SaveClass// : MonoBehaviour
         }
 
         sr.Close();
+    }
+
+    // 途中挿入より古いセーブの並びを、今の ID に合わせる
+    static int ShiftedCharacterSlot(int index, string savedVersion)
+    {
+        if (index < 1)
+            return index;
+        if (CompareVersions(savedVersion, "0.0.2") < 0 && index >= 4)
+            index++;
+        if (CompareVersions(savedVersion, "0.0.3") < 0 && index >= 9)
+            index++;
+        return index;
+    }
+
+    static uint ShiftCharacterId(uint id, string savedVersion)
+    {
+        if (id == 0)
+            return 0;
+        int shifted = ShiftedCharacterSlot((int)id, savedVersion);
+        if (shifted < 1 || shifted > Constants.CHARACTERS_ALL_NUM)
+            return 0;
+        return (uint)shifted;
+    }
+
+    // この版で新しく入った枠には、古い空きデータの上書きをしない
+    static bool IsInsertedCharacterSlot(int slot, string savedVersion)
+    {
+        if (CompareVersions(savedVersion, "0.0.2") < 0 && slot == 4)
+            return true;
+        if (CompareVersions(savedVersion, "0.0.3") < 0 && (slot == 7 || slot == 8 || slot == 9))
+            return true;
+        return false;
     }
 }

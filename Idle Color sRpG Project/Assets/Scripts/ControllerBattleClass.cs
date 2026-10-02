@@ -17,6 +17,14 @@ public class ControllerBattleClass : MonoBehaviour
     bool _fast;
     bool _running;
     bool _stop;
+    bool _alliesVisible = true;
+    bool _alliesEntered;
+    bool _cuePixels;
+    bool _cueWalk;
+    int _cueR;
+    int _cueG;
+    int _cueB;
+    long _cuePixelCount;
     int _nextUnitId = 1;
     readonly List<string> _logs = new List<string>();
     readonly List<BattleUnit> _units = new List<BattleUnit>();
@@ -27,7 +35,11 @@ public class ControllerBattleClass : MonoBehaviour
     class CellView
     {
         public Image Image;
-        public Text Label;
+        public Image InfoBack;
+        public Text Lives;
+        public Slider Hp;
+        public Slider Exp;
+        public Vector2 Home;
     }
 
     public void Initialize(ControllerProduction production)
@@ -67,6 +79,38 @@ public class ControllerBattleClass : MonoBehaviour
         }
     }
 
+    public void ApplyAllyFusion(CharacterClass character)
+    {
+        if (!_running || character == null)
+            return;
+        for (int i = 0; i < _units.Count; i++)
+        {
+            BattleUnit unit = _units[i];
+            if (!unit.IsAlly || unit.CharacterId != character.ID)
+                continue;
+            long previousHp = unit.HpMax;
+            long hpMax = (long)character.Stats[0].HPMax;
+            if (hpMax < 1)
+                hpMax = 1;
+            unit.HpMax = hpMax;
+            long delta = hpMax - previousHp;
+            if (delta > 0)
+                unit.Hp += delta;
+            if (unit.Hp > unit.HpMax)
+                unit.Hp = unit.HpMax;
+            if (unit.Hp < 1 && unit.IsLiving())
+                unit.Hp = 1;
+            unit.Atk = (long)character.Stats[0].ATK;
+            unit.Def = (long)character.Stats[0].DEF;
+            int lives = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+            if (lives < 0)
+                lives = 0;
+            if (_config != null && lives > _config.MaxLives)
+                lives = _config.MaxLives;
+            unit.Lives = lives;
+        }
+    }
+
     public void Begin(int stageIndex, int setIndex, int floorFrom, int floorTo)
     {
         if (_running)
@@ -77,6 +121,8 @@ public class ControllerBattleClass : MonoBehaviour
         _units.Clear();
         _logs.Clear();
         _stop = false;
+        _alliesVisible = true;
+        _alliesEntered = false;
         _nextUnitId = 1;
         PlaceAllies(setIndex);
         if (!HasLivingAlly())
@@ -113,25 +159,46 @@ public class ControllerBattleClass : MonoBehaviour
             SpawnEnemies(content, floor);
             var fight = new BattleFloorFight(_config, new SystemBattleRandom(), sink);
             fight.Begin(_units);
-            AddLog(floor.ToString() + "階");
-            Refresh(stageName, floor, floorFrom, floorTo);
-            yield return new WaitForSeconds(Interval());
+            if (!_alliesEntered)
+            {
+                ParkAlliesOffscreen();
+                Refresh(stageName, floor, floorFrom, floorTo);
+                yield return MarchAllies(true);
+                _alliesEntered = true;
+                if (_stop)
+                    break;
+            }
+            else
+            {
+                Refresh(stageName, floor, floorFrom, floorTo);
+                yield return new WaitForSeconds(Interval());
+            }
 
             while (fight.Outcome == BattleOutcome.InProgress && !_stop)
             {
+                ClearDropCue();
                 BattleAttackResult step = fight.Step();
                 if (!string.IsNullOrEmpty(step.Log))
                     AddLog(step.Log);
                 _production.SyncAllyLivesFromBattle(_units);
+                if (step.Acted && step.Actor != null)
+                    yield return PlayAttackMotion(step.Actor, step.Target);
+                if (step.Target != null && !step.Target.IsAlly && !step.Target.IsLiving() && (_cuePixels || _cueWalk))
+                    yield return PlayDefeatDrops(step.Target);
                 Refresh(stageName, floor, floorFrom, floorTo);
+                if (_stop)
+                    break;
                 if (fight.Outcome != BattleOutcome.InProgress)
                     break;
-                yield return new WaitForSeconds(Interval());
+                if (!(step.Acted && step.Actor != null))
+                    yield return new WaitForSeconds(Interval());
             }
+
+            if (_stop)
+                break;
 
             if (fight.Outcome != BattleOutcome.FloorCleared)
             {
-                AddLog("撤退した");
                 Refresh(stageName, floor, floorFrom, floorTo);
                 yield return new WaitForSeconds(Interval());
                 Finish();
@@ -145,14 +212,11 @@ public class ControllerBattleClass : MonoBehaviour
                 AddLog(ItemIds.DisplayName(drops[i]) + " を入手");
             }
 
-            AddLog(floor.ToString() + "階をクリア");
+            _production.MarkBattleFloorCleared(stageIndex, floor);
             if (floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
                 clearedStage = true;
             if (!HasLivingAlly())
-            {
                 partyGone = true;
-                AddLog("味方が尽きたため、次の階へは進めない");
-            }
             Refresh(stageName, floor, floorFrom, floorTo);
             _production.SaveGame();
             yield return new WaitForSeconds(Interval());
@@ -162,9 +226,8 @@ public class ControllerBattleClass : MonoBehaviour
 
         if (_stop)
         {
-            AddLog("撤退した");
-            Refresh(stageName, floorFrom, floorFrom, floorTo);
-            yield return new WaitForSeconds(Interval());
+            yield return MarchAllies(false);
+            HideAllyCells();
             Finish();
             yield break;
         }
@@ -178,19 +241,16 @@ public class ControllerBattleClass : MonoBehaviour
         if (clearedStage && !announcedClear)
         {
             _production.MarkBattleStageCleared();
-            AddLog(stageName + " をクリア");
             announcedClear = true;
         }
 
         if (_production.IsBattleRepeatOn())
         {
-            AddLog(floorFrom.ToString() + "階から繰り返す");
             Refresh(stageName, floorFrom, floorFrom, floorTo);
             yield return new WaitForSeconds(Interval());
             continue;
         }
 
-        AddLog(floorFrom.ToString() + "〜" + floorTo.ToString() + "階を踏破");
         Refresh(stageName, floorTo, floorFrom, floorTo);
         yield return new WaitForSeconds(Interval());
         Finish();
@@ -209,6 +269,7 @@ public class ControllerBattleClass : MonoBehaviour
         _production.UpdateRGBProductionScene();
         _production.ShowCharacterOwnedNum();
         ShowIdle();
+        Hide();
         _production.ReturnFromBattle();
     }
 
@@ -248,8 +309,7 @@ public class ControllerBattleClass : MonoBehaviour
         {
             FloorBandSpawn band = content.GetBand(floor);
             multiplier = band.StatMultiplier;
-            int total = EnemySpawner.RollTotalCount(band.Entries, _config.MaxUnits, rng);
-            picks = EnemySpawner.RollTypes(band.Entries, total, rng);
+            picks = EnemySpawner.Roll(band.Entries, _config.MaxUnits, rng);
         }
 
         if (picks.Count > _config.MaxUnits)
@@ -292,6 +352,340 @@ public class ControllerBattleClass : MonoBehaviour
         return (float)seconds;
     }
 
+    const float AttackHop = 14f;
+    const float HitShake = 8f;
+
+    // 攻撃側は上下に1回跳び、受けた側は前後に揺れて戻る。
+    IEnumerator PlayAttackMotion(BattleUnit actor, BattleUnit target)
+    {
+        CellView attacker = CellOf(actor);
+        CellView defender = CellOf(target);
+        float duration = Interval();
+        if (duration <= 0f)
+        {
+            RestoreCell(attacker);
+            RestoreCell(defender);
+            yield break;
+        }
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float u = elapsed / duration;
+            if (u > 1f)
+                u = 1f;
+            if (attacker != null && attacker.Image != null)
+            {
+                float hop = Mathf.Sin(u * Mathf.PI) * AttackHop;
+                attacker.Image.rectTransform.anchoredPosition = attacker.Home + new Vector2(0f, hop);
+            }
+            if (defender != null && defender != attacker && defender.Image != null)
+            {
+                float shake = Mathf.Sin(u * Mathf.PI * 4f) * (1f - u) * HitShake;
+                defender.Image.rectTransform.anchoredPosition = defender.Home + new Vector2(shake, 0f);
+            }
+            yield return null;
+        }
+
+        RestoreCell(attacker);
+        RestoreCell(defender);
+    }
+
+    void ClearDropCue()
+    {
+        _cuePixels = false;
+        _cueWalk = false;
+        _cueR = 0;
+        _cueG = 0;
+        _cueB = 0;
+        _cuePixelCount = 0;
+    }
+
+    const float PixelSize = 16f;
+    const int PixelVisualMax = 5;
+
+    // 仲間になった敵は左へてくてく歩き、落ちたピクセルはその色の四角が3回跳ねて消える。
+    IEnumerator PlayDefeatDrops(BattleUnit enemy)
+    {
+        CellView cell = CellOf(enemy);
+        if (cell == null || cell.Image == null)
+            yield break;
+
+        Vector2 origin = cell.Home;
+        Image walker = null;
+        if (_cueWalk && cell.Image.sprite != null)
+        {
+            walker = CreateImage("DropWalker", _root.transform, Color.white);
+            walker.sprite = cell.Image.sprite;
+            walker.preserveAspect = true;
+            walker.raycastTarget = false;
+            PlaceRect(walker.rectTransform, origin.x, origin.y, 70f, 70f);
+            walker.transform.SetAsLastSibling();
+            cell.Image.sprite = null;
+            cell.Image.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+            SetMetersVisible(cell, false, false);
+            RestoreCell(cell);
+        }
+
+        int pixelCount = 0;
+        Image[] pixels = null;
+        float[] drift = null;
+        if (_cuePixels && _cuePixelCount > 0)
+        {
+            pixelCount = _cuePixelCount > PixelVisualMax ? PixelVisualMax : (int)_cuePixelCount;
+            if (pixelCount < 1)
+                pixelCount = 1;
+            pixels = new Image[pixelCount];
+            drift = new float[pixelCount];
+            Color color = new Color(_cueR / 255f, _cueG / 255f, _cueB / 255f, 1f);
+            for (int i = 0; i < pixelCount; i++)
+            {
+                Image frame = CreateImage("DropPixel", _root.transform, Color.white);
+                frame.raycastTarget = false;
+                PlaceRect(frame.rectTransform, origin.x, origin.y, PixelSize, PixelSize);
+                Image fill = CreateImage("Fill", frame.transform, color);
+                fill.raycastTarget = false;
+                Stretch(fill.rectTransform);
+                fill.rectTransform.offsetMin = new Vector2(2f, 2f);
+                fill.rectTransform.offsetMax = new Vector2(-2f, -2f);
+                frame.transform.SetAsLastSibling();
+                pixels[i] = frame;
+                drift[i] = (i - (pixelCount - 1) * 0.5f) * 18f;
+            }
+        }
+
+        float walkTime = _fast ? 0.42f : 0.95f;
+        float bounceTime = _fast ? 0.32f : 0.7f;
+        float total = 0f;
+        if (walker != null)
+            total = walkTime;
+        if (pixels != null && bounceTime > total)
+            total = bounceTime;
+
+        float elapsed = 0f;
+        while (elapsed < total && !_stop)
+        {
+            elapsed += Time.deltaTime;
+            if (walker != null)
+            {
+                float u = elapsed / walkTime;
+                if (u > 1f)
+                    u = 1f;
+                float x = Mathf.Lerp(origin.x, OffscreenLeft(), u);
+                float step = Mathf.Abs(Mathf.Sin(u * Mathf.PI * 8f)) * 6f;
+                walker.rectTransform.anchoredPosition = new Vector2(x, origin.y + step);
+            }
+            if (pixels != null)
+            {
+                float u = elapsed / bounceTime;
+                if (u > 1f)
+                    u = 1f;
+                float height = PixelBounce(u);
+                for (int i = 0; i < pixelCount; i++)
+                {
+                    if (pixels[i] == null)
+                        continue;
+                    float x = origin.x + drift[i] * u;
+                    pixels[i].rectTransform.anchoredPosition = new Vector2(x, origin.y + height);
+                }
+            }
+            yield return null;
+        }
+
+        if (walker != null)
+            Destroy(walker.gameObject);
+        if (pixels != null)
+        {
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                if (pixels[i] != null)
+                    Destroy(pixels[i].gameObject);
+            }
+        }
+    }
+
+    // 1回目が高く、3回目で着地して高さが0になる。
+    static float PixelBounce(float u)
+    {
+        float[] share = { 0.42f, 0.33f, 0.25f };
+        float[] height = { 46f, 24f, 10f };
+        float start = 0f;
+        for (int i = 0; i < 3; i++)
+        {
+            float end = start + share[i];
+            if (u <= end || i == 2)
+            {
+                float local = (u - start) / share[i];
+                if (local < 0f)
+                    local = 0f;
+                if (local > 1f)
+                    local = 1f;
+                return Mathf.Sin(local * Mathf.PI) * height[i];
+            }
+            start = end;
+        }
+        return 0f;
+    }
+
+    const float MarchHop = 12f;
+    const int MarchBounces = 4;
+
+    float MarchDuration()
+    {
+        return _fast ? 0.45f : 0.8f;
+    }
+
+    float OffscreenLeft()
+    {
+        float half = 540f;
+        if (_root != null)
+        {
+            RectTransform rect = _root.GetComponent<RectTransform>();
+            if (rect != null && rect.rect.width > 10f)
+                half = rect.rect.width * 0.5f;
+        }
+        return -half - 90f;
+    }
+
+    List<CellView> LivingAllyCells()
+    {
+        var list = new List<CellView>();
+        if (_allies == null || _config == null)
+            return list;
+        int size = _config.FormationSize;
+        for (int x = 1; x <= size; x++)
+        {
+            for (int y = 1; y <= size; y++)
+            {
+                if (FindLiving(true, x, y) == null || _allies[x, y] == null || _allies[x, y].Image == null)
+                    continue;
+                list.Add(_allies[x, y]);
+            }
+        }
+        return list;
+    }
+
+    float AllyMarchShift(List<CellView> cells)
+    {
+        float minX = 0f;
+        bool found = false;
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (!found || cells[i].Home.x < minX)
+            {
+                minX = cells[i].Home.x;
+                found = true;
+            }
+        }
+        if (!found)
+            return 0f;
+        return OffscreenLeft() - minX;
+    }
+
+    void ParkAlliesOffscreen()
+    {
+        List<CellView> cells = LivingAllyCells();
+        float shift = AllyMarchShift(cells);
+        for (int i = 0; i < cells.Count; i++)
+            cells[i].Image.rectTransform.anchoredPosition = cells[i].Home + new Vector2(shift, 0f);
+    }
+
+    // 味方だけ、隊列を保ったまま左端から跳ねて入る。出るときは同じ動きで左へ消える。
+    IEnumerator MarchAllies(bool enter)
+    {
+        List<CellView> cells = LivingAllyCells();
+        if (cells.Count == 0)
+            yield break;
+
+        float shift = AllyMarchShift(cells);
+        var from = new Vector2[cells.Count];
+        var to = new Vector2[cells.Count];
+        for (int i = 0; i < cells.Count; i++)
+        {
+            Vector2 outside = cells[i].Home + new Vector2(shift, 0f);
+            if (enter)
+            {
+                from[i] = outside;
+                to[i] = cells[i].Home;
+                cells[i].Image.rectTransform.anchoredPosition = outside;
+            }
+            else
+            {
+                from[i] = cells[i].Image.rectTransform.anchoredPosition;
+                to[i] = outside;
+            }
+        }
+
+        float duration = MarchDuration();
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            if (enter && _stop)
+                yield break;
+            elapsed += Time.deltaTime;
+            float u = elapsed / duration;
+            if (u > 1f)
+                u = 1f;
+            float move = Mathf.SmoothStep(0f, 1f, u);
+            float hop = Mathf.Abs(Mathf.Sin(u * Mathf.PI * MarchBounces)) * MarchHop;
+            for (int i = 0; i < cells.Count; i++)
+            {
+                if (cells[i].Image == null)
+                    continue;
+                Vector2 pos = Vector2.Lerp(from[i], to[i], move);
+                cells[i].Image.rectTransform.anchoredPosition = pos + new Vector2(0f, hop);
+            }
+            yield return null;
+        }
+
+        if (enter && !_stop)
+        {
+            for (int i = 0; i < cells.Count; i++)
+                RestoreCell(cells[i]);
+        }
+    }
+
+    void HideAllyCells()
+    {
+        _alliesVisible = false;
+        if (_allies == null || _config == null)
+            return;
+        int size = _config.FormationSize;
+        for (int x = 1; x <= size; x++)
+        {
+            for (int y = 1; y <= size; y++)
+            {
+                CellView view = _allies[x, y];
+                if (view == null || view.Image == null)
+                    continue;
+                view.Image.sprite = null;
+                view.Image.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+                SetMetersVisible(view, false, false);
+                RestoreCell(view);
+            }
+        }
+    }
+
+    CellView CellOf(BattleUnit unit)
+    {
+        if (unit == null || _config == null)
+            return null;
+        CellView[,] cells = unit.IsAlly ? _allies : _enemies;
+        if (cells == null)
+            return null;
+        if (unit.X < 1 || unit.Y < 1 || unit.X > _config.FormationSize || unit.Y > _config.FormationSize)
+            return null;
+        return cells[unit.X, unit.Y];
+    }
+
+    static void RestoreCell(CellView view)
+    {
+        if (view == null || view.Image == null)
+            return;
+        view.Image.rectTransform.anchoredPosition = view.Home;
+    }
+
     void PushFast()
     {
         _fast = !_fast;
@@ -299,11 +693,17 @@ public class ControllerBattleClass : MonoBehaviour
             _fastButton.GetComponentInChildren<Text>().text = _fast ? "通常速度" : "高速";
     }
 
-    void PushWithdraw()
+    public bool RequestWithdraw()
     {
         if (!_running)
-            return;
+            return false;
         _stop = true;
+        return true;
+    }
+
+    void PushWithdraw()
+    {
+        RequestWithdraw();
     }
 
     void AddLog(string line)
@@ -340,19 +740,57 @@ public class ControllerBattleClass : MonoBehaviour
                 if (view == null)
                     continue;
                 BattleUnit unit = FindLiving(ally, x, y);
+                if (ally && !_alliesVisible)
+                    unit = null;
                 if (unit == null)
                 {
                     view.Image.sprite = null;
                     view.Image.color = new Color(0.15f, 0.15f, 0.18f, 1f);
-                    view.Label.text = "";
+                    SetMetersVisible(view, false, false);
                     continue;
                 }
 
                 view.Image.sprite = SpriteOf(unit.CharacterId);
                 view.Image.color = Color.white;
-                view.Label.text = "HP " + unit.Hp.ToString() + "\n残機 " + unit.Lives.ToString();
+                bool showExp = unit.IsAlly;
+                SetMetersVisible(view, true, showExp);
+                LayoutMeters(view, showExp);
+                view.Lives.text = BattleCellLabel(unit);
+                SetGauge(view.Hp, unit.Hp, unit.HpMax);
+                if (showExp)
+                {
+                    long exp = 0;
+                    long expMax = 0;
+                    CharacterClass character = _production.GetCharacter(unit.CharacterId);
+                    if (character != null)
+                    {
+                        exp = (long)character.Exp;
+                        expMax = (long)character.ExpMax;
+                    }
+                    SetGauge(view.Exp, exp, expMax);
+                }
             }
         }
+    }
+
+    string BattleCellLabel(BattleUnit unit)
+    {
+        int level = unit.Level;
+        if (unit.IsAlly && _production != null)
+        {
+            CharacterClass character = _production.GetCharacter(unit.CharacterId);
+            if (character != null && character.ID == unit.CharacterId)
+                level = character.Level > int.MaxValue ? int.MaxValue : (int)character.Level;
+        }
+        if (level < 0)
+            level = 0;
+        if (!unit.IsAlly)
+            return "Lv " + level.ToString("D3");
+
+        int lives = unit.Lives;
+        if (lives < 0)
+            lives = 0;
+        return "Lv " + level.ToString("D3") + " / " + lives.ToString("D2");
     }
 
     BattleUnit FindLiving(bool ally, int x, int y)
@@ -390,6 +828,12 @@ public class ControllerBattleClass : MonoBehaviour
             _root.SetActive(true);
     }
 
+    public void Hide()
+    {
+        if (_root != null)
+            _root.SetActive(false);
+    }
+
     void ShowIdle()
     {
         Show();
@@ -400,7 +844,8 @@ public class ControllerBattleClass : MonoBehaviour
         if (_units.Count == 0)
         {
             _logs.Clear();
-            AddLog("出撃すると、ここに戦闘が出ます");
+            if (_logText != null)
+                _logText.text = "";
         }
         DrawSide(_allies, true);
         DrawSide(_enemies, false);
@@ -485,20 +930,153 @@ public class ControllerBattleClass : MonoBehaviour
             {
                 float px = originX + (x - 2) * pitch;
                 float py = 70f - (y - 1) * pitch;
-                Image image = CreateImage("ImageBattleCell" + (cells == _allies ? "A" : "E") + x.ToString() + y.ToString(), _root.transform, new Color(0.12f, 0.05f, 0.05f, 0.85f));
+                string side = cells == _allies ? "A" : "E";
+                string suffix = side + x.ToString() + y.ToString();
+                Image image = CreateImage("ImageBattleCell" + suffix, _root.transform, new Color(0.12f, 0.05f, 0.05f, 0.85f));
                 PlaceRect(image.rectTransform, px, py, cell, cell);
                 image.preserveAspect = true;
                 image.raycastTarget = false;
-                Text label = CreateText("TextBattleCell" + (cells == _allies ? "A" : "E") + x.ToString() + y.ToString(), image.transform, 16, TextAnchor.LowerCenter);
-                Stretch(label.rectTransform);
-                label.color = Color.white;
-                label.raycastTarget = false;
-                Outline outline = label.gameObject.AddComponent<Outline>();
+
+                Image infoBack = CreateImage("ImageBattleInfo" + suffix, image.transform, new Color(0f, 0f, 0f, 0.62f));
+                infoBack.raycastTarget = false;
+
+                Slider hp = CreateGauge("SliderBattleHp" + suffix, image.transform, new Color(0.28f, 0.05f, 0.05f, 1f), new Color(0.92f, 0.16f, 0.14f, 1f));
+                Slider exp = CreateGauge("SliderBattleExp" + suffix, image.transform, new Color(0.05f, 0.22f, 0.08f, 1f), new Color(0.25f, 0.82f, 0.28f, 1f));
+
+                Text lives = CreateText("TextBattleLives" + suffix, image.transform, 14, TextAnchor.MiddleCenter);
+                lives.color = Color.white;
+                lives.raycastTarget = false;
+                lives.resizeTextForBestFit = true;
+                lives.resizeTextMinSize = 8;
+                lives.resizeTextMaxSize = 12;
+                lives.horizontalOverflow = HorizontalWrapMode.Overflow;
+                lives.verticalOverflow = VerticalWrapMode.Truncate;
+                Outline outline = lives.gameObject.AddComponent<Outline>();
                 outline.effectColor = new Color(0f, 0f, 0f, 1f);
                 outline.effectDistance = new Vector2(1f, -1f);
-                cells[x, y] = new CellView { Image = image, Label = label };
+
+                cells[x, y] = new CellView
+                {
+                    Image = image,
+                    InfoBack = infoBack,
+                    Lives = lives,
+                    Hp = hp,
+                    Exp = exp,
+                    Home = image.rectTransform.anchoredPosition
+                };
+                SetMetersVisible(cells[x, y], false, false);
             }
         }
+    }
+
+    const float MeterHeight = 7f;
+    const float MeterGap = 1f;
+    const float LivesHeight = 16f;
+
+    static void SetMetersVisible(CellView view, bool show, bool showExp)
+    {
+        if (view.InfoBack != null)
+            view.InfoBack.gameObject.SetActive(show);
+        if (view.Lives != null)
+            view.Lives.gameObject.SetActive(show);
+        if (view.Hp != null)
+            view.Hp.gameObject.SetActive(show);
+        if (view.Exp != null)
+            view.Exp.gameObject.SetActive(show && showExp);
+    }
+
+    static void LayoutMeters(CellView view, bool showExp)
+    {
+        float y = 1f;
+        if (showExp && view.Exp != null)
+        {
+            PlaceMeter(view.Exp.GetComponent<RectTransform>(), y, MeterHeight);
+            y += MeterHeight + MeterGap;
+        }
+        if (view.Hp != null)
+        {
+            PlaceMeter(view.Hp.GetComponent<RectTransform>(), y, MeterHeight);
+            y += MeterHeight + MeterGap;
+        }
+        if (view.Lives != null)
+        {
+            RectTransform lives = view.Lives.rectTransform;
+            lives.anchorMin = new Vector2(0f, 0f);
+            lives.anchorMax = new Vector2(1f, 0f);
+            lives.pivot = new Vector2(0.5f, 0f);
+            lives.offsetMin = new Vector2(0f, y);
+            lives.offsetMax = new Vector2(0f, y + LivesHeight);
+        }
+        if (view.InfoBack != null)
+        {
+            RectTransform back = view.InfoBack.rectTransform;
+            back.anchorMin = new Vector2(0f, 0f);
+            back.anchorMax = new Vector2(1f, 0f);
+            back.pivot = new Vector2(0.5f, 0f);
+            back.offsetMin = Vector2.zero;
+            back.offsetMax = new Vector2(0f, y + LivesHeight);
+        }
+    }
+
+    static void PlaceMeter(RectTransform rect, float bottom, float height)
+    {
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.offsetMin = new Vector2(3f, bottom);
+        rect.offsetMax = new Vector2(-3f, bottom + height);
+    }
+
+    static void SetGauge(Slider gauge, long current, long max)
+    {
+        if (gauge == null)
+            return;
+        float amount = 0f;
+        if (max > 0 && current > 0)
+        {
+            if (current >= max)
+                amount = 1f;
+            else
+                amount = (float)((double)current / max);
+        }
+        gauge.SetValueWithoutNotify(amount);
+    }
+
+    Slider CreateGauge(string name, Transform parent, Color trackColor, Color fillColor)
+    {
+        Image track = CreateImage(name, parent, trackColor);
+        track.raycastTarget = false;
+        Slider slider = track.gameObject.AddComponent<Slider>();
+        slider.interactable = false;
+        slider.transition = Selectable.Transition.None;
+        slider.navigation = new Navigation { mode = Navigation.Mode.None };
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.direction = Slider.Direction.LeftToRight;
+
+        GameObject fillArea = new GameObject("Fill Area");
+        fillArea.transform.SetParent(track.transform, false);
+        RectTransform fillAreaRect = fillArea.AddComponent<RectTransform>();
+        fillAreaRect.anchorMin = Vector2.zero;
+        fillAreaRect.anchorMax = Vector2.one;
+        fillAreaRect.offsetMin = Vector2.zero;
+        fillAreaRect.offsetMax = Vector2.zero;
+
+        Image fill = CreateImage("Fill", fillArea.transform, fillColor);
+        fill.raycastTarget = false;
+        RectTransform fillRect = fill.rectTransform;
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.offsetMin = Vector2.zero;
+        fillRect.offsetMax = Vector2.zero;
+        slider.fillRect = fillRect;
+        slider.targetGraphic = track;
+        ColorBlock colors = slider.colors;
+        colors.disabledColor = Color.white;
+        slider.colors = colors;
+        slider.value = 1f;
+        slider.SetValueWithoutNotify(0f);
+        return slider;
     }
 
     Image CreateImage(string name, Transform parent, Color color)
@@ -564,15 +1142,18 @@ public class ControllerBattleClass : MonoBehaviour
         public void GrantRgb(CharacterAttribute attribute, long amount)
         {
             _view._production.AddBattleRgb(attribute, amount);
-            if (amount > 0)
-                _view.AddLog(AttributeColorValue.DisplayName(attribute) + " +" + amount.ToString());
         }
 
         public void GrantPixels(int r, int g, int b, long count)
         {
             _view._production.AddBattlePixels(r, g, b, count);
-            if (count > 0)
-                _view.AddLog("ピクセル " + r.ToString() + "," + g.ToString() + "," + b.ToString() + " +" + count.ToString());
+            if (count <= 0)
+                return;
+            _view._cuePixels = true;
+            _view._cueR = r;
+            _view._cueG = g;
+            _view._cueB = b;
+            _view._cuePixelCount = count;
         }
 
         public void GrantExp(BattleUnit ally, long exp)
@@ -592,9 +1173,8 @@ public class ControllerBattleClass : MonoBehaviour
 
         public void Recruit(uint characterId)
         {
-            string message = _view._production.RecruitFromBattle(characterId, _view._units);
-            if (!string.IsNullOrEmpty(message))
-                _view.AddLog(message);
+            _view._production.RecruitFromBattle(characterId, _view._units);
+            _view._cueWalk = true;
         }
 
         public void NoteDefeated(uint characterId)

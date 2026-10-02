@@ -18,9 +18,8 @@ public class BattleBalanceConfig
     // 経験値 = 切り上げ(不透明ピクセル * 属性値 * ExpMultiplier)
     public double ExpMultiplier = 1.0;
 
-    // 次のレベルまでに必要な経験値。既存データに曲線が無いので、ここが調整点。
-    public long ExpBase = 2000;
-    public long ExpPerLevel = 1000;
+    // 次のレベルまでに必要な経験値 = 切り上げ(非透過ピクセル数 * 次レベルの1.5乗)。
+    // レベル0の次は 1^1.5 なので、必要量は非透過ピクセル数そのもの。
     public long MaxLevel = 9999;
     public int MaxLevelsPerExpGrant = 30;
 
@@ -58,14 +57,18 @@ public class BattleBalanceConfig
         return new BattleBalanceConfig();
     }
 
-    public long ExpToNext(long level)
+    public long ExpToNext(long level, long opaquePixels)
     {
         if (level < 0)
             level = 0;
-        long need = ExpBase + ExpPerLevel * level;
-        if (need < 1)
-            need = 1;
-        return need;
+        if (opaquePixels < 1)
+            opaquePixels = 1;
+        long nextLevel = level + 1;
+        double need = opaquePixels * Math.Pow(nextLevel, 1.5);
+        long result = BattleMath.CeilToLong(need);
+        if (result < 1)
+            result = 1;
+        return result;
     }
 
     public int ResolveExpOrbItemId(int enemySize)

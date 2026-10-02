@@ -166,7 +166,13 @@ public class ControllerBattleStageClass : MonoBehaviour
         int activeSet = ControllerProduction.GetActiveBattlePartySet();
         int activeStage = ControllerProduction.GetActiveBattleStage();
         if (activeSet != 0 && (activeStage == 0 || activeStage == CurrentStageIndex))
-            ControllerProduction.LeaveBattle();
+        {
+            if (!ControllerProduction.RequestBattleWithdraw())
+            {
+                ControllerProduction.LeaveBattle();
+                ControllerProduction.SaveGame();
+            }
+        }
         else
         {
             GetSelectedFloorRange(out int floorFrom, out int floorTo);
@@ -227,6 +233,8 @@ public class ControllerBattleStageClass : MonoBehaviour
                 openedStage = Constants.BATTLE_STAGE_NUM;
             CurrentStageIndex = openedStage;
         }
+
+        ApplyFloorFromLimit();
 
         for (int i = 0; i < ButtonBattleStages.Length; i++)
         {
@@ -310,8 +318,12 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         if (TextBattleStagePartyTotal != null)
         {
-            TextBattleStagePartyTotal.text = memberNum.ToString() + "/" + (Constants.BATTLE_FORMATION_SIZE * Constants.BATTLE_FORMATION_SIZE).ToString() + "人" +
-                "   HP " + totalHP + "   ATK " + totalATK + "   DEF " + totalDEF;
+            TextBattleStagePartyTotal.text = memberNum.ToString() + "/" + (Constants.BATTLE_FORMATION_SIZE * Constants.BATTLE_FORMATION_SIZE).ToString() + "人\n"
+                + "HP " + totalHP + "\n"
+                + "ATK " + totalATK + "\n"
+                + "DEF " + totalDEF;
+            TextBattleStagePartyTotal.horizontalOverflow = HorizontalWrapMode.Overflow;
+            TextBattleStagePartyTotal.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
         bool withdrawMode = activeSet != 0 && (activeStage == 0 || activeStage == CurrentStageIndex);
@@ -336,6 +348,19 @@ public class ControllerBattleStageClass : MonoBehaviour
         {
             GetSelectedFloorRange(out int floorFrom, out int floorTo);
             TextBattleFloorRange.text = floorFrom.ToString() + "階 〜 " + floorTo.ToString() + "階";
+            int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
+            int lastBandStart = Constants.BATTLE_STAGE_FLOOR_MAX - Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+            if (maxFrom < lastBandStart)
+            {
+                int highest = ControllerProduction.GetHighestClearedBattleFloor(CurrentStageIndex);
+                if (highest <= 0)
+                    TextBattleFloorRange.text += "\n（開始は1階まで）";
+                else
+                    TextBattleFloorRange.text += "\n（" + highest.ToString() + "階クリア、開始は" + maxFrom.ToString() + "階まで）";
+            }
+
+            TextBattleFloorRange.horizontalOverflow = HorizontalWrapMode.Overflow;
+            TextBattleFloorRange.verticalOverflow = VerticalWrapMode.Overflow;
 
             int activeFloorFrom = ControllerProduction.GetActiveBattleFloorFrom();
             int activeFloorTo = ControllerProduction.GetActiveBattleFloorTo();
@@ -345,6 +370,29 @@ public class ControllerBattleStageClass : MonoBehaviour
                 TextBattleFloorRange.text += "\n出撃中 " + activeFloorFrom.ToString() + "階 〜 " + activeFloorTo.ToString() + "階";
             }
         }
+    }
+
+    void ApplyFloorFromLimit()
+    {
+        if (SliderBattleFloorFrom == null || ControllerProduction == null)
+            return;
+
+        int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
+        int maxBand = (maxFrom - 1) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+        if (maxBand < 1)
+            maxBand = 1;
+
+        int fromBand = Mathf.RoundToInt(SliderBattleFloorFrom.value);
+        if (fromBand > maxBand)
+            SliderBattleFloorFrom.SetValueWithoutNotify(maxBand);
+        SliderBattleFloorFrom.maxValue = maxBand;
+
+        if (SliderBattleFloorTo == null)
+            return;
+        int toBand = Mathf.RoundToInt(SliderBattleFloorTo.value);
+        fromBand = Mathf.RoundToInt(SliderBattleFloorFrom.value);
+        if (toBand < fromBand)
+            SliderBattleFloorTo.SetValueWithoutNotify(fromBand);
     }
 
     void SetFloorSliders(int floorFrom, int floorTo)
@@ -363,6 +411,13 @@ public class ControllerBattleStageClass : MonoBehaviour
         int toBand = SliderBattleFloorTo != null ? Mathf.RoundToInt(SliderBattleFloorTo.value) : 1;
         if (fromBand < 1)
             fromBand = 1;
+        if (ControllerProduction != null)
+        {
+            int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
+            int maxBand = (maxFrom - 1) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+            if (fromBand > maxBand)
+                fromBand = maxBand;
+        }
         if (toBand < fromBand)
             toBand = fromBand;
 

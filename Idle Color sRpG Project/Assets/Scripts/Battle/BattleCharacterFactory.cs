@@ -22,6 +22,7 @@ public static class BattleCharacterFactory
             return null;
         int owned = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
         unit.Lives = ClampLives(owned, config);
+        unit.Level = character.Level > int.MaxValue ? int.MaxValue : (int)character.Level;
         return unit;
     }
 
@@ -46,6 +47,7 @@ public static class BattleCharacterFactory
             unit.Spd = 1;
         unit.Hp = unit.HpMax;
         unit.Lives = ClampLives(config.EnemyInitialLives, config);
+        unit.Level = level < 0 ? 0 : level;
         return unit;
     }
 

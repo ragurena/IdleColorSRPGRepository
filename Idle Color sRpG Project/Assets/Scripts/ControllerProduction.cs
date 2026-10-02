@@ -55,7 +55,9 @@ public class ControllerProduction : MonoBehaviour
     ControllerBattleStageClass ControllerBattleStage;
     ControllerBattleClass ControllerBattle;
     ControllerCatalogClass ControllerCatalog;
+    ControllerFusionClass ControllerFusion;
     GameObject PanelCatalog;
+    GameObject PanelFusion;
     BattleBalanceConfig BattleBalance = BattleBalanceConfig.CreateDefault();
     Dictionary<int, int> ItemCounts = new Dictionary<int, int>();
 
@@ -79,6 +81,8 @@ public class ControllerProduction : MonoBehaviour
     int ActiveBattleFloorFrom = 0;
     int ActiveBattleFloorTo = 0;
     int ClearedBattleStage = 0;
+    //ステージごとの最高クリア階。0は未クリア。開始階はこの直後の10階区切りまで
+    int[] ClearedBattleFloor = new int[Constants.BATTLE_STAGE_NUM + 1];
     List<bool[,]> ProgressTextureProductionCharacter = new List<bool[,]>();//[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     List<ConsumePixelClass>[] ConsumePixelsProductionCharacter = new List<ConsumePixelClass>[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     Texture[] ProductionCharacterViewTexture = new Texture[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
@@ -299,7 +303,7 @@ public class ControllerProduction : MonoBehaviour
         //CharactersAll[1].MakeCharacter("Character/RedSlime8", 1, "LittleRedSlime");
         //CharactersAll[1].MakeCharacter(Application.dataPath + "/Resources/" + "Character/RedSlime8" + ".png", 1, "LittleRedSlime");
         bool rebuildImages = File.Exists(Application.persistentDataPath + "/ICS.csv")
-            && SaveClass.IsOlderDataVersion(SaveClass.ReadDataVersion());
+            && SaveClass.IsOlderThan(SaveClass.ReadDataVersion(), GameConfig.ImageDataVersion);
         if (rebuildImages)
         {
             Debug.Log("セーブの版が古いので、減色画像を作り直す");
@@ -348,6 +352,7 @@ public class ControllerProduction : MonoBehaviour
             ref ActiveBattleFloorFrom,
             ref ActiveBattleFloorTo,
             ref ClearedBattleStage,
+            ref ClearedBattleFloor,
             ref ItemCounts
             );
 
@@ -366,6 +371,8 @@ public class ControllerProduction : MonoBehaviour
         }
         if (ClearedBattleStage < 0 || ClearedBattleStage > Constants.BATTLE_STAGE_NUM)
             ClearedBattleStage = 0;
+        NormalizeClearedBattleFloors();
+        DropFormerStarterOwnership();
 
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
         {
@@ -412,6 +419,22 @@ public class ControllerProduction : MonoBehaviour
         }
         WireCatalogButton();
 
+        ControllerFusion = GetComponent<ControllerFusionClass>();
+        if (ControllerFusion == null)
+            ControllerFusion = gameObject.AddComponent<ControllerFusionClass>();
+        if (PanelRGBProduction != null)
+        {
+            ControllerFusion.Initialize(this, PanelRGBProduction);
+            PanelFusion = ControllerFusion.Panel;
+            if (PanelFusion != null)
+                NotShowPanel(PanelFusion);
+        }
+        WireFusionButton();
+
+        PushButtonSelectSceneRGBProduction();
+        if (ControllerBattle != null)
+            ControllerBattle.Hide();
+
         Debug.Log("ControllerProduction End");
     }
 
@@ -420,15 +443,6 @@ public class ControllerProduction : MonoBehaviour
     private float TimeElapsed = 0;
     void Update()
     {
-        //TODO:test
-        GameObject testLogText;
-        testLogText = GameObject.FindGameObjectWithTag("test");
-        testLogText.GetComponentInChildren<Text>().text = "ButtonCharacterTmp = " + ButtonCharacterTmp + "\n" +
-                                                          "ButtonColorTmp = " + ButtonColorTmp + "\n" +
-                                                          "ColorTmp = " + ColorTmp;
-
-
-
         TimeElapsed += Time.deltaTime;
 
         if (TimeElapsed >= TimeOut)
@@ -582,6 +596,7 @@ public class ControllerProduction : MonoBehaviour
             ActiveBattleFloorFrom,
             ActiveBattleFloorTo,
             ClearedBattleStage,
+            ClearedBattleFloor,
             ItemCounts
             );
     }
@@ -694,6 +709,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelBattleParty);
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
+        NotShowFusionPanel();
     }
 
     //ピクセル生産シーンボタンが押されたら
@@ -713,6 +729,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelBattleParty);
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
+        NotShowFusionPanel();
     }
 
     //キャラクター生産シーンボタンが押されたら
@@ -731,6 +748,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelBattleParty);
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
+        NotShowFusionPanel();
     }
 
     //バトル編成シーンボタンが押されたら
@@ -751,6 +769,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelCharacterProduction);
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
+        NotShowFusionPanel();
     }
 
     //バトルステージ選択シーンボタンが押されたら
@@ -769,6 +788,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelCharacterProduction);
         NotShowPanel(PanelBattleParty);
         NotShowCatalogPanel();
+        NotShowFusionPanel();
     }
 
     public void PushButtonSelectSceneCatalog()
@@ -786,6 +806,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelCharacterProduction);
         NotShowPanel(PanelBattleParty);
         NotShowBattleStagePanel();
+        NotShowFusionPanel();
     }
 
     public void ReturnFromBattle()
@@ -803,6 +824,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelCharacterProduction);
         NotShowPanel(PanelBattleParty);
         NotShowCatalogPanel();
+        NotShowFusionPanel();
     }
 
     void NotShowCatalogPanel()
@@ -811,12 +833,122 @@ public class ControllerProduction : MonoBehaviour
             NotShowPanel(PanelCatalog);
     }
 
-    void WireCatalogButton()
+    public void PushButtonSelectSceneFusion()
     {
-        GameObject buttonObject = GameObject.Find("ButtonSelectScene6");
+        if (PanelFusion == null)
+            return;
+
+        ShowPanel(PanelFusion);
+        if (ControllerFusion != null)
+            ControllerFusion.Open();
+
+        NotShowPanel(PanelRGBProduction);
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
+        NotShowPanel(PanelCharacterProduction);
+        NotShowPanel(PanelBattleParty);
+        NotShowBattleStagePanel();
+        NotShowCatalogPanel();
+    }
+
+    void NotShowFusionPanel()
+    {
+        if (PanelFusion != null)
+            NotShowPanel(PanelFusion);
+    }
+
+    void WireFusionButton()
+    {
+        GameObject bar = GameObject.Find("PanelSelectScene");
+        if (bar == null)
+        {
+            Debug.LogWarning("PanelSelectScene が見つかりません");
+            return;
+        }
+
+        GameObject adButton = GameObject.Find("ButtonSelectScene7");
+        if (adButton != null)
+        {
+            RectTransform adRect = adButton.GetComponent<RectTransform>();
+            if (adRect != null)
+                adRect.anchoredPosition = new Vector2(0f, 4000f);
+        }
+
+        Transform existing = bar.transform.Find("ButtonFusionScene");
+        GameObject buttonObject = existing != null ? existing.gameObject : null;
         if (buttonObject == null)
         {
-            Debug.LogWarning("ButtonSelectScene6 が見つかりません");
+            buttonObject = new GameObject("ButtonFusionScene", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            buttonObject.transform.SetParent(bar.transform, false);
+            Image image = buttonObject.GetComponent<Image>();
+            image.color = new Color(0.25f, 0.48f, 0.75f, 1f);
+            buttonObject.AddComponent<Button>();
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(buttonObject.transform, false);
+            Text text = textObject.AddComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.fontSize = 28;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+            text.text = "合成";
+            text.raycastTarget = false;
+            RectTransform textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+        }
+
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(450f, 0f);
+        rect.sizeDelta = new Vector2(128f, 128f);
+
+        Button button = buttonObject.GetComponent<Button>();
+        if (button == null)
+            return;
+        button.onClick.RemoveListener(PushButtonSelectSceneFusion);
+        button.onClick.AddListener(PushButtonSelectSceneFusion);
+    }
+
+    public bool TryFuse(uint characterId)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null || character.ID != characterId)
+            return false;
+
+        long lives = character.OwnedNumCur > (ulong)long.MaxValue ? long.MaxValue : (long)character.OwnedNumCur;
+        long count = character.FusionCount > (ulong)long.MaxValue ? long.MaxValue : (long)character.FusionCount;
+        if (!FusionBonus.CanFuse(lives, count))
+            return false;
+
+        long cost = FusionBonus.NextCost(count);
+        long nextLives = lives - cost;
+        if (nextLives > int.MaxValue)
+            nextLives = int.MaxValue;
+        character.SetOwnedCur((int)nextLives, BattleBalance.MaxLives);
+        if (character.FusionCount < ulong.MaxValue)
+            character.FusionCount++;
+        character.RebuildLevelStats(BattleBalance);
+        if (ControllerBattle != null)
+            ControllerBattle.ApplyAllyFusion(character);
+        ShowCharacterOwnedNum();
+        SaveGame();
+        return true;
+    }
+
+    void WireCatalogButton()
+    {
+        GameObject buttonObject = GameObject.Find("ButtonSelectSceneZukan");
+        if (buttonObject == null)
+            buttonObject = GameObject.Find("ButtonSelectScene6");
+        if (buttonObject == null)
+        {
+            Debug.LogWarning("ButtonSelectSceneZukan が見つかりません");
             return;
         }
 
@@ -1734,6 +1866,8 @@ public class ControllerProduction : MonoBehaviour
             return false;
         if (!IsBattleFloorRange(floorFrom, floorTo))
             return false;
+        if (floorFrom > GetMaxBattleFloorFrom(stageIndex))
+            return false;
         if (!HasBattlePartyMember(setIndex))
             return false;
         if (!EnterBattle(setIndex))
@@ -1778,6 +1912,98 @@ public class ControllerProduction : MonoBehaviour
         return ClearedBattleStage;
     }
 
+    public int GetHighestClearedBattleFloor(int stageIndex)
+    {
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM || ClearedBattleFloor == null)
+            return 0;
+        return ClearedBattleFloor[stageIndex];
+    }
+
+    //クリア階の次の階が含まれる10階区切りの始まり。未クリアなら1階
+    public int GetMaxBattleFloorFrom(int stageIndex)
+    {
+        return MaxBattleFloorFrom(GetHighestClearedBattleFloor(stageIndex));
+    }
+
+    public static int MaxBattleFloorFrom(int clearedFloor)
+    {
+        if (clearedFloor < 0)
+            clearedFloor = 0;
+        int next = clearedFloor + 1;
+        if (next > Constants.BATTLE_STAGE_FLOOR_MAX)
+            next = Constants.BATTLE_STAGE_FLOOR_MAX;
+        int step = Constants.BATTLE_STAGE_FLOOR_STEP;
+        return ((next - 1) / step) * step + 1;
+    }
+
+    public void MarkBattleFloorCleared(int stageIndex, int floor)
+    {
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM || ClearedBattleFloor == null)
+            return;
+        if (floor < 1 || floor > Constants.BATTLE_STAGE_FLOOR_MAX)
+            return;
+        if (floor > ClearedBattleFloor[stageIndex])
+            ClearedBattleFloor[stageIndex] = floor;
+    }
+
+    void NormalizeClearedBattleFloors()
+    {
+        if (ClearedBattleFloor == null || ClearedBattleFloor.Length != Constants.BATTLE_STAGE_NUM + 1)
+            ClearedBattleFloor = new int[Constants.BATTLE_STAGE_NUM + 1];
+
+        for (int stage = 1; stage <= Constants.BATTLE_STAGE_NUM; stage++)
+        {
+            if (ClearedBattleFloor[stage] < 0 || ClearedBattleFloor[stage] > Constants.BATTLE_STAGE_FLOOR_MAX)
+                ClearedBattleFloor[stage] = 0;
+            if (stage <= ClearedBattleStage)
+                ClearedBattleFloor[stage] = Constants.BATTLE_STAGE_FLOOR_MAX;
+        }
+    }
+
+    // 0.0.4 より前は ID 4 以降も初期所持だった。仲間化で持ったネコ（ID 27 以降）はそのまま残す
+    void DropFormerStarterOwnership()
+    {
+        if (!SaveClass.IsOlderThan(SaveClass.ReadDataVersion(), "0.0.4"))
+            return;
+
+        CharacterDefinition[] roster = CharacterRoster.All;
+        for (int i = 0; i < roster.Length; i++)
+        {
+            CharacterDefinition def = roster[i];
+            if (def.StartsOwned || def.Id >= 27)
+                continue;
+            if (def.Id < 1 || def.Id > Constants.CHARACTERS_ALL_NUM)
+                continue;
+
+            CharacterClass character = CharactersAll[def.Id];
+            if (character == null || character.ID != def.Id)
+                continue;
+
+            character.OwnedNumCur = 0;
+            character.OwnedNumMax = 0;
+            character.Whereabouts = Place.None;
+            ReleaseCharacterFromProduction(def.Id);
+            ClearBattlePartyCharacter(def.Id);
+        }
+
+        SaveGame();
+    }
+
+    void ClearBattlePartyCharacter(uint characterId)
+    {
+        for (int setIndex = 1; setIndex <= Constants.BATTLE_PARTY_SET_NUM; setIndex++)
+        {
+            for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+            {
+                for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+                {
+                    if (BattlePartyCharacterIds[setIndex, x, y] == characterId)
+                        BattlePartyCharacterIds[setIndex, x, y] = 0;
+                }
+            }
+        }
+    }
+
     //ステージ1は最初から開放。以降は、1つ前をクリアしているときだけ開放
     public bool IsBattleStageUnlocked(int stageIndex)
     {
@@ -1792,6 +2018,7 @@ public class ControllerProduction : MonoBehaviour
             return false;
         if (ActiveBattleStage > ClearedBattleStage)
             ClearedBattleStage = ActiveBattleStage;
+        MarkBattleFloorCleared(ActiveBattleStage, Constants.BATTLE_STAGE_FLOOR_MAX);
         return true;
     }
 
@@ -1809,6 +2036,11 @@ public class ControllerProduction : MonoBehaviour
             }
         }
         return false;
+    }
+
+    public bool RequestBattleWithdraw()
+    {
+        return ControllerBattle != null && ControllerBattle.RequestWithdraw();
     }
 
     public void LeaveBattle()
@@ -1922,7 +2154,7 @@ public class ControllerProduction : MonoBehaviour
         long exp = (long)character.Exp;
         long expMax = (long)character.ExpMax;
         long previousHpMax = unit.HpMax;
-        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config);
+        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config, character.OpaquePixelCount());
 
         if (level < 0)
             level = 0;
@@ -1933,6 +2165,7 @@ public class ControllerProduction : MonoBehaviour
         character.Level = (ulong)level;
         character.Exp = (ulong)exp;
         character.ExpMax = (ulong)expMax;
+        unit.Level = (int)level;
         if (levels > 0)
         {
             character.RebuildLevelStats(config);
@@ -2639,31 +2872,36 @@ public class ControllerProduction : MonoBehaviour
         }
 
         //RGB値の表示
-        if (CharactersIDProductionPixel[argIndex] == 0)
-        {
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorR").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[argIndex].r * 255).ToString();
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorG").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[argIndex].g * 255).ToString();
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorB").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[argIndex].b * 255).ToString();
-        }
-        else
-        {
-            uint PixelProductionNum = CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorR").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[argIndex].r * 255).ToString() + "\n" +
-                  "× " + PixelProductionNum.ToString() + "\n" +
-                  "= " + (ColorProductionPixel[argIndex].r * 255 * PixelProductionNum).ToString();
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorG").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[argIndex].g * 255).ToString() + "\n" +
-                  "× " + PixelProductionNum.ToString() + "\n" +
-                  "= " + (ColorProductionPixel[argIndex].g * 255 * PixelProductionNum).ToString();
-            Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("ImagePixelColorB").gameObject.GetComponent<Image>().GetComponentInChildren<Text>().text
-                = (ColorProductionPixel[argIndex].b * 255).ToString() + "\n" +
-                  "× " + PixelProductionNum.ToString() + "\n" +
-                  "= " + (ColorProductionPixel[argIndex].b * 255 * PixelProductionNum).ToString();
-        }
+        uint pixelCount = 0;
+        if (CharactersIDProductionPixel[argIndex] != 0)
+            pixelCount = CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+
+        Transform colorPanel = Content.transform.Find("PanelImagePixelColor");
+        SetPixelChannelLine(colorPanel, "ImagePixelColorR", "R", ColorProductionPixel[argIndex].r, pixelCount);
+        SetPixelChannelLine(colorPanel, "ImagePixelColorG", "G", ColorProductionPixel[argIndex].g, pixelCount);
+        SetPixelChannelLine(colorPanel, "ImagePixelColorB", "B", ColorProductionPixel[argIndex].b, pixelCount);
+    }
+
+    static void SetPixelChannelLine(Transform colorPanel, string imageName, string channel, float color01, uint pixelCount)
+    {
+        if (colorPanel == null)
+            return;
+        Transform image = colorPanel.Find(imageName);
+        if (image == null)
+            return;
+        Text text = image.GetComponent<Image>().GetComponentInChildren<Text>();
+        if (text == null)
+            return;
+
+        int value = Mathf.RoundToInt(color01 * 255f);
+        if (value < 0)
+            value = 0;
+        if (value > 255)
+            value = 255;
+        long total = (long)value * pixelCount;
+        text.text = channel + " " + value.ToString() + "\n"
+            + "× " + pixelCount.ToString() + " px\n"
+            + "= " + total.ToString();
     }
     public void UpdateSliderPixelProduction(int argIndex)
     {
@@ -2967,11 +3205,10 @@ public class ControllerProduction : MonoBehaviour
         texts[0].text = (consumePixel.PixelColor.r * 255).ToString();
         texts[2].text = (consumePixel.PixelColor.g * 255).ToString();
         texts[4].text = (consumePixel.PixelColor.b * 255).ToString();
-        texts[5].text = consumePixel.CurConsumePixelsNum.ToString() + " / " + consumePixel.ToBeCurConsumePixelsNum.ToString();
-
         int r = (int)(consumePixel.PixelColor.r * 255);
         int g = (int)(consumePixel.PixelColor.g * 255);
         int b = (int)(consumePixel.PixelColor.b * 255);
+        texts[5].text = consumePixel.CurConsumePixelsNum.ToString() + " / " + consumePixel.ToBeCurConsumePixelsNum.ToString() + " / " + CurPixels[r, g, b].ToString();
         uint remaining = consumePixel.ToBeCurConsumePixelsNum - consumePixel.CurConsumePixelsNum;
         texts[5].color = CurPixels[r, g, b] < remaining ? new Color(1, 0, 0, 1) : new Color(0, 0, 0, 1);
     }
