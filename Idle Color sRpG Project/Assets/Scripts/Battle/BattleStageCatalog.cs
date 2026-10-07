@@ -154,7 +154,7 @@ public static class BattleStageCatalog
         Boss(stage, 40, 19, 1600, 1, 1);
         Boss(stage, 50, 23, 1800, 1, 2);
         Boss(stage, 60, 24, 2000, 1, 2);
-        Boss(stage, 70, 19, 22000, 1, 2);
+        Boss(stage, 70, 19, 2200, 1, 2);
         Boss(stage, 80, 23, 2400, 1, 2);
         Boss(stage, 90, 24, 2600, 1, 3);
         Boss(stage, 100, 19, 2800, 1, 3);
