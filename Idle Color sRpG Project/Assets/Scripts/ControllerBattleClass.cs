@@ -14,7 +14,7 @@ public class ControllerBattleClass : MonoBehaviour
     Text _resource;
     Text _logText;
     Button _fastButton;
-    bool _fast;
+    int _battleSpeed = 1;
     bool _running;
     bool _stop;
     bool _alliesVisible = true;
@@ -267,6 +267,7 @@ public class ControllerBattleClass : MonoBehaviour
             _production.LeaveBattle();
         _production.SaveGame();
         _production.UpdateRGBProductionScene();
+        _production.RefreshProductionFigures();
         _production.ShowCharacterOwnedNum();
         ShowIdle();
         Hide();
@@ -346,10 +347,22 @@ public class ControllerBattleClass : MonoBehaviour
 
     float Interval()
     {
-        double seconds = _fast ? _config.FastActionIntervalSeconds : _config.ActionIntervalSeconds;
+        double seconds = _config.ActionIntervalSeconds / BattleSpeed();
         if (seconds < 0.0)
             seconds = 0.0;
         return (float)seconds;
+    }
+
+    int BattleSpeed()
+    {
+        if (_battleSpeed == 2 || _battleSpeed == 4)
+            return _battleSpeed;
+        return 1;
+    }
+
+    float ScaledSeconds(float normalSeconds)
+    {
+        return normalSeconds / BattleSpeed();
     }
 
     const float AttackHop = 14f;
@@ -455,8 +468,8 @@ public class ControllerBattleClass : MonoBehaviour
             }
         }
 
-        float walkTime = _fast ? 0.42f : 0.95f;
-        float bounceTime = _fast ? 0.32f : 0.7f;
+        float walkTime = ScaledSeconds(0.95f);
+        float bounceTime = ScaledSeconds(0.7f);
         float total = 0f;
         if (walker != null)
             total = walkTime;
@@ -533,7 +546,7 @@ public class ControllerBattleClass : MonoBehaviour
 
     float MarchDuration()
     {
-        return _fast ? 0.45f : 0.8f;
+        return ScaledSeconds(0.8f);
     }
 
     float OffscreenLeft()
@@ -688,9 +701,28 @@ public class ControllerBattleClass : MonoBehaviour
 
     void PushFast()
     {
-        _fast = !_fast;
-        if (_fastButton != null)
-            _fastButton.GetComponentInChildren<Text>().text = _fast ? "通常速度" : "高速";
+        if (_battleSpeed == 1)
+            _battleSpeed = 2;
+        else if (_battleSpeed == 2)
+            _battleSpeed = 4;
+        else
+            _battleSpeed = 1;
+        ApplySpeedButton();
+    }
+
+    void ApplySpeedButton()
+    {
+        if (_fastButton == null)
+            return;
+        Text label = _fastButton.GetComponentInChildren<Text>();
+        if (label == null)
+            return;
+        if (_battleSpeed == 2)
+            label.text = "2倍";
+        else if (_battleSpeed == 4)
+            label.text = "4倍";
+        else
+            label.text = "通常";
     }
 
     public bool RequestWithdraw()
@@ -914,9 +946,10 @@ public class ControllerBattleClass : MonoBehaviour
         PlaceRect(withdraw.GetComponent<RectTransform>(), -430f, 175f, 120f, 44f);
         withdraw.onClick.AddListener(PushWithdraw);
 
-        _fastButton = CreateButton("ButtonBattleFast", "高速", new Color(0.25f, 0.45f, 0.75f, 1f));
+        _fastButton = CreateButton("ButtonBattleFast", "通常", new Color(0.25f, 0.45f, 0.75f, 1f));
         PlaceRect(_fastButton.GetComponent<RectTransform>(), -290f, 175f, 120f, 44f);
         _fastButton.onClick.AddListener(PushFast);
+        ApplySpeedButton();
     }
 
     void BuildGrid(CellView[,] cells, float originX)

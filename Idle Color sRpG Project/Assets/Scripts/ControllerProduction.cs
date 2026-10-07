@@ -476,21 +476,8 @@ public class ControllerProduction : MonoBehaviour
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
             //ピクセルの生産
-            bool pixelsProduced = false;
             for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
-            {
-                bool ProductionPixelFlag;
-                ProductionPixel(Trigger.Update, i, out ProductionPixelFlag);
-
-                UpdateSliderPixelProduction(i);
-
-                //ピクセルが生産されたら
-                if (ProductionPixelFlag)
-                {
-                    pixelsProduced = true;
-                    CreatePixelListPixelProduction();
-                }
-            }
+                ProductionPixel(Trigger.Update, i, out _);
             UpdateRGBProductionScene();
 
             //RGB不足フラグの表示
@@ -533,7 +520,6 @@ public class ControllerProduction : MonoBehaviour
             //キャラクター生産
             bool ProductionCharacterFlag = false;
             bool RepeatComplete = true;
-            bool characterPainted = false;
             for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1; i++)
             {
                 if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
@@ -543,19 +529,15 @@ public class ControllerProduction : MonoBehaviour
                 bool RC = true;
                 bool painted = false;
                 ProductionCharacter(Trigger.Update, i,
-                    CharactersAll[CharactersIDProducedCharacter[i]].PaintPixels, out PCF, out RC, out painted);
+                    CharactersAll[CharactersIDProductionCharacter[i]].PaintPixels, out PCF, out RC, out painted);
                 if (painted || PCF)
-                {
-                    characterPainted = true;
                     UpdateProductionCharacterProgressImage(i);
-                }
                 if (PCF)
                     ProductionCharacterFlag = true;
                 if (RC == false)
                     RepeatComplete = false;
             }
-            if (pixelsProduced || characterPainted)
-                UpdateProductionCharacterConsumeViews();
+            RefreshProductionFigures();
             if(ProductionCharacterFlag)
                 ShowCharacterOwnedNum();
             if(RepeatComplete == false)
@@ -755,6 +737,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
         NotShowFusionPanel();
+        UpdateProductionCharacterConsumeViews();
         UpdateCharacterProductionStockLabels();
     }
 
@@ -1567,18 +1550,8 @@ public class ControllerProduction : MonoBehaviour
     {
         int ProductionPixelIndex = int.Parse(argName.Substring(argName.Length - 2, 2));
 
-        bool ProductionPixelFlag;
-        ProductionPixel(Trigger.User, ProductionPixelIndex, out ProductionPixelFlag);
-        UpdateSliderPixelProduction(ProductionPixelIndex);
-
-        UpdateRGBProductionSliderOneColor(TextR, CurR, MaxR, SliderR, SliderCostIncreaseValueRUp, SliderCostMaxRUp);
-        UpdateRGBProductionSliderOneColor(TextG, CurG, MaxG, SliderG, SliderCostIncreaseValueGUp, SliderCostMaxGUp);
-        UpdateRGBProductionSliderOneColor(TextB, CurB, MaxB, SliderB, SliderCostIncreaseValueBUp, SliderCostMaxBUp);
-
-        if (ProductionPixelFlag)
-        {
-            CreatePixelListPixelProduction();
-        }
+        ProductionPixel(Trigger.User, ProductionPixelIndex, out _);
+        RefreshProductionFigures();
     }
 
     ///////////////////////////////////////////////////////////////
@@ -1611,7 +1584,7 @@ public class ControllerProduction : MonoBehaviour
     {
         ReductionPixelsProductionCharacter(argIndex);
         UpdateProductionCharacterProgressImage(argIndex);
-        UpdateProductionCharacterConsumeViews();
+        RefreshProductionFigures();
     }
     //ピクセルを還元してから、今の生産対象で進捗を作り直す。対象が無いときは空にする
     public void ReductionPixelsProductionCharacter(int argIndex)
@@ -1756,7 +1729,7 @@ public class ControllerProduction : MonoBehaviour
         ProductionCharacter(Trigger.User, ProductionCharacterIndex, 1, out ProductionCharacterFlag, out RepeatComplete, out paintedPixel);
         if (paintedPixel || ProductionCharacterFlag)
             UpdateProductionCharacterProgressImage(ProductionCharacterIndex);
-        UpdateProductionCharacterConsumeViews();
+        RefreshProductionFigures();
         if (ProductionCharacterFlag)
             ShowCharacterOwnedNum();
         if (RepeatComplete == false)
@@ -2775,6 +2748,39 @@ public class ControllerProduction : MonoBehaviour
             UpdateSliderPixelProduction(i);
         }
     }
+    //RGB、ピクセル在庫、キャラ生産の消費数など、今出ている数値だけ書き直す。マスの作り直しはしない
+    public void RefreshProductionFigures()
+    {
+        UpdateRGBProductionSliderOneColor(TextR, CurR, MaxR, SliderR, SliderCostIncreaseValueRUp, SliderCostMaxRUp);
+        UpdateRGBProductionSliderOneColor(TextG, CurG, MaxG, SliderG, SliderCostIncreaseValueGUp, SliderCostMaxGUp);
+        UpdateRGBProductionSliderOneColor(TextB, CurB, MaxB, SliderB, SliderCostIncreaseValueBUp, SliderCostMaxBUp);
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+            UpdateSliderPixelProduction(i);
+        RefreshPixelListCounts();
+        UpdateProductionCharacterConsumeViews();
+    }
+
+    void RefreshPixelListCounts()
+    {
+        GameObject content = GameObject.Find("ContentPixelList");
+        if (content == null || CurPixels == null)
+            return;
+        for (int i = 0; i < content.transform.childCount; i++)
+        {
+            Text[] texts = content.transform.GetChild(i).GetComponentsInChildren<Text>();
+            if (texts.Length < 6)
+                continue;
+            int r;
+            int g;
+            int b;
+            if (!int.TryParse(texts[0].text, out r) || !int.TryParse(texts[2].text, out g) || !int.TryParse(texts[4].text, out b))
+                continue;
+            if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+                continue;
+            texts[5].text = CurPixels[r, g, b].ToString();
+        }
+    }
+
     public void CreatePixelListPixelProduction()
     {
         // ページ指定部分

@@ -938,12 +938,35 @@ public class CharacterClass //: MonoBehaviour
 
     public uint GetCreatePixels(ushort r, ushort g, ushort b)
     {
-        uint result = 0;
+        //画像の一辺に、色コードと同じ 0〜255 のピクセル数を足す
+        return Size + CountMatchingColors(r, g, b);
+    }
 
-        //result = Size + ExistsColors[r,g,b];
-        result = Size + GetExistsColors(new Color(r / 255, g / 255, b / 255));
+    uint CountMatchingColors(ushort r, ushort g, ushort b)
+    {
+        if (ListExistsColors == null)
+            return 0;
+        uint count = 0;
+        for (int i = 0; i < ListExistsColors.Count; i++)
+        {
+            ExistColor entry = ListExistsColors[i];
+            if (entry == null)
+                continue;
+            if (ToColorChannel(entry.Color.r) != r || ToColorChannel(entry.Color.g) != g || ToColorChannel(entry.Color.b) != b)
+                continue;
+            count += entry.Num;
+        }
+        return count;
+    }
 
-        return result;
+    static ushort ToColorChannel(float value)
+    {
+        int channel = (int)(value * 255f);
+        if (channel < 0)
+            return 0;
+        if (channel > 255)
+            return 255;
+        return (ushort)channel;
     }
 
     void CountOpaqueIslands(Color[] imageColor, int width, int height, out uint islandCount, out uint largestIslandSize)

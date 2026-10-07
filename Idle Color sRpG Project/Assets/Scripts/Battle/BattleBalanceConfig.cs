@@ -49,8 +49,8 @@ public class BattleBalanceConfig
     // 攻撃側のタイプが、受ける側の弱点タイプと一致したときの攻撃力倍率。色と重なると両方を掛ける
     public double WeaknessTypeAttackMultiplier = 2.0;
 
-    public double ActionIntervalSeconds = 0.28;
-    public double FastActionIntervalSeconds = 0.02;
+    //通常速度の1アクション。2倍・4倍はこの時間を割る
+    public double ActionIntervalSeconds = 0.45;
 
     // 敵サイズ → 経験値玉のアイテムID。一致が無いときは最も近いサイズ。
     public int[] ExpOrbSizes = { 8, 16, 32, 64, 128 };
