@@ -23,10 +23,13 @@ public class BattleBalanceConfig
     public long MaxLevel = 9999;
     public int MaxLevelsPerExpGrant = 30;
 
+    // 1レベルごとに、基礎ステータスのこの割合を足す。今の値へ掛けない。
     public double HpGrowthRate = 0.10;
     public double AtkGrowthRate = 0.05;
     public double DefGrowthRate = 0.05;
-    public double SpdGrowthRate = 0.01;
+    // レベルでは SPD を増やさない。基礎値のまま。
+    public double SpdGrowthRate = 0.0;
+    public double RgbGrowthRate = 0.01;
 
     // LUC * ExpOrbRatePerLuc。上限 ExpOrbRateCap
     public double ExpOrbRatePerLuc = 0.05;

@@ -70,6 +70,8 @@ public class ControllerProduction : MonoBehaviour
     uint[] CharactersIDProductionPixel = new uint[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
     Color[] ColorProductionPixel = new Color[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
     ushort[,] ProgressProductionPixel = new ushort[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
+    //途中の生産で実際に消費したRGB。キャラを替えても進捗は残し、色を変えたときだけここを還元する
+    ulong[,] SpentProductionPixel = new ulong[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
     //bool[,] WarningLackRGB = new bool[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1, 3 + 1];
 
     uint[] CharactersIDProductionCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
@@ -341,6 +343,7 @@ public class ControllerProduction : MonoBehaviour
             ref CharactersIDProductionPixel,
             ref ColorProductionPixel,
             ref ProgressProductionPixel,
+            ref SpentProductionPixel,
             ref CharactersIDProductionCharacter,
             ref CharactersIDProducedCharacter,
             ProgressTextureProductionCharacter,
@@ -373,10 +376,12 @@ public class ControllerProduction : MonoBehaviour
             ClearedBattleStage = 0;
         NormalizeClearedBattleFloors();
         DropFormerStarterOwnership();
+        SeedPixelSpendFromProgress();
 
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
         {
-            if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
+            //生産者がいなくても、作る対象がいればシルエットを出す
+            if (CharactersIDProducedCharacter[i] == 0)
                 continue;
 
             if (rebuildImages || ProgressTextureProductionCharacter[i] == null)
@@ -585,6 +590,7 @@ public class ControllerProduction : MonoBehaviour
             CharactersIDProductionPixel,
             ColorProductionPixel,
             ProgressProductionPixel,
+            SpentProductionPixel,
             CharactersIDProductionCharacter,
             CharactersIDProducedCharacter,
             ProgressTextureProductionCharacter,
@@ -749,6 +755,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
         NotShowFusionPanel();
+        UpdateCharacterProductionStockLabels();
     }
 
     //バトル編成シーンボタンが押されたら
@@ -1027,23 +1034,29 @@ public class ControllerProduction : MonoBehaviour
             return;
         }
 
+        int producedIndex = -1;
+        uint previousProducedId = 0;
+        if (ButtonCharacterTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        {
+            producedIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
+            previousProducedId = CharactersIDProducedCharacter[producedIndex];
+        }
+
         ControllerCharacterSelect.ConfirmSelectCharacter(ButtonCharacterTmp);
 
         if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            //進捗の初期化
-            int ProductionPixelIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
-            InitializeProgressProductionPixel(ProductionPixelIndex);
-
-            //TODO:view更新、RGBのテキストだけでいい
+            //生産キャラが変わっても、色と進捗はそのまま続ける
             UpdatePixelProductionScene();
         }
-        else//TODO:ButtonCharacterProductionCharacterでの更新
-        if (ButtonCharacterTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        else
+        if (producedIndex >= 0 && CharactersIDProducedCharacter[producedIndex] != previousProducedId)
         {
-            int ProductionIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
-            InitializeProgressProductionCharacter(ProductionIndex);
+            //作る対象が変わったときだけ、使ったピクセルを戻して最初から。生産担当の変更ではここを通らない
+            InitializeProgressProductionCharacter(producedIndex);
         }
+        if (producedIndex >= 0)
+            SetCharacterStockLabel(producedIndex);
 
         //どのボタンで呼び出されたか削除
         ButtonCharacterTmp = null;
@@ -1065,13 +1078,16 @@ public class ControllerProduction : MonoBehaviour
 
         if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int ProductionPixelIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
-
-            //進捗の初期化
-            InitializeProgressProductionPixel(ProductionPixelIndex);
-
-            //TODO:view更新、RGBのテキストと、スライダーだけでいい
+            //外しても進捗は残す。次のキャラが続きから生産する
             UpdatePixelProductionScene();
+        }
+        else
+        if (ButtonCharacterTmp.name.Contains("ButtonCharacterProducedCharacter"))
+        {
+            //生産対象を外したら、塗った分のピクセルを戻してシルエットを消す。生産担当を外してもここは通らない
+            int ProductionIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
+            InitializeProgressProductionCharacter(ProductionIndex);
+            SetCharacterStockLabel(ProductionIndex);
         }
 
         //どのボタンで呼び出されたか削除
@@ -1360,12 +1376,7 @@ public class ControllerProduction : MonoBehaviour
     {
         int ProductionPixelIndex = int.Parse(ButtonColorTmp.name.Substring(ButtonColorTmp.name.Length - 2, 2));
 
-        //進捗の初期化
-        InitializeProgressProductionPixel(ProductionPixelIndex);
-
-        ColorProductionPixel[ProductionPixelIndex].r = ColorTmp.r;
-        ColorProductionPixel[ProductionPixelIndex].g = ColorTmp.g;
-        ColorProductionPixel[ProductionPixelIndex].b = ColorTmp.b;
+        ApplyPixelProductionColor(ProductionPixelIndex, ColorTmp);
 
         NotShowPanel(PanelSelectColorMethodRGBNum);
         ColorTmp.r = 0;
@@ -1519,12 +1530,7 @@ public class ControllerProduction : MonoBehaviour
     {
         int ProductionPixelIndex = int.Parse(ButtonColorTmp.name.Substring(ButtonColorTmp.name.Length - 2, 2));
 
-        //進捗の初期化
-        InitializeProgressProductionPixel(ProductionPixelIndex);
-
-        ColorProductionPixel[ProductionPixelIndex].r = ColorTmp.r;
-        ColorProductionPixel[ProductionPixelIndex].g = ColorTmp.g;
-        ColorProductionPixel[ProductionPixelIndex].b = ColorTmp.b;
+        ApplyPixelProductionColor(ProductionPixelIndex, ColorTmp);
 
         NotShowPanel(PanelSelectColorMethodCharacter);
         ColorTmp.r = 0;
@@ -1587,54 +1593,61 @@ public class ControllerProduction : MonoBehaviour
     //キャラクター生産の進捗初期化（ロード時用・ピクセル還元なし）
     public void InitProgressProductionCharacterWithoutReduction(int argIndex)
     {
+        uint characterId = CharactersIDProducedCharacter[argIndex];
+        if (characterId == 0 || characterId > Constants.CHARACTERS_ALL_NUM || CharactersAll[characterId] == null
+            || CharactersAll[characterId].ListExistsColors == null || CharactersAll[characterId].ImageTexture2D == null)
+            return;
+
         ConsumePixelsProductionCharacter[argIndex].Clear();
-        foreach (ExistColor curExistColor in CharactersAll[CharactersIDProducedCharacter[argIndex]].ListExistsColors)
+        foreach (ExistColor curExistColor in CharactersAll[characterId].ListExistsColors)
         {
             ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
         }
-        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImageTexture2D);
+        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[characterId].ImageTexture2D);
     }
 
-    //キャラクター生産の進捗初期化
+    //作る対象が変わったとき、使ったピクセルを戻して、新しい対象のシルエットから始める
     public void InitializeProgressProductionCharacter(int argIndex)
     {
-        if (ConsumePixelsProductionCharacter[argIndex].Count != 0)
-        {
-            //TODO:ピクセルを還元
-            ReductionPixelsProductionCharacter(argIndex);
-        }
-        else
-        {
-            //進捗ピクセルの初期化
-            ConsumePixelsProductionCharacter[argIndex].Clear();
-            foreach (ExistColor curExistColor in CharactersAll[CharactersIDProducedCharacter[argIndex]].ListExistsColors)
-            {
-                ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
-            }
-            //進捗画像の初期化
-            ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImageTexture2D);
-        }
-
+        ReductionPixelsProductionCharacter(argIndex);
         UpdateProductionCharacterProgressImage(argIndex);
         UpdateProductionCharacterConsumeViews();
     }
-    //ピクセルを還元
+    //ピクセルを還元してから、今の生産対象で進捗を作り直す。対象が無いときは空にする
     public void ReductionPixelsProductionCharacter(int argIndex)
     {
         foreach (ConsumePixelClass ConsumePixel in ConsumePixelsProductionCharacter[argIndex])
+            ReturnConsumedPixel(ConsumePixel);
+
+        ConsumePixelsProductionCharacter[argIndex].Clear();
+        uint nextId = CharactersIDProducedCharacter[argIndex];
+        if (nextId == 0 || nextId > Constants.CHARACTERS_ALL_NUM || CharactersAll[nextId] == null || CharactersAll[nextId].ListExistsColors == null)
         {
-            CurPixels[(int)(ConsumePixel.PixelColor.r * 255), (int)(ConsumePixel.PixelColor.g * 255), (int)(ConsumePixel.PixelColor.b * 255)]
-                += ConsumePixel.CurConsumePixelsNum;
+            if (argIndex >= 0 && argIndex < ProgressTextureProductionCharacter.Count)
+                ProgressTextureProductionCharacter[argIndex] = null;
+            return;
         }
 
-        //進捗ピクセルの初期化
-        ConsumePixelsProductionCharacter[argIndex].Clear();
-        foreach (ExistColor curExistColor in CharactersAll[CharactersIDProducedCharacter[argIndex]].ListExistsColors)
-        {
+        foreach (ExistColor curExistColor in CharactersAll[nextId].ListExistsColors)
             ConsumePixelsProductionCharacter[argIndex].Add(new ConsumePixelClass(curExistColor.Color, curExistColor.Num, 0));
-        }
-        //進捗画像の初期化
-        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[CharactersIDProducedCharacter[argIndex]].ImageTexture2D);
+        ProgressTextureProductionCharacter[argIndex] = ImagegUtility.MakeSilhouetteBoolArray(CharactersAll[nextId].ImageTexture2D);
+    }
+
+    void ReturnConsumedPixel(ConsumePixelClass consumePixel)
+    {
+        if (consumePixel == null || consumePixel.CurConsumePixelsNum == 0 || CurPixels == null)
+            return;
+        int r = (int)(consumePixel.PixelColor.r * 255f);
+        int g = (int)(consumePixel.PixelColor.g * 255f);
+        int b = (int)(consumePixel.PixelColor.b * 255f);
+        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+            return;
+        ulong current = CurPixels[r, g, b];
+        ulong add = consumePixel.CurConsumePixelsNum;
+        if (ulong.MaxValue - current < add)
+            CurPixels[r, g, b] = ulong.MaxValue;
+        else
+            CurPixels[r, g, b] = current + add;
     }
     //キャラクター生産
     public bool ProductionCharacter(Trigger argTrigger, int argIndex, uint argRepeatNum, out bool ProductionCharacterFlag, out bool RepeatComplete, out bool paintedPixel)
@@ -2437,6 +2450,7 @@ public class ControllerProduction : MonoBehaviour
                 if (CurR >= tmpR)
                 {
                     CurR -= tmpR;
+                    RememberPixelSpend(argIndex, 1, tmpR);
                     ProgressProductionPixel[argIndex, 1] += Progress;
                     if (ProgressProductionPixel[argIndex, 1] > (ushort)(ColorProductionPixel[argIndex].r * 255))
                         ProgressProductionPixel[argIndex, 1] = (ushort)(ColorProductionPixel[argIndex].r * 255);
@@ -2454,6 +2468,7 @@ public class ControllerProduction : MonoBehaviour
                 if (CurG >= tmpG)
                 {
                     CurG -= tmpG;
+                    RememberPixelSpend(argIndex, 2, tmpG);
                     ProgressProductionPixel[argIndex, 2] += Progress;
                     if (ProgressProductionPixel[argIndex, 2] > (ushort)(ColorProductionPixel[argIndex].g * 255))
                         ProgressProductionPixel[argIndex, 2] = (ushort)(ColorProductionPixel[argIndex].g * 255);
@@ -2471,6 +2486,7 @@ public class ControllerProduction : MonoBehaviour
                 if (CurB >= tmpB)
                 {
                     CurB -= tmpB;
+                    RememberPixelSpend(argIndex, 3, tmpB);
                     ProgressProductionPixel[argIndex, 3] += Progress;
                     if (ProgressProductionPixel[argIndex, 3] > (ushort)(ColorProductionPixel[argIndex].b * 255))
                         ProgressProductionPixel[argIndex, 3] = (ushort)(ColorProductionPixel[argIndex].b * 255);
@@ -2483,6 +2499,7 @@ public class ControllerProduction : MonoBehaviour
                 ProgressProductionPixel[argIndex, 1] = 0;
                 ProgressProductionPixel[argIndex, 2] = 0;
                 ProgressProductionPixel[argIndex, 3] = 0;
+                ClearPixelSpend(argIndex);
 
                 CurPixels[(int)(ColorProductionPixel[argIndex].r * 255), (int)(ColorProductionPixel[argIndex].g * 255), (int)(ColorProductionPixel[argIndex].b * 255)]
                     += CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
@@ -2509,26 +2526,96 @@ public class ControllerProduction : MonoBehaviour
 
         return (ulong)(Progress * argCreatePixels);
     }
-    //ピクセル生産の進捗の初期化(進捗が途中のときに消費されてしまったRGBを戻す) //TODO:この関数が呼ばれるより前にキャラクターとカラーが先に変更されていないか確認
-    bool InitializeProgressProductionPixel(int argIndex)
+    //色が変わったときだけ、途中の消費RGBを戻して進捗を捨てる。同じ色なら何もしない
+    void ApplyPixelProductionColor(int argIndex, Color nextColor)
     {
-        CurR += (uint)(ColorProductionPixel[argIndex].r * 255)
-            * ProgressProductionPixel[argIndex, 1]
-            * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+        if (!SamePixelColor(ColorProductionPixel[argIndex], nextColor))
+            RefundPixelProductionProgress(argIndex);
 
-        CurG += (uint)(ColorProductionPixel[argIndex].g * 255)
-            * ProgressProductionPixel[argIndex, 2]
-            * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+        ColorProductionPixel[argIndex].r = nextColor.r;
+        ColorProductionPixel[argIndex].g = nextColor.g;
+        ColorProductionPixel[argIndex].b = nextColor.b;
+        ColorProductionPixel[argIndex].a = 1.0f;
+        UpdateRGBProductionScene();
+    }
 
-        CurB += (uint)(ColorProductionPixel[argIndex].b * 255)
-            * ProgressProductionPixel[argIndex, 3]
-            * CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+    static bool SamePixelColor(Color a, Color b)
+    {
+        return PixelChannel(a.r) == PixelChannel(b.r)
+            && PixelChannel(a.g) == PixelChannel(b.g)
+            && PixelChannel(a.b) == PixelChannel(b.b);
+    }
 
+    static int PixelChannel(float value)
+    {
+        int channel = (int)(value * 255f);
+        if (channel < 0)
+            return 0;
+        if (channel > 255)
+            return 255;
+        return channel;
+    }
+
+    void RememberPixelSpend(int argIndex, int channel, ulong amount)
+    {
+        ulong current = SpentProductionPixel[argIndex, channel];
+        if (ulong.MaxValue - current < amount)
+            SpentProductionPixel[argIndex, channel] = ulong.MaxValue;
+        else
+            SpentProductionPixel[argIndex, channel] = current + amount;
+    }
+
+    void ClearPixelSpend(int argIndex)
+    {
+        SpentProductionPixel[argIndex, 1] = 0;
+        SpentProductionPixel[argIndex, 2] = 0;
+        SpentProductionPixel[argIndex, 3] = 0;
+    }
+
+    void RefundPixelProductionProgress(int argIndex)
+    {
+        AddRgbStock(ref CurR, SpentProductionPixel[argIndex, 1]);
+        AddRgbStock(ref CurG, SpentProductionPixel[argIndex, 2]);
+        AddRgbStock(ref CurB, SpentProductionPixel[argIndex, 3]);
         ProgressProductionPixel[argIndex, 1] = 0;
         ProgressProductionPixel[argIndex, 2] = 0;
         ProgressProductionPixel[argIndex, 3] = 0;
+        ClearPixelSpend(argIndex);
+    }
 
-        return true;
+    static void AddRgbStock(ref ulong current, ulong amount)
+    {
+        if (amount == 0)
+            return;
+        if (ulong.MaxValue - current < amount)
+            current = ulong.MaxValue;
+        else
+            current += amount;
+    }
+
+    //古いセーブは消費量が無い。今の担当キャラの生産数で、色が0でないチャンネルだけ見積もる
+    void SeedPixelSpendFromProgress()
+    {
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        {
+            if (SpentProductionPixel[i, 1] != 0 || SpentProductionPixel[i, 2] != 0 || SpentProductionPixel[i, 3] != 0)
+                continue;
+
+            uint characterId = CharactersIDProductionPixel[i];
+            if (characterId == 0 || characterId > Constants.CHARACTERS_ALL_NUM || CharactersAll[characterId] == null)
+                continue;
+
+            int r = PixelChannel(ColorProductionPixel[i].r);
+            int g = PixelChannel(ColorProductionPixel[i].g);
+            int b = PixelChannel(ColorProductionPixel[i].b);
+            uint create = CharactersAll[characterId].GetCreatePixels((ushort)r, (ushort)g, (ushort)b);
+            if (r > 0)
+                SpentProductionPixel[i, 1] = (ulong)ProgressProductionPixel[i, 1] * create;
+            if (g > 0)
+                SpentProductionPixel[i, 2] = (ulong)ProgressProductionPixel[i, 2] * create;
+            if (b > 0)
+                SpentProductionPixel[i, 3] = (ulong)ProgressProductionPixel[i, 3] * create;
+        }
     }
 
 
@@ -2880,6 +2967,96 @@ public class ControllerProduction : MonoBehaviour
         SetPixelChannelLine(colorPanel, "ImagePixelColorR", "R", ColorProductionPixel[argIndex].r, pixelCount);
         SetPixelChannelLine(colorPanel, "ImagePixelColorG", "G", ColorProductionPixel[argIndex].g, pixelCount);
         SetPixelChannelLine(colorPanel, "ImagePixelColorB", "B", ColorProductionPixel[argIndex].b, pixelCount);
+        SetPixelStockLabel(Content, argIndex);
+    }
+
+    //色ボタンの下に、今の在庫と、この生産が1回終わったあとの在庫を出す
+    void SetPixelStockLabel(GameObject content, int argIndex)
+    {
+        Transform colorButton = FindPixelColorButton(content.transform, argIndex);
+        if (colorButton == null)
+            return;
+
+        Transform labelTransform = content.transform.Find("TextPixelStock");
+        Text label = labelTransform != null ? labelTransform.GetComponent<Text>() : CreatePixelStockLabel(content.transform, colorButton);
+        if (label == null)
+            return;
+
+        int r = (int)(ColorProductionPixel[argIndex].r * 255f);
+        int g = (int)(ColorProductionPixel[argIndex].g * 255f);
+        int b = (int)(ColorProductionPixel[argIndex].b * 255f);
+        if (r < 0) r = 0;
+        if (g < 0) g = 0;
+        if (b < 0) b = 0;
+        if (r > 255) r = 255;
+        if (g > 255) g = 255;
+        if (b > 255) b = 255;
+
+        ulong stock = CurPixels[r, g, b];
+        uint add = 0;
+        if (CharactersIDProductionPixel[argIndex] != 0)
+            add = CharactersAll[CharactersIDProductionPixel[argIndex]].GetCreatePixels((ushort)r, (ushort)g, (ushort)b);
+        ulong after = stock > ulong.MaxValue - add ? ulong.MaxValue : stock + add;
+        label.text = "在庫 " + stock.ToString() + " → " + after.ToString();
+    }
+
+    static Transform FindPixelColorButton(Transform content, int argIndex)
+    {
+        Transform button = content.Find("ButtonPixelProductionPixelColor" + argIndex.ToString("00"));
+        if (button != null)
+            return button;
+        button = content.Find("ButtonPixelProductionPixelColor");
+        if (button != null)
+            return button;
+
+        for (int i = 0; i < content.childCount; i++)
+        {
+            Transform child = content.GetChild(i);
+            if (child.name.StartsWith("ButtonPixelProductionPixelColor"))
+                return child;
+        }
+        return null;
+    }
+
+    static Text CreatePixelStockLabel(Transform content, Transform colorButton)
+    {
+        return CreateUnderButtonLabel(content, colorButton, "TextPixelStock");
+    }
+
+    static Text CreateUnderButtonLabel(Transform content, Transform anchor, string objectName)
+    {
+        GameObject labelObject = new GameObject(objectName, typeof(RectTransform));
+        labelObject.transform.SetParent(content, false);
+
+        RectTransform buttonRect = anchor as RectTransform;
+        RectTransform rect = labelObject.GetComponent<RectTransform>();
+        rect.anchorMin = buttonRect.anchorMin;
+        rect.anchorMax = buttonRect.anchorMax;
+        rect.pivot = new Vector2(0.5f, 1f);
+        float height = buttonRect.rect.height;
+        if (height <= 0f)
+            height = buttonRect.sizeDelta.y;
+        float halfHeight = height * buttonRect.pivot.y;
+        rect.anchoredPosition = new Vector2(buttonRect.anchoredPosition.x, buttonRect.anchoredPosition.y - halfHeight - 2f);
+        rect.sizeDelta = new Vector2(Mathf.Max(buttonRect.rect.width, 160f), 36f);
+        rect.SetAsLastSibling();
+
+        Text source = anchor.GetComponentInChildren<Text>();
+        Text label = labelObject.AddComponent<Text>();
+        label.font = source != null && source.font != null
+            ? source.font
+            : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        label.fontSize = 16;
+        label.fontStyle = FontStyle.Bold;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+        label.raycastTarget = false;
+        label.resizeTextForBestFit = true;
+        label.resizeTextMinSize = 10;
+        label.resizeTextMaxSize = 18;
+        label.horizontalOverflow = HorizontalWrapMode.Wrap;
+        label.verticalOverflow = VerticalWrapMode.Truncate;
+        return label;
     }
 
     static void SetPixelChannelLine(Transform colorPanel, string imageName, string channel, float color01, uint pixelCount)
@@ -2931,6 +3108,7 @@ public class ControllerProduction : MonoBehaviour
             SliderPixelColorB.maxValue = 1;
         }
         SliderPixelColorB.value = ProgressProductionPixel[argIndex, 3];
+        SetPixelStockLabel(Content, argIndex);
     }
 
 
@@ -3047,7 +3225,50 @@ public class ControllerProduction : MonoBehaviour
         {
             UpdateProductionCharacterButton("ButtonCharacterProductionCharacter" + i.ToString("00"), CharactersIDProductionCharacter[i]);
             UpdateProductionCharacterButton("ButtonCharacterProducedCharacter" + i.ToString("00"), CharactersIDProducedCharacter[i]);
+            SetCharacterStockLabel(i);
         }
+    }
+
+    void UpdateCharacterProductionStockLabels()
+    {
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+            SetCharacterStockLabel(i);
+    }
+
+    //作る対象ボタンの下に、今の所持数と、1体できたあとの所持数を出す
+    void SetCharacterStockLabel(int argIndex)
+    {
+        if (argIndex < 1 || argIndex > Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM)
+            return;
+        GameObject buttonObject = GameObject.Find("ButtonCharacterProducedCharacter" + argIndex.ToString("00"));
+        if (buttonObject == null)
+            return;
+
+        Transform row = buttonObject.transform.parent;
+        Transform labelTransform = row.Find("TextCharacterStock");
+        Text label = labelTransform != null ? labelTransform.GetComponent<Text>() : CreateUnderButtonLabel(row, buttonObject.transform, "TextCharacterStock");
+        if (label == null)
+            return;
+
+        uint characterId = CharactersIDProducedCharacter[argIndex];
+        if (characterId == 0 || characterId > Constants.CHARACTERS_ALL_NUM || CharactersAll[characterId] == null)
+        {
+            label.text = "";
+            label.gameObject.SetActive(false);
+            return;
+        }
+
+        label.gameObject.SetActive(true);
+        ulong stock = CharactersAll[characterId].OwnedNumCur;
+        int cap = BattleBalance.MaxLives;
+        ulong after = stock;
+        if (cap < 0 || stock < (ulong)cap)
+        {
+            after = stock == ulong.MaxValue ? stock : stock + 1;
+            if (cap >= 0 && after > (ulong)cap)
+                after = (ulong)cap;
+        }
+        label.text = "在庫 " + stock.ToString() + " → " + after.ToString();
     }
 
     void UpdateProductionCharacterButton(string argButtonName, uint argCharacterID)
@@ -3146,19 +3367,24 @@ public class ControllerProduction : MonoBehaviour
     {
         if (productionIndex < 0 || productionIndex >= ProgressTextureProductionCharacter.Count)
             return;
-        if (ProgressTextureProductionCharacter[productionIndex] == null)
-            return;
 
         uint characterId = CharactersIDProducedCharacter[productionIndex];
-        if (characterId == 0)
+        if (characterId == 0 || ProgressTextureProductionCharacter[productionIndex] == null)
+        {
+            Texture oldView = ProductionCharacterViewTexture[productionIndex];
+            ProductionCharacterViewTexture[productionIndex] = null;
+            progressImage.texture = null;
+            if (oldView != null)
+                Destroy(oldView);
             return;
+        }
 
         Texture2D sourceTexture = CharactersAll[characterId].ImageTexture2D;
         if (sourceTexture == null)
             return;
 
         Texture view = ImagegUtility.BoolArrayTOTexture(ProgressTextureProductionCharacter[productionIndex],
-            sourceTexture, new Color(0, 0, 0, 1));
+            sourceTexture, new Color(1f, 1f, 1f, 1f), new Color(0.45f, 0.45f, 0.45f, 1f));
         Texture previous = ProductionCharacterViewTexture[productionIndex];
         ProductionCharacterViewTexture[productionIndex] = view;
         progressImage.texture = view;
@@ -3217,6 +3443,8 @@ public class ControllerProduction : MonoBehaviour
     //キャラクター生産のキャラクター所持数の表示
     public void ShowCharacterOwnedNum()
     {
+        UpdateCharacterProductionStockLabels();
+
         GameObject gameObjectCharacterList = null;
         GameObject[] tag1_Objects;
         tag1_Objects = GameObject.FindGameObjectsWithTag("CharacterProduction");

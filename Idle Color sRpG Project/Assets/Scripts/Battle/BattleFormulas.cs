@@ -187,14 +187,12 @@ public static class BattleLevelGrowth
     public static LevelGrowth Grow(long hpMax, long atk, long def, long spd, BattleBalanceConfig config)
     {
         LevelGrowth growth = new LevelGrowth();
-        growth.NewHpMax = GrowStat(hpMax, config.HpGrowthRate);
-        growth.NewAtk = GrowStat(atk, config.AtkGrowthRate);
-        growth.NewDef = GrowStat(def, config.DefGrowthRate);
-        growth.NewSpd = GrowStat(spd, config.SpdGrowthRate);
+        growth.NewHpMax = AddGrowth(hpMax, config.HpGrowthRate, 1);
+        growth.NewAtk = AddGrowth(atk, config.AtkGrowthRate, 1);
+        growth.NewDef = AddGrowth(def, config.DefGrowthRate, 1);
+        growth.NewSpd = spd < 0 ? 0 : spd;
         if (growth.NewHpMax < 1)
             growth.NewHpMax = 1;
-        if (growth.NewSpd < 1)
-            growth.NewSpd = 1;
         growth.HpDelta = growth.NewHpMax - (hpMax < 0 ? 0 : hpMax);
         growth.AtkDelta = growth.NewAtk - (atk < 0 ? 0 : atk);
         growth.DefDelta = growth.NewDef - (def < 0 ? 0 : def);
@@ -210,7 +208,7 @@ public static class BattleLevelGrowth
         return growth;
     }
 
-    //基礎ステータスに、レベル回数だけ成長率を掛けた結果。レベル0は基礎のまま。
+    //基礎ステータスに、レベル回数 × 成長率を足す。レベル0は基礎のまま。
     public static void ApplyLevels(long hp, long atk, long def, long spd, long level, BattleBalanceConfig config, out long grownHp, out long grownAtk, out long grownDef, out long grownSpd)
     {
         if (hp < 0)
@@ -230,25 +228,29 @@ public static class BattleLevelGrowth
         if (level > config.MaxLevel)
             level = config.MaxLevel;
 
-        for (long i = 0; i < level; i++)
-        {
-            LevelGrowth growth = Grow(grownHp, grownAtk, grownDef, grownSpd, config);
-            if (growth.NewHpMax < grownHp || growth.NewAtk < grownAtk || growth.NewDef < grownDef || growth.NewSpd < grownSpd)
-                break;
-            grownHp = growth.NewHpMax;
-            grownAtk = growth.NewAtk;
-            grownDef = growth.NewDef;
-            grownSpd = growth.NewSpd;
-        }
+        grownHp = AddGrowth(hp, config.HpGrowthRate, level);
+        grownAtk = AddGrowth(atk, config.AtkGrowthRate, level);
+        grownDef = AddGrowth(def, config.DefGrowthRate, level);
+        if (grownHp < 1)
+            grownHp = 1;
     }
 
-    static long GrowStat(long current, double rate)
+    //基礎値の rate を level 回ぶん足す。複利にはしない。1レベルにつき最低 +1。
+    public static long AddGrowth(long baseStat, double rate, long level)
     {
-        if (current < 0)
-            current = 0;
+        if (baseStat < 0)
+            baseStat = 0;
         if (rate < 0.0)
             rate = 0.0;
-        return BattleMath.CeilToLong(current * (1.0 + rate));
+        if (level <= 0)
+            return baseStat;
+
+        long bonus = BattleMath.CeilToLong((double)baseStat * rate * level);
+        if (bonus < level)
+            bonus = level;
+        if (baseStat > long.MaxValue - bonus)
+            return long.MaxValue;
+        return baseStat + bonus;
     }
 }
 

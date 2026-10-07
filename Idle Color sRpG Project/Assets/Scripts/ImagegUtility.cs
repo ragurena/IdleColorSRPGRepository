@@ -138,6 +138,12 @@ public class ImagegUtility : MonoBehaviour
     }
     public static Texture BoolArrayTOTexture(bool[,] argBoolArray, Texture2D argTrueColorTexture, Color argFalseColor)
     {
+        return BoolArrayTOTexture(argBoolArray, argTrueColorTexture, argFalseColor, argFalseColor);
+    }
+
+    //未塗装は市松。塗ったピクセルと、元から透明なピクセルは元の色のまま
+    public static Texture BoolArrayTOTexture(bool[,] argBoolArray, Texture2D argTrueColorTexture, Color argFalseColor, Color argFalseColorAlt)
+    {
         Texture2D resultTexture2D = new Texture2D(argTrueColorTexture.width, argTrueColorTexture.height, TextureFormat.ARGB32, false);
 
         for (int y = 0; y < argTrueColorTexture.height; y++)
@@ -147,12 +153,10 @@ public class ImagegUtility : MonoBehaviour
                 if (argBoolArray[x, y])
                     resultTexture2D.SetPixel(x, y, argTrueColorTexture.GetPixel(x, y));
                 else
-                {
-                    resultTexture2D.SetPixel(x, y, argFalseColor);
-                    resultTexture2D.filterMode = FilterMode.Point;
-                }
+                    resultTexture2D.SetPixel(x, y, ((x + y) & 1) == 0 ? argFalseColor : argFalseColorAlt);
             }
         }
+        resultTexture2D.filterMode = FilterMode.Point;
         resultTexture2D.Apply();
 
         return resultTexture2D;

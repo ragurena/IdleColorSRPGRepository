@@ -29,6 +29,7 @@ public class SaveClass// : MonoBehaviour
         uint[] CharactersIDProductionPixel,
         Color[] ColorProductionPixel,
         ushort[,] ProgressProductionPixel,
+        ulong[,] SpentProductionPixel,
         uint[] CharactersIDProductionCharacter,
         uint[] CharactersIDProducedCharacter,
         List<bool[,]> ProgressTextureProductionCharacter,
@@ -148,6 +149,13 @@ public class SaveClass// : MonoBehaviour
                 ProgressProductionPixel[i, 2].ToString());
             sw.WriteLine("ProgressProductionPixel[" + i.ToString() + "].b," +
                 ProgressProductionPixel[i, 3].ToString());
+
+            sw.WriteLine("SpentProductionPixel[" + i.ToString() + "].r," +
+                SpentProductionPixel[i, 1].ToString());
+            sw.WriteLine("SpentProductionPixel[" + i.ToString() + "].g," +
+                SpentProductionPixel[i, 2].ToString());
+            sw.WriteLine("SpentProductionPixel[" + i.ToString() + "].b," +
+                SpentProductionPixel[i, 3].ToString());
         }
 
         // CurPixels（非ゼロのみ）
@@ -192,7 +200,8 @@ public class SaveClass// : MonoBehaviour
             sw.WriteLine("CharactersIDProducedCharacter[" + i.ToString() + "]," +
                 CharactersIDProducedCharacter[i].ToString());
 
-            if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0)
+            //生産者がいなくても、作る対象がいれば塗っている途中を残す
+            if (CharactersIDProducedCharacter[i] == 0)
                 continue;
 
             sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "].Count," +
@@ -348,6 +357,7 @@ public class SaveClass// : MonoBehaviour
         ref uint[] CharactersIDProductionPixel,
         ref Color[] ColorProductionPixel,
         ref ushort[,] ProgressProductionPixel,
+        ref ulong[,] SpentProductionPixel,
         ref uint[] CharactersIDProductionCharacter,
         ref uint[] CharactersIDProducedCharacter,
         List<bool[,]> ProgressTextureProductionCharacter,
@@ -581,6 +591,31 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("ProgressProductionPixel[" + i.ToString() + "].b"))
                     {
                         ProgressProductionPixel[i, 3] = (ushort)(int.Parse(values[1]));
+                        break;
+                    }
+                }
+            }
+
+            else
+            if (values[0].StartsWith("SpentProductionPixel"))
+            {
+                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+                {
+                    if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].r"))
+                    {
+                        SpentProductionPixel[i, 1] = ulong.Parse(values[1]);
+                        break;
+                    }
+
+                    if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].g"))
+                    {
+                        SpentProductionPixel[i, 2] = ulong.Parse(values[1]);
+                        break;
+                    }
+
+                    if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].b"))
+                    {
+                        SpentProductionPixel[i, 3] = ulong.Parse(values[1]);
                         break;
                     }
                 }

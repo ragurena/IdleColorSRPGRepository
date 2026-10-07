@@ -929,7 +929,8 @@ public class ControllerBattleClass : MonoBehaviour
             for (int y = 1; y <= size; y++)
             {
                 float px = originX + (x - 2) * pitch;
-                float py = 70f - (y - 1) * pitch;
+                //編成パネルは y=1 が下、y=3 が上。バトルも同じ向きにする
+                float py = 70f - (size - y) * pitch;
                 string side = cells == _allies ? "A" : "E";
                 string suffix = side + x.ToString() + y.ToString();
                 Image image = CreateImage("ImageBattleCell" + suffix, _root.transform, new Color(0.12f, 0.05f, 0.05f, 0.85f));

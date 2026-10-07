@@ -148,13 +148,17 @@ static class Program
         Check(growth.NewHpMax == 110 && growth.HpDelta == 10 && hp == 50, "hp growth");
         Check(growth.NewAtk == 21 && growth.AtkDelta == 1, "atk growth");
         Check(growth.NewDef == 11 && growth.DefDelta == 1, "def growth");
-        Check(growth.NewSpd == 51 && growth.SpdDelta == 1, "spd growth");
+        Check(growth.NewSpd == 50 && growth.SpdDelta == 0, "spd stays on level");
         long hp2;
         long atk2;
         long def2;
         long spd2;
         BattleLevelGrowth.ApplyLevels(100, 20, 10, 50, 2, config, out hp2, out atk2, out def2, out spd2);
-        Check(hp2 == 121 && atk2 == 23 && def2 == 12 && spd2 == 52, "two levels from base");
+        Check(hp2 == 120 && atk2 == 22 && def2 == 12 && spd2 == 50, "two levels from base");
+        BattleLevelGrowth.ApplyLevels(1000, 10, 10, 10, 327, config, out hp2, out atk2, out def2, out spd2);
+        Check(hp2 == 33700 && atk2 == 337 && def2 == 337, "level 327 stays additive");
+        Check(BattleLevelGrowth.AddGrowth(100, config.RgbGrowthRate, 327) == 427, "rgb grows 1 percent of base");
+        Check(BattleLevelGrowth.AddGrowth(1, 0.01, 50) == 51, "small stat gains at least 1 per level");
     }
 
     static void TestComplement()
@@ -302,6 +306,11 @@ static class Program
         Check(FusionBonus.Bonus(50, 1) == 3, "fusion ceil");
         Check(FusionBonus.Bonus(100, 3) == 15, "fusion percent");
         Check(FusionBonus.Bonus(40, 0) == 0, "fusion none");
+        Check(FusionBonus.Bonus(1, 2) - FusionBonus.Bonus(1, 1) >= 1, "fusion small stat steps");
+        Check(FusionBonus.Bonus(0, 3) == 3, "fusion zero stat still steps");
+        long huge = long.MaxValue / 2;
+        long hugeBonus = FusionBonus.Bonus(huge, 37);
+        Check(hugeBonus > 0 && huge <= long.MaxValue - hugeBonus, "fusion bonus fits in long");
     }
 
     static void TestDefeatOrder(BattleBalanceConfig config)

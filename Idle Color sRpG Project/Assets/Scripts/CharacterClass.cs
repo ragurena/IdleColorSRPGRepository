@@ -766,21 +766,30 @@ public class CharacterClass //: MonoBehaviour
         return true;
     }
 
-    //Stats[2]を、基礎ステータスへ成長率をレベル回数ぶん掛けた増加分にする。
+    //Stats[2]を、基礎ステータスへ成長率をレベル回数ぶん足した増加分にする。
     public void RebuildLevelStats(BattleBalanceConfig config)
     {
         if (config == null)
             config = BattleBalanceConfig.CreateDefault();
 
+        long level = (long)Level;
+        if (level < 0)
+            level = 0;
+        if (level > config.MaxLevel)
+            level = config.MaxLevel;
+
+        long baseHp = ToStatLong(Stats[1].HPMax);
+        long baseAtk = ToStatLong(Stats[1].ATK);
+        long baseDef = ToStatLong(Stats[1].DEF);
         long grownHp;
         long grownAtk;
         long grownDef;
         long grownSpd;
-        BattleLevelGrowth.ApplyLevels((long)Stats[1].HPMax, (long)Stats[1].ATK, (long)Stats[1].DEF, Stats[1].SPD, (long)Level, config, out grownHp, out grownAtk, out grownDef, out grownSpd);
+        BattleLevelGrowth.ApplyLevels(baseHp, baseAtk, baseDef, Stats[1].SPD, level, config, out grownHp, out grownAtk, out grownDef, out grownSpd);
 
-        long hpBonus = grownHp - (long)Stats[1].HPMax;
-        long atkBonus = grownAtk - (long)Stats[1].ATK;
-        long defBonus = grownDef - (long)Stats[1].DEF;
+        long hpBonus = grownHp - baseHp;
+        long atkBonus = grownAtk - baseAtk;
+        long defBonus = grownDef - baseDef;
         long spdBonus = grownSpd - Stats[1].SPD;
         if (hpBonus < 0)
             hpBonus = 0;
@@ -798,6 +807,23 @@ public class CharacterClass //: MonoBehaviour
         Stats[2].ATK = (ulong)atkBonus;
         Stats[2].DEF = (ulong)defBonus;
         Stats[2].SPD = (byte)spdBonus;
+
+        long baseR = ToStatLong(Stats[1].RCreates);
+        long baseG = ToStatLong(Stats[1].GCreates);
+        long baseB = ToStatLong(Stats[1].BCreates);
+        long rBonus = BattleLevelGrowth.AddGrowth(baseR, config.RgbGrowthRate, level) - baseR;
+        long gBonus = BattleLevelGrowth.AddGrowth(baseG, config.RgbGrowthRate, level) - baseG;
+        long bBonus = BattleLevelGrowth.AddGrowth(baseB, config.RgbGrowthRate, level) - baseB;
+        if (rBonus < 0)
+            rBonus = 0;
+        if (gBonus < 0)
+            gBonus = 0;
+        if (bBonus < 0)
+            bBonus = 0;
+        Stats[2].RCreates = (ulong)rBonus;
+        Stats[2].GCreates = (ulong)gBonus;
+        Stats[2].BCreates = (ulong)bBonus;
+
         long need = config.ExpToNext((long)Level, OpaquePixelCount());
         if (need < 1)
             need = 1;
@@ -810,10 +836,10 @@ public class CharacterClass //: MonoBehaviour
         ulong fusionHp = FusionStatBonus(Stats[1].HPMax, Stats[2].HPMax);
         ulong fusionAtk = FusionStatBonus(Stats[1].ATK, Stats[2].ATK);
         ulong fusionDef = FusionStatBonus(Stats[1].DEF, Stats[2].DEF);
-        Stats[0].HPMax = Stats[1].HPMax + Stats[2].HPMax + Stats[3].HPMax + Stats[4].HPMax + fusionHp;
-        Stats[0].HPCur = Stats[1].HPCur + Stats[2].HPCur + Stats[3].HPCur + Stats[4].HPCur + fusionHp;
-        Stats[0].ATK = Stats[1].ATK + Stats[2].ATK + Stats[3].ATK + Stats[4].ATK + fusionAtk;
-        Stats[0].DEF = Stats[1].DEF + Stats[2].DEF + Stats[3].DEF + Stats[4].DEF + fusionDef;
+        Stats[0].HPMax = SumCapped(Stats[1].HPMax, Stats[2].HPMax, Stats[3].HPMax, Stats[4].HPMax, fusionHp);
+        Stats[0].HPCur = SumCapped(Stats[1].HPCur, Stats[2].HPCur, Stats[3].HPCur, Stats[4].HPCur, fusionHp);
+        Stats[0].ATK = SumCapped(Stats[1].ATK, Stats[2].ATK, Stats[3].ATK, Stats[4].ATK, fusionAtk);
+        Stats[0].DEF = SumCapped(Stats[1].DEF, Stats[2].DEF, Stats[3].DEF, Stats[4].DEF, fusionDef);
         if (Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD <= 100)
         {
             Stats[0].SPD = (byte)(Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD);
@@ -825,9 +851,9 @@ public class CharacterClass //: MonoBehaviour
         Stats[0].LUC = Stats[1].LUC + Stats[2].LUC + Stats[3].LUC + Stats[4].LUC;
         Stats[0].OBS = Stats[1].OBS + Stats[2].OBS + Stats[3].OBS + Stats[4].OBS;
         Stats[0].HealPower = Stats[1].HealPower + Stats[2].HealPower + Stats[3].HealPower + Stats[4].HealPower;
-        Stats[0].RCreates = Stats[1].RCreates + Stats[2].RCreates + Stats[3].RCreates + Stats[4].RCreates + FusionStatBonus(Stats[1].RCreates, Stats[2].RCreates);
-        Stats[0].GCreates = Stats[1].GCreates + Stats[2].GCreates + Stats[3].GCreates + Stats[4].GCreates + FusionStatBonus(Stats[1].GCreates, Stats[2].GCreates);
-        Stats[0].BCreates = Stats[1].BCreates + Stats[2].BCreates + Stats[3].BCreates + Stats[4].BCreates + FusionStatBonus(Stats[1].BCreates, Stats[2].BCreates);
+        Stats[0].RCreates = SumCapped(Stats[1].RCreates, Stats[2].RCreates, Stats[3].RCreates, Stats[4].RCreates, FusionStatBonus(Stats[1].RCreates, Stats[2].RCreates));
+        Stats[0].GCreates = SumCapped(Stats[1].GCreates, Stats[2].GCreates, Stats[3].GCreates, Stats[4].GCreates, FusionStatBonus(Stats[1].GCreates, Stats[2].GCreates));
+        Stats[0].BCreates = SumCapped(Stats[1].BCreates, Stats[2].BCreates, Stats[3].BCreates, Stats[4].BCreates, FusionStatBonus(Stats[1].BCreates, Stats[2].BCreates));
         Stats[0].PaintPixels = Stats[1].PaintPixels + Stats[2].PaintPixels + Stats[3].PaintPixels + Stats[4].PaintPixels;
 
         return true;
@@ -835,14 +861,28 @@ public class CharacterClass //: MonoBehaviour
 
     ulong FusionStatBonus(ulong baseStat, ulong levelStat)
     {
-        long grown = ToStatLong(baseStat) + ToStatLong(levelStat);
-        if (grown < 0)
-            grown = long.MaxValue;
+        long baseLong = ToStatLong(baseStat);
+        long levelLong = ToStatLong(levelStat);
+        long grown = baseLong > long.MaxValue - levelLong ? long.MaxValue : baseLong + levelLong;
         long count = FusionCount > (ulong)long.MaxValue ? long.MaxValue : (long)FusionCount;
         long bonus = FusionBonus.Bonus(grown, count);
         if (bonus < 0)
             bonus = 0;
         return (ulong)bonus;
+    }
+
+    static ulong SumCapped(ulong a, ulong b, ulong c, ulong d, ulong e)
+    {
+        ulong cap = (ulong)long.MaxValue;
+        ulong sum = 0;
+        ulong[] parts = { a, b, c, d, e };
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (parts[i] >= cap - sum)
+                return cap;
+            sum += parts[i];
+        }
+        return sum;
     }
 
     static long ToStatLong(ulong value)

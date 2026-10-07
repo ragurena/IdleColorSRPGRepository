@@ -59,6 +59,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     //キャラクターセレクトのキャラクターボタンが押されたら
     public void SelectCharacterCharacter(uint argCharacterID, Button ButtonTmp)
     {
+        if (IsLockedOutOfProduction(argCharacterID, ButtonTmp))
+            return;
+
         Debug.Log("SelectCharacterID : " + argCharacterID);
         ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[argCharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterID].Size, CharactersAll[argCharacterID].Size), new Vector2(0.5f, 0.5f));
         CharacterIDTmp = argCharacterID;
@@ -197,6 +200,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     //キャラクターセレクトの決定ボタンが押されたら
     public void ConfirmSelectCharacter(Button ButtonTmp)
     {
+        if (IsLockedOutOfProduction(CharacterIDTmp, ButtonTmp))
+            return;
+
         ButtonTmp.image.sprite = ImageSelectCharacter.sprite;
         ButtonTmp.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
         ButtonTmp.GetComponentInChildren<Text>().text = "";
@@ -723,12 +729,63 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
 
+        //出撃中のキャラは生産へ割り当てられない。一覧には残して、グレーで押せなくする
+        if (IsLockedOutOfProduction((uint)argCharacterIndex, argButtonTmp))
+        {
+            GrayOutCharacterButton(GameObjectCharacterButton);
+            return;
+        }
+
         if (warnIfUsedInOtherProduction && IsUsedInOtherProduction((uint)argCharacterIndex, argButtonTmp))
             AddFaintWarningMark(GameObjectCharacterButton);
 
         //クリックイベントを追加
         uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
         GameObjectCharacterButton.GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
+    }
+
+    static bool IsProductionAssignmentButton(Button button)
+    {
+        if (button == null)
+            return false;
+        string name = button.name;
+        return name.Contains("RProductionHelpCharacter")
+            || name.Contains("GProductionHelpCharacter")
+            || name.Contains("BProductionHelpCharacter")
+            || name.Contains("ButtonPixelProductionCharacter")
+            || name.Contains("ButtonCharacterProductionCharacter");
+    }
+
+    bool IsLockedOutOfProduction(uint characterId, Button sourceButton)
+    {
+        if (!IsProductionAssignmentButton(sourceButton))
+            return false;
+        if (characterId == 0 || characterId > Constants.CHARACTERS_ALL_NUM)
+            return false;
+        return CharactersAll[characterId] != null && CharactersAll[characterId].Whereabouts == Place.Battle;
+    }
+
+    static void GrayOutCharacterButton(GameObject buttonObject)
+    {
+        Button button = buttonObject.GetComponent<Button>();
+        Image image = buttonObject.GetComponentInChildren<Image>();
+        if (image != null)
+            image.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+
+        if (button != null)
+        {
+            ColorBlock colors = button.colors;
+            colors.disabledColor = Color.white;
+            button.colors = colors;
+            button.interactable = false;
+        }
+
+        Text[] labels = buttonObject.GetComponentsInChildren<Text>();
+        for (int i = 0; i < labels.Length; i++)
+        {
+            Color color = labels[i].color;
+            labels[i].color = Color.Lerp(color, new Color(0.45f, 0.45f, 0.45f, color.a), 0.75f);
+        }
     }
 
     static bool IsProductionPlace(Place place)

@@ -32,11 +32,34 @@ public static class FusionBonus
 
     public static long Bonus(long grownStat, long fusionCount)
     {
-        long percent = Percent(fusionCount);
-        if (grownStat <= 0 || percent <= 0)
+        if (fusionCount <= 0)
             return 0;
-        if (grownStat > long.MaxValue / percent)
-            return long.MaxValue;
-        return (grownStat * percent + 99) / 100;
+        if (grownStat < 0)
+            grownStat = 0;
+        if (grownStat >= long.MaxValue)
+            return 0;
+
+        long bonus = 0;
+        long percent = Percent(fusionCount);
+        if (grownStat > 0 && percent > 0)
+        {
+            if (percent <= (long.MaxValue - 99) / grownStat)
+                bonus = (grownStat * percent + 99) / 100;
+            else
+            {
+                double raw = ((double)grownStat * (double)percent) / 100.0;
+                if (double.IsNaN(raw) || double.IsInfinity(raw) || raw >= (double)long.MaxValue)
+                    bonus = long.MaxValue - grownStat;
+                else
+                    bonus = BattleMath.CeilToLong(raw);
+            }
+        }
+
+        if (bonus < fusionCount)
+            bonus = fusionCount;
+        // 足した最終値が long を超えるときだけ、残り幅で止める。
+        if (bonus > long.MaxValue - grownStat)
+            return long.MaxValue - grownStat;
+        return bonus;
     }
 }
