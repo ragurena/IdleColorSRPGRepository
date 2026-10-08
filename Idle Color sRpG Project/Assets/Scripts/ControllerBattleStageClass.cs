@@ -9,7 +9,7 @@ public class ControllerBattleStageClass : MonoBehaviour
     public const string CELL_IMAGE_PREFIX = "ImageBattleStageCell";
 
     //ステージ番号は 1～BATTLE_STAGE_NUM。0 は未出撃
-    static readonly string[] StageNames = { "", "草原", "森", "洞窟", "遺跡", "城" };
+    static readonly string[] StageNames = { "", "草原", "森", "洞窟", "遺跡", "城", "ギャラリー" };
     static readonly ulong[] StageRecommendedHP = { 0, 100, 300, 800, 2000, 5000 };
 
     public static string GetStageName(int stageIndex)
@@ -34,8 +34,17 @@ public class ControllerBattleStageClass : MonoBehaviour
     [SerializeField] Slider SliderBattleFloorTo;
     [SerializeField] Button ButtonSortieBattleStage;
     [SerializeField] Button ButtonBattleRepeat;
+    Button ButtonGalleryStage;
+
+    const int RepeatUnlockStage = 1;
+    const int RepeatUnlockFloor = 50;
 
     bool RepeatBattle;
+    Color RepeatLabelColor = Color.black;
+    bool RepeatLabelColorStored;
+    bool FloorFromSliderMeasured;
+    float FloorFromSliderFullWidth;
+    float FloorFromSliderLeft;
 
     Image[,] CellImages = new Image[Constants.BATTLE_FORMATION_SIZE + 1, Constants.BATTLE_FORMATION_SIZE + 1];
 
@@ -105,6 +114,8 @@ public class ControllerBattleStageClass : MonoBehaviour
         else
             Debug.LogWarning("ButtonBattleRepeat が見つかりません");
 
+        EnsureGalleryButton();
+
         SetupFloorSlider(SliderBattleFloorFrom, true);
         SetupFloorSlider(SliderBattleFloorTo, false);
     }
@@ -121,6 +132,21 @@ public class ControllerBattleStageClass : MonoBehaviour
         slider.minValue = 1;
         slider.maxValue = Constants.BATTLE_STAGE_FLOOR_MAX / Constants.BATTLE_STAGE_FLOOR_STEP;
         slider.onValueChanged.AddListener(_ => OnFloorSliderChanged(fromSlider));
+        if (fromSlider)
+            RememberFloorFromSliderSize();
+    }
+
+    void RememberFloorFromSliderSize()
+    {
+        if (FloorFromSliderMeasured || SliderBattleFloorFrom == null)
+            return;
+        RectTransform rect = SliderBattleFloorFrom.GetComponent<RectTransform>();
+        float width = rect.rect.width;
+        if (width <= 1f)
+            width = rect.sizeDelta.x;
+        FloorFromSliderFullWidth = width;
+        FloorFromSliderLeft = rect.anchoredPosition.x - width * rect.pivot.x;
+        FloorFromSliderMeasured = true;
     }
 
     void OnFloorSliderChanged(bool fromMoved)
@@ -188,13 +214,21 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     public void PushButtonBattleRepeat()
     {
+        if (!IsRepeatUnlocked())
+            return;
         RepeatBattle = !RepeatBattle;
         Refresh();
     }
 
     public bool IsRepeatOn()
     {
-        return RepeatBattle;
+        return RepeatBattle && IsRepeatUnlocked();
+    }
+
+    bool IsRepeatUnlocked()
+    {
+        return ControllerProduction != null
+            && ControllerProduction.GetHighestClearedBattleFloor(RepeatUnlockStage) >= RepeatUnlockFloor;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -212,10 +246,11 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         int activeFloorFrom = ControllerProduction.GetActiveBattleFloorFrom();
         int activeFloorTo = ControllerProduction.GetActiveBattleFloorTo();
-        if (ControllerProduction.IsBattleFloorRange(activeFloorFrom, activeFloorTo))
+        int windowStart = ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex);
+        if (activeStage == CurrentStageIndex && ControllerProduction.IsSortieFloorRange(activeStage, activeFloorFrom, activeFloorTo))
             SetFloorSliders(activeFloorFrom, activeFloorTo);
         else
-            SetFloorSliders(1, Constants.BATTLE_STAGE_FLOOR_STEP);
+            SetFloorSliders(windowStart, windowStart + Constants.BATTLE_STAGE_FLOOR_STEP - 1);
 
         Refresh();
     }
@@ -268,6 +303,8 @@ public class ControllerBattleStageClass : MonoBehaviour
                 label.text += "\nクリア";
         }
 
+        PaintGalleryButton(activeStage);
+
         for (int i = 0; i < ButtonBattleStageSets.Length; i++)
         {
             if (ButtonBattleStageSets[i] == null)
@@ -309,10 +346,13 @@ public class ControllerBattleStageClass : MonoBehaviour
                 if (characterId == 0)
                     continue;
 
+                CharacterClass member = ImportedCharacters.FindAny(CharactersAll, characterId);
+                if (member == null || member.Stats == null || member.Stats[0] == null)
+                    continue;
                 memberNum++;
-                totalHP += CharactersAll[characterId].Stats[0].HPMax;
-                totalATK += CharactersAll[characterId].Stats[0].ATK;
-                totalDEF += CharactersAll[characterId].Stats[0].DEF;
+                totalHP += member.Stats[0].HPMax;
+                totalATK += member.Stats[0].ATK;
+                totalDEF += member.Stats[0].DEF;
             }
         }
 
@@ -329,7 +369,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         bool withdrawMode = activeSet != 0 && (activeStage == 0 || activeStage == CurrentStageIndex);
         if (ButtonSortieBattleStage != null)
         {
-            ButtonSortieBattleStage.interactable = withdrawMode || (ControllerProduction.IsBattleStageUnlocked(CurrentStageIndex) && memberNum > 0);
+            ButtonSortieBattleStage.interactable = withdrawMode || (ControllerProduction.CanEnterStage(CurrentStageIndex) && memberNum > 0);
             ButtonSortieBattleStage.image.color = withdrawMode ? ColorWithdraw : ColorSortie;
             Text label = ButtonSortieBattleStage.GetComponentInChildren<Text>();
             if (label != null)
@@ -338,10 +378,37 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         if (ButtonBattleRepeat != null)
         {
-            ButtonBattleRepeat.image.color = RepeatBattle ? ColorButtonSelected : ColorButtonNormal;
+            bool repeatOpen = IsRepeatUnlocked();
+            if (!repeatOpen)
+                RepeatBattle = false;
+            ButtonBattleRepeat.interactable = repeatOpen;
             Text repeatLabel = ButtonBattleRepeat.GetComponentInChildren<Text>();
-            if (repeatLabel != null)
-                repeatLabel.text = RepeatBattle ? "繰り返し\nON" : "繰り返し\nOFF";
+            if (repeatLabel != null && !RepeatLabelColorStored)
+            {
+                RepeatLabelColor = repeatLabel.color;
+                RepeatLabelColorStored = true;
+            }
+
+            if (!repeatOpen)
+            {
+                ButtonBattleRepeat.image.color = ColorStageLocked;
+                if (repeatLabel != null)
+                {
+                    repeatLabel.color = new Color(0.28f, 0.28f, 0.28f, 1f);
+                    repeatLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    repeatLabel.verticalOverflow = VerticalWrapMode.Overflow;
+                    repeatLabel.text = "繰り返し\n" + GetStageName(RepeatUnlockStage) + "の" + RepeatUnlockFloor.ToString() + "階をクリアすると開く";
+                }
+            }
+            else
+            {
+                ButtonBattleRepeat.image.color = RepeatBattle ? ColorButtonSelected : ColorButtonNormal;
+                if (repeatLabel != null)
+                {
+                    repeatLabel.color = RepeatLabelColor;
+                    repeatLabel.text = RepeatBattle ? "繰り返し\nON" : "繰り返し\nOFF";
+                }
+            }
         }
 
         if (TextBattleFloorRange != null)
@@ -349,7 +416,8 @@ public class ControllerBattleStageClass : MonoBehaviour
             GetSelectedFloorRange(out int floorFrom, out int floorTo);
             TextBattleFloorRange.text = floorFrom.ToString() + "階 〜 " + floorTo.ToString() + "階";
             int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
-            int lastBandStart = Constants.BATTLE_STAGE_FLOOR_MAX - Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+            int windowStart = ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex);
+            int lastBandStart = windowStart + Constants.BATTLE_STAGE_FLOOR_MAX - Constants.BATTLE_STAGE_FLOOR_STEP;
             if (maxFrom < lastBandStart)
             {
                 int highest = ControllerProduction.GetHighestClearedBattleFloor(CurrentStageIndex);
@@ -378,14 +446,17 @@ public class ControllerBattleStageClass : MonoBehaviour
             return;
 
         int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
-        int maxBand = (maxFrom - 1) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+        int windowStart = ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex);
+        int maxBand = (maxFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         if (maxBand < 1)
             maxBand = 1;
 
         int fromBand = Mathf.RoundToInt(SliderBattleFloorFrom.value);
         if (fromBand > maxBand)
-            SliderBattleFloorFrom.SetValueWithoutNotify(maxBand);
+            fromBand = maxBand;
         SliderBattleFloorFrom.maxValue = maxBand;
+        SliderBattleFloorFrom.SetValueWithoutNotify(fromBand);
+        ResizeFloorFromSlider(maxBand);
 
         if (SliderBattleFloorTo == null)
             return;
@@ -395,10 +466,34 @@ public class ControllerBattleStageClass : MonoBehaviour
             SliderBattleFloorTo.SetValueWithoutNotify(fromBand);
     }
 
+    //選べる開始階が浅いときは、バーの長さもその分だけ短くする。左端は動かさない
+    void ResizeFloorFromSlider(int maxBand)
+    {
+        RememberFloorFromSliderSize();
+        if (!FloorFromSliderMeasured || SliderBattleFloorFrom == null)
+            return;
+
+        int totalBands = Constants.BATTLE_STAGE_FLOOR_MAX / Constants.BATTLE_STAGE_FLOOR_STEP;
+        if (totalBands < 1)
+            totalBands = 1;
+        if (maxBand < 1)
+            maxBand = 1;
+        if (maxBand > totalBands)
+            maxBand = totalBands;
+
+        RectTransform rect = SliderBattleFloorFrom.GetComponent<RectTransform>();
+        float width = FloorFromSliderFullWidth * maxBand / totalBands;
+        if (width < 1f)
+            width = 1f;
+        rect.sizeDelta = new Vector2(width, rect.sizeDelta.y);
+        rect.anchoredPosition = new Vector2(FloorFromSliderLeft + width * rect.pivot.x, rect.anchoredPosition.y);
+    }
+
     void SetFloorSliders(int floorFrom, int floorTo)
     {
-        int fromBand = (floorFrom - 1) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
-        int toBand = floorTo / Constants.BATTLE_STAGE_FLOOR_STEP;
+        int windowStart = ControllerProduction != null ? ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex) : 1;
+        int fromBand = (floorFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+        int toBand = (floorTo - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         if (SliderBattleFloorFrom != null)
             SliderBattleFloorFrom.SetValueWithoutNotify(fromBand);
         if (SliderBattleFloorTo != null)
@@ -411,32 +506,114 @@ public class ControllerBattleStageClass : MonoBehaviour
         int toBand = SliderBattleFloorTo != null ? Mathf.RoundToInt(SliderBattleFloorTo.value) : 1;
         if (fromBand < 1)
             fromBand = 1;
+        int windowStart = 1;
         if (ControllerProduction != null)
         {
+            windowStart = ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex);
             int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
-            int maxBand = (maxFrom - 1) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+            int maxBand = (maxFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
             if (fromBand > maxBand)
                 fromBand = maxBand;
         }
         if (toBand < fromBand)
             toBand = fromBand;
 
-        floorFrom = (fromBand - 1) * Constants.BATTLE_STAGE_FLOOR_STEP + 1;
-        floorTo = toBand * Constants.BATTLE_STAGE_FLOOR_STEP;
+        floorFrom = windowStart + (fromBand - 1) * Constants.BATTLE_STAGE_FLOOR_STEP;
+        floorTo = windowStart + toBand * Constants.BATTLE_STAGE_FLOOR_STEP - 1;
+    }
+
+    void EnsureGalleryButton()
+    {
+        Button source = null;
+        for (int i = 0; i < ButtonBattleStages.Length; i++)
+        {
+            if (ButtonBattleStages[i] != null)
+                source = ButtonBattleStages[i];
+        }
+        if (source == null)
+        {
+            Debug.LogWarning("ギャラリーのボタンを置く元になるステージボタンがありません");
+            return;
+        }
+
+        Transform parent = source.transform.parent;
+        Transform existing = parent != null ? parent.Find("ButtonBattleStageGallery") : null;
+        if (existing != null)
+            ButtonGalleryStage = existing.GetComponent<Button>();
+
+        if (ButtonGalleryStage == null)
+        {
+            GameObject clone = Instantiate(source.gameObject, parent);
+            clone.name = "ButtonBattleStageGallery";
+            RectTransform sourceRect = source.GetComponent<RectTransform>();
+            RectTransform rect = clone.GetComponent<RectTransform>();
+            float gap = sourceRect.sizeDelta.x;
+            if (gap < 1f)
+                gap = 160f;
+            rect.anchoredPosition = sourceRect.anchoredPosition + new Vector2(gap + 12f, 0f);
+            ButtonGalleryStage = clone.GetComponent<Button>();
+        }
+
+        if (ButtonGalleryStage == null)
+            return;
+        ButtonGalleryStage.onClick = new Button.ButtonClickedEvent();
+        ButtonGalleryStage.onClick.AddListener(() => PushButtonSelectBattleStage(Constants.BATTLE_STAGE_GALLERY));
+    }
+
+    void PaintGalleryButton(int activeStage)
+    {
+        if (ButtonGalleryStage == null || ControllerProduction == null)
+            return;
+
+        bool prairieCleared = ControllerProduction.GetClearedBattleStage() >= 1;
+        bool hasImported = ImportedCharacters.Count > 0;
+        bool open = prairieCleared && hasImported;
+        bool sortieing = activeStage == Constants.BATTLE_STAGE_GALLERY;
+        ButtonGalleryStage.interactable = open || sortieing;
+
+        Text label = ButtonGalleryStage.GetComponentInChildren<Text>();
+        if (label != null)
+        {
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+        }
+
+        if (!open && !sortieing)
+        {
+            ButtonGalleryStage.image.color = ColorStageLocked;
+            if (label == null)
+                return;
+            if (!prairieCleared)
+                label.text = "ギャラリー\n草原をクリアすると開く";
+            else
+                label.text = "ギャラリー\n読み込んだキャラがいない";
+            return;
+        }
+
+        ButtonGalleryStage.image.color = (CurrentStageIndex == Constants.BATTLE_STAGE_GALLERY) ? ColorButtonSelected : ColorButtonNormal;
+        if (label == null)
+            return;
+
+        int start = ControllerProduction.GetBattleFloorWindowStart(Constants.BATTLE_STAGE_GALLERY);
+        int end = start + Constants.BATTLE_STAGE_FLOOR_MAX - 1;
+        label.text = "ギャラリー\n" + start.ToString() + "〜" + end.ToString() + "階";
+        if (sortieing)
+            label.text += "\n出撃中";
     }
 
     bool CanSelectStage(int stageIndex)
     {
-        return ControllerProduction.IsBattleStageUnlocked(stageIndex)
+        return ControllerProduction.CanEnterStage(stageIndex)
             || stageIndex == ControllerProduction.GetActiveBattleStage();
     }
 
     Sprite CreateCharacterSprite(uint argCharacterId)
     {
-        Texture2D tex = CharactersAll[argCharacterId].ImageTexture2D;
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, argCharacterId);
+        Texture2D tex = character != null ? character.ImageTexture2D : null;
         if (tex == null)
             return Resources.Load<Sprite>("NoImageSprite");
 
-        return Sprite.Create(tex, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterId].Size, CharactersAll[argCharacterId].Size), new Vector2(0.5f, 0.5f));
+        return Sprite.Create(tex, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f));
     }
 }

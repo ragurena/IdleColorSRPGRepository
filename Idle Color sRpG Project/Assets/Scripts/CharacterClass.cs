@@ -338,34 +338,10 @@ public class CharacterClass //: MonoBehaviour
         if (!string.IsNullOrEmpty(existingPath) && File.Exists(existingPath))
             return LoadNormalizedImage(existingPath);
 
-        //ポスタリゼーション
-        argImage = Posterization(argImage, GameConfig.GRADATION_LEVELS);
-
-        //アルファチャンネルを二値化、透過画素の色を0
-        Color[] ImageColor = argImage.GetPixels(0, 0, argImage.width, argImage.height);
-        for (int x = 0; x < argImage.width; x++)
-        {
-            for (int y = 0; y < argImage.height; y++)
-            {
-                if(ImageColor[x + y * argImage.width].a < (float)(0.5))
-                {
-                    ImageColor[x + y * argImage.width].a = (float)(0.0);
-                    ImageColor[x + y * argImage.width].r = (float)(0.0);
-                    ImageColor[x + y * argImage.width].g = (float)(0.0);
-                    ImageColor[x + y * argImage.width].b = (float)(0.0);
-                }
-                else
-                {
-                    ImageColor[x + y * argImage.width].a = (float)(1.0);
-                }
-
-            }
-        }
-
-        Texture2D resultTexture2D = argImage;
-        resultTexture2D.SetPixels(0, 0, argImage.width, argImage.height, ImageColor);
-        resultTexture2D.filterMode = FilterMode.Point;
-        resultTexture2D.Apply();
+        //ポスタリゼーションし、アルファを二値化する。元画像は書き換えない
+        Texture2D resultTexture2D = MakePosterizedTexture(argImage);
+        if (resultTexture2D == null)
+            return null;
 
         // オリジナルは書き換えず、ポスタリゼーション済みを別ファイルに保存する
         string FileName = Path.GetFileName(argImagePath);
@@ -379,6 +355,36 @@ public class CharacterClass //: MonoBehaviour
 
         // 表示も数値も、保存したファイルを読み直したものを使う
         return LoadNormalizedImage(resultImagePath);
+    }
+
+    // 階調を揃え、アルファ 0.5 未満を透過にする。戻り値は新しい画像で、元画像は残る。
+    public static Texture2D MakePosterizedTexture(Texture2D srcTex)
+    {
+        Texture2D posterized = Posterization(srcTex, GameConfig.GRADATION_LEVELS);
+        if (posterized == null)
+            return null;
+
+        Color[] pixels = posterized.GetPixels();
+        int width = posterized.width;
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            if (pixels[i].a < 0.5f)
+            {
+                pixels[i].a = 0f;
+                pixels[i].r = 0f;
+                pixels[i].g = 0f;
+                pixels[i].b = 0f;
+            }
+            else
+            {
+                pixels[i].a = 1f;
+            }
+        }
+
+        posterized.SetPixels(0, 0, width, posterized.height, pixels);
+        posterized.filterMode = FilterMode.Point;
+        posterized.Apply();
+        return posterized;
     }
 
     /// <summary>

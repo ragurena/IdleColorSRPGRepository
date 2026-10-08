@@ -64,6 +64,15 @@ public class ControllerFusionClass : MonoBehaviour
                 selectedStillThere = true;
         }
 
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character == null || character.ID < ImportedCharacters.FirstId || character.OwnedNumCur < 1)
+                return;
+            _cells.Add(CreateCell(character));
+            if (character.ID == _selectedId)
+                selectedStillThere = true;
+        });
+
         if (!selectedStillThere || !CanFuse(_production.GetCharacter(_selectedId)))
             _selectedId = FirstFusableId();
         ShowDetail();

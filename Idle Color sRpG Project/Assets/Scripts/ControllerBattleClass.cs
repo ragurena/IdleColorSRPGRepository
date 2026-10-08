@@ -26,6 +26,7 @@ public class ControllerBattleClass : MonoBehaviour
     int _cueB;
     long _cuePixelCount;
     int _nextUnitId = 1;
+    int _battleStageIndex;
     readonly List<string> _logs = new List<string>();
     readonly List<BattleUnit> _units = new List<BattleUnit>();
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
@@ -139,7 +140,10 @@ public class ControllerBattleClass : MonoBehaviour
     IEnumerator Run(int stageIndex, int floorFrom, int floorTo)
     {
         _running = true;
-        StageBattleContent content = BattleStageCatalog.Get(stageIndex);
+        _battleStageIndex = stageIndex;
+        StageBattleContent content = stageIndex == Constants.BATTLE_STAGE_GALLERY
+            ? new StageBattleContent { StageIndex = stageIndex }
+            : BattleStageCatalog.Get(stageIndex);
         string stageName = ControllerBattleStageClass.GetStageName(stageIndex);
         var sink = new RewardSink(this);
         bool clearedStage = false;
@@ -213,7 +217,7 @@ public class ControllerBattleClass : MonoBehaviour
             }
 
             _production.MarkBattleFloorCleared(stageIndex, floor);
-            if (floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
+            if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
                 clearedStage = true;
             if (!HasLivingAlly())
                 partyGone = true;
@@ -262,6 +266,7 @@ public class ControllerBattleClass : MonoBehaviour
     {
         _running = false;
         _stop = false;
+        _battleStageIndex = 0;
         _production.SyncAllyLivesFromBattle(_units);
         if (_production.GetActiveBattleStage() != 0)
             _production.LeaveBattle();
@@ -300,7 +305,11 @@ public class ControllerBattleClass : MonoBehaviour
         var picks = new List<EnemySpawnEntry>();
         double multiplier = 1.0;
         var rng = new SystemBattleRandom();
-        if (boss != null)
+        if (content.StageIndex == Constants.BATTLE_STAGE_GALLERY)
+        {
+            picks = RollGalleryEnemies(floor, rng);
+        }
+        else if (boss != null)
         {
             int count = EnemySpawner.RollBossCount(boss, _config.MaxUnits, rng);
             for (int i = 0; i < count; i++)
@@ -324,6 +333,29 @@ public class ControllerBattleClass : MonoBehaviour
             if (enemy != null)
                 _units.Add(enemy);
         }
+    }
+
+    List<EnemySpawnEntry> RollGalleryEnemies(int floor, IBattleRandom rng)
+    {
+        var picks = new List<EnemySpawnEntry>();
+        var ids = new List<uint>();
+        _production.CollectImportedCharacterIds(ids);
+        if (ids.Count == 0 || rng == null)
+            return picks;
+
+        int level = floor < 1 ? 1 : floor;
+        int upper = 3;
+        if (_config != null && _config.MaxUnits < upper)
+            upper = _config.MaxUnits;
+        if (upper < 1)
+            upper = 1;
+        int count = rng.NextInt(1, upper + 1);
+        for (int i = 0; i < count; i++)
+        {
+            uint id = ids[rng.NextInt(0, ids.Count)];
+            picks.Add(new EnemySpawnEntry(id, 1, 1, 1, level));
+        }
+        return picks;
     }
 
     void RemoveEnemies()
@@ -355,7 +387,7 @@ public class ControllerBattleClass : MonoBehaviour
 
     int BattleSpeed()
     {
-        if (_battleSpeed == 2 || _battleSpeed == 4)
+        if (_battleSpeed == 2 || _battleSpeed == 4 || _battleSpeed == 8)
             return _battleSpeed;
         return 1;
     }
@@ -705,6 +737,8 @@ public class ControllerBattleClass : MonoBehaviour
             _battleSpeed = 2;
         else if (_battleSpeed == 2)
             _battleSpeed = 4;
+        else if (_battleSpeed == 4)
+            _battleSpeed = 8;
         else
             _battleSpeed = 1;
         ApplySpeedButton();
@@ -721,6 +755,8 @@ public class ControllerBattleClass : MonoBehaviour
             label.text = "2倍";
         else if (_battleSpeed == 4)
             label.text = "4倍";
+        else if (_battleSpeed == 8)
+            label.text = "8倍";
         else
             label.text = "通常";
     }
@@ -1175,11 +1211,15 @@ public class ControllerBattleClass : MonoBehaviour
 
         public void GrantRgb(CharacterAttribute attribute, long amount)
         {
+            if (_view._battleStageIndex == Constants.BATTLE_STAGE_GALLERY && amount > 0)
+                amount = (amount + 1) / 2;
             _view._production.AddBattleRgb(attribute, amount);
         }
 
         public void GrantPixels(int r, int g, int b, long count)
         {
+            if (_view._battleStageIndex == Constants.BATTLE_STAGE_GALLERY && count > 0)
+                count = (count + 1) / 2;
             _view._production.AddBattlePixels(r, g, b, count);
             if (count <= 0)
                 return;
@@ -1192,6 +1232,8 @@ public class ControllerBattleClass : MonoBehaviour
 
         public void GrantExp(BattleUnit ally, long exp)
         {
+            if (_view._battleStageIndex == Constants.BATTLE_STAGE_GALLERY && exp > 0)
+                exp = (exp + 1) / 2;
             int levels = _view._production.GrantBattleExp(ally, exp, _view._config);
             if (exp > 0)
                 _view.AddLog(ally.Name + " 経験値 +" + exp.ToString());

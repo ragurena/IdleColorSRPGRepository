@@ -61,9 +61,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     {
         if (IsLockedOutOfProduction(argCharacterID, ButtonTmp))
             return;
+        if (ImportedCharacters.FindAny(CharactersAll, argCharacterID) == null)
+            return;
 
         Debug.Log("SelectCharacterID : " + argCharacterID);
-        ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[argCharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterID].Size, CharactersAll[argCharacterID].Size), new Vector2(0.5f, 0.5f));
+        ImageSelectCharacter.sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Size), new Vector2(0.5f, 0.5f));
         CharacterIDTmp = argCharacterID;
         Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
         ButtonSelect.interactable = true;
@@ -76,11 +78,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             ButtonTmp.name.Contains("BProductionHelpCharacter"))
         {
             //選択キャラクターのステータスを表示
-            TextSelectCharacter1.text = "CreateR : " + CharactersAll[argCharacterID].Stats[0].RCreates;
+            TextSelectCharacter1.text = "CreateR : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].RCreates;
             TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter2.text = "CreateG : " + CharactersAll[argCharacterID].Stats[0].GCreates;
+            TextSelectCharacter2.text = "CreateG : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].GCreates;
             TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-            TextSelectCharacter3.text = "CreateB : " + CharactersAll[argCharacterID].Stats[0].BCreates;
+            TextSelectCharacter3.text = "CreateB : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].BCreates;
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
         }
         else
@@ -89,12 +91,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             int ColorProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
             //選択キャラクターのステータスを表示
-            TextSelectCharacter1.text = "      SPD       : " + CharactersAll[argCharacterID].Stats[0].SPD;
+            TextSelectCharacter1.text = "      SPD       : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].SPD;
             TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter2.text = "CreatePixel : " + CharactersAll[argCharacterID].GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
+            TextSelectCharacter2.text = "CreatePixel : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
             TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
             TextSelectCharacter3.text = "  Pixel/sec   : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], argCharacterID)
-                                                           * CharactersAll[argCharacterID].GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
+                                                           * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
@@ -111,7 +113,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
             TextSelectCharacter1.text = "";
             TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter2.text = "Pixel/sec : " + CharactersAll[argCharacterID].PaintPixels;
+            TextSelectCharacter2.text = "Pixel/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).PaintPixels;
             TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
             TextSelectCharacter3.text = "";
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
@@ -123,7 +125,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
             TextSelectCharacter1.text = "";
             TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter2.text = "Pixels : " + ((CharactersAll[argCharacterID].Size * CharactersAll[argCharacterID].Size) - CharactersAll[argCharacterID].APixels);
+            TextSelectCharacter2.text = "Pixels : " + ((ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Size * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Size) - ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).APixels);
             TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
             TextSelectCharacter3.text = "";
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
@@ -161,19 +163,21 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         }
 
         ShowBattleStats(argCurrentCharacterID);
-        if (argCurrentCharacterID != 0 && CharactersAll[argCurrentCharacterID].ImageTexture2D != null)
+        CharacterClass currentCharacter = ImportedCharacters.FindAny(CharactersAll, argCurrentCharacterID);
+        if (currentCharacter != null && currentCharacter.ImageTexture2D != null)
         {
-            ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[argCurrentCharacterID].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCurrentCharacterID].Size, CharactersAll[argCurrentCharacterID].Size), new Vector2(0.5f, 0.5f));
+            ImageSelectCharacter.sprite = Sprite.Create(currentCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, currentCharacter.Size, currentCharacter.Size), new Vector2(0.5f, 0.5f));
         }
 
         //編成に入っているだけでは Whereabouts は変わらない。最大所持数が 1 以上を候補にする
         for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
         {
-            if (CharactersAll[indexCharacter].OwnedNumMax != 0)
+            if (ImportedCharacters.FindAny(CharactersAll, (uint)(indexCharacter)).OwnedNumMax != 0)
             {
                 CreateCharacterButton(indexCharacter, ButtonTmp, false);
             }
         }
+        AddImportedCharacterButtons(ButtonTmp, false);
     }
 
     //バトル用ステータスの表示。0なら項目名だけ
@@ -191,8 +195,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             return;
         }
 
-        StatisticsClass stats = CharactersAll[argCharacterID].Stats[0];
-        TextSelectCharacter1.text = "HP : " + stats.HPMax + "   " + CharactersAll[argCharacterID].CharacterType;
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, argCharacterID);
+        if (character == null || character.Stats == null || character.Stats[0] == null)
+            return;
+        StatisticsClass stats = character.Stats[0];
+        TextSelectCharacter1.text = "HP : " + stats.HPMax + "   " + character.CharacterType;
         TextSelectCharacter2.text = "ATK : " + stats.ATK + "   DEF : " + stats.DEF;
         TextSelectCharacter3.text = "SPD : " + stats.SPD + "   LUC : " + stats.LUC;
     }
@@ -218,11 +225,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
                 //前に設定されていたキャラの居場所変更
-                CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Whereabouts = Place.None;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Whereabouts = Place.None;
                 CharactersIDHelpProductionR[HelpProductionIndex] = CharacterIDTmp;
 
                 //居場所変更
-                CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateR;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharacterIDTmp)).Whereabouts = Place.CreateR;
             }
             else
             if (ButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
@@ -231,11 +238,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
                 //前に設定されていたキャラの居場所変更
-                CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Whereabouts = Place.None;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Whereabouts = Place.None;
                 CharactersIDHelpProductionG[HelpProductionIndex] = CharacterIDTmp;
 
                 //居場所変更
-                CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateG;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharacterIDTmp)).Whereabouts = Place.CreateG;
             }
             else
             if (ButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
@@ -244,11 +251,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
                 //前に設定されていたキャラの居場所変更
-                CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Whereabouts = Place.None;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Whereabouts = Place.None;
                 CharactersIDHelpProductionB[HelpProductionIndex] = CharacterIDTmp;
 
                 //居場所変更
-                CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateB;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharacterIDTmp)).Whereabouts = Place.CreateB;
             }
         }
         else
@@ -259,13 +266,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
             ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
             //前に設定されていたキャラの居場所変更
-            CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Whereabouts = Place.None;
+            ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Whereabouts = Place.None;
 
 
             CharactersIDProductionPixel[ProductionPixelIndex] = CharacterIDTmp;
 
             //居場所変更
-            CharactersAll[CharacterIDTmp].Whereabouts = Place.CreatePixel;
+            ImportedCharacters.FindAny(CharactersAll, (uint)(CharacterIDTmp)).Whereabouts = Place.CreatePixel;
         }
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
@@ -274,12 +281,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
             ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
             //前に設定されていたキャラの居場所変更
-            CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Whereabouts = Place.None;
+            ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).Whereabouts = Place.None;
 
             CharactersIDProductionCharacter[ProductionCharacterIndex] = CharacterIDTmp;
 
             //居場所変更
-            CharactersAll[CharacterIDTmp].Whereabouts = Place.CreateCharacter;
+            ImportedCharacters.FindAny(CharactersAll, (uint)(CharacterIDTmp)).Whereabouts = Place.CreateCharacter;
         }
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
@@ -312,7 +319,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
                 //前に設定されていたキャラの居場所変更
-                CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Whereabouts = Place.None;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Whereabouts = Place.None;
 
                 CharactersIDHelpProductionR[HelpProductionIndex] = 0;
             }
@@ -324,7 +331,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
                 //前に設定されていたキャラの居場所変更
-                CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Whereabouts = Place.None;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Whereabouts = Place.None;
 
                 CharactersIDHelpProductionG[HelpProductionIndex] = 0;
             }
@@ -336,7 +343,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
                 //前に設定されていたキャラの居場所変更
-                CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Whereabouts = Place.None;
+                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Whereabouts = Place.None;
 
                 CharactersIDHelpProductionB[HelpProductionIndex] = 0;
             }
@@ -348,7 +355,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
             //前に設定されていたキャラの居場所変更
-            CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Whereabouts = Place.None;
+            ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Whereabouts = Place.None;
 
             CharactersIDProductionPixel[ProductionPixelIndex] = 0;
 
@@ -359,7 +366,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
 
             //前に設定されていたキャラの居場所変更
-            CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Whereabouts = Place.None;
+            ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).Whereabouts = Place.None;
 
             CharactersIDProductionCharacter[ProductionCharacterIndex] = 0;
         }
@@ -411,13 +418,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 if (CharactersIDHelpProductionR[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
-                    TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Stats[0].RCreates;
+                    TextSelectCharacter1.text = "CreateR : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                    TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Stats[0].GCreates;
+                    TextSelectCharacter2.text = "CreateG : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Stats[0].GCreates;
                     TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                    TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionR[HelpProductionIndex]].Stats[0].BCreates;
+                    TextSelectCharacter3.text = "CreateB : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Stats[0].BCreates;
                     TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
                     //外すボタンのenable設定
@@ -440,13 +447,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 if (CharactersIDHelpProductionG[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
-                    TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Stats[0].RCreates;
+                    TextSelectCharacter1.text = "CreateR : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                    TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Stats[0].GCreates;
+                    TextSelectCharacter2.text = "CreateG : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Stats[0].GCreates;
                     TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                    TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionG[HelpProductionIndex]].Stats[0].BCreates;
+                    TextSelectCharacter3.text = "CreateB : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Stats[0].BCreates;
                     TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
                     //外すボタンのenable設定
@@ -469,13 +476,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 if (CharactersIDHelpProductionB[HelpProductionIndex] != 0)
                 {
                     //選択キャラクターの画像を表示
-                    ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size, CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Size), new Vector2(0.5f, 0.5f));
+                    ImageSelectCharacter.sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Size), new Vector2(0.5f, 0.5f));
                     //選択キャラクターのステータスを表示
-                    TextSelectCharacter1.text = "CreateR : " + CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Stats[0].RCreates;
+                    TextSelectCharacter1.text = "CreateR : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Stats[0].RCreates;
                     TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                    TextSelectCharacter2.text = "CreateG : " + CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Stats[0].GCreates;
+                    TextSelectCharacter2.text = "CreateG : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Stats[0].GCreates;
                     TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                    TextSelectCharacter3.text = "CreateB : " + CharactersAll[CharactersIDHelpProductionB[HelpProductionIndex]].Stats[0].BCreates;
+                    TextSelectCharacter3.text = "CreateB : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Stats[0].BCreates;
                     TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
 
                     //外すボタンのenable設定
@@ -507,14 +514,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             if (CharactersIDProductionPixel[ProductionPixelIndex] != 0)
             {
                 //選択キャラクターの画像を表示
-                ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size, CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Size), new Vector2(0.5f, 0.5f));
+                ImageSelectCharacter.sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Size), new Vector2(0.5f, 0.5f));
                 //選択キャラクターのステータスを表示
-                TextSelectCharacter1.text = "      SPD       : " + CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].Stats[0].SPD;
+                TextSelectCharacter1.text = "      SPD       : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Stats[0].SPD;
                 TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-                TextSelectCharacter2.text = "CreatePixel : " + CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].GetCreatePixels((ushort)(ColorProductionPixel[ProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].b * 255));
+                TextSelectCharacter2.text = "CreatePixel : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).GetCreatePixels((ushort)(ColorProductionPixel[ProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].b * 255));
                 TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
                 TextSelectCharacter3.text = "  Pixel/sec   : " + GetCreatePixelTime(ColorProductionPixel[ProductionPixelIndex], CharactersIDProductionPixel[ProductionPixelIndex])
-                                                               * CharactersAll[CharactersIDProductionPixel[ProductionPixelIndex]].GetCreatePixels((ushort)(ColorProductionPixel[ProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].b * 255));
+                                                               * ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).GetCreatePixels((ushort)(ColorProductionPixel[ProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].b * 255));
                 TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
                 //外すボタンのenable設定
@@ -550,9 +557,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             if (CharactersIDProductionCharacter[ProductionCharacterIndex] != 0)
             {
                 //選択キャラクターの画像を表示
-                ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Size, CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].Size), new Vector2(0.5f, 0.5f));
+                ImageSelectCharacter.sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).Size), new Vector2(0.5f, 0.5f));
 
-                TextSelectCharacter2.text = "Pixel/sec : " + CharactersAll[CharactersIDProductionCharacter[ProductionCharacterIndex]].PaintPixels;
+                TextSelectCharacter2.text = "Pixel/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).PaintPixels;
 
                 //外すボタンのenable設定
                 foreach (GameObject gameObject in tag1_Objects)
@@ -579,9 +586,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             if (CharactersIDProducedCharacter[ProductionCharacterIndex] != 0)
             {
                 //選択キャラクターの画像を表示
-                ImageSelectCharacter.sprite = Sprite.Create(CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size, CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size), new Vector2(0.5f, 0.5f));
+                ImageSelectCharacter.sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProducedCharacter[ProductionCharacterIndex])).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProducedCharacter[ProductionCharacterIndex])).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProducedCharacter[ProductionCharacterIndex])).Size), new Vector2(0.5f, 0.5f));
 
-                TextSelectCharacter2.text = "Pixels : " + ((CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size * CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].Size) - CharactersAll[CharactersIDProducedCharacter[ProductionCharacterIndex]].APixels);
+                TextSelectCharacter2.text = "Pixels : " + ((ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProducedCharacter[ProductionCharacterIndex])).Size * ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProducedCharacter[ProductionCharacterIndex])).Size) - ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProducedCharacter[ProductionCharacterIndex])).APixels);
 
                 //外すボタンのenable設定
                 foreach (GameObject gameObject in tag1_Objects)
@@ -604,11 +611,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
-                if (CharactersAll[indexCharacter].OwnedNumMax != 0)
+                if (ImportedCharacters.FindAny(CharactersAll, (uint)(indexCharacter)).OwnedNumMax != 0)
                 {
                     CreateCharacterButton(indexCharacter, ButtonTmp, true);
                 }
             }
+            AddImportedCharacterButtons(ButtonTmp, true);
         }
         else
         if (ButtonTmp.name.Contains("ButtonCharacterColor") ||
@@ -616,17 +624,31 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
-                if (CharactersAll[indexCharacter].OwnedNumMax != 0)
+                if (ImportedCharacters.FindAny(CharactersAll, (uint)(indexCharacter)).OwnedNumMax != 0)
                 {
                     CreateCharacterButton(indexCharacter, ButtonTmp, true);
                 }
             }
+            AddImportedCharacterButtons(ButtonTmp, true);
         }
+    }
+
+    void AddImportedCharacterButtons(Button source, bool warnIfUsedInOtherProduction)
+    {
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character == null || character.OwnedNumMax == 0)
+                return;
+            CreateCharacterButton((int)character.ID, source, warnIfUsedInOtherProduction);
+        });
     }
     //キャラクターボタンの作成
     private void CreateCharacterButton(int argCharacterIndex, Button argButtonTmp, bool warnIfUsedInOtherProduction)
     {
-        Debug.Log("CreateCharacterButton argCharacterIndex = " + argCharacterIndex + " \n Path = " + CharactersAll[argCharacterIndex].ImagePath);
+        CharacterClass buttonCharacter = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
+        if (buttonCharacter == null)
+            return;
+        Debug.Log("CreateCharacterButton argCharacterIndex = " + argCharacterIndex + " \n Path = " + buttonCharacter.ImagePath);
 
         GameObject gameObjectCharacterList = null;
         GameObject[] tag1_Objects;
@@ -643,18 +665,18 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         GameObject GameObjectCharacterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), gameObjectCharacterList.transform) as GameObject;
 
         //spriteの指定
-        //GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(CharactersAll[argCharacterIndex].ImageTexture2D, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
+        //GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Size), new Vector2(0.5f, 0.5f));
         // --- 修正案：画像パスの安全チェック ---
         Sprite characterSprite = null;
 
         // パスがちゃんと入っているかチェック
-        if (!string.IsNullOrWhiteSpace(CharactersAll[argCharacterIndex].ImagePath))
+        if (!string.IsNullOrWhiteSpace(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).ImagePath))
         {
             // パスがあるときだけ画像を読み込む
-            Texture2D tex = CharactersAll[argCharacterIndex].ImageTexture2D;
+            Texture2D tex = ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).ImageTexture2D;
             if (tex != null)
             {
-                characterSprite = Sprite.Create(tex, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterIndex].Size, CharactersAll[argCharacterIndex].Size), new Vector2(0.5f, 0.5f));
+                characterSprite = Sprite.Create(tex, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Size), new Vector2(0.5f, 0.5f));
             }
         }
 
@@ -679,19 +701,19 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             if (argButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
             {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateR/sec : " + CharactersAll[argCharacterIndex].Stats[0].RCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateR/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].RCreates.ToString();
                 GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
             }
             else
             if (argButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
             {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateG/sec : " + CharactersAll[argCharacterIndex].Stats[0].GCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateG/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].GCreates.ToString();
                 GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
             }
             else
             if (argButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
             {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateB/sec : " + CharactersAll[argCharacterIndex].Stats[0].BCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateB/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].BCreates.ToString();
                 GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
             }
         }
@@ -701,31 +723,31 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             int ColorProductionPixelIndex = int.Parse(argButtonTmp.name.Substring(argButtonTmp.name.Length - 2, 2));
 
             GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], (uint)argCharacterIndex)
-                                                               * CharactersAll[argCharacterIndex].GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
+                                                               * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
         if (argButtonTmp.name.Contains("ButtonCharacterColor"))
         {
-            GameObjectCharacterButton.GetComponentInChildren<Text>().text = CharactersAll[argCharacterIndex].Name;
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Name;
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
         if (argButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
-            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + CharactersAll[argCharacterIndex].PaintPixels;
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).PaintPixels;
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
         if (argButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
-            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixels : " + ((CharactersAll[argCharacterIndex].Size * CharactersAll[argCharacterIndex].Size) - CharactersAll[argCharacterIndex].APixels);
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixels : " + ((ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Size * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Size) - ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).APixels);
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
         if (ControllerBattlePartyClass.IsCellButton(argButtonTmp))
         {
-            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "HP " + CharactersAll[argCharacterIndex].Stats[0].HPMax + " / ATK " + CharactersAll[argCharacterIndex].Stats[0].ATK;
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "HP " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].HPMax + " / ATK " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].ATK;
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
 
@@ -760,9 +782,10 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     {
         if (!IsProductionAssignmentButton(sourceButton))
             return false;
-        if (characterId == 0 || characterId > Constants.CHARACTERS_ALL_NUM)
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, characterId);
+        if (character == null || character.ID != characterId)
             return false;
-        return CharactersAll[characterId] != null && CharactersAll[characterId].Whereabouts == Place.Battle;
+        return character.Whereabouts == Place.Battle;
     }
 
     static void GrayOutCharacterButton(GameObject buttonObject)
@@ -796,7 +819,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     bool IsUsedInOtherProduction(uint characterId, Button sourceButton)
     {
-        if (characterId == 0 || !IsProductionPlace(CharactersAll[characterId].Whereabouts))
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, characterId);
+        if (character == null || character.ID == 0 || !IsProductionPlace(character.Whereabouts))
             return false;
         return !IsCharacterInSourceSlot(characterId, sourceButton);
     }
@@ -947,6 +971,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     }
     int GetCreatePixelTimeRGB(ushort argRGB, uint argCharacterID)
     {
-        return (int)(Mathf.Ceil((argRGB + 1) / (float)(CharactersAll[argCharacterID].Stats[0].SPD)));
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, argCharacterID);
+        if (character == null || character.Stats == null || character.Stats[0] == null || character.Stats[0].SPD < 1)
+            return 0;
+        return (int)(Mathf.Ceil((argRGB + 1) / (float)(character.Stats[0].SPD)));
     }
 }

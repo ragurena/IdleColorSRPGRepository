@@ -145,10 +145,13 @@ public class ControllerBattlePartyClass : MonoBehaviour
                 cellButton.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
                 cellText.text = "";
 
+                CharacterClass member = ImportedCharacters.FindAny(CharactersAll, characterId);
+                if (member == null || member.Stats == null || member.Stats[0] == null)
+                    continue;
                 memberNum++;
-                totalHP += CharactersAll[characterId].Stats[0].HPMax;
-                totalATK += CharactersAll[characterId].Stats[0].ATK;
-                totalDEF += CharactersAll[characterId].Stats[0].DEF;
+                totalHP += member.Stats[0].HPMax;
+                totalATK += member.Stats[0].ATK;
+                totalDEF += member.Stats[0].DEF;
             }
         }
 
@@ -160,10 +163,11 @@ public class ControllerBattlePartyClass : MonoBehaviour
 
     Sprite CreateCharacterSprite(uint argCharacterId)
     {
-        Texture2D tex = CharactersAll[argCharacterId].ImageTexture2D;
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, argCharacterId);
+        Texture2D tex = character != null ? character.ImageTexture2D : null;
         if (tex == null)
             return Resources.Load<Sprite>("NoImageSprite");
 
-        return Sprite.Create(tex, new UnityEngine.Rect(0, 0, CharactersAll[argCharacterId].Size, CharactersAll[argCharacterId].Size), new Vector2(0.5f, 0.5f));
+        return Sprite.Create(tex, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f));
     }
 }

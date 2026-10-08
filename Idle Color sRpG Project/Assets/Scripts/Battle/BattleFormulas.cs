@@ -93,7 +93,10 @@ public static class BattleRewardCalculator
         if (attributeValue < 0)
             attributeValue = 0;
         double raw = (obs * (double)opaquePixels * attributeValue) / divisor;
-        return BattleMath.CeilToLong(raw);
+        long gain = BattleMath.CeilToLong(raw);
+        if (gain > 0)
+            gain = (gain + 1) / 2;
+        return gain;
     }
 
     public static long ExpGain(long opaquePixels, long attributeValue, BattleBalanceConfig config)
@@ -109,6 +112,19 @@ public static class BattleRewardCalculator
         if (multiplier < 0.0)
             multiplier = 0.0;
         return BattleMath.CeilToLong(opaquePixels * (double)attributeValue * multiplier);
+    }
+
+    // 基礎経験値に、基礎経験値 ×（レベル－1）/ 100 を足す。レベル1以下は基礎のまま。端数は切り上げ。
+    public static long ExpGainForLevel(long baseExp, int level)
+    {
+        if (baseExp < 0)
+            baseExp = 0;
+        if (level < 1)
+            level = 1;
+        long bonus = BattleMath.CeilToLong(baseExp * (level - 1) / 100.0);
+        if (bonus < 0)
+            bonus = 0;
+        return baseExp + bonus;
     }
 
     // 倒したときの経験値を、その時点で生き残っている味方の人数で割る。端数は切り上げ。

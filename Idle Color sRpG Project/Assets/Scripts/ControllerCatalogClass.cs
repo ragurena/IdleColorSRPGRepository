@@ -67,6 +67,16 @@ public class ControllerCatalogClass : MonoBehaviour
             _cells.Add(CreateCell(character));
         }
 
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character == null || character.ID < ImportedCharacters.FirstId)
+                return;
+            total++;
+            if (IsKnown(character))
+                opened++;
+            _cells.Add(CreateCell(character));
+        });
+
         if (_count != null)
             _count.text = "開いた " + opened.ToString() + " / " + total.ToString();
         ShowDetail();

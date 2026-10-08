@@ -234,6 +234,7 @@ public static class BattleDefeatProcessor
             sink.GrantPixels(enemy.RepresentativeR, enemy.RepresentativeG, enemy.RepresentativeB, pixels);
 
         long exp = BattleRewardCalculator.ExpGain(enemy.OpaquePixels, attributeValue, config);
+        exp = BattleRewardCalculator.ExpGainForLevel(exp, enemy.Level);
         int survivors = 0;
         if (units != null)
         {

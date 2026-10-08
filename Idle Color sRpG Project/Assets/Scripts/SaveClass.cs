@@ -275,6 +275,8 @@ public class SaveClass// : MonoBehaviour
                 sw.WriteLine("ItemCount[" + item.Key.ToString() + "]," + item.Value.ToString());
         }
 
+        ImportedCharacters.WriteSave(sw);
+
         sw.Flush();
         sw.Close();
     }
@@ -373,6 +375,7 @@ public class SaveClass// : MonoBehaviour
         ref Dictionary<int, int> ItemCounts
         )
     {
+        ImportedCharacters.BeginLoad();
         Debug.Log("ロード : " + Application.persistentDataPath + "/ICS.csv");
         //Debug.Log("ロード : " + Application.streamingAssetsPath + "/ICS.csv");
 
@@ -418,6 +421,8 @@ public class SaveClass// : MonoBehaviour
         {
 
             string line = sr.ReadLine();
+            if (ImportedCharacters.TryReadSaveLine(line))
+                continue;
             string[] values = line.Split(',');
 
             if (values[0].Equals("DataVersion"))
@@ -988,6 +993,8 @@ public class SaveClass// : MonoBehaviour
     {
         if (id == 0)
             return 0;
+        if (id >= ImportedCharacters.FirstId)
+            return id;
         int shifted = ShiftedCharacterSlot((int)id, savedVersion);
         if (shifted < 1 || shifted > Constants.CHARACTERS_ALL_NUM)
             return 0;
