@@ -516,9 +516,9 @@ public class ControllerProduction : MonoBehaviour
                     CharacterClass pixelCharacter = CharacterOf(CharactersIDProductionPixel[i]);
                     if (pixelCharacter != null && pixelCharacter.ID != 0)
                     {
-                        tmpR += CalcProductionPixelRGB(UserProductionPixelNum, (uint)(ColorProductionPixel[i].r * 255), ProgressProductionPixel[i, 1], pixelCharacter.GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255)));
-                        tmpG += CalcProductionPixelRGB(UserProductionPixelNum, (uint)(ColorProductionPixel[i].g * 255), ProgressProductionPixel[i, 2], pixelCharacter.GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255)));
-                        tmpB += CalcProductionPixelRGB(UserProductionPixelNum, (uint)(ColorProductionPixel[i].b * 255), ProgressProductionPixel[i, 3], pixelCharacter.GetCreatePixels((ushort)(ColorProductionPixel[i].r * 255), (ushort)(ColorProductionPixel[i].g * 255), (ushort)(ColorProductionPixel[i].b * 255)));
+                        tmpR += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].r), ProgressProductionPixel[i, 1], pixelCharacter.GetCreatePixels((ushort)ColorByte(ColorProductionPixel[i].r), (ushort)ColorByte(ColorProductionPixel[i].g), (ushort)ColorByte(ColorProductionPixel[i].b)));
+                        tmpG += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].g), ProgressProductionPixel[i, 2], pixelCharacter.GetCreatePixels((ushort)ColorByte(ColorProductionPixel[i].r), (ushort)ColorByte(ColorProductionPixel[i].g), (ushort)ColorByte(ColorProductionPixel[i].b)));
+                        tmpB += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].b), ProgressProductionPixel[i, 3], pixelCharacter.GetCreatePixels((ushort)ColorByte(ColorProductionPixel[i].r), (ushort)ColorByte(ColorProductionPixel[i].g), (ushort)ColorByte(ColorProductionPixel[i].b)));
                     }
                 }
 
@@ -1565,7 +1565,7 @@ public class ControllerProduction : MonoBehaviour
                 if (argName.StartsWith("SliderSpecificationNum"))
                 {
                     Slider SliderSpecificationNumR = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
-                    ColorTmp.r = (float)(SliderSpecificationNumR.value / 255.0);
+                    ColorTmp.r = CharacterClass.ColorUnit(Mathf.Clamp(Mathf.RoundToInt(SliderSpecificationNumR.value), 0, 255));
                 }
                 else
                 if (argName.StartsWith("InputFieldSpecificationNum"))
@@ -1577,7 +1577,7 @@ public class ControllerProduction : MonoBehaviour
                         {
                             num = 255;
                         }
-                        ColorTmp.r = num / 255.0f;
+                        ColorTmp.r = CharacterClass.ColorUnit(num);
                     }
                     else
                     if (InputFieldSpecificationNumR.text.Equals(""))
@@ -1594,7 +1594,7 @@ public class ControllerProduction : MonoBehaviour
                 if (argName.StartsWith("SliderSpecificationNum"))
                 {
                     Slider SliderSpecificationNumG = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
-                    ColorTmp.g = (float)(SliderSpecificationNumG.value / 255.0);
+                    ColorTmp.g = CharacterClass.ColorUnit(Mathf.Clamp(Mathf.RoundToInt(SliderSpecificationNumG.value), 0, 255));
                 }
                 else
                 if (argName.StartsWith("InputFieldSpecificationNum"))
@@ -1606,7 +1606,7 @@ public class ControllerProduction : MonoBehaviour
                         {
                             num = 255;
                         }
-                        ColorTmp.g = num / 255.0f;
+                        ColorTmp.g = CharacterClass.ColorUnit(num);
                     }
                     else
                     if (InputFieldSpecificationNumG.text.Equals(""))
@@ -1623,7 +1623,7 @@ public class ControllerProduction : MonoBehaviour
                 if (argName.StartsWith("SliderSpecificationNum"))
                 {
                     Slider SliderSpecificationNumB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
-                    ColorTmp.b = (float)(SliderSpecificationNumB.value / 255.0);
+                    ColorTmp.b = CharacterClass.ColorUnit(Mathf.Clamp(Mathf.RoundToInt(SliderSpecificationNumB.value), 0, 255));
                 }
                 else
                 if (argName.StartsWith("InputFieldSpecificationNum"))
@@ -1635,7 +1635,7 @@ public class ControllerProduction : MonoBehaviour
                         {
                             num = 255;
                         }
-                        ColorTmp.b = num / 255.0f;
+                        ColorTmp.b = CharacterClass.ColorUnit(num);
                     }
                     else
                     if (InputFieldSpecificationNumB.text.Equals(""))
@@ -1800,9 +1800,9 @@ public class ControllerProduction : MonoBehaviour
             Debug.Log("clickColor = " + clickColor);
             if (clickColor.a > 0.0f)
             {
-                ColorTmp.r = clickColor.r;
-                ColorTmp.g = clickColor.g;
-                ColorTmp.b = clickColor.b;
+                ColorTmp.r = CharacterClass.ColorUnit(ColorByte(clickColor.r));
+                ColorTmp.g = CharacterClass.ColorUnit(ColorByte(clickColor.g));
+                ColorTmp.b = CharacterClass.ColorUnit(ColorByte(clickColor.b));
                 ControlImageSelectColor("SelectColorMethodCharacter");
 
 
@@ -1813,7 +1813,8 @@ public class ControllerProduction : MonoBehaviour
                 {
                     for (int x = 0; x < buttonImage.width; x++)
                     {
-                        if (buttonImage.GetPixel(x, y).Equals(clickColor))
+                        Color pixel = buttonImage.GetPixel(x, y);
+                        if (pixel.a > 0.0f && ColorByte(pixel.r) == ColorByte(ColorTmp.r) && ColorByte(pixel.g) == ColorByte(ColorTmp.g) && ColorByte(pixel.b) == ColorByte(ColorTmp.b))
                             Mask.SetPixel(x, y, new Color(0, 0, 0, 0));
                         else
                         {
@@ -1954,9 +1955,9 @@ public class ControllerProduction : MonoBehaviour
     {
         if (consumePixel == null || consumePixel.CurConsumePixelsNum == 0 || CurPixels == null)
             return;
-        int r = (int)(consumePixel.PixelColor.r * 255f);
-        int g = (int)(consumePixel.PixelColor.g * 255f);
-        int b = (int)(consumePixel.PixelColor.b * 255f);
+        int r = ColorByte(consumePixel.PixelColor.r);
+        int g = ColorByte(consumePixel.PixelColor.g);
+        int b = ColorByte(consumePixel.PixelColor.b);
         if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
             return;
         ulong current = CurPixels[r, g, b];
@@ -1995,10 +1996,10 @@ public class ControllerProduction : MonoBehaviour
                 if(ProgressTextureProductionCharacter[argIndex][x,y] == false)
                 {
                     Color color = ProductionCharacterTexture2D.GetPixel(x, y);
-                    if (CurPixels[(int)(color.r * 255), (int)(color.g * 255), (int)(color.b * 255)] > 0)
+                    if (CurPixels[ColorByte(color.r), ColorByte(color.g), ColorByte(color.b)] > 0)
                     {
 
-                        CurPixels[(int)(color.r * 255), (int)(color.g * 255), (int)(color.b * 255)]--;
+                        CurPixels[ColorByte(color.r), ColorByte(color.g), ColorByte(color.b)]--;
                         ProgressTextureProductionCharacter[argIndex][x, y] = true;
                         foreach(ConsumePixelClass ConsumePixel in ConsumePixelsProductionCharacter[argIndex])
                         {
@@ -2844,70 +2845,70 @@ public class ControllerProduction : MonoBehaviour
                 return false;
             }
 
-            if ((int)(ColorProductionPixel[argIndex].r * 255) == 0 && ProgressProductionPixel[argIndex, 1] == 0)
+            if (ColorByte(ColorProductionPixel[argIndex].r) == 0 && ProgressProductionPixel[argIndex, 1] == 0)
             {
                 ProgressProductionPixel[argIndex, 1] += 1;
             }
             else
-            if (ProgressProductionPixel[argIndex, 1] < (int)(ColorProductionPixel[argIndex].r * 255))
+            if (ProgressProductionPixel[argIndex, 1] < ColorByte(ColorProductionPixel[argIndex].r))
             {
-                ulong tmpR = CalcProductionPixelRGB(Progress, (uint)(ColorProductionPixel[argIndex].r * 255), ProgressProductionPixel[argIndex, 1], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)));
+                ulong tmpR = CalcProductionPixelRGB(Progress, (uint)ColorByte(ColorProductionPixel[argIndex].r), ProgressProductionPixel[argIndex, 1], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b)));
                 if (CurR >= tmpR)
                 {
                     CurR -= tmpR;
                     RememberPixelSpend(argIndex, 1, tmpR);
                     ProgressProductionPixel[argIndex, 1] += Progress;
-                    if (ProgressProductionPixel[argIndex, 1] > (ushort)(ColorProductionPixel[argIndex].r * 255))
-                        ProgressProductionPixel[argIndex, 1] = (ushort)(ColorProductionPixel[argIndex].r * 255);
+                    if (ProgressProductionPixel[argIndex, 1] > (ushort)ColorByte(ColorProductionPixel[argIndex].r))
+                        ProgressProductionPixel[argIndex, 1] = (ushort)ColorByte(ColorProductionPixel[argIndex].r);
                 }
             }
             else
-            if ((int)(ColorProductionPixel[argIndex].g * 255) == 0 && ProgressProductionPixel[argIndex, 2] == 0)
+            if (ColorByte(ColorProductionPixel[argIndex].g) == 0 && ProgressProductionPixel[argIndex, 2] == 0)
             {
                 ProgressProductionPixel[argIndex, 2] += 1;
             }
             else
-            if (ProgressProductionPixel[argIndex, 2] < (int)(ColorProductionPixel[argIndex].g * 255))
+            if (ProgressProductionPixel[argIndex, 2] < ColorByte(ColorProductionPixel[argIndex].g))
             {
-                ulong tmpG = CalcProductionPixelRGB(Progress, (uint)(ColorProductionPixel[argIndex].g * 255), ProgressProductionPixel[argIndex, 2], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)));
+                ulong tmpG = CalcProductionPixelRGB(Progress, (uint)ColorByte(ColorProductionPixel[argIndex].g), ProgressProductionPixel[argIndex, 2], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b)));
                 if (CurG >= tmpG)
                 {
                     CurG -= tmpG;
                     RememberPixelSpend(argIndex, 2, tmpG);
                     ProgressProductionPixel[argIndex, 2] += Progress;
-                    if (ProgressProductionPixel[argIndex, 2] > (ushort)(ColorProductionPixel[argIndex].g * 255))
-                        ProgressProductionPixel[argIndex, 2] = (ushort)(ColorProductionPixel[argIndex].g * 255);
+                    if (ProgressProductionPixel[argIndex, 2] > (ushort)ColorByte(ColorProductionPixel[argIndex].g))
+                        ProgressProductionPixel[argIndex, 2] = (ushort)ColorByte(ColorProductionPixel[argIndex].g);
                 }
             }
             else
-            if ((int)(ColorProductionPixel[argIndex].b * 255) == 0 && ProgressProductionPixel[argIndex, 3] == 0)
+            if (ColorByte(ColorProductionPixel[argIndex].b) == 0 && ProgressProductionPixel[argIndex, 3] == 0)
             {
                 ProgressProductionPixel[argIndex, 3] += 1;
             }
             else
-            if (ProgressProductionPixel[argIndex, 3] < (int)(ColorProductionPixel[argIndex].b * 255))
+            if (ProgressProductionPixel[argIndex, 3] < ColorByte(ColorProductionPixel[argIndex].b))
             {
-                ulong tmpB = CalcProductionPixelRGB(Progress, (uint)(ColorProductionPixel[argIndex].b * 255), ProgressProductionPixel[argIndex, 3], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255)));
+                ulong tmpB = CalcProductionPixelRGB(Progress, (uint)ColorByte(ColorProductionPixel[argIndex].b), ProgressProductionPixel[argIndex, 3], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b)));
                 if (CurB >= tmpB)
                 {
                     CurB -= tmpB;
                     RememberPixelSpend(argIndex, 3, tmpB);
                     ProgressProductionPixel[argIndex, 3] += Progress;
-                    if (ProgressProductionPixel[argIndex, 3] > (ushort)(ColorProductionPixel[argIndex].b * 255))
-                        ProgressProductionPixel[argIndex, 3] = (ushort)(ColorProductionPixel[argIndex].b * 255);
+                    if (ProgressProductionPixel[argIndex, 3] > (ushort)ColorByte(ColorProductionPixel[argIndex].b))
+                        ProgressProductionPixel[argIndex, 3] = (ushort)ColorByte(ColorProductionPixel[argIndex].b);
                 }
             }
 
             //ピクセル生産の進捗が満たされたら、進捗を初期化し、ピクセル生産
-            if (ProgressProductionPixel[argIndex, 3] >= (int)(ColorProductionPixel[argIndex].b * 255) && ProgressProductionPixel[argIndex, 3] != 0)
+            if (ProgressProductionPixel[argIndex, 3] >= ColorByte(ColorProductionPixel[argIndex].b) && ProgressProductionPixel[argIndex, 3] != 0)
             {
                 ProgressProductionPixel[argIndex, 1] = 0;
                 ProgressProductionPixel[argIndex, 2] = 0;
                 ProgressProductionPixel[argIndex, 3] = 0;
                 ClearPixelSpend(argIndex);
 
-                CurPixels[(int)(ColorProductionPixel[argIndex].r * 255), (int)(ColorProductionPixel[argIndex].g * 255), (int)(ColorProductionPixel[argIndex].b * 255)]
-                    += ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+                CurPixels[ColorByte(ColorProductionPixel[argIndex].r), ColorByte(ColorProductionPixel[argIndex].g), ColorByte(ColorProductionPixel[argIndex].b)]
+                    += ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b));
 
                 ProductionPixelFlag = true;
             }
@@ -2937,9 +2938,9 @@ public class ControllerProduction : MonoBehaviour
         if (!SamePixelColor(ColorProductionPixel[argIndex], nextColor))
             RefundPixelProductionProgress(argIndex);
 
-        ColorProductionPixel[argIndex].r = nextColor.r;
-        ColorProductionPixel[argIndex].g = nextColor.g;
-        ColorProductionPixel[argIndex].b = nextColor.b;
+        ColorProductionPixel[argIndex].r = CharacterClass.ColorUnit(ColorByte(nextColor.r));
+        ColorProductionPixel[argIndex].g = CharacterClass.ColorUnit(ColorByte(nextColor.g));
+        ColorProductionPixel[argIndex].b = CharacterClass.ColorUnit(ColorByte(nextColor.b));
         ColorProductionPixel[argIndex].a = 1.0f;
         UpdateRGBProductionScene();
     }
@@ -2953,12 +2954,12 @@ public class ControllerProduction : MonoBehaviour
 
     static int PixelChannel(float value)
     {
-        int channel = (int)(value * 255f);
-        if (channel < 0)
-            return 0;
-        if (channel > 255)
-            return 255;
-        return channel;
+        return CharacterClass.ColorByte(value);
+    }
+
+    static int ColorByte(float value)
+    {
+        return CharacterClass.ColorByte(value);
     }
 
     void RememberPixelSpend(int argIndex, int channel, ulong amount)
@@ -3351,7 +3352,7 @@ public class ControllerProduction : MonoBehaviour
         Content.GetComponentsInChildren<Button>()[1].image.color
             = new Color(ColorProductionPixel[argIndex].r, ColorProductionPixel[argIndex].g, ColorProductionPixel[argIndex].b);
         Content.GetComponentsInChildren<Button>()[1].image.GetComponentInChildren<Text>().text
-            = "#" + ((int)(ColorProductionPixel[argIndex].r * 255)).ToString("X2") + ((int)(ColorProductionPixel[argIndex].g * 255)).ToString("X2") + ((int)(ColorProductionPixel[argIndex].b * 255)).ToString("X2");
+            = "#" + (ColorByte(ColorProductionPixel[argIndex].r)).ToString("X2") + (ColorByte(ColorProductionPixel[argIndex].g)).ToString("X2") + (ColorByte(ColorProductionPixel[argIndex].b)).ToString("X2");
 
         if (((ColorProductionPixel[argIndex].r + ColorProductionPixel[argIndex].g + ColorProductionPixel[argIndex].b) / 3.0f) < 0.5f)
         {
@@ -3366,7 +3367,7 @@ public class ControllerProduction : MonoBehaviour
         uint pixelCount = 0;
         CharacterClass countedCharacter = ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]);
         if (countedCharacter != null && countedCharacter.ID != 0)
-            pixelCount = countedCharacter.GetCreatePixels((ushort)(ColorProductionPixel[argIndex].r * 255), (ushort)(ColorProductionPixel[argIndex].g * 255), (ushort)(ColorProductionPixel[argIndex].b * 255));
+            pixelCount = countedCharacter.GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b));
 
         Transform colorPanel = Content.transform.Find("PanelImagePixelColor");
         SetPixelChannelLine(colorPanel, "ImagePixelColorR", "R", ColorProductionPixel[argIndex].r, pixelCount);
@@ -3387,9 +3388,9 @@ public class ControllerProduction : MonoBehaviour
         if (label == null)
             return;
 
-        int r = (int)(ColorProductionPixel[argIndex].r * 255f);
-        int g = (int)(ColorProductionPixel[argIndex].g * 255f);
-        int b = (int)(ColorProductionPixel[argIndex].b * 255f);
+        int r = ColorByte(ColorProductionPixel[argIndex].r);
+        int g = ColorByte(ColorProductionPixel[argIndex].g);
+        int b = ColorByte(ColorProductionPixel[argIndex].b);
         if (r < 0) r = 0;
         if (g < 0) g = 0;
         if (b < 0) b = 0;
@@ -3476,11 +3477,7 @@ public class ControllerProduction : MonoBehaviour
         if (text == null)
             return;
 
-        int value = Mathf.RoundToInt(color01 * 255f);
-        if (value < 0)
-            value = 0;
-        if (value > 255)
-            value = 255;
+        int value = ColorByte(color01);
         long total = (long)value * pixelCount;
         text.text = channel + " " + value.ToString() + "\n"
             + "× " + pixelCount.ToString() + " px\n"
@@ -3492,7 +3489,7 @@ public class ControllerProduction : MonoBehaviour
 
         //進捗スライダー
         Slider SliderPixelColorR = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorR").gameObject.GetComponent<Slider>();
-        SliderPixelColorR.maxValue = (int)(ColorProductionPixel[argIndex].r * 255);
+        SliderPixelColorR.maxValue = ColorByte(ColorProductionPixel[argIndex].r);
         if (SliderPixelColorR.maxValue == 0)
         {
             SliderPixelColorR.maxValue = 1;
@@ -3500,7 +3497,7 @@ public class ControllerProduction : MonoBehaviour
         SliderPixelColorR.value = ProgressProductionPixel[argIndex, 1];
 
         Slider SliderPixelColorG = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorG").gameObject.GetComponent<Slider>();
-        SliderPixelColorG.maxValue = (int)(ColorProductionPixel[argIndex].g * 255);
+        SliderPixelColorG.maxValue = ColorByte(ColorProductionPixel[argIndex].g);
         if (SliderPixelColorG.maxValue == 0)
         {
             SliderPixelColorG.maxValue = 1;
@@ -3508,7 +3505,7 @@ public class ControllerProduction : MonoBehaviour
         SliderPixelColorG.value = ProgressProductionPixel[argIndex, 2];
 
         Slider SliderPixelColorB = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorB").gameObject.GetComponent<Slider>();
-        SliderPixelColorB.maxValue = (int)(ColorProductionPixel[argIndex].b * 255);
+        SliderPixelColorB.maxValue = ColorByte(ColorProductionPixel[argIndex].b);
         if (SliderPixelColorB.maxValue == 0)
         {
             SliderPixelColorB.maxValue = 1;
@@ -3525,10 +3522,10 @@ public class ControllerProduction : MonoBehaviour
             ImageSpecificationColorR.color = new Color(ColorTmp.r, 0.0f, 0.0f, 1.0f);
 
             Slider SliderSpecificationNumR = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
-            SliderSpecificationNumR.value = ColorTmp.r * 255;
+            SliderSpecificationNumR.value = ColorByte(ColorTmp.r);
 
-            InputFieldSpecificationNumR.placeholder.GetComponent<Text>().text = (ColorTmp.r * 255).ToString();
-            InputFieldSpecificationNumR.text = (ColorTmp.r * 255).ToString();
+            InputFieldSpecificationNumR.placeholder.GetComponent<Text>().text = ColorByte(ColorTmp.r).ToString();
+            InputFieldSpecificationNumR.text = ColorByte(ColorTmp.r).ToString();
         }
         else
         if (argRGB.Equals("G"))
@@ -3536,10 +3533,10 @@ public class ControllerProduction : MonoBehaviour
             ImageSpecificationColorG.color = new Color(0.0f, ColorTmp.g, 0.0f, 1.0f);
 
             Slider SliderSpecificationNumG = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
-            SliderSpecificationNumG.value = ColorTmp.g * 255;
+            SliderSpecificationNumG.value = ColorByte(ColorTmp.g);
 
-            InputFieldSpecificationNumG.placeholder.GetComponent<Text>().text = (ColorTmp.g * 255).ToString();
-            InputFieldSpecificationNumG.text = (ColorTmp.g * 255).ToString();
+            InputFieldSpecificationNumG.placeholder.GetComponent<Text>().text = ColorByte(ColorTmp.g).ToString();
+            InputFieldSpecificationNumG.text = ColorByte(ColorTmp.g).ToString();
         }
         else
         if (argRGB.Equals("B"))
@@ -3547,10 +3544,10 @@ public class ControllerProduction : MonoBehaviour
             ImageSpecificationColorB.color = new Color(0.0f, 0.0f, ColorTmp.b, 1.0f);
 
             Slider SliderSpecificationNumB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
-            SliderSpecificationNumB.value = ColorTmp.b * 255;
+            SliderSpecificationNumB.value = ColorByte(ColorTmp.b);
 
-            InputFieldSpecificationNumB.placeholder.GetComponent<Text>().text = (ColorTmp.b * 255).ToString();
-            InputFieldSpecificationNumB.text = (ColorTmp.b * 255).ToString();
+            InputFieldSpecificationNumB.placeholder.GetComponent<Text>().text = ColorByte(ColorTmp.b).ToString();
+            InputFieldSpecificationNumB.text = ColorByte(ColorTmp.b).ToString();
         }
 
         ControlImageSelectColor("SelectColorMethodRGBNum");
@@ -3566,14 +3563,14 @@ public class ControllerProduction : MonoBehaviour
             if(gameObject.name.Equals("ImageSelectColor"))
                 gameObject.GetComponent<Image>().color = new Color(ColorTmp.r, ColorTmp.g, ColorTmp.b);
             if(gameObject.name.Equals("TextSelectColorCode"))
-                gameObject.GetComponent<Text>().text = "#" + ((int)(ColorTmp.r * 255)).ToString("X2") + ((int)(ColorTmp.g * 255)).ToString("X2") + ((int)(ColorTmp.b * 255)).ToString("X2");
+                gameObject.GetComponent<Text>().text = "#" + ColorByte(ColorTmp.r).ToString("X2") + ColorByte(ColorTmp.g).ToString("X2") + ColorByte(ColorTmp.b).ToString("X2");
 
             if(gameObject.name.Equals("TextSelectColorR"))
-                gameObject.GetComponent<Text>().text = "R:" + (ColorTmp.r * 255).ToString();
+                gameObject.GetComponent<Text>().text = "R:" + ColorByte(ColorTmp.r).ToString();
             if(gameObject.name.Equals("TextSelectColorG"))
-                gameObject.GetComponent<Text>().text = "G:" + (ColorTmp.g * 255).ToString();
+                gameObject.GetComponent<Text>().text = "G:" + ColorByte(ColorTmp.g).ToString();
             if(gameObject.name.Equals("TextSelectColorB"))
-                gameObject.GetComponent<Text>().text = "B:" + (ColorTmp.b * 255).ToString();
+                gameObject.GetComponent<Text>().text = "B:" + ColorByte(ColorTmp.b).ToString();
 
             Color strColor = new Color(0.0f, 0.0f, 0.0f, 1.0f);
             if (((ColorTmp.r + ColorTmp.g + ColorTmp.b) / 3.0f) < 0.5f)
@@ -3839,12 +3836,12 @@ public class ControllerProduction : MonoBehaviour
     {
         row.GetComponentsInChildren<Image>()[1].color = consumePixel.PixelColor;
         Text[] texts = row.GetComponentsInChildren<Text>();
-        texts[0].text = (consumePixel.PixelColor.r * 255).ToString();
-        texts[2].text = (consumePixel.PixelColor.g * 255).ToString();
-        texts[4].text = (consumePixel.PixelColor.b * 255).ToString();
-        int r = (int)(consumePixel.PixelColor.r * 255);
-        int g = (int)(consumePixel.PixelColor.g * 255);
-        int b = (int)(consumePixel.PixelColor.b * 255);
+        texts[0].text = ColorByte(consumePixel.PixelColor.r).ToString();
+        texts[2].text = ColorByte(consumePixel.PixelColor.g).ToString();
+        texts[4].text = ColorByte(consumePixel.PixelColor.b).ToString();
+        int r = ColorByte(consumePixel.PixelColor.r);
+        int g = ColorByte(consumePixel.PixelColor.g);
+        int b = ColorByte(consumePixel.PixelColor.b);
         texts[5].text = consumePixel.CurConsumePixelsNum.ToString() + " / " + consumePixel.ToBeCurConsumePixelsNum.ToString() + " / " + CurPixels[r, g, b].ToString();
         uint remaining = consumePixel.ToBeCurConsumePixelsNum - consumePixel.CurConsumePixelsNum;
         texts[5].color = CurPixels[r, g, b] < remaining ? new Color(1, 0, 0, 1) : new Color(0, 0, 0, 1);

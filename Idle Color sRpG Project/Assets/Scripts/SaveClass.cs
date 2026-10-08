@@ -135,13 +135,13 @@ public class SaveClass// : MonoBehaviour
                 CharactersIDProductionPixel[i].ToString());
 
             sw.WriteLine("ColorProductionPixel[" + i.ToString() + "].r," +
-                ColorProductionPixel[i].r.ToString());
+                CharacterClass.ColorUnit(CharacterClass.ColorByte(ColorProductionPixel[i].r)).ToString());
 
             sw.WriteLine("ColorProductionPixel[" + i.ToString() + "].g," +
-                ColorProductionPixel[i].g.ToString());
+                CharacterClass.ColorUnit(CharacterClass.ColorByte(ColorProductionPixel[i].g)).ToString());
 
             sw.WriteLine("ColorProductionPixel[" + i.ToString() + "].b," +
-                ColorProductionPixel[i].b.ToString());
+                CharacterClass.ColorUnit(CharacterClass.ColorByte(ColorProductionPixel[i].b)).ToString());
 
             sw.WriteLine("ProgressProductionPixel[" + i.ToString() + "].r," +
                 ProgressProductionPixel[i, 1].ToString());
@@ -210,11 +210,11 @@ public class SaveClass// : MonoBehaviour
             {
                 ConsumePixelClass consumePixel = ConsumePixelsProductionCharacter[i][j];
                 sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].r," +
-                    consumePixel.PixelColor.r.ToString());
+                    CharacterClass.ColorUnit(CharacterClass.ColorByte(consumePixel.PixelColor.r)).ToString());
                 sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].g," +
-                    consumePixel.PixelColor.g.ToString());
+                    CharacterClass.ColorUnit(CharacterClass.ColorByte(consumePixel.PixelColor.g)).ToString());
                 sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].b," +
-                    consumePixel.PixelColor.b.ToString());
+                    CharacterClass.ColorUnit(CharacterClass.ColorByte(consumePixel.PixelColor.b)).ToString());
                 sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].ToBe," +
                     consumePixel.ToBeCurConsumePixelsNum.ToString());
                 sw.WriteLine("ConsumePixelsProductionCharacter[" + i.ToString() + "][" + j.ToString() + "].Cur," +
@@ -556,21 +556,21 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].r"))
                     {
                         ColorProductionPixel[i].r =
-                            float.Parse(values[1]);
+                            CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
                         break;
                     }
 
                     if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].g"))
                     {
                         ColorProductionPixel[i].g =
-                            float.Parse(values[1]);
+                            CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
                         break;
                     }
 
                     if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].b"))
                     {
                         ColorProductionPixel[i].b =
-                            float.Parse(values[1]);
+                            CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
                         break;
                     }
                 }
@@ -691,13 +691,13 @@ public class SaveClass// : MonoBehaviour
                         Color pixelColor = consumePixel.PixelColor;
 
                         if (field.Equals("r"))
-                            pixelColor.r = float.Parse(values[1]);
+                            pixelColor.r = CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
                         else
                         if (field.Equals("g"))
-                            pixelColor.g = float.Parse(values[1]);
+                            pixelColor.g = CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
                         else
                         if (field.Equals("b"))
-                            pixelColor.b = float.Parse(values[1]);
+                            pixelColor.b = CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
                         else
                         if (field.Equals("ToBe"))
                             consumePixel.ToBeCurConsumePixelsNum = uint.Parse(values[1]);

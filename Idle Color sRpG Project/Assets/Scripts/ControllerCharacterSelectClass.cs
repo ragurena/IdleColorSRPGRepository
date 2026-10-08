@@ -93,10 +93,10 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             //選択キャラクターのステータスを表示
             TextSelectCharacter1.text = "      SPD       : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].SPD;
             TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter2.text = "CreatePixel : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
+            TextSelectCharacter2.text = "CreatePixel : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].b));
             TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
             TextSelectCharacter3.text = "  Pixel/sec   : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], argCharacterID)
-                                                           * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
+                                                           * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].b));
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
@@ -518,10 +518,10 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 //選択キャラクターのステータスを表示
                 TextSelectCharacter1.text = "      SPD       : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Stats[0].SPD;
                 TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-                TextSelectCharacter2.text = "CreatePixel : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).GetCreatePixels((ushort)(ColorProductionPixel[ProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].b * 255));
+                TextSelectCharacter2.text = "CreatePixel : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].b));
                 TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
                 TextSelectCharacter3.text = "  Pixel/sec   : " + GetCreatePixelTime(ColorProductionPixel[ProductionPixelIndex], CharactersIDProductionPixel[ProductionPixelIndex])
-                                                               * ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).GetCreatePixels((ushort)(ColorProductionPixel[ProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ProductionPixelIndex].b * 255));
+                                                               * ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].b));
                 TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
                 //外すボタンのenable設定
@@ -723,7 +723,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             int ColorProductionPixelIndex = int.Parse(argButtonTmp.name.Substring(argButtonTmp.name.Length - 2, 2));
 
             GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], (uint)argCharacterIndex)
-                                                               * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).GetCreatePixels((ushort)(ColorProductionPixel[ColorProductionPixelIndex].r * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].g * 255), (ushort)(ColorProductionPixel[ColorProductionPixelIndex].b * 255));
+                                                               * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].b));
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
@@ -965,9 +965,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     int GetCreatePixelTime(Color argColor, uint argCharacterID)
     {
-        return GetCreatePixelTimeRGB((ushort)(argColor.r * 255), argCharacterID) +
-               GetCreatePixelTimeRGB((ushort)(argColor.g * 255), argCharacterID) +
-               GetCreatePixelTimeRGB((ushort)(argColor.b * 255), argCharacterID);
+        return GetCreatePixelTimeRGB((ushort)CharacterClass.ColorByte(argColor.r), argCharacterID) +
+               GetCreatePixelTimeRGB((ushort)CharacterClass.ColorByte(argColor.g), argCharacterID) +
+               GetCreatePixelTimeRGB((ushort)CharacterClass.ColorByte(argColor.b), argCharacterID);
     }
     int GetCreatePixelTimeRGB(ushort argRGB, uint argCharacterID)
     {

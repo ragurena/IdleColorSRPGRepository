@@ -480,22 +480,30 @@ public class CharacterClass //: MonoBehaviour
 
                 if (ImageColor[x + y * ImageTexture2D.width].a != 0.0)
                 {
-                    //ExistsColors[(int)(ImageColor[x + y * ImageTexture2D.width].r * 255), (int)(ImageColor[x + y * ImageTexture2D.width].g * 255), (int)(ImageColor[x + y * ImageTexture2D.width].b * 255)]
-                    //+= 1;
-                    if(ListExistsColors.Any(item => item.Color == ImageColor[x + y * ImageTexture2D.width]))
+                    Color pixel = ImageColor[x + y * ImageTexture2D.width];
+                    pixel.r = ColorUnit(ColorByte(pixel.r));
+                    pixel.g = ColorUnit(ColorByte(pixel.g));
+                    pixel.b = ColorUnit(ColorByte(pixel.b));
+                    ExistColor same = null;
+                    for (int i = 0; i < ListExistsColors.Count; i++)
                     {
-                        ListExistsColors.Find(item => item.Color == ImageColor[x + y * ImageTexture2D.width]).Num++;
+                        ExistColor entry = ListExistsColors[i];
+                        if (entry != null && ColorByte(entry.Color.r) == ColorByte(pixel.r) && ColorByte(entry.Color.g) == ColorByte(pixel.g) && ColorByte(entry.Color.b) == ColorByte(pixel.b))
+                        {
+                            same = entry;
+                            break;
+                        }
                     }
+                    if (same != null)
+                        same.Num++;
                     else
-                    {
-                        ListExistsColors.Add(new ExistColor(ImageColor[x + y * ImageTexture2D.width], 1));
-                    }
+                        ListExistsColors.Add(new ExistColor(pixel, 1));
                 }
 
                 //RGBの各合計値を算出
-                RPixelValues += (uint)(ImageColor[x + y * ImageTexture2D.width].r * 255);
-                GPixelValues += (uint)(ImageColor[x + y * ImageTexture2D.width].g * 255);
-                BPixelValues += (uint)(ImageColor[x + y * ImageTexture2D.width].b * 255);
+                RPixelValues += (uint)ColorByte(ImageColor[x + y * ImageTexture2D.width].r);
+                GPixelValues += (uint)ColorByte(ImageColor[x + y * ImageTexture2D.width].g);
+                BPixelValues += (uint)ColorByte(ImageColor[x + y * ImageTexture2D.width].b);
 
                 //透過,R,G,Bのピクセル数を算出
                 if (ImageColor[x + y * ImageTexture2D.width].a == 0.0)
@@ -513,9 +521,9 @@ public class CharacterClass //: MonoBehaviour
                     else
                         DarkPixels++;
 
-                    int channelR = (int)(ImageColor[x + y * ImageTexture2D.width].r * 255f);
-                    int channelG = (int)(ImageColor[x + y * ImageTexture2D.width].g * 255f);
-                    int channelB = (int)(ImageColor[x + y * ImageTexture2D.width].b * 255f);
+                    int channelR = ColorByte(ImageColor[x + y * ImageTexture2D.width].r);
+                    int channelG = ColorByte(ImageColor[x + y * ImageTexture2D.width].g);
+                    int channelB = ColorByte(ImageColor[x + y * ImageTexture2D.width].b);
                     opaqueRgbSum += (ulong)channelR + (ulong)channelG + (ulong)channelB;
 
                     if ((ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].g) &&
@@ -647,7 +655,7 @@ public class CharacterClass //: MonoBehaviour
             GradationNum = (uint)ListExistsColors.Count();
             foreach(ExistColor E in ListExistsColors)
             {
-                Debug.Log("諧調 : r" + E.Color.r * 255 + " g" + E.Color.g * 255 + " b" + E.Color.b * 255);
+                Debug.Log("諧調 : r" + ColorByte(E.Color.r) + " g" + ColorByte(E.Color.g) + " b" + ColorByte(E.Color.b));
             }
 
             //運の算出
@@ -751,14 +759,29 @@ public class CharacterClass //: MonoBehaviour
         }
     }
 
-    static int ColorChannel(float value)
+    // 0〜1 の色を、0〜255 のいちばん近い整数にする。切り捨てると 32 が 31 になる。
+    public static int ColorByte(float value)
     {
-        int channel = (int)(value * 255f);
+        int channel = Mathf.RoundToInt(value * 255f);
         if (channel < 0)
             return 0;
         if (channel > 255)
             return 255;
         return channel;
+    }
+
+    public static float ColorUnit(int channel)
+    {
+        if (channel < 0)
+            channel = 0;
+        if (channel > 255)
+            channel = 255;
+        return channel / 255f;
+    }
+
+    static int ColorChannel(float value)
+    {
+        return ColorByte(value);
     }
 
     //画像から基礎ステータス(Stats[1])を計算し、レベル回数ぶん成長を掛け直してトータルを更新する。
@@ -923,23 +946,35 @@ public class CharacterClass //: MonoBehaviour
         CalcTotalStats();
     }
 
+    ExistColor FindSameColorCode(Color argColor)
+    {
+        if (ListExistsColors == null)
+            return null;
+        int r = ColorByte(argColor.r);
+        int g = ColorByte(argColor.g);
+        int b = ColorByte(argColor.b);
+        for (int i = 0; i < ListExistsColors.Count; i++)
+        {
+            ExistColor entry = ListExistsColors[i];
+            if (entry != null && ColorByte(entry.Color.r) == r && ColorByte(entry.Color.g) == g && ColorByte(entry.Color.b) == b)
+                return entry;
+        }
+        return null;
+    }
+
     public uint GetExistsColors(Color argColor)
     {
 
-        if (ListExistsColors.Any(L => L.Color == argColor))
-        {
-            return ListExistsColors.Find(L => L.Color == argColor).Num;
-        }
-        else
-        {
-            return 0;
-        }
+        ExistColor same = FindSameColorCode(argColor);
+        if (same != null)
+            return same.Num;
+        return 0;
 
     }
     public bool IsExistsColors(Color argColor)
     {
 
-        return ListExistsColors.Any(L => L.Color == argColor);
+        return FindSameColorCode(argColor) != null;
     }
 
     public uint GetCreatePixels(ushort r, ushort g, ushort b)
@@ -967,12 +1002,7 @@ public class CharacterClass //: MonoBehaviour
 
     static ushort ToColorChannel(float value)
     {
-        int channel = (int)(value * 255f);
-        if (channel < 0)
-            return 0;
-        if (channel > 255)
-            return 255;
-        return (ushort)channel;
+        return (ushort)ColorByte(value);
     }
 
     void CountOpaqueIslands(Color[] imageColor, int width, int height, out uint islandCount, out uint largestIslandSize)
