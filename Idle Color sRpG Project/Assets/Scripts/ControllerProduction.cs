@@ -29,6 +29,7 @@ static class Constants
     public const int BATTLE_STAGE_GALLERY = 6;
     public const int BATTLE_STAGE_FLOOR_MAX = 100;
     public const int BATTLE_STAGE_FLOOR_STEP = 10;
+    public const int BATTLE_PERSON_SLOT_NUM = 3;
 }
 
 public class ConsumePixelClass
@@ -91,6 +92,14 @@ public class ControllerProduction : MonoBehaviour
     uint[] CharactersIDProducedCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     // [セット1..5, x1..3, y1..3]。0は空き。セットをまたいだ同じキャラは許可する
     uint[,,] BattlePartyCharacterIds = new uint[Constants.BATTLE_PARTY_SET_NUM + 1, Constants.BATTLE_FORMATION_SIZE + 1, Constants.BATTLE_FORMATION_SIZE + 1];
+    PersonClass[] People = PersonClass.CreateRoster();
+    PersonBalanceConfig PersonBalance = PersonBalanceConfig.CreateDefault();
+    uint[] PersonIdHelpProductionR = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
+    uint[] PersonIdHelpProductionG = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
+    uint[] PersonIdHelpProductionB = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
+    uint[] PersonIdProductionPixel = new uint[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
+    uint[] PersonIdProductionCharacter = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    uint[,] BattlePartyPersonIds = new uint[Constants.BATTLE_PARTY_SET_NUM + 1, Constants.BATTLE_PERSON_SLOT_NUM + 1];
     int ActiveBattlePartySet = 0;
     int ActiveBattleStage = 0;
     int ActiveBattleFloorFrom = 0;
@@ -255,11 +264,15 @@ public class ControllerProduction : MonoBehaviour
 
         ControllerCharacterSelect = GetComponent<ControllerCharacterSelectClass>();
 
+        PersonBalance.PosterizeLevels = GameConfig.GRADATION_LEVELS;
         ControllerCharacterSelect.Initialize(ref CharactersAll,
                                              ref ColorProductionPixel,
                                              ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB,
                                              ref CharactersIDProductionPixel,
-                                             ref CharactersIDProductionCharacter, ref CharactersIDProducedCharacter);
+                                             ref CharactersIDProductionCharacter, ref CharactersIDProducedCharacter,
+                                             ref PersonIdHelpProductionR, ref PersonIdHelpProductionG, ref PersonIdHelpProductionB,
+                                             ref PersonIdProductionPixel, ref PersonIdProductionCharacter,
+                                             People, PersonBalance);
 
         ControllerBattleParty = GetComponent<ControllerBattlePartyClass>();
         ControllerBattleParty.Initialize(ref CharactersAll, this);
@@ -369,7 +382,8 @@ public class ControllerProduction : MonoBehaviour
             ref ActiveBattleFloorTo,
             ref ClearedBattleStage,
             ref ClearedBattleFloor,
-            ref ItemCounts
+            ref ItemCounts,
+            CapturePeople()
             );
 
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
@@ -390,6 +404,12 @@ public class ControllerProduction : MonoBehaviour
             ClearedBattleStage = 0;
         NormalizeClearedBattleFloors();
         DropFormerStarterOwnership();
+        for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
+        {
+            if (CharactersAll[i] != null)
+                CharactersAll[i].EnsureStock();
+        }
+        NormalizePersonAssignments();
         SeedPixelSpendFromProgress();
 
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
@@ -481,23 +501,17 @@ public class ControllerProduction : MonoBehaviour
             TimeElapsed = 0;
 
             //Rの生産
-            ulong IncreaseValueRHelp = HelpCreates(CharactersIDHelpProductionR[1], 0) +
-                                       HelpCreates(CharactersIDHelpProductionR[2], 0) +
-                                       HelpCreates(CharactersIDHelpProductionR[3], 0);
+            ulong IncreaseValueRHelp = RgbSlotOutput(PersonIdHelpProductionR, CharactersIDHelpProductionR, 0);
             ModelProduction.Increase(ref CurR, IncreaseValueRHelp, MaxR);
             UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
 
             //Gの生産
-            ulong IncreaseValueGHelp = HelpCreates(CharactersIDHelpProductionG[1], 1) +
-                                       HelpCreates(CharactersIDHelpProductionG[2], 1) +
-                                       HelpCreates(CharactersIDHelpProductionG[3], 1);
+            ulong IncreaseValueGHelp = RgbSlotOutput(PersonIdHelpProductionG, CharactersIDHelpProductionG, 1);
             ModelProduction.Increase(ref CurG, IncreaseValueGHelp, MaxG);
             UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
 
             //Bの生産
-            ulong IncreaseValueBHelp = HelpCreates(CharactersIDHelpProductionB[1], 2) +
-                                       HelpCreates(CharactersIDHelpProductionB[2], 2) +
-                                       HelpCreates(CharactersIDHelpProductionB[3], 2);
+            ulong IncreaseValueBHelp = RgbSlotOutput(PersonIdHelpProductionB, CharactersIDHelpProductionB, 2);
             ModelProduction.Increase(ref CurB, IncreaseValueBHelp, MaxB);
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
@@ -513,13 +527,12 @@ public class ControllerProduction : MonoBehaviour
                 ulong tmpB = 0;
                 for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
                 {
-                    CharacterClass pixelCharacter = CharacterOf(CharactersIDProductionPixel[i]);
-                    if (pixelCharacter != null && pixelCharacter.ID != 0)
-                    {
-                        tmpR += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].r), ProgressProductionPixel[i, 1], pixelCharacter.GetCreatePixels((ushort)ColorByte(ColorProductionPixel[i].r), (ushort)ColorByte(ColorProductionPixel[i].g), (ushort)ColorByte(ColorProductionPixel[i].b)));
-                        tmpG += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].g), ProgressProductionPixel[i, 2], pixelCharacter.GetCreatePixels((ushort)ColorByte(ColorProductionPixel[i].r), (ushort)ColorByte(ColorProductionPixel[i].g), (ushort)ColorByte(ColorProductionPixel[i].b)));
-                        tmpB += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].b), ProgressProductionPixel[i, 3], pixelCharacter.GetCreatePixels((ushort)ColorByte(ColorProductionPixel[i].r), (ushort)ColorByte(ColorProductionPixel[i].g), (ushort)ColorByte(ColorProductionPixel[i].b)));
-                    }
+                    uint pixelYield = PixelYield(i);
+                    if (pixelYield == 0 && PersonIdProductionPixel[i] == 0)
+                        continue;
+                    tmpR += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].r), ProgressProductionPixel[i, 1], pixelYield);
+                    tmpG += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].g), ProgressProductionPixel[i, 2], pixelYield);
+                    tmpB += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].b), ProgressProductionPixel[i, 3], pixelYield);
                 }
 
                 //Debug.Log("temR = " + tmpR + "\n"
@@ -549,15 +562,36 @@ public class ControllerProduction : MonoBehaviour
             bool RepeatComplete = true;
             for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1; i++)
             {
-                CharacterClass productionWorker = CharacterOf(CharactersIDProductionCharacter[i]);
-                if (CharactersIDProductionCharacter[i] == 0 || CharactersIDProducedCharacter[i] == 0 || productionWorker == null)
+                uint personId = PersonIdProductionCharacter[i];
+                CharacterClass productionWorker = personId == 0 ? CharacterOf(CharactersIDProductionCharacter[i]) : null;
+                if (CharactersIDProducedCharacter[i] == 0)
                     continue;
+                if (personId == 0 && (CharactersIDProductionCharacter[i] == 0 || productionWorker == null))
+                    continue;
+
+                int paintRate;
+                if (personId != 0)
+                {
+                    PersonClass painter = PersonAt((int)personId);
+                    CharacterClass producedNow = CharacterOf(CharactersIDProducedCharacter[i]);
+                    if (painter == null || producedNow == null)
+                        continue;
+                    bool author = producedNow.AuthorPersonId == painter.Id;
+                    long amount = painter.CharacterAmount(author, PersonBalance);
+                    if (amount < 1)
+                        amount = 1;
+                    if (amount > int.MaxValue)
+                        amount = int.MaxValue;
+                    paintRate = (int)amount;
+                }
+                else
+                    paintRate = productionWorker.PaintPixels > int.MaxValue ? int.MaxValue : (int)productionWorker.PaintPixels;
 
                 bool PCF = false;
                 bool RC = true;
                 bool painted = false;
                 ProductionCharacter(Trigger.Update, i,
-                    productionWorker.PaintPixels, out PCF, out RC, out painted);
+                    (uint)paintRate, out PCF, out RC, out painted);
                 if (painted || PCF)
                     UpdateProductionCharacterProgressImage(i);
                 if (PCF)
@@ -613,8 +647,23 @@ public class ControllerProduction : MonoBehaviour
             ActiveBattleFloorTo,
             ClearedBattleStage,
             ClearedBattleFloor,
-            ItemCounts
+            ItemCounts,
+            CapturePeople()
             );
+    }
+
+    PersonSaveData CapturePeople()
+    {
+        return new PersonSaveData
+        {
+            People = People,
+            HelpR = PersonIdHelpProductionR,
+            HelpG = PersonIdHelpProductionG,
+            HelpB = PersonIdHelpProductionB,
+            Pixel = PersonIdProductionPixel,
+            Character = PersonIdProductionCharacter,
+            BattlePeople = BattlePartyPersonIds
+        };
     }
 
     static void ClearNormalizedCharacterImages()
@@ -1244,10 +1293,10 @@ public class ControllerProduction : MonoBehaviour
             return false;
 
         long cost = FusionBonus.NextCost(count);
-        long nextLives = lives - cost;
-        if (nextLives > int.MaxValue)
-            nextLives = int.MaxValue;
-        character.SetOwnedCur((int)nextLives, BattleBalance.MaxLives);
+        if (cost > int.MaxValue)
+            cost = int.MaxValue;
+        if (!character.ConsumeOwned((int)cost, true, BattleBalance.MaxLives))
+            return false;
         if (character.FusionCount < ulong.MaxValue)
             character.FusionCount++;
         character.RebuildLevelStats(BattleBalance);
@@ -1322,6 +1371,13 @@ public class ControllerProduction : MonoBehaviour
 
         //PanelSelectCharacterの表示
         ShowPanel(PanelSelectCharacter);
+        if (ControllerBattlePartyClass.IsPersonButton(ButtonCharacterTmp))
+        {
+            int slot = ControllerBattlePartyClass.PersonSlot(ButtonCharacterTmp);
+            ControllerCharacterSelect.ShowPanelSelectBattlePerson(ButtonCharacterTmp,
+                (int)GetBattlePartyPerson(ControllerBattleParty.GetCurrentSetIndex(), slot));
+            return;
+        }
         if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
         {
             int x, y;
@@ -1353,6 +1409,27 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクトの決定ボタンが押されたら
     public void PushButtonConfirmSelectCharacter()
     {
+        if (ButtonCharacterTmp != null && ControllerBattlePartyClass.IsPersonButton(ButtonCharacterTmp))
+        {
+            int slot = ControllerBattlePartyClass.PersonSlot(ButtonCharacterTmp);
+            SetBattlePartyPerson(ControllerBattleParty.GetCurrentSetIndex(), slot, (uint)ControllerCharacterSelect.GetSelectedPersonId());
+            ControllerBattleParty.Refresh();
+            ButtonCharacterTmp = null;
+            ControllerCharacterSelect.NotShowPanelSelectCharacter();
+            NotShowPanel(PanelSelectCharacter);
+            return;
+        }
+        if (ButtonCharacterTmp != null && ControllerCharacterSelect.GetSelectedPersonId() != 0 && IsProductionWorkerButton(ButtonCharacterTmp))
+        {
+            AssignProductionPerson(ButtonCharacterTmp, ControllerCharacterSelect.GetSelectedPersonId());
+            RefreshProductionAssignmentViews();
+            if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
+                UpdatePixelProductionScene();
+            ButtonCharacterTmp = null;
+            ControllerCharacterSelect.NotShowPanelSelectCharacter();
+            NotShowPanel(PanelSelectCharacter);
+            return;
+        }
         if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
         {
             SetBattlePartyCharacterFromSelectCharacter(ControllerCharacterSelect.GetSelectedCharacterID());
@@ -1367,6 +1444,8 @@ public class ControllerProduction : MonoBehaviour
             previousProducedId = CharactersIDProducedCharacter[producedIndex];
         }
 
+        if (ButtonCharacterTmp != null && IsProductionWorkerButton(ButtonCharacterTmp))
+            ClearProductionPerson(ButtonCharacterTmp);
         ControllerCharacterSelect.ConfirmSelectCharacter(ButtonCharacterTmp);
 
         if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
@@ -1393,12 +1472,24 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクトの外すボタンが押されたら
     public void PushButtonRemoveCharacterSelect()
     {
+        if (ControllerBattlePartyClass.IsPersonButton(ButtonCharacterTmp))
+        {
+            int slot = ControllerBattlePartyClass.PersonSlot(ButtonCharacterTmp);
+            SetBattlePartyPerson(ControllerBattleParty.GetCurrentSetIndex(), slot, 0);
+            ControllerBattleParty.Refresh();
+            ButtonCharacterTmp = null;
+            ControllerCharacterSelect.NotShowPanelSelectCharacter();
+            NotShowPanel(PanelSelectCharacter);
+            return;
+        }
         if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
         {
             SetBattlePartyCharacterFromSelectCharacter(0);
             return;
         }
 
+        if (ButtonCharacterTmp != null && IsProductionWorkerButton(ButtonCharacterTmp))
+            ClearProductionPerson(ButtonCharacterTmp);
         ControllerCharacterSelect.RemoveCharacterSelect(ButtonCharacterTmp);
 
         if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
@@ -1974,7 +2065,9 @@ public class ControllerProduction : MonoBehaviour
         RepeatComplete = false;
         paintedPixel = false;
 
-        if (CharactersIDProductionCharacter[argIndex] == 0 || CharactersIDProducedCharacter[argIndex] == 0)
+        if (CharactersIDProducedCharacter[argIndex] == 0)
+            return false;
+        if (CharactersIDProductionCharacter[argIndex] == 0 && PersonIdProductionCharacter[argIndex] == 0)
             return false;
 
         if (ProgressTextureProductionCharacter[argIndex] == null)
@@ -2045,7 +2138,7 @@ public class ControllerProduction : MonoBehaviour
         {
             CharacterClass produced = ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProducedCharacter[argIndex]));
             int ownedBefore = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
-            produced.GainOwned(1, BattleBalance.MaxLives);
+            GrantCompletedCharacter(argIndex, produced);
             int ownedAfter = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
             if (ownedAfter > ownedBefore && ControllerBattle != null)
                 ControllerBattle.AddAllyLives(produced.ID, ownedAfter - ownedBefore);
@@ -2156,6 +2249,8 @@ public class ControllerProduction : MonoBehaviour
             for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
                 BattlePartyCharacterIds[setIndex, x, y] = 0;
         }
+        for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
+            BattlePartyPersonIds[setIndex, slot] = 0;
     }
 
     bool IsBattlePartyCell(int setIndex, int x, int y)
@@ -2585,17 +2680,19 @@ public class ControllerProduction : MonoBehaviour
         if (levels > 0)
         {
             character.RebuildLevelStats(config);
-            long newMax = (long)character.Stats[0].HPMax;
-            long delta = newMax - previousHpMax;
-            unit.HpMax = newMax;
+            unit.RawHpMax = (long)character.Stats[0].HPMax;
+            unit.RawAtk = (long)character.Stats[0].ATK;
+            unit.RawDef = (long)character.Stats[0].DEF;
+            if (unit.RawHpMax < 1)
+                unit.RawHpMax = 1;
+            ApplyPersonStats(unit);
+            long delta = unit.HpMax - previousHpMax;
             if (delta > 0)
                 unit.Hp += delta;
             if (unit.Hp > unit.HpMax)
                 unit.Hp = unit.HpMax;
             if (unit.HpMax < 1)
                 unit.HpMax = 1;
-            unit.Atk = (long)character.Stats[0].ATK;
-            unit.Def = (long)character.Stats[0].DEF;
             unit.Spd = character.Stats[0].SPD;
             if (unit.Spd < 1)
                 unit.Spd = 1;
@@ -2662,12 +2759,19 @@ public class ControllerProduction : MonoBehaviour
                 lives = 0;
             if (lives > BattleBalance.MaxLives)
                 lives = BattleBalance.MaxLives;
-            unit.Lives = lives;
             int ownedBefore = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+            bool living = unit.IsLiving();
             character.SetOwnedCur(lives, BattleBalance.MaxLives);
             unit.Lives = (int)character.OwnedNumCur;
             if ((int)character.OwnedNumCur != ownedBefore)
+            {
                 ownedChanged = true;
+                ApplyPersonStats(unit);
+                if (living && unit.Lives < ownedBefore)
+                    unit.Hp = unit.HpMax;
+                else if (unit.Hp > unit.HpMax)
+                    unit.Hp = unit.HpMax;
+            }
         }
         if (ownedChanged)
             ShowCharacterOwnedNum();
@@ -2701,15 +2805,15 @@ public class ControllerProduction : MonoBehaviour
     void RefreshProductionAssignmentViews()
     {
         UpdateRGBProductionHelpCharacter();
-        ClearEmptyHelpProductionButton("ButtonRProductionHelpCharacter", CharactersIDHelpProductionR, new Color(50 / 255f, 0.0f, 0.0f, 1.0f));
-        ClearEmptyHelpProductionButton("ButtonGProductionHelpCharacter", CharactersIDHelpProductionG, new Color(0.0f, 50 / 255f, 0.0f, 1.0f));
-        ClearEmptyHelpProductionButton("ButtonBProductionHelpCharacter", CharactersIDHelpProductionB, new Color(0.0f, 0.0f, 50 / 255f, 1.0f));
+        ClearEmptyHelpProductionButton("ButtonRProductionHelpCharacter", CharactersIDHelpProductionR, PersonIdHelpProductionR, new Color(50 / 255f, 0.0f, 0.0f, 1.0f));
+        ClearEmptyHelpProductionButton("ButtonGProductionHelpCharacter", CharactersIDHelpProductionG, PersonIdHelpProductionG, new Color(0.0f, 50 / 255f, 0.0f, 1.0f));
+        ClearEmptyHelpProductionButton("ButtonBProductionHelpCharacter", CharactersIDHelpProductionB, PersonIdHelpProductionB, new Color(0.0f, 0.0f, 50 / 255f, 1.0f));
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
             UpdateCharacterPixelProduction(i);
 
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
         {
-            if (CharactersIDProductionCharacter[i] != 0)
+            if (CharactersIDProductionCharacter[i] != 0 || PersonIdProductionCharacter[i] != 0)
                 continue;
             GameObject buttonObject = GameObject.Find("ButtonCharacterProductionCharacter" + i.ToString("00"));
             if (buttonObject == null)
@@ -2720,11 +2824,13 @@ public class ControllerProduction : MonoBehaviour
         }
     }
 
-    void ClearEmptyHelpProductionButton(string buttonPrefix, uint[] characterIds, Color emptyColor)
+    void ClearEmptyHelpProductionButton(string buttonPrefix, uint[] characterIds, uint[] personIds, Color emptyColor)
     {
         for (int i = 1; i <= Constants.CHARACTERS_HELP_PRODUCTION_NUM; i++)
         {
             if (characterIds[i] != 0)
+                continue;
+            if (personIds != null && i < personIds.Length && personIds[i] != 0)
                 continue;
             GameObject buttonObject = GameObject.Find(buttonPrefix + i.ToString());
             if (buttonObject == null)
@@ -2766,6 +2872,7 @@ public class ControllerProduction : MonoBehaviour
                 File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
             }
         }
+        PersonPortraits.CopyFromFolder(Application.streamingAssetsPath + "/human");
 
 #elif UNITY_IPHONE
     Debug.Log("UNITY_IPHONE");
@@ -2779,6 +2886,7 @@ public class ControllerProduction : MonoBehaviour
             File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
         }
     }
+    PersonPortraits.CopyFromFolder(Application.dataPath + "/Raw" + "/human");
 
 #elif UNITY_ANDROID
     Debug.Log("UNITY_ANDROID");
@@ -2810,10 +2918,35 @@ public class ControllerProduction : MonoBehaviour
             }
         }
     }
+    yield return CopyHumanAndroid();
 #endif
 
         Debug.Log("MakeFile End");
         yield break; // ←★これを追加！（「ここでコルーチン終了」という意味です）
+    }
+
+    IEnumerator CopyHumanAndroid()
+    {
+        string destDir = Application.persistentDataPath + "/human";
+        if (!Directory.Exists(destDir))
+            Directory.CreateDirectory(destDir);
+
+        for (int id = 1; id <= PersonIds.Count; id++)
+        {
+            string fileName = PersonPortraits.FileName(id);
+            if (string.IsNullOrEmpty(fileName))
+                continue;
+
+            string path = Application.streamingAssetsPath + "/human/" + fileName;
+            using (UnityWebRequest www = UnityWebRequest.Get(path))
+            {
+                yield return www.SendWebRequest();
+                if (www.result == UnityWebRequest.Result.Success)
+                    File.WriteAllBytes(Path.Combine(destDir, fileName), www.downloadHandler.data);
+                else
+                    Debug.LogError("人の画像コピー失敗: " + fileName + " エラー: " + www.error);
+            }
+        }
     }
 
 
@@ -2823,96 +2956,108 @@ public class ControllerProduction : MonoBehaviour
     {
         ProductionPixelFlag = false;
 
-        if (CharactersIDProductionPixel[argIndex] != 0)
+        uint pixelPersonId = PersonIdProductionPixel[argIndex];
+        PersonClass pixelPerson = pixelPersonId == 0 ? null : PersonAt((int)pixelPersonId);
+        CharacterClass pixelWorker = pixelPerson != null ? null : CharacterOf(CharactersIDProductionPixel[argIndex]);
+        if (pixelPerson == null && (CharactersIDProductionPixel[argIndex] == 0 || pixelWorker == null || pixelWorker.ID == 0))
+            return pixelPerson == null && CharactersIDProductionPixel[argIndex] == 0;
+
+        ushort Progress;
+        if (argTrigger == Trigger.Update)
         {
-            if (ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]) == null)
-                return false;
-
-            ushort Progress;
-            if (argTrigger == Trigger.Update)
+            if (pixelPerson != null)
             {
-                Progress = ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).Stats[0].SPD;
+                int personSpd = PersonBalance != null ? PersonBalance.PixelSpd : 50;
+                if (personSpd < 1)
+                    personSpd = 1;
+                if (personSpd > ushort.MaxValue)
+                    personSpd = ushort.MaxValue;
+                Progress = (ushort)personSpd;
             }
             else
-            if (argTrigger == Trigger.User)
-            {
-                Progress = UserProductionPixelNum;
-            }
-            else
-            {
-                Debug.Log("NG !!!!!!!!!!!!!!!!!!!!!!!");
+                Progress = pixelWorker.Stats[0].SPD;
+        }
+        else
+        if (argTrigger == Trigger.User)
+            Progress = UserProductionPixelNum;
+        else
+        {
+            Debug.Log("NG !!!!!!!!!!!!!!!!!!!!!!!");
+            return false;
+        }
 
-                return false;
-            }
+        int pixelR = ColorByte(ColorProductionPixel[argIndex].r);
+        int pixelG = ColorByte(ColorProductionPixel[argIndex].g);
+        int pixelB = ColorByte(ColorProductionPixel[argIndex].b);
+        uint createPixels = pixelPerson != null
+            ? ToUint(pixelPerson.PixelAmount(pixelR, pixelG, pixelB, PersonBalance))
+            : pixelWorker.GetCreatePixels((ushort)pixelR, (ushort)pixelG, (ushort)pixelB);
 
-            if (ColorByte(ColorProductionPixel[argIndex].r) == 0 && ProgressProductionPixel[argIndex, 1] == 0)
+        if (pixelR == 0 && ProgressProductionPixel[argIndex, 1] == 0)
+        {
+            ProgressProductionPixel[argIndex, 1] += 1;
+        }
+        else
+        if (ProgressProductionPixel[argIndex, 1] < pixelR)
+        {
+            ulong tmpR = CalcProductionPixelRGB(Progress, (uint)pixelR, ProgressProductionPixel[argIndex, 1], createPixels);
+            if (CurR >= tmpR)
             {
-                ProgressProductionPixel[argIndex, 1] += 1;
+                CurR -= tmpR;
+                RememberPixelSpend(argIndex, 1, tmpR);
+                ProgressProductionPixel[argIndex, 1] += Progress;
+                if (ProgressProductionPixel[argIndex, 1] > (ushort)pixelR)
+                    ProgressProductionPixel[argIndex, 1] = (ushort)pixelR;
             }
-            else
-            if (ProgressProductionPixel[argIndex, 1] < ColorByte(ColorProductionPixel[argIndex].r))
+        }
+        else
+        if (pixelG == 0 && ProgressProductionPixel[argIndex, 2] == 0)
+        {
+            ProgressProductionPixel[argIndex, 2] += 1;
+        }
+        else
+        if (ProgressProductionPixel[argIndex, 2] < pixelG)
+        {
+            ulong tmpG = CalcProductionPixelRGB(Progress, (uint)pixelG, ProgressProductionPixel[argIndex, 2], createPixels);
+            if (CurG >= tmpG)
             {
-                ulong tmpR = CalcProductionPixelRGB(Progress, (uint)ColorByte(ColorProductionPixel[argIndex].r), ProgressProductionPixel[argIndex, 1], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b)));
-                if (CurR >= tmpR)
-                {
-                    CurR -= tmpR;
-                    RememberPixelSpend(argIndex, 1, tmpR);
-                    ProgressProductionPixel[argIndex, 1] += Progress;
-                    if (ProgressProductionPixel[argIndex, 1] > (ushort)ColorByte(ColorProductionPixel[argIndex].r))
-                        ProgressProductionPixel[argIndex, 1] = (ushort)ColorByte(ColorProductionPixel[argIndex].r);
-                }
+                CurG -= tmpG;
+                RememberPixelSpend(argIndex, 2, tmpG);
+                ProgressProductionPixel[argIndex, 2] += Progress;
+                if (ProgressProductionPixel[argIndex, 2] > (ushort)pixelG)
+                    ProgressProductionPixel[argIndex, 2] = (ushort)pixelG;
             }
-            else
-            if (ColorByte(ColorProductionPixel[argIndex].g) == 0 && ProgressProductionPixel[argIndex, 2] == 0)
+        }
+        else
+        if (pixelB == 0 && ProgressProductionPixel[argIndex, 3] == 0)
+        {
+            ProgressProductionPixel[argIndex, 3] += 1;
+        }
+        else
+        if (ProgressProductionPixel[argIndex, 3] < pixelB)
+        {
+            ulong tmpB = CalcProductionPixelRGB(Progress, (uint)pixelB, ProgressProductionPixel[argIndex, 3], createPixels);
+            if (CurB >= tmpB)
             {
-                ProgressProductionPixel[argIndex, 2] += 1;
+                CurB -= tmpB;
+                RememberPixelSpend(argIndex, 3, tmpB);
+                ProgressProductionPixel[argIndex, 3] += Progress;
+                if (ProgressProductionPixel[argIndex, 3] > (ushort)pixelB)
+                    ProgressProductionPixel[argIndex, 3] = (ushort)pixelB;
             }
-            else
-            if (ProgressProductionPixel[argIndex, 2] < ColorByte(ColorProductionPixel[argIndex].g))
-            {
-                ulong tmpG = CalcProductionPixelRGB(Progress, (uint)ColorByte(ColorProductionPixel[argIndex].g), ProgressProductionPixel[argIndex, 2], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b)));
-                if (CurG >= tmpG)
-                {
-                    CurG -= tmpG;
-                    RememberPixelSpend(argIndex, 2, tmpG);
-                    ProgressProductionPixel[argIndex, 2] += Progress;
-                    if (ProgressProductionPixel[argIndex, 2] > (ushort)ColorByte(ColorProductionPixel[argIndex].g))
-                        ProgressProductionPixel[argIndex, 2] = (ushort)ColorByte(ColorProductionPixel[argIndex].g);
-                }
-            }
-            else
-            if (ColorByte(ColorProductionPixel[argIndex].b) == 0 && ProgressProductionPixel[argIndex, 3] == 0)
-            {
-                ProgressProductionPixel[argIndex, 3] += 1;
-            }
-            else
-            if (ProgressProductionPixel[argIndex, 3] < ColorByte(ColorProductionPixel[argIndex].b))
-            {
-                ulong tmpB = CalcProductionPixelRGB(Progress, (uint)ColorByte(ColorProductionPixel[argIndex].b), ProgressProductionPixel[argIndex, 3], ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b)));
-                if (CurB >= tmpB)
-                {
-                    CurB -= tmpB;
-                    RememberPixelSpend(argIndex, 3, tmpB);
-                    ProgressProductionPixel[argIndex, 3] += Progress;
-                    if (ProgressProductionPixel[argIndex, 3] > (ushort)ColorByte(ColorProductionPixel[argIndex].b))
-                        ProgressProductionPixel[argIndex, 3] = (ushort)ColorByte(ColorProductionPixel[argIndex].b);
-                }
-            }
+        }
 
-            //ピクセル生産の進捗が満たされたら、進捗を初期化し、ピクセル生産
-            if (ProgressProductionPixel[argIndex, 3] >= ColorByte(ColorProductionPixel[argIndex].b) && ProgressProductionPixel[argIndex, 3] != 0)
-            {
-                ProgressProductionPixel[argIndex, 1] = 0;
-                ProgressProductionPixel[argIndex, 2] = 0;
-                ProgressProductionPixel[argIndex, 3] = 0;
-                ClearPixelSpend(argIndex);
+        if (ProgressProductionPixel[argIndex, 3] >= pixelB && ProgressProductionPixel[argIndex, 3] != 0)
+        {
+            ProgressProductionPixel[argIndex, 1] = 0;
+            ProgressProductionPixel[argIndex, 2] = 0;
+            ProgressProductionPixel[argIndex, 3] = 0;
+            ClearPixelSpend(argIndex);
 
-                CurPixels[ColorByte(ColorProductionPixel[argIndex].r), ColorByte(ColorProductionPixel[argIndex].g), ColorByte(ColorProductionPixel[argIndex].b)]
-                    += ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b));
-
-                ProductionPixelFlag = true;
-            }
-
+            CurPixels[pixelR, pixelG, pixelB] += createPixels;
+            if (pixelPerson != null)
+                pixelPerson.AddPixelCompletion(pixelR, pixelG, pixelB, PersonBalance);
+            ProductionPixelFlag = true;
         }
 
         return true;
@@ -3101,15 +3246,15 @@ public class ControllerProduction : MonoBehaviour
 
     public void UpdateRGBProductionHelpCharacter()
     {
-        PaintHelpCharacter("ButtonRProductionHelpCharacter1", CharactersIDHelpProductionR[1]);
-        PaintHelpCharacter("ButtonRProductionHelpCharacter2", CharactersIDHelpProductionR[2]);
-        PaintHelpCharacter("ButtonRProductionHelpCharacter3", CharactersIDHelpProductionR[3]);
-        PaintHelpCharacter("ButtonGProductionHelpCharacter1", CharactersIDHelpProductionG[1]);
-        PaintHelpCharacter("ButtonGProductionHelpCharacter2", CharactersIDHelpProductionG[2]);
-        PaintHelpCharacter("ButtonGProductionHelpCharacter3", CharactersIDHelpProductionG[3]);
-        PaintHelpCharacter("ButtonBProductionHelpCharacter1", CharactersIDHelpProductionB[1]);
-        PaintHelpCharacter("ButtonBProductionHelpCharacter2", CharactersIDHelpProductionB[2]);
-        PaintHelpCharacter("ButtonBProductionHelpCharacter3", CharactersIDHelpProductionB[3]);
+        PaintHelpWorker("ButtonRProductionHelpCharacter1", PersonIdHelpProductionR[1], CharactersIDHelpProductionR[1]);
+        PaintHelpWorker("ButtonRProductionHelpCharacter2", PersonIdHelpProductionR[2], CharactersIDHelpProductionR[2]);
+        PaintHelpWorker("ButtonRProductionHelpCharacter3", PersonIdHelpProductionR[3], CharactersIDHelpProductionR[3]);
+        PaintHelpWorker("ButtonGProductionHelpCharacter1", PersonIdHelpProductionG[1], CharactersIDHelpProductionG[1]);
+        PaintHelpWorker("ButtonGProductionHelpCharacter2", PersonIdHelpProductionG[2], CharactersIDHelpProductionG[2]);
+        PaintHelpWorker("ButtonGProductionHelpCharacter3", PersonIdHelpProductionG[3], CharactersIDHelpProductionG[3]);
+        PaintHelpWorker("ButtonBProductionHelpCharacter1", PersonIdHelpProductionB[1], CharactersIDHelpProductionB[1]);
+        PaintHelpWorker("ButtonBProductionHelpCharacter2", PersonIdHelpProductionB[2], CharactersIDHelpProductionB[2]);
+        PaintHelpWorker("ButtonBProductionHelpCharacter3", PersonIdHelpProductionB[3], CharactersIDHelpProductionB[3]);
     }
 
     void PaintHelpCharacter(string buttonName, uint id)
@@ -3156,6 +3301,125 @@ public class ControllerProduction : MonoBehaviour
             UpdateSliderPixelProduction(i);
         RefreshPixelListCounts();
         UpdateProductionCharacterConsumeViews();
+        RefreshPersonSkillBars();
+    }
+
+    void RefreshPersonSkillBars()
+    {
+        SyncNamedPersonSkillBar("ButtonRProductionHelpCharacter1");
+        SyncNamedPersonSkillBar("ButtonRProductionHelpCharacter2");
+        SyncNamedPersonSkillBar("ButtonRProductionHelpCharacter3");
+        SyncNamedPersonSkillBar("ButtonGProductionHelpCharacter1");
+        SyncNamedPersonSkillBar("ButtonGProductionHelpCharacter2");
+        SyncNamedPersonSkillBar("ButtonGProductionHelpCharacter3");
+        SyncNamedPersonSkillBar("ButtonBProductionHelpCharacter1");
+        SyncNamedPersonSkillBar("ButtonBProductionHelpCharacter2");
+        SyncNamedPersonSkillBar("ButtonBProductionHelpCharacter3");
+        GameObject pixelList = GameObject.Find("ContentPixelProductionList");
+        if (pixelList != null)
+        {
+            for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+            {
+                Transform row = pixelList.transform.Find("PrefabOnePixelProduction" + i.ToString("00"));
+                if (row == null)
+                    continue;
+                Button[] buttons = row.GetComponentsInChildren<Button>();
+                if (buttons.Length > 0)
+                    SyncPersonSkillBar(buttons[0]);
+            }
+        }
+        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+            SyncNamedPersonSkillBar("ButtonCharacterProductionCharacter" + i.ToString("00"));
+    }
+
+    void SyncNamedPersonSkillBar(string buttonName)
+    {
+        GameObject buttonObject = GameObject.Find(buttonName);
+        if (buttonObject == null)
+            return;
+        SyncPersonSkillBar(buttonObject.GetComponent<Button>());
+    }
+
+    void SyncPersonSkillBar(Button button)
+    {
+        if (button == null)
+            return;
+        string name = button.name;
+        PersonClass person = null;
+        int level = 1;
+        long exp = 0;
+        double exponent = PersonBalance != null ? PersonBalance.RgbExpExponent : 1.7;
+
+        if (name.Contains("RProductionHelpCharacter") || name.Contains("GProductionHelpCharacter") || name.Contains("BProductionHelpCharacter"))
+        {
+            int index;
+            if (!int.TryParse(name.Substring(name.Length - 1, 1), out index))
+                return;
+            int channel = name.Contains("GProductionHelpCharacter") ? 1 : name.Contains("BProductionHelpCharacter") ? 2 : 0;
+            uint[] people = channel == 0 ? PersonIdHelpProductionR : channel == 1 ? PersonIdHelpProductionG : PersonIdHelpProductionB;
+            if (index < 1 || index >= people.Length)
+                return;
+            person = PersonAt((int)people[index]);
+            if (person != null)
+            {
+                level = person.RgbLevel[channel];
+                exp = person.RgbExp[channel];
+                exponent = PersonBalance != null ? PersonBalance.RgbExpExponent : 1.7;
+            }
+        }
+        else if (name.Contains("ButtonPixelProductionCharacter"))
+        {
+            int index = PixelProductionIndex(button);
+            if (index < 1 || index >= PersonIdProductionPixel.Length)
+                return;
+            person = PersonAt((int)PersonIdProductionPixel[index]);
+            if (person != null)
+            {
+                int r = ColorByte(ColorProductionPixel[index].r);
+                int g = ColorByte(ColorProductionPixel[index].g);
+                int b = ColorByte(ColorProductionPixel[index].b);
+                person.ReadPixelProgress(r, g, b, out level, out exp);
+                exponent = PersonBalance != null ? PersonBalance.PixelExpExponent : 1.6;
+            }
+        }
+        else if (name.Contains("ButtonCharacterProductionCharacter"))
+        {
+            int index;
+            if (!int.TryParse(name.Substring(name.Length - 2, 2), out index))
+                return;
+            if (index < 1 || index >= PersonIdProductionCharacter.Length)
+                return;
+            person = PersonAt((int)PersonIdProductionCharacter[index]);
+            if (person != null)
+            {
+                level = person.CharacterLevel;
+                exp = person.CharacterExp;
+                exponent = PersonBalance != null ? PersonBalance.CharacterExpExponent : 1.5;
+            }
+        }
+        else
+            return;
+
+        if (person == null)
+        {
+            PersonSkillBar.Hide(button);
+            return;
+        }
+        if (level < 1)
+            level = 1;
+        long need = PersonFormulas.ExpToNext(level, exponent, PersonBalance);
+        PersonSkillBar.Show(button, level, exp, need);
+    }
+
+    static int PixelProductionIndex(Button button)
+    {
+        int index;
+        if (button.name.Length >= 2 && int.TryParse(button.name.Substring(button.name.Length - 2, 2), out index))
+            return index;
+        Transform parent = button.transform.parent;
+        if (parent != null && parent.name.Length >= 2 && int.TryParse(parent.name.Substring(parent.name.Length - 2, 2), out index))
+            return index;
+        return 0;
     }
 
     void RefreshPixelListCounts()
@@ -3330,7 +3594,11 @@ public class ControllerProduction : MonoBehaviour
     {
         GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (argIndex).ToString("00")).gameObject;
 
-        CharacterClass pixelCharacter = ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]);
+        CharacterClass pixelCharacter = PersonIdProductionPixel[argIndex] != 0 ? null : ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]);
+        Button pixelButton = Content.GetComponentsInChildren<Button>()[0];
+        if (PersonIdProductionPixel[argIndex] != 0)
+            PaintPerson(pixelButton, PersonAt((int)PersonIdProductionPixel[argIndex]));
+        else
         if (pixelCharacter == null || pixelCharacter.ImagePath == null)
         {
             Content.GetComponentsInChildren<Button>()[0].image.sprite = null;
@@ -3343,6 +3611,7 @@ public class ControllerProduction : MonoBehaviour
                 = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).Size), new Vector2(0.5f, 0.5f));
             Content.GetComponentsInChildren<Button>()[0].GetComponentInChildren<Text>().text = "";
         }
+        SyncPersonSkillBar(pixelButton);
     }
     public void UpdatePixelColorPixelProduction(int argIndex)
     {
@@ -3364,10 +3633,7 @@ public class ControllerProduction : MonoBehaviour
         }
 
         //RGB値の表示
-        uint pixelCount = 0;
-        CharacterClass countedCharacter = ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]);
-        if (countedCharacter != null && countedCharacter.ID != 0)
-            pixelCount = countedCharacter.GetCreatePixels((ushort)ColorByte(ColorProductionPixel[argIndex].r), (ushort)ColorByte(ColorProductionPixel[argIndex].g), (ushort)ColorByte(ColorProductionPixel[argIndex].b));
+        uint pixelCount = PixelYield(argIndex);
 
         Transform colorPanel = Content.transform.Find("PanelImagePixelColor");
         SetPixelChannelLine(colorPanel, "ImagePixelColorR", "R", ColorProductionPixel[argIndex].r, pixelCount);
@@ -3626,8 +3892,8 @@ public class ControllerProduction : MonoBehaviour
     {
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
         {
-            UpdateProductionCharacterButton("ButtonCharacterProductionCharacter" + i.ToString("00"), CharactersIDProductionCharacter[i]);
-            UpdateProductionCharacterButton("ButtonCharacterProducedCharacter" + i.ToString("00"), CharactersIDProducedCharacter[i]);
+            UpdateProductionCharacterButton("ButtonCharacterProductionCharacter" + i.ToString("00"), CharactersIDProductionCharacter[i], PersonIdProductionCharacter[i]);
+            UpdateProductionCharacterButton("ButtonCharacterProducedCharacter" + i.ToString("00"), CharactersIDProducedCharacter[i], 0);
             SetCharacterStockLabel(i);
         }
     }
@@ -3663,36 +3929,35 @@ public class ControllerProduction : MonoBehaviour
         }
 
         label.gameObject.SetActive(true);
-        ulong stock = stockCharacter.OwnedNumCur;
-        int cap = BattleBalance.MaxLives;
-        ulong after = stock;
-        if (cap < 0 || stock < (ulong)cap)
-        {
-            after = stock == ulong.MaxValue ? stock : stock + 1;
-            if (cap >= 0 && after > (ulong)cap)
-                after = (ulong)cap;
-        }
-        label.text = "在庫 " + stock.ToString() + " → " + after.ToString();
+        label.text = "在庫 " + stockCharacter.StockText();
     }
 
-    void UpdateProductionCharacterButton(string argButtonName, uint argCharacterID)
+    void UpdateProductionCharacterButton(string argButtonName, uint argCharacterID, uint argPersonId)
     {
         GameObject buttonObject = GameObject.Find(argButtonName);
         if (buttonObject == null)
             return;
         Button button = buttonObject.GetComponent<Button>();
+        if (argPersonId != 0)
+        {
+            PaintPerson(button, PersonAt((int)argPersonId));
+            SyncPersonSkillBar(button);
+            return;
+        }
 
         CharacterClass shownCharacter = argCharacterID == 0 ? null : ImportedCharacters.FindAny(CharactersAll, argCharacterID);
         if (shownCharacter == null || shownCharacter.ImageTexture2D == null)
         {
             button.image.sprite = null;
             button.GetComponentInChildren<Text>().text = "+";
+            SyncPersonSkillBar(button);
             return;
         }
 
         button.image.sprite = Sprite.Create(shownCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, shownCharacter.Size, shownCharacter.Size), new Vector2(0.5f, 0.5f));
         button.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
         button.GetComponentInChildren<Text>().text = "";
+        SyncPersonSkillBar(button);
     }
 
     void ForEachProductionCharacterView(Action<int, RawImage, Transform> visit)
@@ -3889,7 +4154,7 @@ public class ControllerProduction : MonoBehaviour
             {
                 Text label = OwnedCountLabel(existing);
                 if (label != null)
-                    label.text = "OwnedNum : " + character.OwnedNumCur;
+                    label.text = "所持 " + character.StockText();
                 existing.SetSiblingIndex(shown);
                 shown++;
                 return;
@@ -3900,7 +4165,7 @@ public class ControllerProduction : MonoBehaviour
             characterButton.transform.SetSiblingIndex(shown);
             characterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f));
             Text createdLabel = characterButton.GetComponentInChildren<Text>();
-            createdLabel.text = "OwnedNum : " + character.OwnedNumCur;
+            createdLabel.text = "所持 " + character.StockText();
             createdLabel.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
             if (character.Whereabouts == Place.CreateR ||
                 character.Whereabouts == Place.CreateG ||
@@ -3948,5 +4213,487 @@ public class ControllerProduction : MonoBehaviour
         */
     }
 
+    PersonClass PersonAt(int id)
+    {
+        return PersonClass.Find(People, id);
+    }
+
+    public PersonClass GetPerson(int id)
+    {
+        return PersonAt(id);
+    }
+
+    public PersonBalanceConfig GetPersonBalance()
+    {
+        return PersonBalance;
+    }
+
+    public int PersonCount()
+    {
+        return PersonIds.Count;
+    }
+
+    ulong RgbSlotOutput(uint[] people, uint[] characters, int channel)
+    {
+        ulong sum = 0;
+        int length = people != null ? people.Length : 0;
+        for (int i = 1; i < length; i++)
+        {
+            if (people[i] != 0)
+            {
+                PersonClass person = PersonAt((int)people[i]);
+                if (person == null)
+                    continue;
+                long amount = person.RgbAmount(channel, PersonBalance);
+                if (amount < 0)
+                    amount = 0;
+                person.AddRgbProduced(channel, amount, PersonBalance);
+                if (sum > ulong.MaxValue - (ulong)amount)
+                    sum = ulong.MaxValue;
+                else
+                    sum += (ulong)amount;
+                continue;
+            }
+            if (characters != null && i < characters.Length)
+                sum += HelpCreates(characters[i], channel);
+        }
+        return sum;
+    }
+
+    uint PixelYield(int index)
+    {
+        if (index < 1 || index >= PersonIdProductionPixel.Length)
+            return 0;
+        int r = ColorByte(ColorProductionPixel[index].r);
+        int g = ColorByte(ColorProductionPixel[index].g);
+        int b = ColorByte(ColorProductionPixel[index].b);
+        if (PersonIdProductionPixel[index] != 0)
+        {
+            PersonClass person = PersonAt((int)PersonIdProductionPixel[index]);
+            if (person == null)
+                return 0;
+            return ToUint(person.PixelAmount(r, g, b, PersonBalance));
+        }
+        CharacterClass character = CharacterOf(CharactersIDProductionPixel[index]);
+        if (character == null || character.ID == 0)
+            return 0;
+        return character.GetCreatePixels((ushort)r, (ushort)g, (ushort)b);
+    }
+
+    static uint ToUint(long value)
+    {
+        if (value <= 0)
+            return 0;
+        if (value > uint.MaxValue)
+            return uint.MaxValue;
+        return (uint)value;
+    }
+
+    void GrantCompletedCharacter(int index, CharacterClass produced)
+    {
+        if (produced == null)
+            return;
+        uint personId = index >= 0 && index < PersonIdProductionCharacter.Length ? PersonIdProductionCharacter[index] : 0;
+        uint workerId = index >= 0 && index < CharactersIDProductionCharacter.Length ? CharactersIDProductionCharacter[index] : 0;
+        PersonClass person = personId == 0 ? null : PersonAt((int)personId);
+        bool workerIsPerson = person != null;
+        bool self = !workerIsPerson && workerId == produced.ID;
+        bool author = workerIsPerson && produced.AuthorPersonId == person.Id;
+        int before = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
+        produced.GainOwnedTier(PersonFormulas.CompletionTier(workerIsPerson, self, author), 1, BattleBalance.MaxLives);
+        int after = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
+        if (workerIsPerson && after > before)
+            person.AddCharacterCompletion(author, PersonBalance);
+    }
+
+    public void GrantPersonBattleFloor()
+    {
+        if (ActiveBattlePartySet < 1 || ActiveBattlePartySet >= BattlePartyPersonIds.GetLength(0))
+            return;
+        for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
+        {
+            PersonClass person = PersonAt((int)BattlePartyPersonIds[ActiveBattlePartySet, slot]);
+            if (person != null)
+                person.AddBattleFloor(PersonBalance);
+        }
+    }
+
+    public uint GetBattlePartyPerson(int setIndex, int slot)
+    {
+        if (!IsBattlePersonSlot(setIndex, slot))
+            return 0;
+        return BattlePartyPersonIds[setIndex, slot];
+    }
+
+    public bool SetBattlePartyPerson(int setIndex, int slot, uint personId)
+    {
+        if (!IsBattlePersonSlot(setIndex, slot))
+            return false;
+        if (setIndex == ActiveBattlePartySet)
+            return false;
+        if (personId != 0 && PersonAt((int)personId) == null)
+            return false;
+        if (personId != 0)
+        {
+            for (int other = 1; other <= Constants.BATTLE_PERSON_SLOT_NUM; other++)
+            {
+                if (other != slot && BattlePartyPersonIds[setIndex, other] == personId)
+                    BattlePartyPersonIds[setIndex, other] = 0;
+            }
+        }
+        BattlePartyPersonIds[setIndex, slot] = personId;
+        return true;
+    }
+
+    bool IsBattlePersonSlot(int setIndex, int slot)
+    {
+        return setIndex >= 1 && setIndex <= Constants.BATTLE_PARTY_SET_NUM
+            && slot >= 1 && slot <= Constants.BATTLE_PERSON_SLOT_NUM;
+    }
+
+    public void AssignProductionPerson(Button button, int personId)
+    {
+        if (button == null || PersonAt(personId) == null)
+            return;
+        ClearPersonFromProduction((uint)personId);
+        if (button.name.StartsWith("ButtonRProductionHelpCharacter"))
+            AssignRgbPerson(PersonIdHelpProductionR, CharactersIDHelpProductionR, button, personId);
+        else if (button.name.StartsWith("ButtonGProductionHelpCharacter"))
+            AssignRgbPerson(PersonIdHelpProductionG, CharactersIDHelpProductionG, button, personId);
+        else if (button.name.StartsWith("ButtonBProductionHelpCharacter"))
+            AssignRgbPerson(PersonIdHelpProductionB, CharactersIDHelpProductionB, button, personId);
+        else if (button.name.Contains("ButtonPixelProductionCharacter"))
+        {
+            int index = int.Parse(button.name.Substring(button.name.Length - 2, 2));
+            ReleaseWorkerCharacter(CharactersIDProductionPixel, index);
+            CharactersIDProductionPixel[index] = 0;
+            PersonIdProductionPixel[index] = (uint)personId;
+        }
+        else if (button.name.Contains("ButtonCharacterProductionCharacter"))
+        {
+            int index = int.Parse(button.name.Substring(button.name.Length - 2, 2));
+            ReleaseWorkerCharacter(CharactersIDProductionCharacter, index);
+            CharactersIDProductionCharacter[index] = 0;
+            PersonIdProductionCharacter[index] = (uint)personId;
+        }
+        PaintPerson(button, PersonAt(personId));
+        SyncPersonSkillBar(button);
+    }
+
+    void AssignRgbPerson(uint[] people, uint[] characters, Button button, int personId)
+    {
+        int index = int.Parse(button.name.Substring(button.name.Length - 1, 1));
+        ReleaseWorkerCharacter(characters, index);
+        characters[index] = 0;
+        people[index] = (uint)personId;
+    }
+
+    void ReleaseWorkerCharacter(uint[] characters, int index)
+    {
+        if (characters == null || index < 1 || index >= characters.Length || characters[index] == 0)
+            return;
+        CharacterClass previous = CharacterOf(characters[index]);
+        if (previous != null)
+            previous.Whereabouts = Place.None;
+    }
+
+    void ClearPersonFromProduction(uint personId)
+    {
+        ClearPerson(PersonIdHelpProductionR, personId);
+        ClearPerson(PersonIdHelpProductionG, personId);
+        ClearPerson(PersonIdHelpProductionB, personId);
+        ClearPerson(PersonIdProductionPixel, personId);
+        ClearPerson(PersonIdProductionCharacter, personId);
+    }
+
+    static void ClearPerson(uint[] slots, uint personId)
+    {
+        if (slots == null)
+            return;
+        for (int i = 1; i < slots.Length; i++)
+        {
+            if (slots[i] == personId)
+                slots[i] = 0;
+        }
+    }
+
+    public void ClearProductionPerson(Button button)
+    {
+        if (button == null)
+            return;
+        if (button.name.StartsWith("ButtonRProductionHelpCharacter"))
+            ClearRgbPerson(PersonIdHelpProductionR, button);
+        else if (button.name.StartsWith("ButtonGProductionHelpCharacter"))
+            ClearRgbPerson(PersonIdHelpProductionG, button);
+        else if (button.name.StartsWith("ButtonBProductionHelpCharacter"))
+            ClearRgbPerson(PersonIdHelpProductionB, button);
+        else if (button.name.Contains("ButtonPixelProductionCharacter"))
+        {
+            int index = int.Parse(button.name.Substring(button.name.Length - 2, 2));
+            PersonIdProductionPixel[index] = 0;
+        }
+        else if (button.name.Contains("ButtonCharacterProductionCharacter"))
+        {
+            int index = int.Parse(button.name.Substring(button.name.Length - 2, 2));
+            PersonIdProductionCharacter[index] = 0;
+        }
+        SyncPersonSkillBar(button);
+    }
+
+    static void ClearRgbPerson(uint[] people, Button button)
+    {
+        int index = int.Parse(button.name.Substring(button.name.Length - 1, 1));
+        if (index >= 1 && index < people.Length)
+            people[index] = 0;
+    }
+
+    void NormalizePersonAssignments()
+    {
+        bool[] used = new bool[PersonIds.Count + 1];
+        NormalizeSlot(PersonIdHelpProductionR, CharactersIDHelpProductionR, used);
+        NormalizeSlot(PersonIdHelpProductionG, CharactersIDHelpProductionG, used);
+        NormalizeSlot(PersonIdHelpProductionB, CharactersIDHelpProductionB, used);
+        NormalizeSlot(PersonIdProductionPixel, CharactersIDProductionPixel, used);
+        NormalizeSlot(PersonIdProductionCharacter, CharactersIDProductionCharacter, used);
+        for (int set = 1; set <= Constants.BATTLE_PARTY_SET_NUM; set++)
+        {
+            bool[] inSet = new bool[PersonIds.Count + 1];
+            for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
+            {
+                int id = (int)BattlePartyPersonIds[set, slot];
+                if (PersonAt(id) == null || inSet[id])
+                {
+                    BattlePartyPersonIds[set, slot] = 0;
+                    continue;
+                }
+                inSet[id] = true;
+            }
+        }
+    }
+
+    void NormalizeSlot(uint[] people, uint[] characters, bool[] used)
+    {
+        if (people == null)
+            return;
+        for (int i = 1; i < people.Length; i++)
+        {
+            int id = (int)people[i];
+            if (id == 0)
+                continue;
+            if (PersonAt(id) == null || used[id])
+            {
+                people[i] = 0;
+                continue;
+            }
+            used[id] = true;
+            if (characters != null && i < characters.Length && characters[i] != 0)
+            {
+                ReleaseWorkerCharacter(characters, i);
+                characters[i] = 0;
+            }
+        }
+    }
+
+    void PaintHelpWorker(string buttonName, uint personId, uint characterId)
+    {
+        GameObject buttonObject = GameObject.Find(buttonName);
+        if (buttonObject == null)
+            return;
+        Button button = buttonObject.GetComponent<Button>();
+        if (personId != 0)
+        {
+            PaintPerson(button, PersonAt((int)personId));
+            SyncPersonSkillBar(button);
+            return;
+        }
+        SyncPersonSkillBar(button);
+        if (characterId == 0)
+            return;
+        PaintHelpCharacter(buttonName, characterId);
+    }
+
+    public static void PaintPerson(Button button, PersonClass person)
+    {
+        if (button == null || button.image == null || person == null)
+            return;
+        Sprite portrait = PersonPortraits.SpriteOf(person.Id);
+        button.image.type = Image.Type.Simple;
+        button.image.preserveAspect = false;
+        Text label = button.GetComponentInChildren<Text>();
+        if (portrait != null)
+        {
+            button.image.sprite = portrait;
+            button.image.color = Color.white;
+            if (label != null)
+                label.text = "";
+            return;
+        }
+
+        button.image.sprite = null;
+        button.image.color = PersonColor(person.Id);
+        if (label != null)
+        {
+            label.text = person.Name;
+            label.color = person.Id == PersonIds.TeacherBlack ? Color.white : new Color(0.1f, 0.1f, 0.1f, 1f);
+        }
+    }
+
+    public static Color PersonColor(int id)
+    {
+        if (id == PersonIds.TeacherBlack)
+            return new Color(0.15f, 0.15f, 0.18f, 1f);
+        if (id == PersonIds.ClassmateGreen)
+            return new Color(0.45f, 0.8f, 0.4f, 1f);
+        if (id == PersonIds.ClassmateRed)
+            return new Color(0.9f, 0.35f, 0.3f, 1f);
+        if (id == PersonIds.ClassmateBlue)
+            return new Color(0.35f, 0.55f, 0.9f, 1f);
+        return new Color(0.92f, 0.9f, 0.82f, 1f);
+    }
+
+    public string AuthorName(CharacterClass character)
+    {
+        if (character == null || character.AuthorPersonId <= 0)
+            return "なし";
+        PersonClass person = PersonAt(character.AuthorPersonId);
+        if (person == null)
+            return "なし";
+        return person.Name;
+    }
+
+    public void ApplyPersonStatsToAllies(List<BattleUnit> units)
+    {
+        if (units == null)
+            return;
+        AllyAuthorship[] allies = AllyList(units);
+        for (int i = 0; i < units.Count; i++)
+        {
+            if (!units[i].IsAlly)
+                continue;
+            if (units[i].RawHpMax <= 0)
+            {
+                units[i].RawHpMax = units[i].HpMax;
+                units[i].RawAtk = units[i].Atk;
+                units[i].RawDef = units[i].Def;
+            }
+            ApplyPersonStats(units[i], allies);
+            units[i].Hp = units[i].HpMax;
+        }
+    }
+
+    public void ApplyPersonStats(BattleUnit unit)
+    {
+        ApplyPersonStats(unit, ControllerBattle != null ? ControllerBattle.AllyAuthorships() : null);
+    }
+
+    void ApplyPersonStats(BattleUnit unit, AllyAuthorship[] allies)
+    {
+        if (unit == null || !unit.IsAlly)
+            return;
+        CharacterClass character = GetCharacter(unit.CharacterId);
+        if (character == null)
+            return;
+        if (unit.RawHpMax <= 0)
+            unit.RawHpMax = unit.HpMax > 0 ? unit.HpMax : 1;
+        double applied = PersonFormulas.MultiplierForAllies(
+            character.NextLifeMultiplier(PersonBalance),
+            BattlePeopleInputs(),
+            allies,
+            unit.Attribute,
+            PersonBalance);
+        unit.HpMax = PersonFormulas.ScaleStat(unit.RawHpMax, applied);
+        if (unit.HpMax < 1)
+            unit.HpMax = 1;
+        unit.Atk = PersonFormulas.ScaleStat(unit.RawAtk, applied);
+        unit.Def = PersonFormulas.ScaleStat(unit.RawDef, applied);
+    }
+
+    public long PreviewStat(CharacterClass character, int setIndex, long raw, CharacterAttribute attribute)
+    {
+        if (character == null)
+            return raw < 0 ? 0 : raw;
+        AllyAuthorship[] allies = PartyAllies(setIndex);
+        double applied = PersonFormulas.MultiplierForAllies(
+            character.NextLifeMultiplier(PersonBalance),
+            BattlePeopleInputs(setIndex),
+            allies,
+            attribute,
+            PersonBalance);
+        long scaled = PersonFormulas.ScaleStat(raw, applied);
+        return scaled < 0 ? 0 : scaled;
+    }
+
+    PersonBattleInput[] BattlePeopleInputs()
+    {
+        return BattlePeopleInputs(ActiveBattlePartySet);
+    }
+
+    PersonBattleInput[] BattlePeopleInputs(int setIndex)
+    {
+        if (!IsBattlePersonSlot(setIndex, 1) && setIndex != ActiveBattlePartySet)
+            return new PersonBattleInput[0];
+        if (setIndex < 1 || setIndex >= BattlePartyPersonIds.GetLength(0))
+            return new PersonBattleInput[0];
+        var list = new List<PersonBattleInput>();
+        for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
+        {
+            PersonClass person = PersonAt((int)BattlePartyPersonIds[setIndex, slot]);
+            if (person != null)
+                list.Add(person.ToBattleInput());
+        }
+        return list.ToArray();
+    }
+
+    AllyAuthorship[] AllyList(List<BattleUnit> units)
+    {
+        var list = new List<AllyAuthorship>();
+        for (int i = 0; i < units.Count; i++)
+        {
+            BattleUnit unit = units[i];
+            if (unit == null || !unit.IsAlly)
+                continue;
+            CharacterClass character = GetCharacter(unit.CharacterId);
+            list.Add(new AllyAuthorship
+            {
+                AuthorPersonId = character != null ? character.AuthorPersonId : 0,
+                Type = unit.Attribute
+            });
+        }
+        return list.ToArray();
+    }
+
+    AllyAuthorship[] PartyAllies(int setIndex)
+    {
+        var list = new List<AllyAuthorship>();
+        if (setIndex < 1 || setIndex > Constants.BATTLE_PARTY_SET_NUM)
+            return list.ToArray();
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+            {
+                CharacterClass character = GetCharacter(BattlePartyCharacterIds[setIndex, x, y]);
+                if (character == null || character.OwnedNumCur == 0)
+                    continue;
+                list.Add(new AllyAuthorship
+                {
+                    AuthorPersonId = character.AuthorPersonId,
+                    Type = BattleCharacterFactory.ToAttribute(character.CharacterType)
+                });
+            }
+        }
+        return list.ToArray();
+    }
+
+    static bool IsProductionWorkerButton(Button button)
+    {
+        if (button == null)
+            return false;
+        string name = button.name;
+        return name.Contains("RProductionHelpCharacter")
+            || name.Contains("GProductionHelpCharacter")
+            || name.Contains("BProductionHelpCharacter")
+            || name.Contains("ButtonPixelProductionCharacter")
+            || name.Contains("ButtonCharacterProductionCharacter");
+    }
 
 }

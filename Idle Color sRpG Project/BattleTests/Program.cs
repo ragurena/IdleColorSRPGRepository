@@ -79,6 +79,7 @@ static class Program
         TestDefeatOrder(config);
         TestReviveCancelsAction(config);
         TestAllyPriorityWhenBothGone(config);
+        _failures += PersonTests.Run();
 
         if (_failures > 0)
         {

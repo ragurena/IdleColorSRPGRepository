@@ -101,6 +101,14 @@ public class ImportedCharacterRecord
     public bool HasWhereabouts;
     public bool CatalogOpened;
     public bool HasCatalogOpened;
+    public int AuthorPersonId;
+    public bool HasAuthor;
+    public long OwnedFull;
+    public bool HasOwnedFull;
+    public long OwnedEight;
+    public bool HasOwnedEight;
+    public long OwnedHalf;
+    public bool HasOwnedHalf;
 }
 
 public class ImportedCharacterEntry
@@ -238,12 +246,22 @@ public static class ImportedCharacters
             message = "画像をキャラにできませんでした。";
             return false;
         }
+        AssignImportedAuthor(character);
 
         if (id > HighestId)
             HighestId = id;
         Entries.Add(new ImportedCharacterEntry { Character = character, SourceHash = hash });
         message = name + " を読み込みました。";
         return true;
+    }
+
+    static void AssignImportedAuthor(CharacterClass character)
+    {
+        if (character == null)
+            return;
+        character.AuthorPersonId = PersonIds.Protagonist;
+        character.AuthorSpecified = true;
+        character.EnsureStock();
     }
 
     class PreparedImport
@@ -327,6 +345,7 @@ public static class ImportedCharacters
             return false;
         }
         character.RecalculateBaseStats(balance);
+        AssignImportedAuthor(character);
         Prepared = new PreparedImport { Id = id, SourceHash = hash, Character = character };
         message = null;
         return true;
@@ -436,6 +455,11 @@ public static class ImportedCharacters
             sw.WriteLine(prefix + "FlagFNT," + (character.FlagFNT ? "true" : "false"));
             sw.WriteLine(prefix + "Whereabouts," + character.Whereabouts.ToString());
             sw.WriteLine(prefix + "CatalogOpened," + (character.CatalogOpened ? "true" : "false"));
+            character.EnsureStock();
+            sw.WriteLine(prefix + "AuthorPersonId," + character.AuthorPersonId.ToString());
+            sw.WriteLine(prefix + "OwnedFull," + character.Stock.Full.ToString());
+            sw.WriteLine(prefix + "OwnedEight," + character.Stock.Eight.ToString());
+            sw.WriteLine(prefix + "OwnedHalf," + character.Stock.Half.ToString());
         }
     }
 
@@ -499,6 +523,19 @@ public static class ImportedCharacters
                 character.Whereabouts = record.Whereabouts;
             if (record.HasCatalogOpened)
                 character.CatalogOpened = record.CatalogOpened;
+            if (record.HasAuthor)
+                character.AuthorPersonId = record.AuthorPersonId;
+            else if (character.ID >= FirstId)
+                character.AuthorPersonId = PersonIds.Protagonist;
+            character.AuthorSpecified = true;
+            if (record.HasOwnedFull || record.HasOwnedEight || record.HasOwnedHalf)
+            {
+                character.Stock.Full = record.HasOwnedFull && record.OwnedFull > 0 ? record.OwnedFull : 0;
+                character.Stock.Eight = record.HasOwnedEight && record.OwnedEight > 0 ? record.OwnedEight : 0;
+                character.Stock.Half = record.HasOwnedHalf && record.OwnedHalf > 0 ? record.OwnedHalf : 0;
+                character.Stock.Specified = true;
+            }
+            character.EnsureStock();
             if (record.HasName && !string.IsNullOrWhiteSpace(record.Name))
                 character.Name = record.Name.Trim();
 
@@ -628,6 +665,36 @@ public static class ImportedCharacters
         {
             record.CatalogOpened = value == "true";
             record.HasCatalogOpened = true;
+        }
+        if (field == "AuthorPersonId")
+        {
+            int author;
+            if (int.TryParse(value, out author) && author > 0)
+                record.AuthorPersonId = author;
+            else
+                record.AuthorPersonId = 0;
+            record.HasAuthor = true;
+        }
+        if (field == "OwnedFull")
+        {
+            long number;
+            if (long.TryParse(value, out number) && number > 0)
+                record.OwnedFull = number;
+            record.HasOwnedFull = true;
+        }
+        if (field == "OwnedEight")
+        {
+            long number;
+            if (long.TryParse(value, out number) && number > 0)
+                record.OwnedEight = number;
+            record.HasOwnedEight = true;
+        }
+        if (field == "OwnedHalf")
+        {
+            long number;
+            if (long.TryParse(value, out number) && number > 0)
+                record.OwnedHalf = number;
+            record.HasOwnedHalf = true;
         }
     }
 

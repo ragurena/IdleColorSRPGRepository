@@ -18,6 +18,9 @@ public sealed class BattleUnit
     public long HpMax;
     public long Atk;
     public long Def;
+    public long RawHpMax;
+    public long RawAtk;
+    public long RawDef;
     public long Spd;
     public long Luc;
     public long Obs;

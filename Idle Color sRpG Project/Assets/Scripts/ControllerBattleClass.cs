@@ -32,6 +32,7 @@ public class ControllerBattleClass : MonoBehaviour
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
     CellView[,] _allies;
     CellView[,] _enemies;
+    Image[] _battlePeople;
 
     class CellView
     {
@@ -93,16 +94,17 @@ public class ControllerBattleClass : MonoBehaviour
             long hpMax = (long)character.Stats[0].HPMax;
             if (hpMax < 1)
                 hpMax = 1;
-            unit.HpMax = hpMax;
-            long delta = hpMax - previousHp;
+            unit.RawHpMax = hpMax;
+            unit.RawAtk = (long)character.Stats[0].ATK;
+            unit.RawDef = (long)character.Stats[0].DEF;
+            _production.ApplyPersonStats(unit);
+            long delta = unit.HpMax - previousHp;
             if (delta > 0)
                 unit.Hp += delta;
             if (unit.Hp > unit.HpMax)
                 unit.Hp = unit.HpMax;
             if (unit.Hp < 1 && unit.IsLiving())
                 unit.Hp = 1;
-            unit.Atk = (long)character.Stats[0].ATK;
-            unit.Def = (long)character.Stats[0].DEF;
             int lives = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
             if (lives < 0)
                 lives = 0;
@@ -126,6 +128,7 @@ public class ControllerBattleClass : MonoBehaviour
         _alliesEntered = false;
         _nextUnitId = 1;
         PlaceAllies(setIndex);
+        ShowBattlePeople(setIndex);
         if (!HasLivingAlly())
         {
             Debug.LogWarning("出撃できる味方がいません");
@@ -217,6 +220,7 @@ public class ControllerBattleClass : MonoBehaviour
             }
 
             _production.MarkBattleFloorCleared(stageIndex, floor);
+            _production.GrantPersonBattleFloor();
             if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
                 clearedStage = true;
             if (!HasLivingAlly())
@@ -279,6 +283,24 @@ public class ControllerBattleClass : MonoBehaviour
         _production.ReturnFromBattle();
     }
 
+    public AllyAuthorship[] AllyAuthorships()
+    {
+        var list = new List<AllyAuthorship>();
+        for (int i = 0; i < _units.Count; i++)
+        {
+            BattleUnit unit = _units[i];
+            if (unit == null || !unit.IsAlly)
+                continue;
+            CharacterClass character = _production != null ? _production.GetCharacter(unit.CharacterId) : null;
+            list.Add(new AllyAuthorship
+            {
+                AuthorPersonId = character != null ? character.AuthorPersonId : 0,
+                Type = unit.Attribute
+            });
+        }
+        return list.ToArray();
+    }
+
     void PlaceAllies(int setIndex)
     {
         int size = _config.FormationSize;
@@ -293,10 +315,15 @@ public class ControllerBattleClass : MonoBehaviour
                 if (character == null || character.OwnedNumCur == 0)
                     continue;
                 BattleUnit unit = BattleCharacterFactory.CreateAlly(character, x, y, _nextUnitId++, _config);
-                if (unit != null)
-                    _units.Add(unit);
+                if (unit == null)
+                    continue;
+                unit.RawHpMax = unit.HpMax;
+                unit.RawAtk = unit.Atk;
+                unit.RawDef = unit.Def;
+                _units.Add(unit);
             }
         }
+        _production.ApplyPersonStatsToAllies(_units);
     }
 
     void SpawnEnemies(StageBattleContent content, int floor)
@@ -793,6 +820,8 @@ public class ControllerBattleClass : MonoBehaviour
             _resource.text = _production.GetRgbText();
         DrawSide(_allies, true);
         DrawSide(_enemies, false);
+        if (_production != null)
+            ShowBattlePeople(_production.GetActiveBattlePartySet());
     }
 
     void DrawSide(CellView[,] cells, bool ally)
@@ -917,6 +946,8 @@ public class ControllerBattleClass : MonoBehaviour
         }
         DrawSide(_allies, true);
         DrawSide(_enemies, false);
+        if (_production != null)
+            ShowBattlePeople(_production.GetActiveBattlePartySet());
     }
 
     void BuildUi()
@@ -963,6 +994,7 @@ public class ControllerBattleClass : MonoBehaviour
         _enemies = new CellView[_config.FormationSize + 1, _config.FormationSize + 1];
         BuildGrid(_allies, -170f);
         BuildGrid(_enemies, 170f);
+        BuildBattlePeople();
 
         if (_logText == null)
         {
@@ -986,6 +1018,66 @@ public class ControllerBattleClass : MonoBehaviour
         PlaceRect(_fastButton.GetComponent<RectTransform>(), -290f, 175f, 120f, 44f);
         _fastButton.onClick.AddListener(PushFast);
         ApplySpeedButton();
+    }
+
+    void BuildBattlePeople()
+    {
+        int count = Constants.BATTLE_PERSON_SLOT_NUM;
+        _battlePeople = new Image[count + 1];
+        int size = _config.FormationSize;
+        float pitch = 78f;
+        float cell = 70f;
+        float allyLeft = -170f + (1 - 2) * pitch;
+        float px = allyLeft - pitch;
+        for (int slot = 1; slot <= count; slot++)
+        {
+            int y = slot <= size ? slot : size;
+            float py = 70f - (size - y) * pitch;
+            Image image = CreateImage("ImageBattlePerson" + slot.ToString(), _root.transform, new Color(0.15f, 0.15f, 0.18f, 0.35f));
+            PlaceRect(image.rectTransform, px, py, cell, cell);
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            _battlePeople[slot] = image;
+        }
+    }
+
+    void ShowBattlePeople(int setIndex)
+    {
+        if (_battlePeople == null || _production == null)
+            return;
+        for (int slot = 1; slot < _battlePeople.Length; slot++)
+        {
+            Image image = _battlePeople[slot];
+            if (image == null)
+                continue;
+            PersonClass person = _production.GetPerson((int)_production.GetBattlePartyPerson(setIndex, slot));
+            Sprite portrait = person != null ? PersonPortraits.SpriteOf(person.Id) : null;
+            if (portrait != null)
+            {
+                image.sprite = portrait;
+                image.color = Color.white;
+            }
+            else if (person != null)
+            {
+                image.sprite = null;
+                image.color = ControllerProduction.PersonColor(person.Id);
+            }
+            else
+            {
+                image.sprite = null;
+                image.color = new Color(0.15f, 0.15f, 0.18f, 0.35f);
+            }
+            if (person == null)
+            {
+                PersonSkillBar.Hide(image.transform);
+                continue;
+            }
+            int level = person.BattleLevel < 1 ? 1 : person.BattleLevel;
+            PersonBalanceConfig balance = _production.GetPersonBalance();
+            double exponent = balance != null ? balance.BattleExpExponent : 1.7;
+            long need = PersonFormulas.ExpToNext(level, exponent, balance);
+            PersonSkillBar.ShowInside(image.transform, level, person.BattleExp, need);
+        }
     }
 
     void BuildGrid(CellView[,] cells, float originX)

@@ -53,6 +53,11 @@ public class CharacterClass //: MonoBehaviour
     public ulong OwnedNumMax;
     //現在の所持数。戦闘の残機と同じ。1のときにHPが0になると0になって戦闘不能。最大は BattleBalanceConfig.MaxOwnedCount
     public ulong OwnedNumCur;
+    // ×1、×0.8、×0.5 の内訳。合計が OwnedNumCur
+    public OwnedStock Stock;
+    // 作者の人ID。0 は作者なし
+    public int AuthorPersonId;
+    public bool AuthorSpecified;
     //TODO:転生回数
     public ulong ReincarnationTimes;
     //残機合成の回数。1回につき、基礎＋レベル成長後の HP/ATK/DEF と RGB生産量が5%増える。
@@ -65,22 +70,65 @@ public class CharacterClass //: MonoBehaviour
 
     public void GainOwned(int amount, int cap)
     {
+        GainOwnedTier(OwnedTier.Full, amount, cap);
+    }
+
+    public void GainOwnedTier(OwnedTier tier, int amount, int cap)
+    {
         if (amount <= 0)
             return;
-        ulong next = OwnedNumCur + (ulong)amount;
-        if (cap >= 0 && next > (ulong)cap)
-            next = (ulong)cap;
-        OwnedNumCur = next;
-        RaiseOwnedMax();
+        EnsureStock();
+        Stock.Add(tier, amount, cap);
+        ApplyStockTotal();
+    }
+
+    public bool ConsumeOwned(int amount, bool halfFirst, int cap)
+    {
+        EnsureStock();
+        if (amount <= 0)
+            return true;
+        if (Stock.Total < amount)
+            return false;
+        Stock.Consume(amount, halfFirst);
+        ApplyStockTotal();
+        return true;
     }
 
     public void SetOwnedCur(int count, int cap)
     {
         if (count < 0)
             count = 0;
-        if (cap >= 0 && count > cap)
-            count = cap;
-        OwnedNumCur = (ulong)count;
+        EnsureStock();
+        Stock.MatchTotal(count, cap);
+        ApplyStockTotal();
+    }
+
+    public void EnsureStock()
+    {
+        long current = OwnedNumCur > (ulong)long.MaxValue ? long.MaxValue : (long)OwnedNumCur;
+        Stock.AdoptLegacy(current);
+        ApplyStockTotal();
+    }
+
+    public double NextLifeMultiplier(PersonBalanceConfig config)
+    {
+        EnsureStock();
+        return Stock.NextLifeMultiplier(config);
+    }
+
+    public string StockText()
+    {
+        EnsureStock();
+        return OwnedStock.Format(Stock.Full, Stock.Eight, Stock.Half);
+    }
+
+    void ApplyStockTotal()
+    {
+        Stock.ClampTotal(BattleBalanceConfig.MaxOwnedCount);
+        long total = Stock.Total;
+        if (total < 0)
+            total = 0;
+        OwnedNumCur = (ulong)total;
         RaiseOwnedMax();
     }
 

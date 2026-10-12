@@ -42,7 +42,8 @@ public class SaveClass// : MonoBehaviour
         int ActiveBattleFloorTo,
         int ClearedBattleStage,
         int[] ClearedBattleFloor,
-        Dictionary<int, int> ItemCounts
+        Dictionary<int, int> ItemCounts,
+        PersonSaveData people
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -91,6 +92,11 @@ public class SaveClass// : MonoBehaviour
 
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Whereabouts," + CharactersAll[i].Whereabouts);
             sw.WriteLine("CharactersAll[" + i.ToString() + "].CatalogOpened," + (CharactersAll[i].CatalogOpened ? "true" : "false"));
+            CharactersAll[i].EnsureStock();
+            sw.WriteLine("CharactersAll[" + i.ToString() + "].AuthorPersonId," + CharactersAll[i].AuthorPersonId.ToString());
+            sw.WriteLine("CharactersAll[" + i.ToString() + "].OwnedFull," + CharactersAll[i].Stock.Full.ToString());
+            sw.WriteLine("CharactersAll[" + i.ToString() + "].OwnedEight," + CharactersAll[i].Stock.Eight.ToString());
+            sw.WriteLine("CharactersAll[" + i.ToString() + "].OwnedHalf," + CharactersAll[i].Stock.Half.ToString());
 
         }
 
@@ -276,6 +282,8 @@ public class SaveClass// : MonoBehaviour
         }
 
         ImportedCharacters.WriteSave(sw);
+        if (people != null)
+            people.Write(sw);
 
         sw.Flush();
         sw.Close();
@@ -372,7 +380,8 @@ public class SaveClass// : MonoBehaviour
         ref int ActiveBattleFloorTo,
         ref int ClearedBattleStage,
         ref int[] ClearedBattleFloor,
-        ref Dictionary<int, int> ItemCounts
+        ref Dictionary<int, int> ItemCounts,
+        PersonSaveData people
         )
     {
         ImportedCharacters.BeginLoad();
@@ -423,7 +432,15 @@ public class SaveClass// : MonoBehaviour
             string line = sr.ReadLine();
             if (ImportedCharacters.TryReadSaveLine(line))
                 continue;
+            if (people != null && line.StartsWith("BattlePartyPerson["))
+            {
+                int split = line.LastIndexOf(',');
+                if (split > 0 && people.TryRead(line.Substring(0, split), line.Substring(split + 1)))
+                    continue;
+            }
             string[] values = line.Split(',');
+            if (values.Length >= 2 && people != null && people.TryRead(values[0], values[1]))
+                continue;
 
             if (values[0].Equals("DataVersion"))
             {
@@ -966,6 +983,44 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].CatalogOpened"))
                     {
                         CharactersAll[slot].CatalogOpened = values[1].Equals("true");
+                        break;
+                    }
+
+                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].AuthorPersonId"))
+                    {
+                        int author;
+                        if (int.TryParse(values[1], out author) && author > 0)
+                            CharactersAll[slot].AuthorPersonId = author;
+                        else
+                            CharactersAll[slot].AuthorPersonId = 0;
+                        CharactersAll[slot].AuthorSpecified = true;
+                        break;
+                    }
+
+                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].OwnedFull"))
+                    {
+                        long number;
+                        if (long.TryParse(values[1], out number) && number > 0)
+                            CharactersAll[slot].Stock.Full = number;
+                        CharactersAll[slot].Stock.Specified = true;
+                        break;
+                    }
+
+                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].OwnedEight"))
+                    {
+                        long number;
+                        if (long.TryParse(values[1], out number) && number > 0)
+                            CharactersAll[slot].Stock.Eight = number;
+                        CharactersAll[slot].Stock.Specified = true;
+                        break;
+                    }
+
+                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].OwnedHalf"))
+                    {
+                        long number;
+                        if (long.TryParse(values[1], out number) && number > 0)
+                            CharactersAll[slot].Stock.Half = number;
+                        CharactersAll[slot].Stock.Specified = true;
                         break;
                     }
 

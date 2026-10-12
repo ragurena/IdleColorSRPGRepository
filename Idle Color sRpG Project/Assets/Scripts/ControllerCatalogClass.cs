@@ -12,6 +12,8 @@ public class ControllerCatalogClass : MonoBehaviour
     Image _detailImage;
     RectTransform _content;
     uint _selectedId;
+    int _page;
+    int _selectedPersonId = PersonIds.Protagonist;
     readonly Dictionary<uint, Sprite> _openedSprites = new Dictionary<uint, Sprite>();
     readonly List<CellEntry> _cells = new List<CellEntry>();
 
@@ -45,6 +47,11 @@ public class ControllerCatalogClass : MonoBehaviour
     {
         if (_content == null || _production == null)
             return;
+        if (_page == 1)
+        {
+            RefreshPeople();
+            return;
+        }
 
         for (int i = 0; i < _cells.Count; i++)
         {
@@ -139,6 +146,11 @@ public class ControllerCatalogClass : MonoBehaviour
 
     void ShowDetail()
     {
+        if (_page == 1)
+        {
+            ShowPersonDetail();
+            return;
+        }
         CharacterClass character = _production != null ? _production.GetCharacter(_selectedId) : null;
         if (character == null || character.ID != _selectedId)
         {
@@ -185,7 +197,9 @@ public class ControllerCatalogClass : MonoBehaviour
             + "ATK " + stats.ATK + "    DEF " + stats.DEF + "\n"
             + "SPD " + stats.SPD + "    LUC " + stats.LUC + "\n"
             + "代表 " + character.RepresentativeR + ", " + character.RepresentativeG + ", " + character.RepresentativeB + "\n"
-            + "弱点色 " + character.WeaknessR + ", " + character.WeaknessG + ", " + character.WeaknessB;
+            + "弱点色 " + character.WeaknessR + ", " + character.WeaknessG + ", " + character.WeaknessB + "\n"
+            + "作者 " + _production.AuthorName(character) + "\n"
+            + "所持 " + character.StockText();
     }
 
     static bool IsKnown(CharacterClass character)
@@ -251,8 +265,11 @@ public class ControllerCatalogClass : MonoBehaviour
         group.blocksRaycasts = false;
 
         Text title = CreateText("TextCatalogTitle", Panel.transform, 40, TextAnchor.MiddleCenter);
-        Place(title.rectTransform, 0f, 610f, 1000f, 56f);
+        Place(title.rectTransform, -180f, 610f, 520f, 56f);
         title.text = "図鑑";
+
+        CreatePageButton("ButtonCatalogCharacters", "キャラ", new Vector2(180f, 610f), () => ShowPage(0));
+        CreatePageButton("ButtonCatalogPeople", "人", new Vector2(420f, 610f), () => ShowPage(1));
 
         _count = CreateText("TextCatalogCount", Panel.transform, 28, TextAnchor.MiddleCenter);
         Place(_count.rectTransform, 0f, 555f, 1000f, 40f);
@@ -268,15 +285,113 @@ public class ControllerCatalogClass : MonoBehaviour
         GameObject detailPicture = new GameObject("CatalogDetailPicture", typeof(RectTransform));
         detailPicture.transform.SetParent(detailRoot.transform, false);
         RectTransform detailPictureRect = detailPicture.GetComponent<RectTransform>();
-        Place(detailPictureRect, -380f, 0f, 190f, 190f);
+        Place(detailPictureRect, -375f, 0f, 270f, 270f);
         _detailImage = detailPicture.AddComponent<Image>();
         _detailImage.preserveAspect = true;
         _detailImage.raycastTarget = false;
 
         _detail = CreateText("TextCatalogDetail", detailRoot.transform, 24, TextAnchor.UpperLeft);
-        Place(_detail.rectTransform, 80f, 0f, 720f, 250f);
+        Place(_detail.rectTransform, 140f, 0f, 700f, 250f);
         _detail.horizontalOverflow = HorizontalWrapMode.Wrap;
         _detail.verticalOverflow = VerticalWrapMode.Truncate;
+    }
+
+    void ShowPage(int page)
+    {
+        _page = page == 1 ? 1 : 0;
+        Refresh();
+    }
+
+    void RefreshPeople()
+    {
+        for (int i = 0; i < _cells.Count; i++)
+        {
+            if (_cells[i].Background != null)
+                Destroy(_cells[i].Background.gameObject);
+        }
+        _cells.Clear();
+        if (_selectedPersonId < 1 || _production.GetPerson(_selectedPersonId) == null)
+            _selectedPersonId = PersonIds.Protagonist;
+        for (int id = 1; id <= PersonIds.Count; id++)
+        {
+            PersonClass person = _production.GetPerson(id);
+            if (person != null)
+                _cells.Add(CreatePersonCell(person));
+        }
+        if (_count != null)
+            _count.text = "人 " + PersonIds.Count.ToString();
+        ShowDetail();
+    }
+
+    CellEntry CreatePersonCell(PersonClass person)
+    {
+        GameObject cell = new GameObject("CatalogPerson" + person.Id, typeof(RectTransform));
+        cell.transform.SetParent(_content, false);
+        Image background = cell.AddComponent<Image>();
+        background.color = person.Id == _selectedPersonId
+            ? new Color(0.55f, 0.72f, 0.9f, 1f)
+            : new Color(0.82f, 0.82f, 0.86f, 1f);
+        Button button = cell.AddComponent<Button>();
+        button.targetGraphic = background;
+        int id = person.Id;
+        button.onClick.AddListener(() => SelectPerson(id));
+
+        GameObject picture = new GameObject("Picture", typeof(RectTransform));
+        picture.transform.SetParent(cell.transform, false);
+        RectTransform pictureRect = picture.GetComponent<RectTransform>();
+        pictureRect.anchorMin = Vector2.zero;
+        pictureRect.anchorMax = Vector2.one;
+        float border = person.Id == _selectedPersonId ? 8f : 0f;
+        pictureRect.offsetMin = new Vector2(border, border);
+        pictureRect.offsetMax = new Vector2(-border, -border);
+        Image image = picture.AddComponent<Image>();
+        image.preserveAspect = false;
+        image.raycastTarget = false;
+        Sprite portrait = PersonPortraits.SpriteOf(person.Id);
+        image.sprite = portrait;
+        image.color = portrait != null ? Color.white : ControllerProduction.PersonColor(person.Id);
+        return new CellEntry { Id = (uint)person.Id, Background = background, Picture = image };
+    }
+
+    void SelectPerson(int personId)
+    {
+        _selectedPersonId = personId;
+        RefreshPeople();
+    }
+
+    void ShowPersonDetail()
+    {
+        PersonClass person = _production != null ? _production.GetPerson(_selectedPersonId) : null;
+        if (_detailImage != null)
+        {
+            Sprite portrait = person != null ? PersonPortraits.SpriteOf(person.Id) : null;
+            _detailImage.sprite = portrait;
+            _detailImage.preserveAspect = false;
+            _detailImage.color = portrait != null
+                ? Color.white
+                : (person != null ? ControllerProduction.PersonColor(person.Id) : Color.white);
+        }
+        if (_detail == null)
+            return;
+        if (person == null)
+        {
+            _detail.text = "人を選んでください";
+            return;
+        }
+        _detail.text = person.Describe(_production.GetPersonBalance());
+    }
+
+    void CreatePageButton(string name, string label, Vector2 position, UnityEngine.Events.UnityAction click)
+    {
+        GameObject buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(Panel.transform, false);
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        Place(rect, position.x, position.y, 200f, 56f);
+        buttonObject.GetComponent<Image>().color = new Color(0.75f, 0.78f, 0.84f, 1f);
+        buttonObject.GetComponent<Button>().onClick.AddListener(click);
+        Text text = CreateText("Text", buttonObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(text.rectTransform);
+        text.text = label;
     }
 
     void BuildScroll()

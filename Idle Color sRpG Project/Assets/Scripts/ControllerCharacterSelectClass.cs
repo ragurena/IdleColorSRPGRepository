@@ -1,3 +1,4 @@
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,8 +13,17 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     uint[] CharactersIDHelpProductionG;// = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
     uint[] CharactersIDHelpProductionB;// = new uint[Constants.CHARACTERS_HELP_PRODUCTION_NUM + 1];
     uint[] CharactersIDProductionPixel;// = new uint[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
-    uint[] CharactersIDProductionCharacter;// = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
-    uint[] CharactersIDProducedCharacter;// = new uint[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
+    uint[] CharactersIDProductionCharacter;
+    uint[] CharactersIDProducedCharacter;
+    uint[] PersonIdHelpProductionR;
+    uint[] PersonIdHelpProductionG;
+    uint[] PersonIdHelpProductionB;
+    uint[] PersonIdProductionPixel;
+    uint[] PersonIdProductionCharacter;
+    PersonClass[] People;
+    PersonBalanceConfig PersonBalance;
+    int SelectedPersonId;
+    GameObject WorkerTabs;
 
 
 
@@ -30,7 +40,10 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                            ref Color[] argColorProductionPixel,
                            ref uint[] argCharactersIDHelpProductionR, ref uint[] argCharactersIDHelpProductionG, ref uint[] argCharactersIDHelpProductionB,
                            ref uint[] argCharactersIDProductionPixel,
-                           ref uint[] argCharactersIDProductionCharacter, ref uint[] argCharactersIDProducedCharacter)
+                           ref uint[] argCharactersIDProductionCharacter, ref uint[] argCharactersIDProducedCharacter,
+                           ref uint[] argPersonIdHelpProductionR, ref uint[] argPersonIdHelpProductionG, ref uint[] argPersonIdHelpProductionB,
+                           ref uint[] argPersonIdProductionPixel, ref uint[] argPersonIdProductionCharacter,
+                           PersonClass[] people, PersonBalanceConfig personBalance)
     {
         CharactersAll = argCharactersAll;
         ColorProductionPixel = argColorProductionPixel;
@@ -40,6 +53,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         CharactersIDProductionPixel = argCharactersIDProductionPixel;
         CharactersIDProductionCharacter = argCharactersIDProductionCharacter;
         CharactersIDProducedCharacter = argCharactersIDProducedCharacter;
+        PersonIdHelpProductionR = argPersonIdHelpProductionR;
+        PersonIdHelpProductionG = argPersonIdHelpProductionG;
+        PersonIdHelpProductionB = argPersonIdHelpProductionB;
+        PersonIdProductionPixel = argPersonIdProductionPixel;
+        PersonIdProductionCharacter = argPersonIdProductionCharacter;
+        People = people;
+        PersonBalance = personBalance;
     }
 
     // Start is called before the first frame update
@@ -61,11 +81,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     {
         if (IsLockedOutOfProduction(argCharacterID, ButtonTmp))
             return;
+        SelectedPersonId = 0;
         if (ImportedCharacters.FindAny(CharactersAll, argCharacterID) == null)
             return;
 
         Debug.Log("SelectCharacterID : " + argCharacterID);
         ImageSelectCharacter.sprite = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Size), new Vector2(0.5f, 0.5f));
+        ImageSelectCharacter.color = Color.white;
         CharacterIDTmp = argCharacterID;
         Button ButtonSelect = GameObject.Find("ButtonConfirmSelectLeft").GetComponent<Button>();
         ButtonSelect.interactable = true;
@@ -142,6 +164,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         return CharacterIDTmp;
     }
 
+    public int GetSelectedPersonId()
+    {
+        return SelectedPersonId;
+    }
+
     //バトル編成のマスから呼ばれたキャラクターセレクトパネルの表示
     public void ShowPanelSelectCharacterBattleParty(Button ButtonTmp, uint argCurrentCharacterID)
     {
@@ -199,9 +226,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (character == null || character.Stats == null || character.Stats[0] == null)
             return;
         StatisticsClass stats = character.Stats[0];
+        string author = "なし";
+        PersonClass authorPerson = PersonClass.Find(People, character.AuthorPersonId);
+        if (authorPerson != null)
+            author = authorPerson.Name;
         TextSelectCharacter1.text = "HP : " + stats.HPMax + "   " + character.CharacterType;
         TextSelectCharacter2.text = "ATK : " + stats.ATK + "   DEF : " + stats.DEF;
-        TextSelectCharacter3.text = "SPD : " + stats.SPD + "   LUC : " + stats.LUC;
+        TextSelectCharacter3.text = "SPD : " + stats.SPD + "   LUC : " + stats.LUC + "   作者 " + author;
     }
 
     //キャラクターセレクトの決定ボタンが押されたら
@@ -631,6 +662,17 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             }
             AddImportedCharacterButtons(ButtonTmp, true);
         }
+
+        SelectedPersonId = 0;
+        if (IsProductionAssignmentButton(ButtonTmp))
+        {
+            EnsureWorkerTabs(ButtonTmp);
+            int assigned = AssignedPerson(ButtonTmp);
+            if (assigned != 0)
+                ShowAssignedPerson(assigned, ButtonTmp);
+        }
+        else if (WorkerTabs != null)
+            WorkerTabs.SetActive(false);
     }
 
     void AddImportedCharacterButtons(Button source, bool warnIfUsedInOtherProduction)
@@ -941,6 +983,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     {
         //どのキャラクターが選ばれたか削除
         CharacterIDTmp = 0;
+        SelectedPersonId = 0;
+        if (WorkerTabs != null)
+            WorkerTabs.SetActive(false);
 
         GameObject gameObjectCharacterList = null;
         GameObject[] tag1_Objects;
@@ -960,6 +1005,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
         //ImageSelectCharacterの画像を削除
         ImageSelectCharacter.sprite = null;
+        ImageSelectCharacter.color = Color.white;
     }
 
 
@@ -975,5 +1021,257 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (character == null || character.Stats == null || character.Stats[0] == null || character.Stats[0].SPD < 1)
             return 0;
         return (int)(Mathf.Ceil((argRGB + 1) / (float)(character.Stats[0].SPD)));
+    }
+
+    public void ShowPanelSelectBattlePerson(Button source, int currentPersonId)
+    {
+        SelectedPersonId = 0;
+        CharacterIDTmp = 0;
+        if (WorkerTabs != null)
+            WorkerTabs.SetActive(false);
+        ClearCharacterList();
+        TextSelectCharacter1.text = "人";
+        TextSelectCharacter2.text = "";
+        TextSelectCharacter3.text = "";
+        TextSelectCharacter1.color = Color.black;
+        SetConfirmEnabled(false);
+        if (currentPersonId != 0)
+            ShowAssignedPerson(currentPersonId, source);
+        for (int id = 1; id <= PersonIds.Count; id++)
+            CreatePersonButton(id, source);
+        SetRemoveEnabled(currentPersonId != 0);
+    }
+
+    void EnsureWorkerTabs(Button source)
+    {
+        Transform content = FindCharacterList();
+        if (content == null)
+            return;
+        Transform panel = content;
+        while (panel != null && panel.name != "PanelSelectCharacter")
+            panel = panel.parent;
+        if (panel == null)
+            panel = content.parent;
+        if (WorkerTabs == null)
+        {
+            WorkerTabs = new GameObject("WorkerKindTabs", typeof(RectTransform));
+            WorkerTabs.transform.SetParent(panel, false);
+            RectTransform tabs = WorkerTabs.GetComponent<RectTransform>();
+            tabs.anchorMin = new Vector2(0f, 1f);
+            tabs.anchorMax = new Vector2(1f, 1f);
+            tabs.pivot = new Vector2(0.5f, 1f);
+            tabs.anchoredPosition = new Vector2(0f, -8f);
+            tabs.sizeDelta = new Vector2(-24f, 64f);
+            CreateTab(WorkerTabs.transform, "ButtonWorkerTabCharacter", "キャラ", new Vector2(-160f, 0f), () => ShowCharacterTab(source));
+            CreateTab(WorkerTabs.transform, "ButtonWorkerTabPerson", "人", new Vector2(160f, 0f), () => ShowPersonTab(source));
+        }
+        WorkerTabs.SetActive(true);
+        Button characterTab = WorkerTabs.transform.Find("ButtonWorkerTabCharacter").GetComponent<Button>();
+        Button personTab = WorkerTabs.transform.Find("ButtonWorkerTabPerson").GetComponent<Button>();
+        characterTab.onClick.RemoveAllListeners();
+        personTab.onClick.RemoveAllListeners();
+        Button captured = source;
+        characterTab.onClick.AddListener(() => ShowCharacterTab(captured));
+        personTab.onClick.AddListener(() => ShowPersonTab(captured));
+    }
+
+    void ShowCharacterTab(Button source)
+    {
+        SelectedPersonId = 0;
+        ClearCharacterList();
+        for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
+        {
+            CharacterClass character = ImportedCharacters.FindAny(CharactersAll, (uint)indexCharacter);
+            if (character != null && character.OwnedNumMax != 0)
+                CreateCharacterButton(indexCharacter, source, true);
+        }
+        AddImportedCharacterButtons(source, true);
+    }
+
+    void ShowPersonTab(Button source)
+    {
+        CharacterIDTmp = 0;
+        ClearCharacterList();
+        for (int id = 1; id <= PersonIds.Count; id++)
+            CreatePersonButton(id, source);
+    }
+
+    void CreatePersonButton(int personId, Button source)
+    {
+        PersonClass person = PersonClass.Find(People, personId);
+        Transform list = FindCharacterList();
+        if (person == null || list == null)
+            return;
+        GameObject buttonObject = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), list) as GameObject;
+        Button button = buttonObject.GetComponent<Button>();
+        button.interactable = true;
+        ControllerProduction.PaintPerson(button, person);
+        Text label = buttonObject.GetComponentInChildren<Text>();
+        if (label != null)
+        {
+            label.text = person.Name + "\n" + PersonChoiceText(person, source);
+            label.alignment = TextAnchor.LowerCenter;
+            label.color = Color.white;
+            RectTransform labelRect = label.rectTransform;
+            labelRect.anchorMin = new Vector2(0f, 0f);
+            labelRect.anchorMax = new Vector2(1f, 0.42f);
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            Outline outline = label.GetComponent<Outline>();
+            if (outline == null)
+                outline = label.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+            outline.effectDistance = new Vector2(1f, -1f);
+        }
+        int captured = personId;
+        button.onClick.AddListener(() => SelectPerson(captured, source));
+    }
+
+    void SelectPerson(int personId, Button source)
+    {
+        SelectedPersonId = personId;
+        CharacterIDTmp = 0;
+        ShowAssignedPerson(personId, source);
+        SetConfirmEnabled(true);
+    }
+
+    void ShowAssignedPerson(int personId, Button source)
+    {
+        PersonClass person = PersonClass.Find(People, personId);
+        if (person == null)
+            return;
+        if (ImageSelectCharacter != null)
+        {
+            Sprite portrait = PersonPortraits.SpriteOf(person.Id);
+            ImageSelectCharacter.preserveAspect = true;
+            if (portrait != null)
+            {
+                ImageSelectCharacter.sprite = portrait;
+                ImageSelectCharacter.color = Color.white;
+            }
+            else
+            {
+                ImageSelectCharacter.sprite = null;
+                ImageSelectCharacter.color = ControllerProduction.PersonColor(person.Id);
+            }
+        }
+        TextSelectCharacter1.color = Color.black;
+        TextSelectCharacter2.color = Color.black;
+        TextSelectCharacter3.color = Color.black;
+        TextSelectCharacter1.text = person.Name;
+        TextSelectCharacter2.text = "得意 " + person.SpecialtyText();
+        TextSelectCharacter3.text = PersonChoiceText(person, source);
+        SetRemoveEnabled(true);
+    }
+
+    string PersonChoiceText(PersonClass person, Button source)
+    {
+        if (PersonBalance == null || person == null)
+            return "";
+        if (source != null && source.name.Contains("RProductionHelpCharacter"))
+            return "R " + person.RgbAmount(0, PersonBalance).ToString() + "/秒";
+        if (source != null && source.name.Contains("GProductionHelpCharacter"))
+            return "G " + person.RgbAmount(1, PersonBalance).ToString() + "/秒";
+        if (source != null && source.name.Contains("BProductionHelpCharacter"))
+            return "B " + person.RgbAmount(2, PersonBalance).ToString() + "/秒";
+        if (source != null && source.name.Contains("ButtonPixelProductionCharacter"))
+        {
+            int index = int.Parse(source.name.Substring(source.name.Length - 2, 2));
+            int r = CharacterClass.ColorByte(ColorProductionPixel[index].r);
+            int g = CharacterClass.ColorByte(ColorProductionPixel[index].g);
+            int b = CharacterClass.ColorByte(ColorProductionPixel[index].b);
+            return person.PixelAmount(r, g, b, PersonBalance).ToString() + " px";
+        }
+        if (source != null && source.name.Contains("ButtonCharacterProductionCharacter"))
+            return person.CharacterAmount(false, PersonBalance).ToString() + " /秒";
+        return "バトル Lv" + person.BattleLevel.ToString();
+    }
+
+    int AssignedPerson(Button source)
+    {
+        if (source == null)
+            return 0;
+        if (source.name.StartsWith("ButtonRProductionHelpCharacter"))
+            return (int)PersonIdHelpProductionR[int.Parse(source.name.Substring(source.name.Length - 1, 1))];
+        if (source.name.StartsWith("ButtonGProductionHelpCharacter"))
+            return (int)PersonIdHelpProductionG[int.Parse(source.name.Substring(source.name.Length - 1, 1))];
+        if (source.name.StartsWith("ButtonBProductionHelpCharacter"))
+            return (int)PersonIdHelpProductionB[int.Parse(source.name.Substring(source.name.Length - 1, 1))];
+        if (source.name.Contains("ButtonPixelProductionCharacter"))
+            return (int)PersonIdProductionPixel[int.Parse(source.name.Substring(source.name.Length - 2, 2))];
+        if (source.name.Contains("ButtonCharacterProductionCharacter"))
+            return (int)PersonIdProductionCharacter[int.Parse(source.name.Substring(source.name.Length - 2, 2))];
+        return 0;
+    }
+
+    void CreateTab(Transform parent, string name, string label, Vector2 position, UnityEngine.Events.UnityAction click)
+    {
+        GameObject buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(parent, false);
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(280f, 56f);
+        rect.anchoredPosition = position;
+        buttonObject.GetComponent<Image>().color = new Color(0.75f, 0.78f, 0.84f, 1f);
+        buttonObject.GetComponent<Button>().onClick.AddListener(click);
+        GameObject textObject = new GameObject("Text", typeof(RectTransform));
+        textObject.transform.SetParent(buttonObject.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+        Text text = textObject.AddComponent<Text>();
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (text.font == null)
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        text.text = label;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.fontSize = 28;
+        text.color = new Color(0.1f, 0.1f, 0.12f, 1f);
+    }
+
+    Transform FindCharacterList()
+    {
+        GameObject[] tagged = GameObject.FindGameObjectsWithTag("SelectCharacter");
+        for (int i = 0; i < tagged.Length; i++)
+        {
+            if (tagged[i].name == "ContentCharacterList")
+                return tagged[i].transform;
+        }
+        return null;
+    }
+
+    void ClearCharacterList()
+    {
+        Transform list = FindCharacterList();
+        if (list == null)
+            return;
+        for (int i = list.childCount - 1; i >= 0; i--)
+            Destroy(list.GetChild(i).gameObject);
+    }
+
+    void SetConfirmEnabled(bool enabled)
+    {
+        SetNamedButtons(enabled, "ButtonConfirmSelectLeft", "ButtonConfirmSelectRight");
+    }
+
+    void SetRemoveEnabled(bool enabled)
+    {
+        SetNamedButtons(enabled, "ButtonRemoveLeft", "ButtonRemoveRight");
+    }
+
+    void SetNamedButtons(bool enabled, string left, string right)
+    {
+        GameObject[] tagged = GameObject.FindGameObjectsWithTag("SelectCharacter");
+        for (int i = 0; i < tagged.Length; i++)
+        {
+            if (tagged[i].name != left && tagged[i].name != right)
+                continue;
+            Button button = tagged[i].GetComponent<Button>();
+            if (button != null)
+                button.interactable = enabled;
+        }
     }
 }
