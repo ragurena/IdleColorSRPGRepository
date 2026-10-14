@@ -1,5 +1,7 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using UnityEngine;
 using System.IO;
@@ -18,7 +20,7 @@ public class SaveClass// : MonoBehaviour
         
     }
 
-    public void Save(CharacterClass[] CharactersAll, int CharactersAllIndexNum,
+    public bool Save(CharacterClass[] CharactersAll, int CharactersAllIndexNum,
         ulong CurR, ulong CurG, ulong CurB,
         ulong MaxR, ulong MaxG, ulong MaxB,
         ulong CostMaxRUp, ulong CostMaxGUp, ulong CostMaxBUp,
@@ -47,28 +49,22 @@ public class SaveClass// : MonoBehaviour
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
-        //Debug.Log("セーブ : " + Application.streamingAssetsPath + "/ICS.csv");
 
-        //if(File.Exists("Assets/Resources/ICS.csv"))
-        if (File.Exists(Application.persistentDataPath + "/ICS.csv"))
-        //if (File.Exists(Application.streamingAssetsPath + "/ICS.csv"))
+        try
         {
-            Debug.Log("セーブファイルが存在します");
-        }
-        else
-        {
-            Debug.Log("セーブファイルが存在しません");
-            //FileStream fs = File.Create("Assets/Resources/ICS.csv");
-            FileStream fs = File.Create(Application.persistentDataPath + "/ICS.csv");
-            //FileStream fs = File.Create(Application.streamingAssetsPath + "/ICS.csv");
-            fs.Close();
-        }
+            int generation = SaveFiles.NextGeneration();
+            if (generation < 1)
+                return false;
 
-        //StreamWriter sw = new StreamWriter("Assets/Resources/ICS.csv");
-        StreamWriter sw = new StreamWriter(Application.persistentDataPath + "/ICS.csv");
-        //StreamWriter sw = new StreamWriter(Application.streamingAssetsPath + "/ICS.csv");
-
-        sw.WriteLine("DataVersion," + GameConfig.DataVersion.ToString());
+            byte[] body;
+            using (MemoryStream memory = new MemoryStream())
+            {
+                using (StreamWriter sw = new StreamWriter(memory, new UTF8Encoding(false), 1024, true))
+                {
+                    sw.NewLine = "\n";
+                    sw.WriteLine("DataVersion," + GameConfig.DataVersion);
+                    sw.WriteLine("SaveFormat," + GameConfig.SaveFormat.ToString());
+                    sw.WriteLine("SaveGeneration," + generation.ToString());
 
         //TODO:CharactersAllのセーブ・ロード
         for (int i = 1; i < CharactersAllIndexNum; i++)
@@ -285,29 +281,51 @@ public class SaveClass// : MonoBehaviour
         if (people != null)
             people.Write(sw);
 
-        sw.Flush();
-        sw.Close();
+                    sw.Flush();
+                }
+
+                body = memory.ToArray();
+            }
+
+            return SaveFiles.Commit(body, generation);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError("セーブに失敗しました。 " + exception.Message);
+            return false;
+        }
     }
 
-    // セーブが無い、または版の行が無いときは空文字
+    // セーブが無い、または版の行が無いときは空文字。空は 0.0.4 より古い、とは扱わない
     public static string ReadDataVersion()
     {
-        string path = Application.persistentDataPath + "/ICS.csv";
-        if (!File.Exists(path))
+        return ReadDataVersion(Application.persistentDataPath + "/ICS.csv");
+    }
+
+    public static string ReadDataVersion(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return "";
 
-        using (StreamReader sr = new StreamReader(path))
+        try
         {
-            while (!sr.EndOfStream)
+            using (StreamReader sr = new StreamReader(path))
             {
-                string line = sr.ReadLine();
-                if (string.IsNullOrEmpty(line))
-                    continue;
-                string[] values = line.Split(',');
-                if (values.Length < 2 || !values[0].Equals("DataVersion"))
-                    continue;
-                return values[1];
+                while (!sr.EndOfStream)
+                {
+                    string line = sr.ReadLine();
+                    if (string.IsNullOrEmpty(line))
+                        continue;
+                    string[] values = line.Split(',');
+                    if (values.Length < 2 || !values[0].Equals("DataVersion"))
+                        continue;
+                    return values[1];
+                }
             }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError("セーブの版を読めませんでした。 " + exception.Message);
         }
         return "";
     }
@@ -355,7 +373,7 @@ public class SaveClass// : MonoBehaviour
         return nums;
     }
 
-    public void Load(ref CharacterClass[] CharactersAll, int CharactersAllIndexNum,
+    public bool Load(ref CharacterClass[] CharactersAll, int CharactersAllIndexNum,
         ref ulong CurR, ref ulong CurG, ref ulong CurB,
         ref ulong MaxR, ref ulong MaxG, ref ulong MaxB,
         ref ulong CostMaxRUp, ref ulong CostMaxGUp, ref ulong CostMaxBUp,
@@ -381,32 +399,23 @@ public class SaveClass// : MonoBehaviour
         ref int ClearedBattleStage,
         ref int[] ClearedBattleFloor,
         ref Dictionary<int, int> ItemCounts,
-        PersonSaveData people
+        PersonSaveData people,
+        string sourcePath
         )
     {
+        if (string.IsNullOrEmpty(sourcePath) || !File.Exists(sourcePath))
+            return false;
+
+        try
+        {
         ImportedCharacters.BeginLoad();
-        Debug.Log("ロード : " + Application.persistentDataPath + "/ICS.csv");
-        //Debug.Log("ロード : " + Application.streamingAssetsPath + "/ICS.csv");
-
-        //if (File.Exists("Assets/Resources/ICS.csv"))
-        if (File.Exists(Application.persistentDataPath + "/ICS.csv"))
-        //if (File.Exists(Application.streamingAssetsPath + "/ICS.csv"))
-        {
-            Debug.Log("セーブファイルが存在します");
-        }
-        else
-        {
-            Debug.Log("セーブファイルが存在しません");
-
-            return;
-        }
+        Debug.Log("ロード : " + sourcePath);
 
         // キャラを途中に入れた版より古いセーブは、入れた位置以降の ID をずらす
-        string savedVersion = ReadDataVersion();
+        string savedVersion = ReadDataVersion(sourcePath);
 
-        //StreamReader sr = new StreamReader("Assets/Resources/ICS.csv");
-        StreamReader sr = new StreamReader(Application.persistentDataPath + "/ICS.csv");
-        //StreamReader sr = new StreamReader(Application.streamingAssetsPath + "/ICS.csv");
+        using (StreamReader sr = new StreamReader(sourcePath))
+        {
 
         for (int r = 0; r < 256; r++)
         {
@@ -448,81 +457,81 @@ public class SaveClass// : MonoBehaviour
             else
             if (values[0].Equals("CurR"))
             {
-                CurR = (ulong)(int.Parse(values[1]));
+                CurR = ReadUlong(values);
             }
             else
             if (values[0].Equals("CurG"))
             {
-                CurG = (ulong)(int.Parse(values[1]));
+                CurG = ReadUlong(values);
             }
             else
             if (values[0].Equals("CurB"))
             {
-                CurB = (ulong)(int.Parse(values[1]));
+                CurB = ReadUlong(values);
             }
 
             else
             if (values[0].Equals("MaxR"))
             {
-                MaxR = (ulong)(int.Parse(values[1]));
+                MaxR = ReadUlong(values);
             }
             else
             if (values[0].Equals("MaxG"))
             {
-                MaxG = (ulong)(int.Parse(values[1]));
+                MaxG = ReadUlong(values);
             }
             else
             if (values[0].Equals("MaxB"))
             {
-                MaxB = (ulong)(int.Parse(values[1]));
+                MaxB = ReadUlong(values);
             }
 
             else
             if (values[0].Equals("CostMaxRUp"))
             {
-                CostMaxRUp = (ulong)(int.Parse(values[1]));
+                CostMaxRUp = ReadUlong(values);
             }
             else
             if (values[0].Equals("CostMaxGUp"))
             {
-                CostMaxGUp = (ulong)(int.Parse(values[1]));
+                CostMaxGUp = ReadUlong(values);
             }
             else
             if (values[0].Equals("CostMaxBUp"))
             {
-                CostMaxBUp = (ulong)(int.Parse(values[1]));
+                CostMaxBUp = ReadUlong(values);
             }
 
             else
             if (values[0].Equals("IncreaseValueR"))
             {
-                IncreaseValueR = (ulong)(int.Parse(values[1]));
+                IncreaseValueR = ReadUlong(values);
             }
             else
             if (values[0].Equals("IncreaseValueG"))
             {
-                IncreaseValueG = (ulong)(int.Parse(values[1]));
+                IncreaseValueG = ReadUlong(values);
             }
             else
             if (values[0].Equals("IncreaseValueB"))
             {
-                IncreaseValueB = (ulong)(int.Parse(values[1]));
+                IncreaseValueB = ReadUlong(values);
             }
 
             else
             if (values[0].Equals("CostIncreaseValueRUp"))
             {
-                CostIncreaseValueRUp = (ulong)(int.Parse(values[1]));
+                CostIncreaseValueRUp = ReadUlong(values);
             }
             else
             if (values[0].Equals("CostIncreaseValueGUp"))
             {
-                CostIncreaseValueGUp = (ulong)(int.Parse(values[1]));
+                CostIncreaseValueGUp = ReadUlong(values);
             }
             else
             if (values[0].Equals("CostIncreaseValueBUp"))
             {
-                CostIncreaseValueBUp = (ulong)(int.Parse(values[1]));
+                CostIncreaseValueBUp = ReadUlong(values);
             }
 
 
@@ -625,19 +634,19 @@ public class SaveClass// : MonoBehaviour
                 {
                     if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].r"))
                     {
-                        SpentProductionPixel[i, 1] = ulong.Parse(values[1]);
+                        SpentProductionPixel[i, 1] = ReadUlong(values);
                         break;
                     }
 
                     if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].g"))
                     {
-                        SpentProductionPixel[i, 2] = ulong.Parse(values[1]);
+                        SpentProductionPixel[i, 2] = ReadUlong(values);
                         break;
                     }
 
                     if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].b"))
                     {
-                        SpentProductionPixel[i, 3] = ulong.Parse(values[1]);
+                        SpentProductionPixel[i, 3] = ReadUlong(values);
                         break;
                     }
                 }
@@ -675,7 +684,7 @@ public class SaveClass// : MonoBehaviour
                 else
                 if (field.Equals("num") && curPixelsLoadIndex == entryIndex)
                 {
-                    CurPixels[curPixelsLoadR, curPixelsLoadG, curPixelsLoadB] = ulong.Parse(values[1]);
+                    CurPixels[curPixelsLoadR, curPixelsLoadG, curPixelsLoadB] = ReadUlong(values);
                 }
             }
 
@@ -882,19 +891,19 @@ public class SaveClass// : MonoBehaviour
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].KnownPixels"))
                     {
-                        CharactersAll[slot].KnownPixels = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].KnownPixels = ReadUint(values);
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].OwnedNumMax"))
                     {
-                        CharactersAll[slot].OwnedNumMax = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].OwnedNumMax = ReadUlong(values);
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].OwnedNumCur"))
                     {
-                        CharactersAll[slot].OwnedNumCur = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].OwnedNumCur = ReadUlong(values);
                         if (CharactersAll[slot].OwnedNumCur > BattleBalanceConfig.MaxOwnedCount)
                         {
                             if (CharactersAll[slot].OwnedNumMax < CharactersAll[slot].OwnedNumCur)
@@ -907,25 +916,25 @@ public class SaveClass// : MonoBehaviour
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].ReincarnationTimes"))
                     {
-                        CharactersAll[slot].ReincarnationTimes = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].ReincarnationTimes = ReadUlong(values);
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].Level"))
                     {
-                        CharactersAll[slot].Level = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].Level = ReadUlong(values);
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].Exp"))
                     {
-                        CharactersAll[slot].Exp = (uint)(int.Parse(values[1]));
+                        CharactersAll[slot].Exp = ReadUlong(values);
                         break;
                     }
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].FusionCount"))
                     {
-                        CharactersAll[slot].FusionCount = ulong.Parse(values[1]);
+                        CharactersAll[slot].FusionCount = ReadUlong(values);
                         break;
                     }
 
@@ -1029,7 +1038,32 @@ public class SaveClass// : MonoBehaviour
 
         }
 
-        sr.Close();
+        }
+        return true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError("セーブの適用に失敗しました。 " + exception.Message);
+            return false;
+        }
+    }
+
+    static ulong ReadUlong(string[] values)
+    {
+        if (values == null || values.Length < 2)
+            throw new FormatException("値がありません");
+        ulong number;
+        if (!ulong.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+            throw new FormatException("数値ではありません");
+        return number;
+    }
+
+    static uint ReadUint(string[] values)
+    {
+        ulong number = ReadUlong(values);
+        if (number > uint.MaxValue)
+            throw new OverflowException("uint の範囲を超えています");
+        return (uint)number;
     }
 
     // 途中挿入より古いセーブの並びを、今の ID に合わせる

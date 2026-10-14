@@ -74,6 +74,9 @@ public class ControllerProduction : MonoBehaviour
     bool FusionButtonColorsStored;
     BattleBalanceConfig BattleBalance = BattleBalanceConfig.CreateDefault();
     Dictionary<int, int> ItemCounts = new Dictionary<int, int>();
+    bool SaveBlocked;
+    bool SaveFailureNotified;
+    GameObject SaveNotice;
 
     CharacterClass[] CharactersAll = new CharacterClass[Constants.CHARACTERS_ALL_NUM + 1];
 
@@ -273,6 +276,7 @@ public class ControllerProduction : MonoBehaviour
                                              ref PersonIdHelpProductionR, ref PersonIdHelpProductionG, ref PersonIdHelpProductionB,
                                              ref PersonIdProductionPixel, ref PersonIdProductionCharacter,
                                              People, PersonBalance);
+        ControllerCharacterSelect.SetPersonSortieCheck(IsPersonSortieing);
 
         ControllerBattleParty = GetComponent<ControllerBattlePartyClass>();
         ControllerBattleParty.Initialize(ref CharactersAll, this);
@@ -330,15 +334,11 @@ public class ControllerProduction : MonoBehaviour
         //ImportedCharacters.FindAny(CharactersAll, (uint)(1)).MakeCharacter(Application.dataPath + "/Resources/Character/RedSlime8", 1, "LittleRedSlime");
         //ImportedCharacters.FindAny(CharactersAll, (uint)(1)).MakeCharacter("Character/RedSlime8", 1, "LittleRedSlime");
         //ImportedCharacters.FindAny(CharactersAll, (uint)(1)).MakeCharacter(Application.dataPath + "/Resources/" + "Character/RedSlime8" + ".png", 1, "LittleRedSlime");
-        bool rebuildImages = File.Exists(Application.persistentDataPath + "/ICS.csv")
-            && SaveClass.IsOlderThan(SaveClass.ReadDataVersion(), GameConfig.ImageDataVersion);
-        if (rebuildImages)
-        {
-            Debug.Log("セーブの版が古いので、減色画像を作り直す");
-            ClearNormalizedCharacterImages();
-        }
-
-        CharacterRoster.RegisterAll(CharactersAll);
+        string acceptedVersion;
+        bool acceptedSave = TryRestoreSave(out acceptedVersion);
+        bool rebuildImages = acceptedSave
+            && !string.IsNullOrEmpty(acceptedVersion)
+            && SaveClass.IsOlderThan(acceptedVersion, GameConfig.ImageDataVersion);
 
         //ImportedCharacters.FindAny(CharactersAll, (uint)(32)).MakeCharacter(Application.persistentDataPath + "/Character/wanwan" + ".png", 32, "wanwan");
 
@@ -349,42 +349,6 @@ public class ControllerProduction : MonoBehaviour
         //ImportedCharacters.FindAny(CharactersAll, (uint)(5)).MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/RBlackCat8", typeof(Texture2D)) as Texture2D, 5, "LittleRBlackCat");
         //ImportedCharacters.FindAny(CharactersAll, (uint)(8)).MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/WhiteCat8", typeof(Texture2D)) as Texture2D, 8, "LittleWhiteCat");
         //ImportedCharacters.FindAny(CharactersAll, (uint)(32)).MakeCharacter(Resources.Load(Application.streamingAssetsPath + "/Character/wanwan", typeof(Texture2D)) as Texture2D, 32, "wanwan");
-
-        //ColorProductionPixelの初期化
-        for (int i = 0; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
-        {
-            ColorProductionPixel[i].a = 1.0f;
-        }
-
-        //ロード
-        SaveClass SC = new SaveClass();
-        SC.Load(ref CharactersAll, Constants.CHARACTERS_ALL_NUM + 1, 
-            ref CurR, ref CurG, ref CurB,
-            ref MaxR, ref MaxG, ref MaxB,
-            ref CostMaxRUp, ref CostMaxGUp, ref CostMaxBUp,
-            ref IncreaseValueR, ref IncreaseValueG, ref IncreaseValueB,
-            ref CostIncreaseValueRUp, ref CostIncreaseValueGUp, ref CostIncreaseValueBUp,
-            ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB,
-
-            ref CharactersIDProductionPixel,
-            ref ColorProductionPixel,
-            ref ProgressProductionPixel,
-            ref SpentProductionPixel,
-            ref CharactersIDProductionCharacter,
-            ref CharactersIDProducedCharacter,
-            ProgressTextureProductionCharacter,
-            ConsumePixelsProductionCharacter,
-            ref CurPixels,
-            ref BattlePartyCharacterIds,
-            ref ActiveBattlePartySet,
-            ref ActiveBattleStage,
-            ref ActiveBattleFloorFrom,
-            ref ActiveBattleFloorTo,
-            ref ClearedBattleStage,
-            ref ClearedBattleFloor,
-            ref ItemCounts,
-            CapturePeople()
-            );
 
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
         {
@@ -403,14 +367,21 @@ public class ControllerProduction : MonoBehaviour
         if (ClearedBattleStage < 0 || ClearedBattleStage > Constants.BATTLE_STAGE_NUM)
             ClearedBattleStage = 0;
         NormalizeClearedBattleFloors();
-        DropFormerStarterOwnership();
+        DropFormerStarterOwnership(acceptedVersion);
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
         {
             if (CharactersAll[i] != null)
                 CharactersAll[i].EnsureStock();
         }
         NormalizePersonAssignments();
+        ReleasePeopleFromProduction(ActiveBattlePartySet);
         SeedPixelSpendFromProgress();
+
+        if (rebuildImages)
+        {
+            Debug.Log("セーブの版が古いので、減色画像を作り直す");
+            RebuildNormalizedImages();
+        }
 
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
         {
@@ -616,14 +587,22 @@ public class ControllerProduction : MonoBehaviour
     //セーブボタンが押されたら
     public void PushButtonSave()
     {
-        GameObject.Find("ButtonSave").GetComponent<Button>().GetComponentInChildren<Text>().text = Application.persistentDataPath + "/ICS.csv";
-        SaveGame();
+        if (!SaveGame())
+            return;
+        GameObject button = GameObject.Find("ButtonSave");
+        if (button == null)
+            return;
+        Text label = button.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = Application.persistentDataPath + "/ICS.csv";
     }
 
-    public void SaveGame()
+    public bool SaveGame()
     {
+        if (SaveBlocked)
+            return false;
         SaveClass SC = new SaveClass();
-        SC.Save(CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
+        bool saved = SC.Save(CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
             CurR, CurG, CurB,
             MaxR, MaxG, MaxB,
             CostMaxRUp, CostMaxGUp, CostMaxBUp,
@@ -650,6 +629,18 @@ public class ControllerProduction : MonoBehaviour
             ItemCounts,
             CapturePeople()
             );
+        if (saved)
+        {
+            SaveFailureNotified = false;
+            HideSaveNotice();
+            return true;
+        }
+        if (!SaveFailureNotified)
+        {
+            SaveFailureNotified = true;
+            ShowSaveNotice("保存できませんでした。以前のセーブは残っています。");
+        }
+        return false;
     }
 
     PersonSaveData CapturePeople()
@@ -676,15 +667,328 @@ public class ControllerProduction : MonoBehaviour
     {
         if (!Directory.Exists(dir))
             return;
-        string[] files = Directory.GetFiles(dir, "Nomalization_*.png");
+        string[] files;
+        try
+        {
+            files = Directory.GetFiles(dir, "Nomalization_*.png");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError("減色画像を確認できませんでした。 " + exception.Message);
+            return;
+        }
         for (int i = 0; i < files.Length; i++)
-            File.Delete(files[i]);
+        {
+            try
+            {
+                File.Delete(files[i]);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("減色画像を消せませんでした。 " + exception.Message);
+            }
+        }
+    }
+
+    void RebuildNormalizedImages()
+    {
+        ClearNormalizedCharacterImages();
+        CharacterDefinition[] roster = CharacterRoster.All;
+        for (int i = 0; i < roster.Length; i++)
+        {
+            CharacterDefinition definition = roster[i];
+            if (definition.Id < 1 || definition.Id >= CharactersAll.Length)
+                continue;
+            CharacterClass character = CharactersAll[definition.Id];
+            if (character == null || character.ID != definition.Id)
+                continue;
+            string source = Application.persistentDataPath + "/Character/" + definition.FileName;
+            if (!File.Exists(source))
+                continue;
+            try
+            {
+                if (character.ReloadSourceImage(source))
+                    character.RecalculateBaseStats(BattleBalance);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("減色画像を作り直せませんでした。 " + exception.Message);
+            }
+        }
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character == null || character.ID < ImportedCharacters.FirstId)
+                return;
+            string source = ImportedCharacters.OriginalPath(character.ID);
+            if (!File.Exists(source))
+                return;
+            try
+            {
+                if (character.ReloadSourceImage(source))
+                    character.RecalculateBaseStats(BattleBalance);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("減色画像を作り直せませんでした。 " + exception.Message);
+            }
+        });
     }
 
     //デリートセーブボタンが押されたら
     public void PushButtonDeleteSave()
     {
-        File.Delete(Application.persistentDataPath + "/ICS.csv");
+        SaveFiles.DeleteManaged();
+        SaveBlocked = false;
+        SaveFailureNotified = false;
+        HideSaveNotice();
+    }
+
+    bool TryRestoreSave(out string version)
+    {
+        version = "";
+        List<SaveFiles.SaveCandidate> candidates;
+        if (!SaveFiles.TryListCandidates(out candidates))
+        {
+            ResetBaseline();
+            BlockSaves("セーブフォルダを確認できませんでした。セーブは行いません。");
+            return false;
+        }
+        if (candidates == null || candidates.Count == 0)
+        {
+            ResetBaseline();
+            SaveBlocked = false;
+            return false;
+        }
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            SaveFiles.SaveCandidate candidate = candidates[i];
+            SaveFiles.SaveInfo info;
+            if (!SaveFiles.TryValidate(candidate.Path, out info))
+            {
+                Debug.LogWarning("セーブを検証できなかったので退避します。 " + candidate.Path);
+                SaveFiles.TryQuarantine(candidate.Path);
+                continue;
+            }
+
+            ResetBaseline();
+            bool applied = false;
+            try
+            {
+                SaveClass save = new SaveClass();
+                applied = save.Load(ref CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
+                    ref CurR, ref CurG, ref CurB,
+                    ref MaxR, ref MaxG, ref MaxB,
+                    ref CostMaxRUp, ref CostMaxGUp, ref CostMaxBUp,
+                    ref IncreaseValueR, ref IncreaseValueG, ref IncreaseValueB,
+                    ref CostIncreaseValueRUp, ref CostIncreaseValueGUp, ref CostIncreaseValueBUp,
+                    ref CharactersIDHelpProductionR, ref CharactersIDHelpProductionG, ref CharactersIDHelpProductionB,
+                    ref CharactersIDProductionPixel,
+                    ref ColorProductionPixel,
+                    ref ProgressProductionPixel,
+                    ref SpentProductionPixel,
+                    ref CharactersIDProductionCharacter,
+                    ref CharactersIDProducedCharacter,
+                    ProgressTextureProductionCharacter,
+                    ConsumePixelsProductionCharacter,
+                    ref CurPixels,
+                    ref BattlePartyCharacterIds,
+                    ref ActiveBattlePartySet,
+                    ref ActiveBattleStage,
+                    ref ActiveBattleFloorFrom,
+                    ref ActiveBattleFloorTo,
+                    ref ClearedBattleStage,
+                    ref ClearedBattleFloor,
+                    ref ItemCounts,
+                    CapturePeople(),
+                    candidate.Path);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("セーブの適用に失敗しました。 " + exception.Message);
+                applied = false;
+            }
+            if (!applied)
+            {
+                Debug.LogWarning("セーブを適用できなかったので次の候補を見ます。 " + candidate.Path);
+                continue;
+            }
+
+            version = info.DataVersion ?? "";
+            SaveBlocked = false;
+            return true;
+        }
+
+        ResetBaseline();
+        BlockSaves("セーブを読み込めませんでした。以前のファイルは残しています。セーブは、削除ボタンを押すまで行いません。");
+        return false;
+    }
+
+    void ResetBaseline()
+    {
+        if (CharactersAll != null)
+        {
+            for (int i = 0; i < CharactersAll.Length; i++)
+            {
+                if (CharactersAll[i] == null)
+                    CharactersAll[i] = new CharacterClass();
+                else
+                    CharactersAll[i].ClearProgressionForReload();
+            }
+        }
+        ImportedCharacters.ClearForReload();
+        CharacterRoster.RegisterAll(CharactersAll);
+
+        ClearArray(CharactersIDHelpProductionR);
+        ClearArray(CharactersIDHelpProductionG);
+        ClearArray(CharactersIDHelpProductionB);
+        ClearArray(CharactersIDProductionPixel);
+        ClearArray(CharactersIDProductionCharacter);
+        ClearArray(CharactersIDProducedCharacter);
+        ClearArray(PersonIdHelpProductionR);
+        ClearArray(PersonIdHelpProductionG);
+        ClearArray(PersonIdHelpProductionB);
+        ClearArray(PersonIdProductionPixel);
+        ClearArray(PersonIdProductionCharacter);
+        if (BattlePartyCharacterIds != null)
+            Array.Clear(BattlePartyCharacterIds, 0, BattlePartyCharacterIds.Length);
+        if (BattlePartyPersonIds != null)
+            Array.Clear(BattlePartyPersonIds, 0, BattlePartyPersonIds.Length);
+        if (ProgressProductionPixel != null)
+            Array.Clear(ProgressProductionPixel, 0, ProgressProductionPixel.Length);
+        if (SpentProductionPixel != null)
+            Array.Clear(SpentProductionPixel, 0, SpentProductionPixel.Length);
+        if (ClearedBattleFloor != null)
+            Array.Clear(ClearedBattleFloor, 0, ClearedBattleFloor.Length);
+        if (CurPixels != null)
+            Array.Clear(CurPixels, 0, CurPixels.Length);
+        if (ColorProductionPixel != null)
+        {
+            for (int i = 0; i < ColorProductionPixel.Length; i++)
+                ColorProductionPixel[i] = new Color(0f, 0f, 0f, 1f);
+        }
+        if (ItemCounts != null)
+            ItemCounts.Clear();
+
+        PersonClass[] freshPeople = PersonClass.CreateRoster();
+        if (People != null && freshPeople != null)
+        {
+            int count = People.Length < freshPeople.Length ? People.Length : freshPeople.Length;
+            for (int i = 0; i < count; i++)
+                People[i] = freshPeople[i];
+            for (int i = count; i < People.Length; i++)
+                People[i] = null;
+        }
+
+        CurR = 0;
+        CurG = 0;
+        CurB = 0;
+        MaxR = 1024;
+        MaxG = 1024;
+        MaxB = 1024;
+        CostMaxRUp = 512;
+        CostMaxGUp = 512;
+        CostMaxBUp = 512;
+        IncreaseValueR = 1;
+        IncreaseValueG = 1;
+        IncreaseValueB = 1;
+        CostIncreaseValueRUp = 16;
+        CostIncreaseValueGUp = 16;
+        CostIncreaseValueBUp = 16;
+        ActiveBattlePartySet = 0;
+        ActiveBattleStage = 0;
+        ActiveBattleFloorFrom = 0;
+        ActiveBattleFloorTo = 0;
+        ClearedBattleStage = 0;
+
+        if (ConsumePixelsProductionCharacter != null)
+        {
+            for (int i = 0; i < ConsumePixelsProductionCharacter.Length; i++)
+            {
+                if (ConsumePixelsProductionCharacter[i] == null)
+                    ConsumePixelsProductionCharacter[i] = new List<ConsumePixelClass>();
+                else
+                    ConsumePixelsProductionCharacter[i].Clear();
+            }
+        }
+        if (ProgressTextureProductionCharacter != null)
+        {
+            for (int i = 0; i < ProgressTextureProductionCharacter.Count; i++)
+                ProgressTextureProductionCharacter[i] = null;
+        }
+    }
+
+    static void ClearArray(uint[] values)
+    {
+        if (values != null)
+            Array.Clear(values, 0, values.Length);
+    }
+
+    void BlockSaves(string message)
+    {
+        SaveBlocked = true;
+        ShowSaveNotice(message);
+    }
+
+    void ShowSaveNotice(string message)
+    {
+        if (string.IsNullOrEmpty(message))
+            return;
+        Debug.LogError(message);
+        if (SaveNotice != null)
+        {
+            Text current = SaveNotice.GetComponentInChildren<Text>();
+            if (current != null)
+                current.text = message;
+            SaveNotice.SetActive(true);
+            return;
+        }
+
+        GameObject canvas = GameObject.Find("CanvasProduction");
+        if (canvas == null)
+            return;
+
+        SaveNotice = new GameObject("SaveNotice", typeof(RectTransform));
+        SaveNotice.transform.SetParent(canvas.transform, false);
+        RectTransform rect = SaveNotice.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.06f, 0.72f);
+        rect.anchorMax = new Vector2(0.94f, 0.9f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.localScale = Vector3.one;
+        Image image = SaveNotice.AddComponent<Image>();
+        Texture2D pixel = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        pixel.SetPixel(0, 0, Color.white);
+        pixel.Apply();
+        image.sprite = Sprite.Create(pixel, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+        image.color = new Color(0.08f, 0.05f, 0.05f, 0.92f);
+        image.raycastTarget = false;
+
+        GameObject textObject = new GameObject("SaveNoticeText", typeof(RectTransform));
+        textObject.transform.SetParent(SaveNotice.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(24f, 16f);
+        textRect.offsetMax = new Vector2(-24f, -16f);
+        Text text = textObject.AddComponent<Text>();
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (text.font == null)
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        text.fontSize = 36;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = Color.white;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.raycastTarget = false;
+        text.text = message;
+        SaveNotice.transform.SetAsLastSibling();
+    }
+
+    void HideSaveNotice()
+    {
+        if (SaveNotice != null)
+            SaveNotice.SetActive(false);
     }
 
 
@@ -2283,6 +2587,7 @@ public class ControllerProduction : MonoBehaviour
             }
         }
 
+        ReleasePeopleFromProduction(setIndex);
         ActiveBattlePartySet = setIndex;
         ActiveBattleStage = 0;
         RefreshProductionAssignmentViews();
@@ -2464,10 +2769,11 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
-    // 0.0.4 より前は ID 4 以降も初期所持だった。仲間化で持ったネコ（ID 27 以降）はそのまま残す
-    void DropFormerStarterOwnership()
+    // 0.0.4 より前は ID 4 以降も初期所持だった。仲間化で持ったネコ（ID 27 以降）はそのまま残す。
+    // 版が空のときは所持を外さない。
+    void DropFormerStarterOwnership(string savedVersion)
     {
-        if (!SaveClass.IsOlderThan(SaveClass.ReadDataVersion(), "0.0.4"))
+        if (string.IsNullOrEmpty(savedVersion) || !SaveClass.IsOlderThan(savedVersion, "0.0.4"))
             return;
 
         CharacterDefinition[] roster = CharacterRoster.All;
@@ -2812,16 +3118,7 @@ public class ControllerProduction : MonoBehaviour
             UpdateCharacterPixelProduction(i);
 
         for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
-        {
-            if (CharactersIDProductionCharacter[i] != 0 || PersonIdProductionCharacter[i] != 0)
-                continue;
-            GameObject buttonObject = GameObject.Find("ButtonCharacterProductionCharacter" + i.ToString("00"));
-            if (buttonObject == null)
-                continue;
-            Button button = buttonObject.GetComponent<Button>();
-            button.image.sprite = null;
-            button.GetComponentInChildren<Text>().text = "+";
-        }
+            UpdateProductionCharacterButton("ButtonCharacterProductionCharacter" + i.ToString("00"), CharactersIDProductionCharacter[i], PersonIdProductionCharacter[i]);
     }
 
     void ClearEmptyHelpProductionButton(string buttonPrefix, uint[] characterIds, uint[] personIds, Color emptyColor)
@@ -2839,6 +3136,7 @@ public class ControllerProduction : MonoBehaviour
             button.image.sprite = null;
             button.image.color = emptyColor;
             button.GetComponentInChildren<Text>().text = "+";
+            SyncPersonSkillBar(button);
         }
     }
 
@@ -3375,10 +3673,8 @@ public class ControllerProduction : MonoBehaviour
             person = PersonAt((int)PersonIdProductionPixel[index]);
             if (person != null)
             {
-                int r = ColorByte(ColorProductionPixel[index].r);
-                int g = ColorByte(ColorProductionPixel[index].g);
-                int b = ColorByte(ColorProductionPixel[index].b);
-                person.ReadPixelProgress(r, g, b, out level, out exp);
+                level = person.PixelLevel;
+                exp = person.PixelExp;
                 exponent = PersonBalance != null ? PersonBalance.PixelExpExponent : 1.6;
             }
         }
@@ -3665,10 +3961,7 @@ public class ControllerProduction : MonoBehaviour
         if (b > 255) b = 255;
 
         ulong stock = CurPixels[r, g, b];
-        uint add = 0;
-        CharacterClass stockProducer = ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]);
-        if (stockProducer != null && stockProducer.ID != 0)
-            add = stockProducer.GetCreatePixels((ushort)r, (ushort)g, (ushort)b);
+        uint add = PixelYield(argIndex);
         ulong after = stock > ulong.MaxValue - add ? ulong.MaxValue : stock + add;
         label.text = "在庫 " + stock.ToString() + " → " + after.ToString();
     }
@@ -4351,9 +4644,33 @@ public class ControllerProduction : MonoBehaviour
             && slot >= 1 && slot <= Constants.BATTLE_PERSON_SLOT_NUM;
     }
 
+    public bool IsPersonSortieing(int personId)
+    {
+        if (personId <= 0 || ActiveBattlePartySet < 1 || ActiveBattlePartySet > Constants.BATTLE_PARTY_SET_NUM)
+            return false;
+        for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
+        {
+            if (BattlePartyPersonIds[ActiveBattlePartySet, slot] == (uint)personId)
+                return true;
+        }
+        return false;
+    }
+
+    void ReleasePeopleFromProduction(int setIndex)
+    {
+        if (setIndex < 1 || setIndex > Constants.BATTLE_PARTY_SET_NUM)
+            return;
+        for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
+        {
+            uint personId = BattlePartyPersonIds[setIndex, slot];
+            if (personId != 0)
+                ClearPersonFromProduction(personId);
+        }
+    }
+
     public void AssignProductionPerson(Button button, int personId)
     {
-        if (button == null || PersonAt(personId) == null)
+        if (button == null || PersonAt(personId) == null || IsPersonSortieing(personId))
             return;
         ClearPersonFromProduction((uint)personId);
         if (button.name.StartsWith("ButtonRProductionHelpCharacter"))

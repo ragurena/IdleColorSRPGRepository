@@ -13,15 +13,6 @@ public static class PersonIds
     public const int Count = 5;
 }
 
-public sealed class PixelSkill
-{
-    public int R;
-    public int G;
-    public int B;
-    public int Level = 1;
-    public long Exp;
-}
-
 public sealed class PersonClass
 {
     public int Id;
@@ -32,9 +23,11 @@ public sealed class PersonClass
     public readonly long[] RgbRemainder = new long[3];
     public int CharacterLevel = 1;
     public long CharacterExp;
+    public int PixelLevel = 1;
+    public long PixelExp;
     public int BattleLevel = 1;
     public long BattleExp;
-    public readonly List<PixelSkill> Pixels = new List<PixelSkill>();
+    int _loadedPixelLevel;
 
     public CharacterAttribute[] SpecialtyArray()
     {
@@ -48,8 +41,7 @@ public sealed class PersonClass
 
     public long PixelAmount(int r, int g, int b, PersonBalanceConfig config)
     {
-        PixelSkill skill = FindPixel(r, g, b);
-        int level = skill != null ? skill.Level : 1;
+        int level = PixelLevel < 1 ? 1 : PixelLevel;
         return PersonFormulas.AmountAtLevel(PersonFormulas.PixelInitial(SpecialtyArray(), r, g, b, config), level, config);
     }
 
@@ -83,12 +75,12 @@ public sealed class PersonClass
         b = PersonFormulas.ClampChannel(b);
         bool specialty = PersonFormulas.HasSpecialty(SpecialtyArray(), PersonFormulas.ColorAttribute(r, g, b));
         long gain = PersonFormulas.ExpMultiplier(specialty, config);
-        PixelSkill skill = FindPixel(r, g, b);
-        int level = skill != null ? skill.Level : 1;
-        long exp = skill != null ? skill.Exp : 0;
+        int level = PixelLevel < 1 ? 1 : PixelLevel;
+        long exp = PixelExp < 0 ? 0 : PixelExp;
         double exponent = config != null ? config.PixelExpExponent : 1.6;
         PersonFormulas.AddSkillExp(ref level, ref exp, gain, exponent, config);
-        StorePixel(r, g, b, level, exp);
+        PixelLevel = level;
+        PixelExp = exp;
     }
 
     public void AddCharacterCompletion(bool isAuthor, PersonBalanceConfig config)
@@ -163,21 +155,9 @@ public sealed class PersonClass
             + "（作者 " + authored.ToString() + "/秒）  経験値 " + CharacterExp.ToString() + " / " + characterNeed.ToString() + "\n";
         long battleNeed = PersonFormulas.ExpToNext(BattleLevel, config.BattleExpExponent, config);
         text += "バトル Lv" + BattleLevel.ToString() + "  経験値 " + BattleExp.ToString() + " / " + battleNeed.ToString() + "\n";
-        text += "ピクセル";
-        if (Pixels.Count == 0)
-        {
-            text += "  育った色はまだない";
-            return text;
-        }
-        for (int i = 0; i < Pixels.Count; i++)
-        {
-            PixelSkill skill = Pixels[i];
-            long need = PersonFormulas.ExpToNext(skill.Level, config.PixelExpExponent, config);
-            long amount = PixelAmount(skill.R, skill.G, skill.B, config);
-            text += "\n" + skill.R.ToString() + "," + skill.G.ToString() + "," + skill.B.ToString()
-                + "  Lv" + skill.Level.ToString() + "  " + amount.ToString() + "px"
-                + "  経験値 " + skill.Exp.ToString() + " / " + need.ToString();
-        }
+        int pixelLevel = PixelLevel < 1 ? 1 : PixelLevel;
+        long pixelNeed = PersonFormulas.ExpToNext(pixelLevel, config.PixelExpExponent, config);
+        text += "ピクセル Lv" + pixelLevel.ToString() + "  経験値 " + (PixelExp < 0 ? 0 : PixelExp).ToString() + " / " + pixelNeed.ToString();
         return text;
     }
 
@@ -246,56 +226,30 @@ public sealed class PersonClass
         return label + " Lv" + level.ToString() + "  " + amount.ToString() + "/秒  経験値 " + exp.ToString() + " / " + need.ToString();
     }
 
-    PixelSkill FindPixel(int r, int g, int b)
-    {
-        r = PersonFormulas.ClampChannel(r);
-        g = PersonFormulas.ClampChannel(g);
-        b = PersonFormulas.ClampChannel(b);
-        for (int i = 0; i < Pixels.Count; i++)
-        {
-            PixelSkill skill = Pixels[i];
-            if (skill != null && skill.R == r && skill.G == g && skill.B == b)
-                return skill;
-        }
-        return null;
-    }
-
-    public void ReadPixelProgress(int r, int g, int b, out int level, out long exp)
-    {
-        PixelSkill skill = FindPixel(r, g, b);
-        if (skill == null || skill.Level < 1)
-        {
-            level = 1;
-            exp = 0;
-            return;
-        }
-        level = skill.Level;
-        exp = skill.Exp < 0 ? 0 : skill.Exp;
-    }
-
-    void StorePixel(int r, int g, int b, int level, long exp)
+    public void FoldLoadedPixelLevel(int level)
     {
         if (level < 1)
             level = 1;
+        _loadedPixelLevel = level;
+        if (level > PixelLevel)
+        {
+            PixelLevel = level;
+            PixelExp = 0;
+        }
+    }
+
+    public void FoldLoadedPixelExp(long exp)
+    {
         if (exp < 0)
             exp = 0;
-        PixelSkill skill = FindPixel(r, g, b);
-        if (level <= 1 && exp == 0)
+        if (_loadedPixelLevel > PixelLevel)
         {
-            if (skill != null)
-                Pixels.Remove(skill);
+            PixelLevel = _loadedPixelLevel;
+            PixelExp = exp;
             return;
         }
-        if (skill == null)
-        {
-            skill = new PixelSkill();
-            skill.R = r;
-            skill.G = g;
-            skill.B = b;
-            Pixels.Add(skill);
-        }
-        skill.Level = level;
-        skill.Exp = exp;
+        if (_loadedPixelLevel == PixelLevel && exp > PixelExp)
+            PixelExp = exp;
     }
 }
 
@@ -331,17 +285,10 @@ public sealed class PersonSaveData
             sw.WriteLine(prefix + "RgbRemainderB," + person.RgbRemainder[2].ToString());
             sw.WriteLine(prefix + "CharacterLevel," + person.CharacterLevel.ToString());
             sw.WriteLine(prefix + "CharacterExp," + person.CharacterExp.ToString());
+            sw.WriteLine(prefix + "PixelLevel," + person.PixelLevel.ToString());
+            sw.WriteLine(prefix + "PixelExp," + person.PixelExp.ToString());
             sw.WriteLine(prefix + "BattleLevel," + person.BattleLevel.ToString());
             sw.WriteLine(prefix + "BattleExp," + person.BattleExp.ToString());
-            for (int p = 0; p < person.Pixels.Count; p++)
-            {
-                PixelSkill skill = person.Pixels[p];
-                if (skill == null || (skill.Level <= 1 && skill.Exp == 0))
-                    continue;
-                string color = skill.R.ToString() + "." + skill.G.ToString() + "." + skill.B.ToString();
-                sw.WriteLine(prefix + "Pixel." + color + ".Level," + skill.Level.ToString());
-                sw.WriteLine(prefix + "Pixel." + color + ".Exp," + skill.Exp.ToString());
-            }
         }
         WriteSlots(sw, "PersonIDHelpProductionR", HelpR);
         WriteSlots(sw, "PersonIDHelpProductionG", HelpG);
@@ -458,6 +405,10 @@ public sealed class PersonSaveData
             person.CharacterLevel = ParseLevel(value);
         else if (field == "CharacterExp" && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out longValue))
             person.CharacterExp = longValue < 0 ? 0 : longValue;
+        else if (field == "PixelLevel")
+            person.PixelLevel = ParseLevel(value);
+        else if (field == "PixelExp" && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out longValue))
+            person.PixelExp = longValue < 0 ? 0 : longValue;
         else if (field == "BattleLevel")
             person.BattleLevel = ParseLevel(value);
         else if (field == "BattleExp" && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out longValue))
@@ -477,34 +428,15 @@ public sealed class PersonSaveData
         int b;
         if (!int.TryParse(parts[1], out r) || !int.TryParse(parts[2], out g) || !int.TryParse(parts[3], out b))
             return true;
-        r = PersonFormulas.ClampChannel(r);
-        g = PersonFormulas.ClampChannel(g);
-        b = PersonFormulas.ClampChannel(b);
-        PixelSkill skill = null;
-        for (int i = 0; i < person.Pixels.Count; i++)
-        {
-            if (person.Pixels[i] != null && person.Pixels[i].R == r && person.Pixels[i].G == g && person.Pixels[i].B == b)
-            {
-                skill = person.Pixels[i];
-                break;
-            }
-        }
-        if (skill == null)
-        {
-            skill = new PixelSkill();
-            skill.R = r;
-            skill.G = g;
-            skill.B = b;
-            skill.Level = 1;
-            person.Pixels.Add(skill);
-        }
+        if (r < 0 || g < 0 || b < 0 || r > 255 || g > 255 || b > 255)
+            return true;
         long number;
         if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out number) || number < 0)
             number = 0;
         if (parts[4] == "Level")
-            skill.Level = number < 1 ? 1 : (number > int.MaxValue ? int.MaxValue : (int)number);
+            person.FoldLoadedPixelLevel(number > int.MaxValue ? int.MaxValue : (int)number);
         else if (parts[4] == "Exp")
-            skill.Exp = number;
+            person.FoldLoadedPixelExp(number);
         return true;
     }
 

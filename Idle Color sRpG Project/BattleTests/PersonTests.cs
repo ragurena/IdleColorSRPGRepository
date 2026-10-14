@@ -82,9 +82,11 @@ static class PersonTests
         roster[PersonIds.ClassmateRed].AddRgbProduced(0, 255, config);
         failures += Check(roster[PersonIds.ClassmateRed].RgbExp[0] == 3, "red exp");
         roster[PersonIds.ClassmateRed].AddPixelCompletion(32, 0, 0, config);
-        failures += Check(roster[PersonIds.ClassmateRed].Pixels.Count == 1 && roster[PersonIds.ClassmateRed].Pixels[0].Exp == 3, "red pixel exp");
+        failures += Check(roster[PersonIds.ClassmateRed].PixelLevel == 1 && roster[PersonIds.ClassmateRed].PixelExp == 3, "red pixel exp");
+        roster[PersonIds.ClassmateRed].AddPixelCompletion(0, 32, 0, config);
+        failures += Check(roster[PersonIds.ClassmateRed].PixelExp == 4, "shared pixel exp");
         roster[PersonIds.Protagonist].AddPixelCompletion(1, 2, 3, config);
-        failures += Check(roster[PersonIds.Protagonist].Pixels.Count == 0, "skip raw color");
+        failures += Check(roster[PersonIds.Protagonist].PixelExp == 0, "skip raw color");
 
         PersonSaveData data = new PersonSaveData();
         data.People = PersonClass.CreateRoster();
@@ -112,15 +114,21 @@ static class PersonTests
         round.TryRead("Person[4].CharacterExp", "40");
         round.TryRead("Person[4].BattleLevel", "4");
         round.TryRead("Person[4].BattleExp", "7");
+        round.TryRead("Person[1].PixelLevel", "2");
+        round.TryRead("Person[1].PixelExp", "9");
         round.TryRead("Person[1].Pixel.32.0.0.Level", "1");
         round.TryRead("Person[1].Pixel.32.0.0.Exp", "3");
+        round.TryRead("Person[5].Pixel.32.0.0.Level", "1");
+        round.TryRead("Person[5].Pixel.32.0.0.Exp", "3");
+        round.TryRead("Person[5].Pixel.224.32.32.Level", "4");
+        round.TryRead("Person[5].Pixel.224.32.32.Exp", "7");
         round.TryRead("BattlePartyPerson[2,1]", "4");
-        PixelSkill loadedPixel = round.People[1].Pixels.Count > 0 ? round.People[1].Pixels[0] : null;
         failures += Check(round.HelpR[2] == 1 && round.Pixel[3] == 5 && round.Character[1] == 4, "production slots");
         failures += Check(round.People[4].RgbLevel[0] == 3 && round.People[4].RgbExp[0] == 12, "rgb progress");
         failures += Check(round.People[4].CharacterLevel == 2 && round.People[4].CharacterExp == 40, "character progress");
         failures += Check(round.People[4].BattleLevel == 4 && round.People[4].BattleExp == 7, "battle progress");
-        failures += Check(loadedPixel != null && loadedPixel.Level == 1 && loadedPixel.Exp == 3, "pixel lv1 exp");
+        failures += Check(round.People[1].PixelLevel == 2 && round.People[1].PixelExp == 9, "pixel progress");
+        failures += Check(round.People[5].PixelLevel == 4 && round.People[5].PixelExp == 7, "old pixel colors fold");
         failures += Check(round.BattlePeople[2, 1] == 4, "battle person");
 
         if (failures > 0)

@@ -22,6 +22,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     uint[] PersonIdProductionCharacter;
     PersonClass[] People;
     PersonBalanceConfig PersonBalance;
+    System.Func<int, bool> PersonSortieCheck;
     int SelectedPersonId;
     GameObject WorkerTabs;
 
@@ -60,6 +61,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         PersonIdProductionCharacter = argPersonIdProductionCharacter;
         People = people;
         PersonBalance = personBalance;
+    }
+
+    public void SetPersonSortieCheck(System.Func<int, bool> check)
+    {
+        PersonSortieCheck = check;
     }
 
     // Start is called before the first frame update
@@ -1123,12 +1129,26 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
             outline.effectDistance = new Vector2(1f, -1f);
         }
+        if (IsPersonLockedOutOfProduction(personId, source))
+        {
+            GrayOutCharacterButton(buttonObject);
+            return;
+        }
         int captured = personId;
         button.onClick.AddListener(() => SelectPerson(captured, source));
     }
 
+    bool IsPersonLockedOutOfProduction(int personId, Button source)
+    {
+        if (!IsProductionAssignmentButton(source))
+            return false;
+        return PersonSortieCheck != null && PersonSortieCheck(personId);
+    }
+
     void SelectPerson(int personId, Button source)
     {
+        if (IsPersonLockedOutOfProduction(personId, source))
+            return;
         SelectedPersonId = personId;
         CharacterIDTmp = 0;
         ShowAssignedPerson(personId, source);

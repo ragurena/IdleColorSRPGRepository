@@ -404,6 +404,15 @@ public static class ImportedCharacters
         HighestId = FirstId - 1;
     }
 
+    // 起動時の読み直し。画像ファイルは消さない。
+    public static void ClearForReload()
+    {
+        Entries.Clear();
+        Pending.Clear();
+        HighestId = FirstId - 1;
+        Prepared = null;
+    }
+
     public static bool TryReadSaveLine(string line)
     {
         if (string.IsNullOrEmpty(line) || !line.StartsWith("ImportedCharacter["))

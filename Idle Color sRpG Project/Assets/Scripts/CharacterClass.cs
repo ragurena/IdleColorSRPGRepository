@@ -220,6 +220,47 @@ public class CharacterClass //: MonoBehaviour
         
     }
 
+    // 起動時に、同じオブジェクトの進行だけを初期値へ戻す
+    public void ClearProgressionForReload()
+    {
+        ID = 0;
+        Name = null;
+        ImagePath = null;
+        ImageTexture2D = null;
+        Size = 0;
+        KnownPixels = 0;
+        CatalogOpened = false;
+        CharacterType = CharacterType.None;
+        RepresentativeR = 0;
+        RepresentativeG = 0;
+        RepresentativeB = 0;
+        WeaknessR = 0;
+        WeaknessG = 0;
+        WeaknessB = 0;
+        WeaknessType = CharacterType.None;
+        OwnedNumMax = 0;
+        OwnedNumCur = 0;
+        Stock = default(OwnedStock);
+        AuthorPersonId = 0;
+        AuthorSpecified = false;
+        ReincarnationTimes = 0;
+        FusionCount = 0;
+        Level = 0;
+        Exp = 0;
+        ExpMax = 0;
+        FlagFNT = false;
+        Whereabouts = Place.None;
+        APixels = 0;
+        if (ListExistsColors != null)
+            ListExistsColors.Clear();
+        else
+            ListExistsColors = new List<ExistColor>();
+        if (Stats == null || Stats.Length < 5)
+            Stats = new StatisticsClass[5];
+        for (int i = 0; i < Stats.Length; i++)
+            Stats[i] = new StatisticsClass();
+    }
+
     //public bool MakeCharacter(Texture2D argImage, uint argID, string argName)
     public bool MakeCharacter(string argImagePath, uint argID, string argName)
     {
@@ -322,6 +363,38 @@ public class CharacterClass //: MonoBehaviour
                 "BCreates : " + Stats[1].BCreates
             );
 
+        return true;
+    }
+
+    // 所持やレベルは残して、元画像から減色だけ作り直す
+    public bool ReloadSourceImage(string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath))
+            return false;
+        string normalized = NormalizedImagePath(sourcePath);
+        if (!string.IsNullOrEmpty(normalized) && File.Exists(normalized))
+        {
+            try
+            {
+                File.Delete(normalized);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError("減色画像を消せませんでした。 " + exception.Message);
+                return false;
+            }
+        }
+        Texture2D image = ImagegUtility.ReadPng(sourcePath);
+        if (image == null)
+            return false;
+        Texture2D previous = ImageTexture2D;
+        string path = NomalizationImage(image, sourcePath);
+        UnityEngine.Object.DestroyImmediate(image);
+        if (string.IsNullOrEmpty(path))
+            return false;
+        ImagePath = path;
+        if (previous != null && previous != ImageTexture2D)
+            UnityEngine.Object.Destroy(previous);
         return true;
     }
 

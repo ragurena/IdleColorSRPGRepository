@@ -5027,7 +5027,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Pixel\u751F\u7523"
+  m_Text: "\u30D4\u30AF\u30BB\u30EB\u751F\u7523"
 --- !u!222 &401697612
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -8236,7 +8236,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Character\u751F\u7523"
+  m_Text: "\u30AD\u30E3\u30E9\u8AAD\u8FBC\n\n\n\n\n\n\n\n\n\n\n\n\n"
 --- !u!222 &584217728
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -12905,7 +12905,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Character\u751F\u7523"
+  m_Text: "\u30AD\u30E3\u30E9\u751F\u7523"
 --- !u!222 &921591626
 CanvasRenderer:
   m_ObjectHideFlags: 0

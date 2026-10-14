@@ -12,6 +12,9 @@ public static class GameConfig
     public const string DataVersion = "0.0.5";
     public const string ImageDataVersion = "0.0.5";
 
+    // ファイルの手順。DataVersion とは別。2 はチェックサムと SaveEnd がある。
+    public const int SaveFormat = 2;
+
     // もし今後、他の設定（最大レベル、制限時間など）が増えたらここに並べていきます
     // public const int MAX_LEVEL = 99;
 }
