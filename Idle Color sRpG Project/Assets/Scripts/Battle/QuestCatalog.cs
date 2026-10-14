@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-// クエストの定義。増やすときは All に1行足す。番号は10飛ばしで、一度決めた番号は変えない。
+// クエストの定義。一覧は番号の小さい順。増やすときは空いている番号で All に1行足す。一度決めた番号は変えない。
 public enum QuestMetric
 {
     StageFloor,
@@ -8,7 +8,8 @@ public enum QuestMetric
     RgbProduced,
     PixelCompletions,
     CharacterCompletions,
-    EnemyDefeats
+    EnemyDefeats,
+    ImportedOfSize
 }
 
 public enum QuestRewardKind
@@ -124,11 +125,11 @@ public static class QuestCatalog
 {
     public static readonly QuestDef[] All =
     {
-        Stage(10, 1, "草原", 100),
-        Stage(20, 2, "森", 100),
-        Stage(30, 3, "洞窟", 100),
-        Stage(40, 4, "遺跡", 100),
-        Stage(50, 5, "城", 100),
+        Stage(100, 1, 100),
+        Stage(200, 2, 100),
+        Stage(300, 3, 100),
+        Stage(400, 4, 100),
+        Stage(500, 5, 100),
 
         Gallery(110, 100),
         Gallery(120, 200),
@@ -136,29 +137,70 @@ public static class QuestCatalog
         Gallery(140, 400),
         Gallery(150, 500),
 
-        Rgb(210, 0, "R", 10000),
-        Rgb(220, 0, "R", 100000),
-        Rgb(230, 0, "R", 1000000),
-        Rgb(310, 1, "G", 10000),
-        Rgb(320, 1, "G", 100000),
-        Rgb(330, 1, "G", 1000000),
-        Rgb(410, 2, "B", 10000),
-        Rgb(420, 2, "B", 100000),
-        Rgb(430, 2, "B", 1000000),
+        Rgb(10, 0, "R", 10000),
+        Rgb(20, 0, "R", 100000),
+        Rgb(30, 0, "R", 1000000),
+        Rgb(40, 0, "R", 10000000),
+        Rgb(50, 0, "R", 100000000),
+        Rgb(11, 1, "G", 10000),
+        Rgb(21, 1, "G", 100000),
+        Rgb(31, 1, "G", 1000000),
+        Rgb(41, 1, "G", 10000000),
+        Rgb(51, 1, "G", 100000000),
+        Rgb(12, 2, "B", 10000),
+        Rgb(22, 2, "B", 100000),
+        Rgb(32, 2, "B", 1000000),
+        Rgb(42, 2, "B", 10000000),
+        Rgb(52, 2, "B", 100000000),
 
-        Pixel(510, 10, 1000),
-        Pixel(520, 100, 2000),
-        Pixel(530, 1000, 4000),
+        Pixel(13, 50, 1000),
+        Pixel(23, 100, 2000),
+        Pixel(33, 500, 4000),
+        Pixel(43, 1000, 8000),
+        Pixel(53, 5000, 16000),
+        Pixel(63, 10000, 32000),
+        Pixel(73, 50000, 64000),
+        Pixel(83, 100000, 128000),
 
-        Character(610, 10),
-        Character(620, 20),
-        Character(630, 30),
+        Character(14, 10),
+        Character(24, 50),
+        Character(34, 100),
+        Character(44, 200),
+        Character(54, 300),
+        Character(64, 400),
+        Character(74, 500),
+        Character(84, 600),
+        Character(94, 700),
+        Character(104, 800),
+        Character(114, 900),
+        Character(124, 1000),
 
-        Enemy(710, 50, QuestRewardKind.FusionUnlock, 0),
-        Enemy(720, 100, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(730, 500, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(740, 1000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(750, 5000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(15, 50, QuestRewardKind.FusionUnlock, 0),
+        Enemy(25, 100, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(35, 250, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(45, 500, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(55, 1000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(65, 1500, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(75, 2000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(85, 3000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(95, 4000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(105, 5000, QuestRewardKind.FusionEfficiency, 1),
+
+        Import(16, 8, 1),
+        Import(26, 8, 3),
+        Import(36, 8, 9),
+        Import(46, 16, 1),
+        Import(56, 16, 3),
+        Import(66, 16, 9),
+        Import(116, 32, 1),
+        Import(126, 32, 3),
+        Import(136, 32, 9),
+        Import(216, 64, 1),
+        Import(226, 64, 3),
+        Import(236, 64, 9),
+        Import(316, 128, 1),
+        Import(326, 128, 3),
+        Import(336, 128, 9),
     };
 
     public static QuestDef Find(int id)
@@ -169,39 +211,6 @@ public static class QuestCatalog
                 return All[i];
         }
         return null;
-    }
-
-    public static int CurrentId(int savedId)
-    {
-        switch (savedId)
-        {
-            case 1: return 10;
-            case 2: return 20;
-            case 3: return 30;
-            case 4: return 40;
-            case 5: return 50;
-            case 11: return 110;
-            case 12: return 120;
-            case 13: return 130;
-            case 14: return 140;
-            case 15: return 150;
-            case 21: return 210;
-            case 22: return 220;
-            case 23: return 230;
-            case 24: return 310;
-            case 25: return 320;
-            case 26: return 330;
-            case 27: return 410;
-            case 28: return 420;
-            case 29: return 430;
-            case 31: return 510;
-            case 32: return 520;
-            case 33: return 530;
-            case 41: return 610;
-            case 42: return 620;
-            case 43: return 630;
-            default: return savedId;
-        }
     }
 
     public static bool SameChain(QuestDef a, QuestDef b)
@@ -263,40 +272,54 @@ public static class QuestCatalog
         if (def.Reward == QuestRewardKind.ChooseSlots)
         {
             if (claimed && choice == 2)
-                body = "キャラ枠+" + def.RewardAmount.ToString();
+                body = "キャラ生成枠+" + def.RewardAmount.ToString();
             else if (claimed)
-                body = "ピクセル枠+" + def.RewardAmount.ToString();
+                body = "ピクセル生成枠+" + def.RewardAmount.ToString();
             else
-                body = "ピクセル枠+" + def.RewardAmount.ToString() + " または キャラ枠+" + def.RewardAmount.ToString();
+                body = "ピクセル生成枠+" + def.RewardAmount.ToString() + " または キャラ生成枠+" + def.RewardAmount.ToString();
         }
         else if (def.Reward == QuestRewardKind.ImportCap)
-            body = "読み込み上限 +1";
+            body = "キャラ読込上限 +1";
         else if (def.Reward == QuestRewardKind.RgbAll)
             body = "R・G・B すべて +" + def.RewardAmount.ToString();
         else if (def.Reward == QuestRewardKind.CharacterBundle)
-            body = "読み込み上限 +1、ピクセル枠 +1、キャラ枠 +1";
+            body = "キャラ読込上限 +1、ピクセル生成枠 +1、キャラ生成枠 +1";
         else if (def.Reward == QuestRewardKind.FusionUnlock)
             body = "合成機能開放";
         else if (def.Reward == QuestRewardKind.FusionEfficiency)
             body = "合成効率 +" + def.RewardAmount.ToString() + "%";
         else
             body = "";
-        return body + "\n広告で増やせる回数 +1";
+        string unlock = StageUnlockText(def);
+        if (unlock.Length > 0)
+            body = unlock + "\n" + body;
+        return body + "\n広告でピクセル生成とキャラ生成を増やせる回数 +1";
     }
 
     public static string ChoiceLabel(QuestDef def, int choice, string warning)
     {
         string label = choice == 2
-            ? "キャラ枠+" + def.RewardAmount.ToString()
-            : "ピクセル枠+" + def.RewardAmount.ToString();
+            ? "キャラ生成枠+" + def.RewardAmount.ToString()
+            : "ピクセル生成枠+" + def.RewardAmount.ToString();
         if (!string.IsNullOrEmpty(warning))
             label += "\n" + warning;
         return label;
     }
 
-    static QuestDef Stage(int id, int stage, string name, long floor)
+    static QuestDef Stage(int id, int stage, long floor)
     {
+        string name = ControllerBattleStageClass.GetStageName(stage);
         return new QuestDef(id, name + "を" + floor.ToString() + "階クリア", QuestMetric.StageFloor, stage, floor, QuestRewardKind.ChooseSlots, Constants.QUEST_PRODUCTION_SLOT_REWARD, true);
+    }
+
+    static string StageUnlockText(QuestDef def)
+    {
+        if (def == null || def.Metric != QuestMetric.StageFloor)
+            return "";
+        int next = def.Arg + 1;
+        if (next < 1 || next > Constants.BATTLE_STAGE_NUM)
+            return "";
+        return "次のステージ「" + ControllerBattleStageClass.GetStageName(next) + "」の開放";
     }
 
     static QuestDef Gallery(int id, long count)
@@ -322,5 +345,10 @@ public static class QuestCatalog
     static QuestDef Enemy(int id, long count, QuestRewardKind reward, long amount)
     {
         return new QuestDef(id, "敵を" + count.ToString() + "体倒す", QuestMetric.EnemyDefeats, 0, count, reward, amount, true);
+    }
+
+    static QuestDef Import(int id, int size, long count)
+    {
+        return new QuestDef(id, "1辺" + size.ToString() + "pxのキャラを" + count.ToString() + "体読込", QuestMetric.ImportedOfSize, size, count, QuestRewardKind.FusionEfficiency, 1, true);
     }
 }

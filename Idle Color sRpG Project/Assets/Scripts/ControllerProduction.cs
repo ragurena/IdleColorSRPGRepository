@@ -5493,6 +5493,11 @@ public class ControllerProduction : MonoBehaviour
     {
         if (def == null)
             return false;
+        if (def.Metric == QuestMetric.StageFloor && def.Arg == Constants.BATTLE_STAGE_NUM)
+        {
+            if (!IsBattleStageUnlocked(def.Arg - 1) && !IsQuestCleared(def) && !IsQuestClaimed(def))
+                return false;
+        }
         if (QuestCatalog.ChainCount(def) <= 1)
         {
             if (def.Shown)
@@ -5515,7 +5520,7 @@ public class ControllerProduction : MonoBehaviour
         int rank = QuestRank(a) - QuestRank(b);
         if (rank != 0)
             return rank;
-        return QuestCatalog.IndexOf(a.Id) - QuestCatalog.IndexOf(b.Id);
+        return a.Id - b.Id;
     }
 
     int QuestRank(QuestDef def)
@@ -5565,6 +5570,11 @@ public class ControllerProduction : MonoBehaviour
             return Quests.CharacterCompletions;
         if (def.Metric == QuestMetric.EnemyDefeats)
             return Quests.EnemyDefeats;
+        if (def.Metric == QuestMetric.ImportedOfSize)
+        {
+            int count = ImportedCharacters.CountOfSize(def.Arg);
+            return count > 0 ? (ulong)count : 0;
+        }
         return 0;
     }
 

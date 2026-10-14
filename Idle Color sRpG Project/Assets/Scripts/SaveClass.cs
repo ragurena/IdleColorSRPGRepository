@@ -1193,7 +1193,6 @@ public class SaveClass// : MonoBehaviour
         string inside = key.Substring("QuestState[".Length, key.Length - "QuestState[".Length - 1);
         if (!int.TryParse(inside, NumberStyles.Integer, CultureInfo.InvariantCulture, out id) || id < 1)
             throw new FormatException("QuestState");
-        id = QuestCatalog.CurrentId(id);
         if (QuestCatalog.Find(id) == null)
             return true;
         if (values.Length < 4)

@@ -53,7 +53,7 @@ public static class BattleStageCatalog
         }
     }
 
-    // 草原
+    // チュートリアル
     static StageBattleContent Prairie()
     {   
         //E の並びは キャラID、レベル、重み、最少、最多
@@ -84,7 +84,7 @@ public static class BattleStageCatalog
         return stage;
     }
 
-    // 森
+    // スライムの森
     static StageBattleContent Forest()
     {
         var stage = Stage(2);
@@ -105,7 +105,7 @@ public static class BattleStageCatalog
         return stage;
     }
 
-    // 洞窟
+    // チグサとバトル１
     static StageBattleContent Cave()
     {
         var stage = Stage(3);
@@ -134,7 +134,7 @@ public static class BattleStageCatalog
         return stage;
     }
 
-    // 遺跡
+    // ？？？
     static StageBattleContent Ruins()
     {
         var stage = Stage(4);
@@ -162,7 +162,7 @@ public static class BattleStageCatalog
         return stage;
     }
 
-    // 城
+    // ？？？
     static StageBattleContent Castle()
     {
         var stage = Stage(5);

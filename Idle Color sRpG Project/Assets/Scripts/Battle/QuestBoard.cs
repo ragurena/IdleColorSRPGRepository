@@ -35,7 +35,7 @@ public sealed class QuestBoard
         PlaceTop(title.rectTransform, 16f, 0f, 400f, 48f);
 
         Button close = CreateButton("ButtonQuestClose", _root.transform, "閉じる", new Color(0.75f, 0.28f, 0.24f, 1f));
-        PlaceTop(close.GetComponent<RectTransform>(), 18f, 430f, 140f, 44f);
+        PlaceTop(close.GetComponent<RectTransform>(), 12f, 430f, 140f, 68f);
         close.onClick.AddListener(Close);
 
         GameObject scrollObject = new GameObject("QuestScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
@@ -183,7 +183,7 @@ public sealed class QuestBoard
         row.Reward = CreateText("Reward", rowObject.transform, 20, TextAnchor.UpperLeft);
         row.Reward.color = new Color(1f, 0.93f, 0.72f, 1f);
         row.Reward.horizontalOverflow = HorizontalWrapMode.Wrap;
-        StretchTop(row.Reward.rectTransform, 16f, 240f, 44f, 52f);
+        StretchTop(row.Reward.rectTransform, 16f, 240f, 44f, 76f);
         row.Fraction = CreateText("Fraction", rowObject.transform, 22, TextAnchor.MiddleLeft);
         row.Fraction.color = Color.white;
         StretchTop(row.Fraction.rectTransform, 16f, 240f, 128f, 28f);
@@ -212,9 +212,9 @@ public sealed class QuestBoard
         choiceRect.pivot = new Vector2(1f, 1f);
         choiceRect.anchoredPosition = new Vector2(-12f, -78f);
         choiceRect.sizeDelta = new Vector2(210f, 100f);
-        row.PixelChoice = CreateButton("Pixel", choices.transform, "ピクセル枠+3", new Color(0.25f, 0.48f, 0.72f, 1f));
+        row.PixelChoice = CreateButton("Pixel", choices.transform, "ピクセル生成枠+3", new Color(0.25f, 0.48f, 0.72f, 1f));
         PlaceChoice(row.PixelChoice.GetComponent<RectTransform>(), 0f);
-        row.CharacterChoice = CreateButton("Character", choices.transform, "キャラ枠+3", new Color(0.72f, 0.42f, 0.22f, 1f));
+        row.CharacterChoice = CreateButton("Character", choices.transform, "キャラ生成枠+3", new Color(0.72f, 0.42f, 0.22f, 1f));
         PlaceChoice(row.CharacterChoice.GetComponent<RectTransform>(), 52f);
         int choiceQuest = def.Id;
         row.PixelChoice.onClick.AddListener(() => ChooseReward(choiceQuest, 1));

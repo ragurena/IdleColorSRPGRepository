@@ -29,9 +29,9 @@ public static class ImportSizeRules
     {
         new ImportSizeUnlock(8, 0, ""),
         new ImportSizeUnlock(16, 0, ""),
-        new ImportSizeUnlock(32, 1, "草原（ステージ1）"),
-        new ImportSizeUnlock(64, 2, "森（ステージ2）"),
-        new ImportSizeUnlock(128, 3, "洞窟（ステージ3）"),
+        new ImportSizeUnlock(32, 1, "チュートリアル"),
+        new ImportSizeUnlock(64, 2, "スライムの森"),
+        new ImportSizeUnlock(128, 3, "チグサとバトル１"),
     };
 
     public static string Describe(int clearedStage)
@@ -130,6 +130,20 @@ public static class ImportedCharacters
     public static int Count
     {
         get { return Entries.Count; }
+    }
+
+    public static int CountOfSize(int size)
+    {
+        if (size <= 0)
+            return 0;
+        int count = 0;
+        for (int i = 0; i < Entries.Count; i++)
+        {
+            CharacterClass character = Entries[i].Character;
+            if (character != null && character.Size == size)
+                count++;
+        }
+        return count;
     }
 
     public static int ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;

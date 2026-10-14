@@ -15,6 +15,10 @@ public class ControllerBattleClass : MonoBehaviour
     Text _logText;
     Button _fastButton;
     QuestBoard _questBoard;
+    GameObject _questBanner;
+    Image _questBannerFill;
+    Text _questBannerText;
+    readonly List<QuestDef> _questCandidates = new List<QuestDef>();
     int _battleSpeed = 1;
     bool _running;
     bool _stop;
@@ -841,6 +845,7 @@ public class ControllerBattleClass : MonoBehaviour
             _resource.text = _production.GetRgbText();
         if (_questBoard != null)
             _questBoard.Refresh();
+        RefreshQuestBanner();
         DrawSide(_allies, true);
         DrawSide(_enemies, false);
         if (_production != null)
@@ -960,6 +965,7 @@ public class ControllerBattleClass : MonoBehaviour
     {
         if (_questBoard != null)
             _questBoard.Refresh();
+        RefreshQuestBanner();
     }
 
     void ShowIdle()
@@ -977,6 +983,7 @@ public class ControllerBattleClass : MonoBehaviour
         }
         DrawSide(_allies, true);
         DrawSide(_enemies, false);
+        RefreshQuestBanner();
         if (_production != null)
             ShowBattlePeople(_production.GetActiveBattlePartySet());
     }
@@ -1053,8 +1060,65 @@ public class ControllerBattleClass : MonoBehaviour
         Button quest = CreateButton("ButtonBattleQuest", "クエスト", new Color(0.62f, 0.46f, 0.16f, 1f));
         PlaceRect(quest.GetComponent<RectTransform>(), 430f, 177f, 150f, 150f);
         quest.onClick.AddListener(ToggleQuest);
+        BuildQuestBanner();
         _questBoard = new QuestBoard();
         _questBoard.Build(_root.transform, _font, _production);
+    }
+
+    void BuildQuestBanner()
+    {
+        Image track = CreateImage("ImageBattleQuestBanner", _root.transform, new Color(0.10f, 0.12f, 0.16f, 0.95f));
+        PlaceRect(track.rectTransform, -92f, 231f, 870f, 56f);
+        track.raycastTarget = false;
+        _questBanner = track.gameObject;
+
+        _questBannerFill = CreateImage("Fill", track.transform, new Color(0.32f, 0.72f, 0.4f, 1f));
+        RectTransform fillRect = _questBannerFill.rectTransform;
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = new Vector2(0f, 1f);
+        fillRect.offsetMin = Vector2.zero;
+        fillRect.offsetMax = Vector2.zero;
+        fillRect.pivot = new Vector2(0f, 0.5f);
+        _questBannerFill.raycastTarget = false;
+
+        _questBannerText = CreateText("Text", track.transform, 22, TextAnchor.MiddleCenter);
+        Stretch(_questBannerText.rectTransform);
+        _questBannerText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _questBannerText.verticalOverflow = VerticalWrapMode.Truncate;
+        _questBannerText.raycastTarget = false;
+        Outline outline = _questBannerText.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        _questBanner.SetActive(false);
+    }
+
+    void RefreshQuestBanner()
+    {
+        if (_questBanner == null || _production == null)
+            return;
+        _production.CollectVisibleQuests(_questCandidates);
+        QuestDef shown = null;
+        for (int i = 0; i < _questCandidates.Count; i++)
+        {
+            QuestDef def = _questCandidates[i];
+            if (def == null || _production.IsQuestClaimed(def))
+                continue;
+            if (shown == null || def.Id < shown.Id)
+                shown = def;
+        }
+        if (shown == null)
+        {
+            _questBanner.SetActive(false);
+            return;
+        }
+        _questBanner.SetActive(true);
+        _questBannerText.text = shown.Title;
+        float rate = _production.QuestBar(shown);
+        if (rate < 0f)
+            rate = 0f;
+        if (rate > 1f)
+            rate = 1f;
+        _questBannerFill.rectTransform.anchorMax = new Vector2(rate, 1f);
     }
 
     void ToggleQuest()

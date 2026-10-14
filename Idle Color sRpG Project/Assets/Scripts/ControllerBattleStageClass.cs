@@ -9,7 +9,7 @@ public class ControllerBattleStageClass : MonoBehaviour
     public const string CELL_IMAGE_PREFIX = "ImageBattleStageCell";
 
     //ステージ番号は 1～BATTLE_STAGE_NUM。0 は未出撃
-    static readonly string[] StageNames = { "", "草原", "森", "洞窟", "遺跡", "城", "ギャラリー" };
+    static readonly string[] StageNames = { "", "チュートリアル", "スライムの森", "チグサとバトル１", "？？？", "？？？", "ギャラリー" };
     static readonly ulong[] StageRecommendedHP = { 0, 100, 300, 800, 2000, 5000 };
 
     public static string GetStageName(int stageIndex)
@@ -279,6 +279,13 @@ public class ControllerBattleStageClass : MonoBehaviour
             int stageIndex = i + 1;
             if (stageIndex > Constants.BATTLE_STAGE_NUM)
                 break;
+
+            bool revealed = stageIndex < Constants.BATTLE_STAGE_NUM
+                || ControllerProduction.IsBattleStageUnlocked(stageIndex - 1)
+                || stageIndex == activeStage;
+            ButtonBattleStages[i].gameObject.SetActive(revealed);
+            if (!revealed)
+                continue;
 
             bool unlocked = ControllerProduction.IsBattleStageUnlocked(stageIndex);
             ButtonBattleStages[i].interactable = unlocked || stageIndex == activeStage;
@@ -582,7 +589,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             if (label == null)
                 return;
             if (!prairieCleared)
-                label.text = "ギャラリー\n草原をクリアすると開く";
+                label.text = "ギャラリー\n" + GetStageName(1) + "をクリアすると開く";
             else
                 label.text = "ギャラリー\n読み込んだキャラがいない";
             return;
