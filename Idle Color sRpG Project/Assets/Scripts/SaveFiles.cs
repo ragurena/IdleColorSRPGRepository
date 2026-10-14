@@ -663,6 +663,39 @@ public static class SaveFiles
             return IsRange(value, 0, 128);
         if (IsColorChannel(key))
             return IsFloat(value);
+        if (IsQuestStateKey(key))
+            return IsQuestStateValue(rawValue);
+        if (key == "FusionUnlocked")
+            return value == "true" || value == "false";
+        return true;
+    }
+
+    static bool IsQuestStateKey(string key)
+    {
+        const string prefix = "QuestState[";
+        if (key == null || !key.StartsWith(prefix, StringComparison.Ordinal) || !key.EndsWith("]", StringComparison.Ordinal))
+            return false;
+        int id;
+        string inside = key.Substring(prefix.Length, key.Length - prefix.Length - 1);
+        return int.TryParse(inside, NumberStyles.Integer, CultureInfo.InvariantCulture, out id) && id >= 1;
+    }
+
+    static bool IsQuestStateValue(string raw)
+    {
+        if (string.IsNullOrEmpty(raw))
+            return false;
+        string[] parts = raw.Split(',');
+        if (parts.Length != 3)
+            return false;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            int number;
+            if (!int.TryParse(parts[i].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+                return false;
+            int max = i == 2 ? 2 : 1;
+            if (number < 0 || number > max)
+                return false;
+        }
         return true;
     }
 
@@ -685,6 +718,15 @@ public static class SaveFiles
             case "CostIncreaseValueRUp":
             case "CostIncreaseValueGUp":
             case "CostIncreaseValueBUp":
+            case "TotalProducedR":
+            case "TotalProducedG":
+            case "TotalProducedB":
+            case "PixelCompletionCount":
+            case "CharacterCompletionCount":
+            case "GalleryClearCount":
+            case "EnemyDefeatCount":
+            case "FusionEfficiency":
+            case "ImportCharacterCap":
                 return true;
         }
         if (key.EndsWith(".OwnedNumMax", StringComparison.Ordinal)

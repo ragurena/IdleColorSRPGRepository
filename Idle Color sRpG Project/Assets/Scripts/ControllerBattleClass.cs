@@ -14,6 +14,7 @@ public class ControllerBattleClass : MonoBehaviour
     Text _resource;
     Text _logText;
     Button _fastButton;
+    QuestBoard _questBoard;
     int _battleSpeed = 1;
     bool _running;
     bool _stop;
@@ -838,6 +839,8 @@ public class ControllerBattleClass : MonoBehaviour
             _header.text = stageName + "  " + floor.ToString() + "階  （" + floorFrom.ToString() + "〜" + floorTo.ToString() + "）";
         if (_resource != null)
             _resource.text = _production.GetRgbText();
+        if (_questBoard != null)
+            _questBoard.Refresh();
         DrawSide(_allies, true);
         DrawSide(_enemies, false);
         if (_production != null)
@@ -947,8 +950,16 @@ public class ControllerBattleClass : MonoBehaviour
 
     public void Hide()
     {
+        if (_questBoard != null)
+            _questBoard.Close();
         if (_root != null)
             _root.SetActive(false);
+    }
+
+    public void RefreshQuestBoard()
+    {
+        if (_questBoard != null)
+            _questBoard.Refresh();
     }
 
     void ShowIdle()
@@ -1038,6 +1049,22 @@ public class ControllerBattleClass : MonoBehaviour
         PlaceRect(_fastButton.GetComponent<RectTransform>(), -290f, 175f, 120f, 44f);
         _fastButton.onClick.AddListener(PushFast);
         ApplySpeedButton();
+
+        Button quest = CreateButton("ButtonBattleQuest", "クエスト", new Color(0.62f, 0.46f, 0.16f, 1f));
+        PlaceRect(quest.GetComponent<RectTransform>(), 430f, 177f, 150f, 150f);
+        quest.onClick.AddListener(ToggleQuest);
+        _questBoard = new QuestBoard();
+        _questBoard.Build(_root.transform, _font, _production);
+    }
+
+    void ToggleQuest()
+    {
+        if (_questBoard == null)
+            return;
+        if (_questBoard.IsOpen)
+            _questBoard.Close();
+        else
+            _questBoard.Open();
     }
 
     void BuildBattlePeople()
@@ -1367,6 +1394,7 @@ public class ControllerBattleClass : MonoBehaviour
 
         public void NoteDefeated(uint characterId)
         {
+            _view._production.NoteEnemyDefeat();
             _view._production.MarkCatalogDefeated(characterId);
         }
     }

@@ -46,7 +46,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
     public void Refresh()
     {
         if (_count != null && _production != null)
-            _count.text = "自作 " + _production.ImportedCharacterCount().ToString() + " / " + ImportSizeRules.MaxCount.ToString();
+            _count.text = "自作 " + _production.ImportedCharacterCount().ToString() + " / " + ImportedCharacters.ImportCap.ToString()
+                + "\nクエストクリアなどで上限が増えます";
         if (_sizes != null && _production != null)
             _sizes.text = ImportSizeRules.Describe(_production.GetClearedBattleStage());
         RebuildCells();
@@ -58,9 +59,10 @@ public class ControllerImportCharacterClass : MonoBehaviour
             return;
         if (_confirm != null && _confirm.activeSelf)
             return;
-        if (_production.ImportedCharacterCount() >= ImportSizeRules.MaxCount)
+        string capMessage;
+        if (ImportedCharacters.RejectImportCount(out capMessage))
         {
-            SetMessage("自作キャラは 500 体までです。", false);
+            SetMessage(capMessage, false);
             return;
         }
 
@@ -314,17 +316,19 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Place(title.rectTransform, 0f, 640f, 1000f, 56f);
         title.text = "キャラを読み込む";
 
-        _count = CreateText("TextImportCount", Panel.transform, 28, TextAnchor.MiddleCenter);
-        Place(_count.rectTransform, 0f, 585f, 1000f, 40f);
+        _count = CreateText("TextImportCount", Panel.transform, 24, TextAnchor.MiddleCenter);
+        Place(_count.rectTransform, 0f, 568f, 1000f, 64f);
+        _count.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _count.verticalOverflow = VerticalWrapMode.Overflow;
 
         _sizes = CreateText("TextImportSizes", Panel.transform, 22, TextAnchor.UpperLeft);
-        Place(_sizes.rectTransform, 0f, 470f, 980f, 170f);
+        Place(_sizes.rectTransform, 0f, 432f, 980f, 160f);
         _sizes.horizontalOverflow = HorizontalWrapMode.Wrap;
         _sizes.verticalOverflow = VerticalWrapMode.Overflow;
 
         GameObject pickObject = new GameObject("ButtonPickPng", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         pickObject.transform.SetParent(Panel.transform, false);
-        Place(pickObject.GetComponent<RectTransform>(), 0f, 320f, 420f, 90f);
+        Place(pickObject.GetComponent<RectTransform>(), 0f, 286f, 420f, 90f);
         pickObject.GetComponent<Image>().color = new Color(0.25f, 0.45f, 0.75f, 1f);
         Button pick = pickObject.GetComponent<Button>();
         pick.targetGraphic = pickObject.GetComponent<Image>();

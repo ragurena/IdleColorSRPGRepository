@@ -49,7 +49,8 @@ public class SaveClass// : MonoBehaviour
         int[] ClearedBattleFloor,
         Dictionary<int, int> ItemCounts,
         PersonSaveData people,
-        ProductionSlotState slots
+        ProductionSlotState slots,
+        QuestSave quests
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -147,6 +148,7 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("IapProductionSlots3," + (slots != null && slots.IapPlus3 ? "true" : "false"));
         sw.WriteLine("IapProductionSlots5," + (slots != null && slots.IapPlus5 ? "true" : "false"));
         sw.WriteLine("IapProductionSlots10," + (slots != null && slots.IapPlus10 ? "true" : "false"));
+        WriteQuestLines(sw, quests);
 
         // ピクセル生産枠の保存
         for (int i = 1; i <= pixelSlotCount; i++)
@@ -425,6 +427,7 @@ public class SaveClass// : MonoBehaviour
         ref Dictionary<int, int> ItemCounts,
         PersonSaveData people,
         ProductionSlotState slots,
+        QuestSave quests,
         string sourcePath
         )
     {
@@ -481,6 +484,10 @@ public class SaveClass// : MonoBehaviour
             }
             else
             if (slots != null && values.Length >= 2 && TryReadSlotState(slots, values[0], values[1]))
+            {
+            }
+            else
+            if (quests != null && TryReadQuestLine(quests, values))
             {
             }
             else
@@ -1069,6 +1076,147 @@ public class SaveClass// : MonoBehaviour
             Debug.LogError("セーブの適用に失敗しました。 " + exception.Message);
             return false;
         }
+    }
+
+    static void WriteQuestLines(StreamWriter sw, QuestSave quests)
+    {
+        if (sw == null || quests == null || !quests.DefaultsApplied)
+            return;
+        sw.WriteLine("TotalProducedR," + quests.TotalR.ToString());
+        sw.WriteLine("TotalProducedG," + quests.TotalG.ToString());
+        sw.WriteLine("TotalProducedB," + quests.TotalB.ToString());
+        sw.WriteLine("PixelCompletionCount," + quests.PixelCompletions.ToString());
+        sw.WriteLine("CharacterCompletionCount," + quests.CharacterCompletions.ToString());
+        sw.WriteLine("GalleryClearCount," + quests.GalleryClears.ToString());
+        sw.WriteLine("EnemyDefeatCount," + quests.EnemyDefeats.ToString());
+        sw.WriteLine("FusionUnlocked," + (quests.FusionUnlocked ? "true" : "false"));
+        sw.WriteLine("FusionEfficiency," + quests.FusionEfficiency.ToString());
+        sw.WriteLine("ImportCharacterCap," + quests.ImportCap.ToString());
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            QuestRecord record;
+            if (!quests.TryGet(all[i].Id, out record))
+                continue;
+            if (!record.Cleared && !record.Claimed)
+                continue;
+            int cleared = record.Cleared ? 1 : 0;
+            int claimed = record.Claimed ? 1 : 0;
+            int choice = record.Choice;
+            if (choice != 1 && choice != 2)
+                choice = 0;
+            sw.WriteLine("QuestState[" + all[i].Id.ToString() + "]," + cleared.ToString() + "," + claimed.ToString() + "," + choice.ToString());
+        }
+    }
+
+    static bool TryReadQuestLine(QuestSave quests, string[] values)
+    {
+        if (values == null || values.Length < 2)
+            return false;
+        string key = values[0];
+        if (key == "TotalProducedR")
+        {
+            quests.TotalR = ReadUlong(values);
+            quests.HasTotalR = true;
+            return true;
+        }
+        if (key == "TotalProducedG")
+        {
+            quests.TotalG = ReadUlong(values);
+            quests.HasTotalG = true;
+            return true;
+        }
+        if (key == "TotalProducedB")
+        {
+            quests.TotalB = ReadUlong(values);
+            quests.HasTotalB = true;
+            return true;
+        }
+        if (key == "PixelCompletionCount")
+        {
+            quests.PixelCompletions = ReadUlong(values);
+            quests.HasPixel = true;
+            return true;
+        }
+        if (key == "CharacterCompletionCount")
+        {
+            quests.CharacterCompletions = ReadUlong(values);
+            quests.HasCharacter = true;
+            return true;
+        }
+        if (key == "GalleryClearCount")
+        {
+            long number;
+            if (!long.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+                throw new FormatException("GalleryClearCount");
+            if (number < 0)
+                number = 0;
+            quests.GalleryClears = number;
+            quests.HasGallery = true;
+            return true;
+        }
+        if (key == "EnemyDefeatCount")
+        {
+            quests.EnemyDefeats = ReadUlong(values);
+            quests.HasEnemy = true;
+            return true;
+        }
+        if (key == "FusionUnlocked")
+        {
+            quests.FusionUnlocked = values[1] == "true";
+            quests.HasFusionUnlocked = true;
+            return true;
+        }
+        if (key == "FusionEfficiency")
+        {
+            int number;
+            if (!int.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+                throw new FormatException("FusionEfficiency");
+            if (number < 0)
+                number = 0;
+            quests.FusionEfficiency = number;
+            quests.HasFusionEfficiency = true;
+            return true;
+        }
+        if (key == "ImportCharacterCap")
+        {
+            int number;
+            if (!int.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+                throw new FormatException("ImportCharacterCap");
+            quests.ImportCap = number;
+            quests.HasImport = true;
+            return true;
+        }
+        if (!key.StartsWith("QuestState[") || !key.EndsWith("]"))
+            return false;
+        int id;
+        string inside = key.Substring("QuestState[".Length, key.Length - "QuestState[".Length - 1);
+        if (!int.TryParse(inside, NumberStyles.Integer, CultureInfo.InvariantCulture, out id) || id < 1)
+            throw new FormatException("QuestState");
+        id = QuestCatalog.CurrentId(id);
+        if (QuestCatalog.Find(id) == null)
+            return true;
+        if (values.Length < 4)
+            throw new FormatException("QuestState");
+        int cleared = ReadQuestFlag(values[1]);
+        int claimed = ReadQuestFlag(values[2]);
+        int choice = ReadQuestFlag(values[3]);
+        if (choice == 0 || choice == 1 || choice == 2)
+        {
+            QuestRecord record = quests.GetOrCreate(id);
+            record.Cleared = cleared == 1 || claimed == 1;
+            record.Claimed = claimed == 1;
+            record.Choice = choice == 1 || choice == 2 ? choice : 0;
+        }
+        return true;
+    }
+
+    static int ReadQuestFlag(string value)
+    {
+        int number;
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+            throw new FormatException("QuestState");
+        return number;
     }
 
     static bool TryReadSlotState(ProductionSlotState slots, string key, string value)

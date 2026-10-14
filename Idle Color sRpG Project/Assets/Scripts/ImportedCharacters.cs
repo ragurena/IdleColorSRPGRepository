@@ -132,6 +132,34 @@ public static class ImportedCharacters
         get { return Entries.Count; }
     }
 
+    public static int ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
+
+    public static void SetImportCap(int cap)
+    {
+        if (cap < Constants.IMPORT_CHARACTER_CAP_INITIAL)
+            cap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
+        if (cap > ImportSizeRules.MaxCount)
+            cap = ImportSizeRules.MaxCount;
+        ImportCap = cap;
+    }
+
+    public static bool RejectImportCount(out string message)
+    {
+        int cap = ImportCap;
+        if (cap > ImportSizeRules.MaxCount)
+            cap = ImportSizeRules.MaxCount;
+        if (Entries.Count < cap)
+        {
+            message = null;
+            return false;
+        }
+        if (cap >= ImportSizeRules.MaxCount)
+            message = "自作キャラは " + ImportSizeRules.MaxCount.ToString() + " 体までです。";
+        else
+            message = "読み込めるキャラは " + cap.ToString() + " 体までです。クエストで上限が上がります。";
+        return true;
+    }
+
     public static void ForEach(Action<CharacterClass> visit)
     {
         if (visit == null)
@@ -184,11 +212,8 @@ public static class ImportedCharacters
             message = "名前を入れてください。";
             return false;
         }
-        if (Entries.Count >= ImportSizeRules.MaxCount)
-        {
-            message = "自作キャラは 500 体までです。";
+        if (RejectImportCount(out message))
             return false;
-        }
         if (pngBytes == null || pngBytes.Length < 8)
         {
             message = "ファイルを読めませんでした。";
@@ -283,11 +308,8 @@ public static class ImportedCharacters
     {
         DiscardPrepared();
         message = null;
-        if (Entries.Count >= ImportSizeRules.MaxCount)
-        {
-            message = "自作キャラは 500 体までです。";
+        if (RejectImportCount(out message))
             return false;
-        }
         if (pngBytes == null || pngBytes.Length < 8)
         {
             message = "ファイルを読めませんでした。";
@@ -370,11 +392,8 @@ public static class ImportedCharacters
             message = "名前を入れてください。";
             return false;
         }
-        if (Entries.Count >= ImportSizeRules.MaxCount)
-        {
-            message = "自作キャラは 500 体までです。";
+        if (RejectImportCount(out message))
             return false;
-        }
 
         CharacterClass character = Prepared.Character;
         character.Name = name;

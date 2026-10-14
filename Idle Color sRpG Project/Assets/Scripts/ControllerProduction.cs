@@ -22,9 +22,10 @@ static class Constants
     public const int CHARACTERS_ALL_NUM = 32;
     public const int CHARACTERS_HELP_PRODUCTION_NUM = 3;
     public const int PRODUCTION_SLOT_MAX = 255;
-    public const int PRODUCTION_SLOT_INITIAL = 5;
+    public const int PRODUCTION_SLOT_INITIAL = 3;
     public const int QUEST_PRODUCTION_SLOT_REWARD = 3;
     public const int AD_PRODUCTION_SLOT_BASE = 3;
+    public const int IMPORT_CHARACTER_CAP_INITIAL = 3;
     public const int CHARACTERS_PRODUCTION_PIXEL_NUM = PRODUCTION_SLOT_MAX;
     public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = PRODUCTION_SLOT_MAX;
     public const int BATTLE_PARTY_SET_NUM = 5;
@@ -192,6 +193,7 @@ public class ControllerProduction : MonoBehaviour
     //ピクセル生産のクリック時の進捗数
     ushort UserProductionPixelNum = 10;
     readonly ProductionSlotState Slots = new ProductionSlotState();
+    readonly QuestSave Quests = new QuestSave();
     bool _adBusy;
 
     //シーンパネル
@@ -383,6 +385,7 @@ public class ControllerProduction : MonoBehaviour
             ClearedBattleStage = 0;
         NormalizeClearedBattleFloors();
         DropFormerStarterOwnership(acceptedVersion);
+        EnsureQuestDefaults();
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
         {
             if (CharactersAll[i] != null)
@@ -490,17 +493,17 @@ public class ControllerProduction : MonoBehaviour
 
             //Rの生産
             ulong IncreaseValueRHelp = RgbSlotOutput(PersonIdHelpProductionR, CharactersIDHelpProductionR, 0);
-            ModelProduction.Increase(ref CurR, IncreaseValueRHelp, MaxR);
+            GainRgb(ref CurR, MaxR, IncreaseValueRHelp, 0);
             UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
 
             //Gの生産
             ulong IncreaseValueGHelp = RgbSlotOutput(PersonIdHelpProductionG, CharactersIDHelpProductionG, 1);
-            ModelProduction.Increase(ref CurG, IncreaseValueGHelp, MaxG);
+            GainRgb(ref CurG, MaxG, IncreaseValueGHelp, 1);
             UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
 
             //Bの生産
             ulong IncreaseValueBHelp = RgbSlotOutput(PersonIdHelpProductionB, CharactersIDHelpProductionB, 2);
-            ModelProduction.Increase(ref CurB, IncreaseValueBHelp, MaxB);
+            GainRgb(ref CurB, MaxB, IncreaseValueBHelp, 2);
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
             //ピクセルの生産
@@ -594,6 +597,8 @@ public class ControllerProduction : MonoBehaviour
             {
                 //TODO:キャラクター生産停止中の警告表示
             }
+            if (ControllerBattle != null)
+                ControllerBattle.RefreshQuestBoard();
 
         }
     }
@@ -618,6 +623,8 @@ public class ControllerProduction : MonoBehaviour
     {
         if (SaveBlocked)
             return false;
+        EnsureQuestDefaults();
+        LatchQuests();
         SaveClass SC = new SaveClass();
         bool saved = SC.Save(CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
             CurR, CurG, CurB,
@@ -648,7 +655,8 @@ public class ControllerProduction : MonoBehaviour
             ClearedBattleFloor,
             ItemCounts,
             CapturePeople(),
-            Slots
+            Slots,
+            Quests
             );
         if (saved)
         {
@@ -826,6 +834,7 @@ public class ControllerProduction : MonoBehaviour
                     ref ItemCounts,
                     CapturePeople(),
                     Slots,
+                    Quests,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -877,6 +886,9 @@ public class ControllerProduction : MonoBehaviour
         ClearArray(PersonIdProductionPixel);
         ClearArray(PersonIdProductionCharacter);
         Slots.Reset();
+        Quests.Reset();
+        FusionBonus.ExtraPercent = 0;
+        ImportedCharacters.SetImportCap(Constants.IMPORT_CHARACTER_CAP_INITIAL);
         if (BattlePartyCharacterIds != null)
             Array.Clear(BattlePartyCharacterIds, 0, BattlePartyCharacterIds.Length);
         if (BattlePartyPersonIds != null)
@@ -1029,21 +1041,21 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonR()
     {
         Debug.Log("ButtonRが押された");
-        ModelProduction.Increase(ref CurR, IncreaseValueR, MaxR);
+        GainRgb(ref CurR, MaxR, IncreaseValueR, 0);
         UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
     }
     // ButtonGが押されたら
     public void PushButtonG()
     {
         Debug.Log("ButtonGが押された");
-        ModelProduction.Increase(ref CurG, IncreaseValueG, MaxG);
+        GainRgb(ref CurG, MaxG, IncreaseValueG, 1);
         UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
     }
     // ButtonBが押されたら
     public void PushButtonB()
     {
         Debug.Log("ButtonBが押された");
-        ModelProduction.Increase(ref CurB, IncreaseValueB, MaxB);
+        GainRgb(ref CurB, MaxB, IncreaseValueB, 2);
         UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
     }
 
@@ -1248,7 +1260,7 @@ public class ControllerProduction : MonoBehaviour
 
     public void PushButtonSelectSceneFusion()
     {
-        if (ClearedBattleStage < 1)
+        if (!Quests.FusionUnlocked)
             return;
         if (PanelFusion == null)
             return;
@@ -1590,7 +1602,7 @@ public class ControllerProduction : MonoBehaviour
         ApplyFusionButtonLock();
     }
 
-    // 草原（ステージ1）をクリアするまで、合成は押せない。
+    // 敵を50体倒すクエストを受け取ると、合成が押せる。
     void ApplyFusionButtonLock()
     {
         if (ButtonFusion == null)
@@ -1607,7 +1619,7 @@ public class ControllerProduction : MonoBehaviour
             FusionButtonColorsStored = true;
         }
 
-        bool open = ClearedBattleStage >= 1;
+        bool open = Quests.FusionUnlocked;
         ButtonFusion.interactable = open;
         if (image != null)
             image.color = open ? FusionButtonImageColor : new Color(0.45f, 0.45f, 0.45f, FusionButtonImageColor.a);
@@ -1676,6 +1688,13 @@ public class ControllerProduction : MonoBehaviour
             return;
         button.onClick.RemoveListener(PushButtonSelectSceneCatalog);
         button.onClick.AddListener(PushButtonSelectSceneCatalog);
+    }
+
+    public void NoteEnemyDefeat()
+    {
+        if (!Quests.DefaultsApplied || Quests.EnemyDefeats >= ulong.MaxValue)
+            return;
+        Quests.EnemyDefeats++;
     }
 
     public void MarkCatalogDefeated(uint characterId)
@@ -2771,6 +2790,8 @@ public class ControllerProduction : MonoBehaviour
             return;
         if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor > Constants.BATTLE_STAGE_FLOOR_MAX)
             return;
+        if (stageIndex == Constants.BATTLE_STAGE_GALLERY)
+            NoteGalleryClear();
         if (floor > ClearedBattleFloor[stageIndex])
             ClearedBattleFloor[stageIndex] = floor;
     }
@@ -3041,9 +3062,9 @@ public class ControllerProduction : MonoBehaviour
         long g;
         long b;
         BattleRewardCalculator.SplitRgb(attribute, amount, out r, out g, out b);
-        AddRgbChannel(ref CurR, MaxR, r);
-        AddRgbChannel(ref CurG, MaxG, g);
-        AddRgbChannel(ref CurB, MaxB, b);
+        AddRgbChannel(ref CurR, MaxR, r, 0);
+        AddRgbChannel(ref CurG, MaxG, g, 1);
+        AddRgbChannel(ref CurB, MaxB, b, 2);
     }
 
     public void AddBattlePixels(int r, int g, int b, long count)
@@ -3060,19 +3081,28 @@ public class ControllerProduction : MonoBehaviour
             CurPixels[r, g, b] = current + add;
     }
 
-    void AddRgbChannel(ref ulong current, ulong max, long amount)
+    void AddRgbChannel(ref ulong current, ulong max, long amount, int channel)
     {
         if (amount <= 0)
             return;
-        ulong add = (ulong)amount;
+        GainRgb(ref current, max, (ulong)amount, channel);
+    }
+
+    void GainRgb(ref ulong current, ulong max, ulong amount, int channel)
+    {
+        if (amount == 0)
+            return;
+        ulong before = current;
         if (ModelProduction != null)
-            ModelProduction.Increase(ref current, add, max);
+            ModelProduction.Increase(ref current, amount, max);
         else if (current >= max)
             current = max;
-        else if (max - current < add)
+        else if (max - current < amount)
             current = max;
         else
-            current += add;
+            current += amount;
+        if (current > before && Quests.DefaultsApplied)
+            NoteRgbProduced(channel, current - before);
     }
 
     public void AddBattleItem(int itemId, int count)
@@ -3485,6 +3515,7 @@ public class ControllerProduction : MonoBehaviour
             if (pixelPerson != null)
                 pixelPerson.AddPixelCompletion(pixelR, pixelG, pixelB, PersonBalance);
             ProductionPixelFlag = true;
+            NotePixelCompletion();
         }
 
         return true;
@@ -4786,6 +4817,8 @@ public class ControllerProduction : MonoBehaviour
         int before = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
         produced.GainOwnedTier(PersonFormulas.CompletionTier(workerIsPerson, self, author), 1, BattleBalance.MaxLives);
         int after = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
+        if (after > before)
+            NoteCharacterCompletions(after - before);
         if (workerIsPerson && after > before)
             person.AddCharacterCompletion(author, PersonBalance);
     }
@@ -5198,6 +5231,424 @@ public class ControllerProduction : MonoBehaviour
         return list.ToArray();
     }
 
+    public void CollectVisibleQuests(List<QuestDef> dest)
+    {
+        if (dest == null)
+            return;
+        EnsureQuestDefaults();
+        LatchQuests();
+        dest.Clear();
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (IsQuestListed(all[i]))
+                dest.Add(all[i]);
+        }
+        dest.Sort(CompareVisibleQuests);
+    }
+
+    public bool IsQuestCleared(QuestDef def)
+    {
+        QuestRecord record;
+        return def != null && Quests.TryGet(def.Id, out record) && record.Cleared;
+    }
+
+    public bool IsQuestClaimed(QuestDef def)
+    {
+        QuestRecord record;
+        return def != null && Quests.TryGet(def.Id, out record) && record.Claimed;
+    }
+
+    public bool IsQuestClaimable(QuestDef def)
+    {
+        return IsQuestCleared(def) && !IsQuestClaimed(def);
+    }
+
+    public bool TryQuestRecord(int id, out QuestRecord record)
+    {
+        return Quests.TryGet(id, out record);
+    }
+
+    public string QuestFraction(QuestDef def)
+    {
+        ulong current = QuestRaw(def);
+        ulong target = QuestTarget(def);
+        if (target > 0 && current > target)
+            current = target;
+        string text = current.ToString() + "/" + target.ToString();
+        if (def != null && def.Metric == QuestMetric.StageFloor)
+            text += "階";
+        return text;
+    }
+
+    public float QuestBar(QuestDef def)
+    {
+        ulong target = QuestTarget(def);
+        if (target == 0)
+            return 1f;
+        ulong current = QuestRaw(def);
+        if (current >= target)
+            return 1f;
+        return (float)((double)current / target);
+    }
+
+    public string QuestWarning(QuestDef def, int choice)
+    {
+        if (def == null || !IsQuestClaimable(def))
+            return "";
+        if (def.Reward == QuestRewardKind.RgbAll)
+            return RgbRewardClips(def.RewardAmount) ? "上限を超える分は破棄されます" : "";
+        if (def.Reward == QuestRewardKind.ChooseSlots)
+        {
+            bool pixelFull = Slots.PixelSlots >= Constants.PRODUCTION_SLOT_MAX;
+            bool characterFull = Slots.CharacterSlots >= Constants.PRODUCTION_SLOT_MAX;
+            if (choice == 1 && pixelFull)
+                return "生産枠は255までです";
+            if (choice == 2 && characterFull)
+                return "生産枠は255までです";
+            if (choice == 0 && pixelFull && characterFull)
+                return "生産枠は255までです";
+            return "";
+        }
+        if (def.Reward == QuestRewardKind.ImportCap && Quests.ImportCap >= ImportSizeRules.MaxCount)
+            return "読み込み上限は500までです";
+        if (def.Reward == QuestRewardKind.CharacterBundle)
+        {
+            bool slotsFull = Slots.PixelSlots >= Constants.PRODUCTION_SLOT_MAX
+                || Slots.CharacterSlots >= Constants.PRODUCTION_SLOT_MAX;
+            bool importFull = Quests.ImportCap >= ImportSizeRules.MaxCount;
+            if (slotsFull && importFull)
+                return "生産枠は255までです\n読み込み上限は500までです";
+            if (slotsFull)
+                return "生産枠は255までです";
+            if (importFull)
+                return "読み込み上限は500までです";
+        }
+        return "";
+    }
+
+    public bool ClaimQuest(int id, int choice)
+    {
+        EnsureQuestDefaults();
+        LatchQuests();
+        QuestDef def = QuestCatalog.Find(id);
+        if (def == null || !IsQuestClaimable(def))
+            return false;
+        if (def.Reward == QuestRewardKind.ChooseSlots)
+        {
+            if (choice != 1 && choice != 2)
+                return false;
+        }
+        else
+            choice = 0;
+
+        ApplyQuestReward(def, choice);
+        QuestRecord record = Quests.GetOrCreate(def.Id);
+        record.Cleared = true;
+        record.Claimed = true;
+        record.Choice = choice;
+        if (Slots.ClaimedQuests < int.MaxValue)
+            Slots.ClaimedQuests++;
+        ImportedCharacters.SetImportCap(Quests.ImportCap);
+        RefreshUnlockedProductionSlots();
+        UpdateRGBProductionScene();
+        SaveGame();
+        return true;
+    }
+
+    void ApplyQuestReward(QuestDef def, int choice)
+    {
+        if (def.Reward == QuestRewardKind.ChooseSlots)
+        {
+            int amount = def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount;
+            AddProductionSlots(amount, choice == 1, choice == 2);
+        }
+        else if (def.Reward == QuestRewardKind.ImportCap)
+            RaiseImportCap(1);
+        else if (def.Reward == QuestRewardKind.RgbAll)
+        {
+            ulong add = def.RewardAmount > 0 ? (ulong)def.RewardAmount : 0;
+            GainRgb(ref CurR, MaxR, add, 0);
+            GainRgb(ref CurG, MaxG, add, 1);
+            GainRgb(ref CurB, MaxB, add, 2);
+        }
+        else if (def.Reward == QuestRewardKind.CharacterBundle)
+        {
+            RaiseImportCap(1);
+            AddProductionSlots(1, true, true);
+        }
+        else if (def.Reward == QuestRewardKind.FusionUnlock)
+        {
+            Quests.FusionUnlocked = true;
+            ApplyFusionButtonLock();
+        }
+        else if (def.Reward == QuestRewardKind.FusionEfficiency)
+        {
+            int amount = def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount;
+            if (amount < 1)
+                amount = 1;
+            long next = (long)Quests.FusionEfficiency + amount;
+            if (next > int.MaxValue)
+                next = int.MaxValue;
+            Quests.FusionEfficiency = (int)next;
+            FusionBonus.ExtraPercent = Quests.FusionEfficiency;
+            RebuildAllCharacterStats();
+        }
+    }
+
+    void RaiseImportCap(int amount)
+    {
+        if (amount < 1)
+            return;
+        long next = (long)Quests.ImportCap + amount;
+        if (next > ImportSizeRules.MaxCount)
+            next = ImportSizeRules.MaxCount;
+        if (next < Constants.IMPORT_CHARACTER_CAP_INITIAL)
+            next = Constants.IMPORT_CHARACTER_CAP_INITIAL;
+        Quests.ImportCap = (int)next;
+    }
+
+    void EnsureQuestDefaults()
+    {
+        if (Quests.DefaultsApplied)
+        {
+            ImportedCharacters.SetImportCap(Quests.ImportCap);
+            return;
+        }
+        if (!Quests.HasTotalR)
+            Quests.TotalR = CurR;
+        if (!Quests.HasTotalG)
+            Quests.TotalG = CurG;
+        if (!Quests.HasTotalB)
+            Quests.TotalB = CurB;
+        if (!Quests.HasPixel)
+            Quests.PixelCompletions = 0;
+        if (!Quests.HasCharacter)
+            Quests.CharacterCompletions = SumOwnedCharacters();
+        if (!Quests.HasGallery)
+            Quests.GalleryClears = 0;
+        if (!Quests.HasEnemy)
+            Quests.EnemyDefeats = 0;
+        if (!Quests.HasFusionUnlocked)
+            Quests.FusionUnlocked = ClearedBattleStage >= 1;
+        if (!Quests.HasFusionEfficiency || Quests.FusionEfficiency < 0)
+            Quests.FusionEfficiency = 0;
+        FusionBonus.ExtraPercent = Quests.FusionEfficiency;
+        if (!Quests.HasImport || Quests.ImportCap < Constants.IMPORT_CHARACTER_CAP_INITIAL)
+            Quests.ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
+        if (Quests.ImportCap > ImportSizeRules.MaxCount)
+            Quests.ImportCap = ImportSizeRules.MaxCount;
+        Quests.DefaultsApplied = true;
+        ImportedCharacters.SetImportCap(Quests.ImportCap);
+        MigrateLegacyInitialSlots();
+        LatchQuests();
+        RebuildAllCharacterStats();
+        RefreshUnlockedProductionSlots();
+        ApplyFusionButtonLock();
+    }
+
+    void MigrateLegacyInitialSlots()
+    {
+        if (Slots.PixelSlots == 5 && Slots.AdPixelSlots == 0)
+            Slots.PixelSlots = Constants.PRODUCTION_SLOT_INITIAL;
+        if (Slots.CharacterSlots == 5 && Slots.AdCharacterSlots == 0)
+            Slots.CharacterSlots = Constants.PRODUCTION_SLOT_INITIAL;
+    }
+
+    void RebuildAllCharacterStats()
+    {
+        if (BattleBalance == null)
+            return;
+        if (CharactersAll != null)
+        {
+            int last = CharactersAll.Length - 1;
+            if (last > Constants.CHARACTERS_ALL_NUM)
+                last = Constants.CHARACTERS_ALL_NUM;
+            for (int i = 1; i <= last; i++)
+            {
+                if (CharactersAll[i] != null && CharactersAll[i].ID != 0)
+                    CharactersAll[i].RebuildLevelStats(BattleBalance);
+            }
+        }
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character != null && character.ID != 0)
+                character.RebuildLevelStats(BattleBalance);
+        });
+    }
+
+    void LatchQuests()
+    {
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (!QuestReached(all[i]))
+                continue;
+            QuestRecord record = Quests.GetOrCreate(all[i].Id);
+            record.Cleared = true;
+        }
+    }
+
+    bool IsQuestListed(QuestDef def)
+    {
+        if (def == null)
+            return false;
+        if (QuestCatalog.ChainCount(def) <= 1)
+        {
+            if (def.Shown)
+                return true;
+            QuestRecord record;
+            return Quests.TryGet(def.Id, out record) && (record.Cleared || record.Claimed);
+        }
+        if (!def.Shown && !IsQuestCleared(def) && !IsQuestClaimed(def))
+            return false;
+        if (IsQuestClaimed(def))
+            return false;
+        QuestDef previous = QuestCatalog.PreviousInChain(def);
+        if (previous != null && !IsQuestCleared(previous))
+            return false;
+        return true;
+    }
+
+    int CompareVisibleQuests(QuestDef a, QuestDef b)
+    {
+        int rank = QuestRank(a) - QuestRank(b);
+        if (rank != 0)
+            return rank;
+        return QuestCatalog.IndexOf(a.Id) - QuestCatalog.IndexOf(b.Id);
+    }
+
+    int QuestRank(QuestDef def)
+    {
+        if (IsQuestClaimed(def))
+            return 2;
+        if (IsQuestCleared(def))
+            return 0;
+        return 1;
+    }
+
+    bool QuestReached(QuestDef def)
+    {
+        return QuestRaw(def) >= QuestTarget(def);
+    }
+
+    ulong QuestTarget(QuestDef def)
+    {
+        if (def == null || def.Target <= 0)
+            return 0;
+        return (ulong)def.Target;
+    }
+
+    ulong QuestRaw(QuestDef def)
+    {
+        if (def == null)
+            return 0;
+        if (def.Metric == QuestMetric.StageFloor)
+        {
+            int floor = GetHighestClearedBattleFloor(def.Arg);
+            return floor > 0 ? (ulong)floor : 0;
+        }
+        if (def.Metric == QuestMetric.GalleryClears)
+            return def.Arg == Constants.BATTLE_STAGE_GALLERY && Quests.GalleryClears > 0
+                ? (ulong)Quests.GalleryClears : 0;
+        if (def.Metric == QuestMetric.RgbProduced)
+        {
+            if (def.Arg == 0)
+                return Quests.TotalR;
+            if (def.Arg == 1)
+                return Quests.TotalG;
+            return Quests.TotalB;
+        }
+        if (def.Metric == QuestMetric.PixelCompletions)
+            return Quests.PixelCompletions;
+        if (def.Metric == QuestMetric.CharacterCompletions)
+            return Quests.CharacterCompletions;
+        if (def.Metric == QuestMetric.EnemyDefeats)
+            return Quests.EnemyDefeats;
+        return 0;
+    }
+
+    bool RgbRewardClips(long amount)
+    {
+        if (amount <= 0)
+            return false;
+        ulong add = (ulong)amount;
+        return RgbChannelClips(CurR, MaxR, add)
+            || RgbChannelClips(CurG, MaxG, add)
+            || RgbChannelClips(CurB, MaxB, add);
+    }
+
+    static bool RgbChannelClips(ulong current, ulong max, ulong add)
+    {
+        if (current >= max)
+            return true;
+        return max - current < add;
+    }
+
+    void NoteRgbProduced(int channel, ulong added)
+    {
+        if (added == 0)
+            return;
+        if (channel == 0)
+            Quests.TotalR = AddUlong(Quests.TotalR, added);
+        else if (channel == 1)
+            Quests.TotalG = AddUlong(Quests.TotalG, added);
+        else
+            Quests.TotalB = AddUlong(Quests.TotalB, added);
+    }
+
+    void NotePixelCompletion()
+    {
+        if (!Quests.DefaultsApplied || Quests.PixelCompletions >= ulong.MaxValue)
+            return;
+        Quests.PixelCompletions++;
+    }
+
+    void NoteCharacterCompletions(int count)
+    {
+        if (!Quests.DefaultsApplied || count < 1)
+            return;
+        Quests.CharacterCompletions = AddUlong(Quests.CharacterCompletions, (ulong)count);
+    }
+
+    void NoteGalleryClear()
+    {
+        if (!Quests.DefaultsApplied || Quests.GalleryClears >= long.MaxValue)
+            return;
+        Quests.GalleryClears++;
+    }
+
+    ulong SumOwnedCharacters()
+    {
+        ulong sum = 0;
+        if (CharactersAll != null)
+        {
+            int last = CharactersAll.Length - 1;
+            if (last > Constants.CHARACTERS_ALL_NUM)
+                last = Constants.CHARACTERS_ALL_NUM;
+            for (int i = 1; i <= last; i++)
+            {
+                CharacterClass character = CharactersAll[i];
+                if (character == null || character.ID != (uint)i)
+                    continue;
+                sum = AddUlong(sum, character.OwnedNumCur);
+            }
+        }
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character != null)
+                sum = AddUlong(sum, character.OwnedNumCur);
+        });
+        return sum;
+    }
+
+    static ulong AddUlong(ulong current, ulong add)
+    {
+        if (ulong.MaxValue - current < add)
+            return ulong.MaxValue;
+        return current + add;
+    }
+
     public void ClaimQuestProductionReward()
     {
         if (Slots.ClaimedQuests < int.MaxValue)
@@ -5328,12 +5779,28 @@ public class ControllerProduction : MonoBehaviour
         if (pixelList != null)
         {
             EnsureClonedRows(pixelList, "PrefabOnePixelProduction", Slots.PixelSlots);
+            ApplySlotRowVisibility(pixelList, "PrefabOnePixelProduction", Slots.PixelSlots);
             EnsureAdSlotButton(pixelList, "ButtonAdUnlockPixelSlot", true);
         }
         if (characterList != null)
         {
             EnsureClonedRows(characterList, "PrefabOneCharacterProduction", Slots.CharacterSlots);
+            ApplySlotRowVisibility(characterList, "PrefabOneCharacterProduction", Slots.CharacterSlots);
             EnsureAdSlotButton(characterList, "ButtonAdUnlockCharacterSlot", false);
+        }
+    }
+
+    static void ApplySlotRowVisibility(Transform list, string rowPrefix, int count)
+    {
+        for (int i = 0; i < list.childCount; i++)
+        {
+            Transform child = list.GetChild(i);
+            if (!child.name.StartsWith(rowPrefix, StringComparison.Ordinal))
+                continue;
+            int index = ProductionSlotIndex(child.name);
+            if (index < 1)
+                continue;
+            child.gameObject.SetActive(index <= count);
         }
     }
 

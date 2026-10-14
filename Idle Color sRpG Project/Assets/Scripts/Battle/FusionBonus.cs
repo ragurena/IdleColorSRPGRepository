@@ -4,6 +4,9 @@ public static class FusionBonus
 {
     public const long PercentPerFusion = 5;
 
+    // クエストで足す合成効率。合成1回あたりの5%とは別に、全体へ足す。
+    public static int ExtraPercent;
+
     public static long NextCost(long fusionCount)
     {
         if (fusionCount < 0)
@@ -23,16 +26,26 @@ public static class FusionBonus
 
     public static long Percent(long fusionCount)
     {
-        if (fusionCount <= 0)
-            return 0;
+        if (fusionCount < 0)
+            fusionCount = 0;
+        long fromCount;
         if (fusionCount > long.MaxValue / PercentPerFusion)
+            fromCount = long.MaxValue;
+        else
+            fromCount = fusionCount * PercentPerFusion;
+        long extra = ExtraPercent;
+        if (extra < 0)
+            extra = 0;
+        if (fromCount > long.MaxValue - extra)
             return long.MaxValue;
-        return fusionCount * PercentPerFusion;
+        return fromCount + extra;
     }
 
     public static long Bonus(long grownStat, long fusionCount)
     {
-        if (fusionCount <= 0)
+        if (fusionCount < 0)
+            fusionCount = 0;
+        if (fusionCount <= 0 && ExtraPercent <= 0)
             return 0;
         if (grownStat < 0)
             grownStat = 0;
