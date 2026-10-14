@@ -118,11 +118,19 @@ public struct OwnedStock
 
     public static string Format(long full, long eight, long half)
     {
+        return Format(full, eight, half, false);
+    }
+
+    public static string Format(long full, long eight, long half, bool compact)
+    {
         long total = 0;
         total = AddCapped(total, full);
         total = AddCapped(total, eight);
         total = AddCapped(total, half);
-        return total.ToString() + "（×1: " + full.ToString() + " ×0.8: " + eight.ToString() + " ×0.5: " + half.ToString() + "）";
+        string detail = compact
+            ? "×1:" + full.ToString() + " ×0.8:" + eight.ToString() + " ×0.5:" + half.ToString()
+            : "×1: " + full.ToString() + " ×0.8: " + eight.ToString() + " ×0.5: " + half.ToString();
+        return total.ToString() + "\n" + detail;
     }
 
     long Room(int cap)

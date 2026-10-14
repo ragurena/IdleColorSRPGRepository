@@ -330,7 +330,11 @@ public sealed class PersonSaveData
         if (values == null)
             return;
         for (int i = 1; i < values.Length; i++)
+        {
+            if (values[i] == 0)
+                continue;
             sw.WriteLine(name + "[" + i.ToString() + "]," + values[i].ToString());
+        }
     }
 
     static bool TrySlot(string key, string name, uint[] values, string value)

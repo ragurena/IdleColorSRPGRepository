@@ -155,8 +155,12 @@ public class ControllerBattleClass : MonoBehaviour
 
         while (true)
         {
-        for (int floor = floorFrom; floor <= floorTo; floor++)
+        int start = _production.GetActiveBattleFloor();
+        if (start < floorFrom || start > floorTo)
+            start = floorFrom;
+        for (int floor = start; floor <= floorTo; floor++)
         {
+            _production.SetActiveBattleFloor(floor);
             if (_stop)
                 break;
             if (!HasLivingAlly())
@@ -221,6 +225,7 @@ public class ControllerBattleClass : MonoBehaviour
 
             _production.MarkBattleFloorCleared(stageIndex, floor);
             _production.GrantPersonBattleFloor();
+            _production.SetActiveBattleFloor(floor + 1);
             if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
                 clearedStage = true;
             if (!HasLivingAlly())
@@ -254,6 +259,7 @@ public class ControllerBattleClass : MonoBehaviour
 
         if (_production.IsBattleRepeatOn())
         {
+            _production.SetActiveBattleFloor(floorFrom);
             Refresh(stageName, floorFrom, floorFrom, floorTo);
             yield return new WaitForSeconds(Interval());
             continue;
@@ -766,6 +772,20 @@ public class ControllerBattleClass : MonoBehaviour
             _battleSpeed = 4;
         else if (_battleSpeed == 4)
             _battleSpeed = 8;
+        else
+            _battleSpeed = 1;
+        ApplySpeedButton();
+        if (_production != null)
+        {
+            _production.SetBattleSpeed(_battleSpeed);
+            _production.SaveGame();
+        }
+    }
+
+    public void ApplySavedSpeed(int speed)
+    {
+        if (speed == 2 || speed == 4 || speed == 8)
+            _battleSpeed = speed;
         else
             _battleSpeed = 1;
         ApplySpeedButton();

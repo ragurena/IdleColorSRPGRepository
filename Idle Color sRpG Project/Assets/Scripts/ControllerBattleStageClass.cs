@@ -39,7 +39,6 @@ public class ControllerBattleStageClass : MonoBehaviour
     const int RepeatUnlockStage = 1;
     const int RepeatUnlockFloor = 50;
 
-    bool RepeatBattle;
     Color RepeatLabelColor = Color.black;
     bool RepeatLabelColorStored;
     bool FloorFromSliderMeasured;
@@ -214,15 +213,16 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     public void PushButtonBattleRepeat()
     {
-        if (!IsRepeatUnlocked())
+        if (!IsRepeatUnlocked() || ControllerProduction == null)
             return;
-        RepeatBattle = !RepeatBattle;
+        ControllerProduction.SetBattleRepeat(!ControllerProduction.GetBattleRepeat());
+        ControllerProduction.SaveGame();
         Refresh();
     }
 
     public bool IsRepeatOn()
     {
-        return RepeatBattle && IsRepeatUnlocked();
+        return ControllerProduction != null && ControllerProduction.GetBattleRepeat() && IsRepeatUnlocked();
     }
 
     bool IsRepeatUnlocked()
@@ -379,8 +379,6 @@ public class ControllerBattleStageClass : MonoBehaviour
         if (ButtonBattleRepeat != null)
         {
             bool repeatOpen = IsRepeatUnlocked();
-            if (!repeatOpen)
-                RepeatBattle = false;
             ButtonBattleRepeat.interactable = repeatOpen;
             Text repeatLabel = ButtonBattleRepeat.GetComponentInChildren<Text>();
             if (repeatLabel != null && !RepeatLabelColorStored)
@@ -402,11 +400,11 @@ public class ControllerBattleStageClass : MonoBehaviour
             }
             else
             {
-                ButtonBattleRepeat.image.color = RepeatBattle ? ColorButtonSelected : ColorButtonNormal;
+                ButtonBattleRepeat.image.color = ControllerProduction.GetBattleRepeat() ? ColorButtonSelected : ColorButtonNormal;
                 if (repeatLabel != null)
                 {
                     repeatLabel.color = RepeatLabelColor;
-                    repeatLabel.text = RepeatBattle ? "繰り返し\nON" : "繰り返し\nOFF";
+                    repeatLabel.text = ControllerProduction.GetBattleRepeat() ? "繰り返し\nON" : "繰り返し\nOFF";
                 }
             }
         }

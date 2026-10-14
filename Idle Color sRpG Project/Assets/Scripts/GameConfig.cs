@@ -15,6 +15,61 @@ public static class GameConfig
     // ファイルの手順。DataVersion とは別。2 はチェックサムと SaveEnd がある。
     public const int SaveFormat = 2;
 
+    // Unity Ads の報酬付きプレースメント。ゲーム 3635910 では rewardedVideo。
+    public const string RewardedAdPlacement = "rewardedVideo";
+
     // もし今後、他の設定（最大レベル、制限時間など）が増えたらここに並べていきます
     // public const int MAX_LEVEL = 99;
+}
+
+// ピクセル枠とキャラ枠の開放数。広告で増やした回数は、受け取ったクエスト数まで。
+public sealed class ProductionSlotState
+{
+    public int PixelSlots = Constants.PRODUCTION_SLOT_INITIAL;
+    public int CharacterSlots = Constants.PRODUCTION_SLOT_INITIAL;
+    public int AdPixelSlots;
+    public int AdCharacterSlots;
+    public int ClaimedQuests;
+    public bool IapPlus1;
+    public bool IapPlus3;
+    public bool IapPlus5;
+    public bool IapPlus10;
+
+    public void Reset()
+    {
+        PixelSlots = Constants.PRODUCTION_SLOT_INITIAL;
+        CharacterSlots = Constants.PRODUCTION_SLOT_INITIAL;
+        AdPixelSlots = 0;
+        AdCharacterSlots = 0;
+        ClaimedQuests = 0;
+        IapPlus1 = false;
+        IapPlus3 = false;
+        IapPlus5 = false;
+        IapPlus10 = false;
+    }
+
+    public void Clamp()
+    {
+        PixelSlots = ClampCount(PixelSlots);
+        CharacterSlots = ClampCount(CharacterSlots);
+        if (AdPixelSlots < 0)
+            AdPixelSlots = 0;
+        if (AdCharacterSlots < 0)
+            AdCharacterSlots = 0;
+        if (AdPixelSlots > Constants.PRODUCTION_SLOT_MAX)
+            AdPixelSlots = Constants.PRODUCTION_SLOT_MAX;
+        if (AdCharacterSlots > Constants.PRODUCTION_SLOT_MAX)
+            AdCharacterSlots = Constants.PRODUCTION_SLOT_MAX;
+        if (ClaimedQuests < 0)
+            ClaimedQuests = 0;
+    }
+
+    public static int ClampCount(int value)
+    {
+        if (value < Constants.PRODUCTION_SLOT_INITIAL)
+            return Constants.PRODUCTION_SLOT_INITIAL;
+        if (value > Constants.PRODUCTION_SLOT_MAX)
+            return Constants.PRODUCTION_SLOT_MAX;
+        return value;
+    }
 }

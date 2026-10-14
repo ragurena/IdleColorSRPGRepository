@@ -42,10 +42,14 @@ public class SaveClass// : MonoBehaviour
         int ActiveBattleStage,
         int ActiveBattleFloorFrom,
         int ActiveBattleFloorTo,
+        int ActiveBattleFloor,
+        int BattleSpeed,
+        bool BattleRepeat,
         int ClearedBattleStage,
         int[] ClearedBattleFloor,
         Dictionary<int, int> ItemCounts,
-        PersonSaveData people
+        PersonSaveData people,
+        ProductionSlotState slots
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -130,8 +134,22 @@ public class SaveClass// : MonoBehaviour
             sw.WriteLine("CharactersIDHelpProductionB[" + i.ToString() + "]," + CharactersIDHelpProductionB[i].ToString());
         }
 
+        if (slots != null)
+            slots.Clamp();
+        int pixelSlotCount = slots != null ? slots.PixelSlots : Constants.PRODUCTION_SLOT_INITIAL;
+        int characterSlotCount = slots != null ? slots.CharacterSlots : Constants.PRODUCTION_SLOT_INITIAL;
+        sw.WriteLine("PixelProductionSlots," + pixelSlotCount.ToString());
+        sw.WriteLine("CharacterProductionSlots," + characterSlotCount.ToString());
+        sw.WriteLine("AdUnlockedPixelSlots," + (slots != null ? slots.AdPixelSlots : 0).ToString());
+        sw.WriteLine("AdUnlockedCharacterSlots," + (slots != null ? slots.AdCharacterSlots : 0).ToString());
+        sw.WriteLine("ClaimedQuestCount," + (slots != null ? slots.ClaimedQuests : 0).ToString());
+        sw.WriteLine("IapProductionSlots1," + (slots != null && slots.IapPlus1 ? "true" : "false"));
+        sw.WriteLine("IapProductionSlots3," + (slots != null && slots.IapPlus3 ? "true" : "false"));
+        sw.WriteLine("IapProductionSlots5," + (slots != null && slots.IapPlus5 ? "true" : "false"));
+        sw.WriteLine("IapProductionSlots10," + (slots != null && slots.IapPlus10 ? "true" : "false"));
+
         // ピクセル生産枠の保存
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        for (int i = 1; i <= pixelSlotCount; i++)
         {
             sw.WriteLine("CharactersIDProductionPixel[" + i.ToString() + "]," +
                 CharactersIDProductionPixel[i].ToString());
@@ -194,7 +212,7 @@ public class SaveClass// : MonoBehaviour
         }
 
         // キャラクター生産枠の保存
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        for (int i = 1; i <= characterSlotCount; i++)
         {
             sw.WriteLine("CharactersIDProductionCharacter[" + i.ToString() + "]," +
                 CharactersIDProductionCharacter[i].ToString());
@@ -264,6 +282,9 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("ActiveBattleStage," + ActiveBattleStage.ToString());
         sw.WriteLine("ActiveBattleFloorFrom," + ActiveBattleFloorFrom.ToString());
         sw.WriteLine("ActiveBattleFloorTo," + ActiveBattleFloorTo.ToString());
+        sw.WriteLine("ActiveBattleFloor," + ActiveBattleFloor.ToString());
+        sw.WriteLine("BattleSpeed," + BattleSpeed.ToString());
+        sw.WriteLine("BattleRepeat," + (BattleRepeat ? "true" : "false"));
         sw.WriteLine("ClearedBattleStage," + ClearedBattleStage.ToString());
         if (ClearedBattleFloor != null)
         {
@@ -396,10 +417,14 @@ public class SaveClass// : MonoBehaviour
         ref int ActiveBattleStage,
         ref int ActiveBattleFloorFrom,
         ref int ActiveBattleFloorTo,
+        ref int ActiveBattleFloor,
+        ref int BattleSpeed,
+        ref bool BattleRepeat,
         ref int ClearedBattleStage,
         ref int[] ClearedBattleFloor,
         ref Dictionary<int, int> ItemCounts,
         PersonSaveData people,
+        ProductionSlotState slots,
         string sourcePath
         )
     {
@@ -452,6 +477,10 @@ public class SaveClass// : MonoBehaviour
                 continue;
 
             if (values[0].Equals("DataVersion"))
+            {
+            }
+            else
+            if (slots != null && values.Length >= 2 && TryReadSlotState(slots, values[0], values[1]))
             {
             }
             else
@@ -563,41 +592,34 @@ public class SaveClass// : MonoBehaviour
             else
             if (values[0].StartsWith("CharactersIDProductionPixel"))
             {
-                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+                int i;
+                if (TrySlotIndex(values[0], out i))
                 {
-                    if (values[0].Equals("CharactersIDProductionPixel[" + i.ToString() + "]"))
-                    {
-                        CharactersIDProductionPixel[i] =
-                            ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
-                        break;
-                    }
+                    CharactersIDProductionPixel[i] =
+                        ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                 }
             }
 
             else
             if (values[0].StartsWith("ColorProductionPixel"))
             {
-                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+                int i;
+                if (TrySlotIndex(values[0], out i))
                 {
-                    if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].r"))
+                    if (values[0].EndsWith(".r"))
                     {
                         ColorProductionPixel[i].r =
                             CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
-                        break;
                     }
-
-                    if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].g"))
+                    else if (values[0].EndsWith(".g"))
                     {
                         ColorProductionPixel[i].g =
                             CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
-                        break;
                     }
-
-                    if (values[0].Equals("ColorProductionPixel[" + i.ToString() + "].b"))
+                    else if (values[0].EndsWith(".b"))
                     {
                         ColorProductionPixel[i].b =
                             CharacterClass.ColorUnit(CharacterClass.ColorByte(float.Parse(values[1])));
-                        break;
                     }
                 }
             }
@@ -605,50 +627,24 @@ public class SaveClass// : MonoBehaviour
             else
             if (values[0].StartsWith("ProgressProductionPixel"))
             {
-                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+                int i;
+                if (TrySlotIndex(values[0], out i))
                 {
-                    if (values[0].Equals("ProgressProductionPixel[" + i.ToString() + "].r"))
-                    {
-                        ProgressProductionPixel[i, 1] = (ushort)(int.Parse(values[1]));
-                        break;
-                    }
-
-                    if (values[0].Equals("ProgressProductionPixel[" + i.ToString() + "].g"))
-                    {
-                        ProgressProductionPixel[i, 2] = (ushort)(int.Parse(values[1]));
-                        break;
-                    }
-
-                    if (values[0].Equals("ProgressProductionPixel[" + i.ToString() + "].b"))
-                    {
-                        ProgressProductionPixel[i, 3] = (ushort)(int.Parse(values[1]));
-                        break;
-                    }
+                    int channel = values[0].EndsWith(".g") ? 2 : values[0].EndsWith(".b") ? 3 : values[0].EndsWith(".r") ? 1 : 0;
+                    if (channel != 0)
+                        ProgressProductionPixel[i, channel] = (ushort)int.Parse(values[1]);
                 }
             }
 
             else
             if (values[0].StartsWith("SpentProductionPixel"))
             {
-                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+                int i;
+                if (TrySlotIndex(values[0], out i))
                 {
-                    if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].r"))
-                    {
-                        SpentProductionPixel[i, 1] = ReadUlong(values);
-                        break;
-                    }
-
-                    if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].g"))
-                    {
-                        SpentProductionPixel[i, 2] = ReadUlong(values);
-                        break;
-                    }
-
-                    if (values[0].Equals("SpentProductionPixel[" + i.ToString() + "].b"))
-                    {
-                        SpentProductionPixel[i, 3] = ReadUlong(values);
-                        break;
-                    }
+                    int channel = values[0].EndsWith(".g") ? 2 : values[0].EndsWith(".b") ? 3 : values[0].EndsWith(".r") ? 1 : 0;
+                    if (channel != 0)
+                        SpentProductionPixel[i, channel] = ReadUlong(values);
                 }
             }
 
@@ -694,7 +690,13 @@ public class SaveClass// : MonoBehaviour
                 int slotStart = values[0].IndexOf('[') + 1;
                 int slotEnd = values[0].IndexOf(']');
                 int slotIndex = int.Parse(values[0].Substring(slotStart, slotEnd - slotStart));
-
+                if (slotIndex < 1 || slotIndex > Constants.PRODUCTION_SLOT_MAX
+                    || ConsumePixelsProductionCharacter == null
+                    || slotIndex >= ConsumePixelsProductionCharacter.Length
+                    || ConsumePixelsProductionCharacter[slotIndex] == null)
+                {
+                }
+                else
                 if (values[0].Equals("ConsumePixelsProductionCharacter[" + slotIndex.ToString() + "].Count"))
                 {
                     int count = int.Parse(values[1]);
@@ -743,7 +745,13 @@ public class SaveClass// : MonoBehaviour
                 int slotEnd = values[0].IndexOf(']');
                 int slotIndex = int.Parse(values[0].Substring(slotStart, slotEnd - slotStart));
                 string field = values[0].Substring(slotEnd + 2);
-
+                if (slotIndex < 1 || slotIndex > Constants.PRODUCTION_SLOT_MAX
+                    || slotIndex >= progressTextureWidth.Length
+                    || ProgressTextureProductionCharacter == null
+                    || slotIndex >= ProgressTextureProductionCharacter.Count)
+                {
+                }
+                else
                 if (field.Equals("width"))
                 {
                     progressTextureWidth[slotIndex] = int.Parse(values[1]);
@@ -803,6 +811,25 @@ public class SaveClass// : MonoBehaviour
             }
 
             else
+            if (values[0].Equals("ActiveBattleFloor"))
+            {
+                ActiveBattleFloor = int.Parse(values[1]);
+            }
+
+            else
+            if (values[0].Equals("BattleSpeed"))
+            {
+                int speed = int.Parse(values[1]);
+                BattleSpeed = speed == 2 || speed == 4 || speed == 8 ? speed : 1;
+            }
+
+            else
+            if (values[0].Equals("BattleRepeat"))
+            {
+                BattleRepeat = values[1].Equals("true");
+            }
+
+            else
             if (values[0].Equals("ClearedBattleStage"))
             {
                 ClearedBattleStage = int.Parse(values[1]);
@@ -851,28 +878,22 @@ public class SaveClass// : MonoBehaviour
             else
             if (values[0].StartsWith("CharactersIDProductionCharacter"))
             {
-                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+                int i;
+                if (TrySlotIndex(values[0], out i))
                 {
-                    if (values[0].Equals("CharactersIDProductionCharacter[" + i.ToString() + "]"))
-                    {
-                        CharactersIDProductionCharacter[i] =
-                            ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
-                        break;
-                    }
+                    CharactersIDProductionCharacter[i] =
+                        ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                 }
             }
 
             else
             if (values[0].StartsWith("CharactersIDProducedCharacter"))
             {
-                for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+                int i;
+                if (TrySlotIndex(values[0], out i))
                 {
-                    if (values[0].Equals("CharactersIDProducedCharacter[" + i.ToString() + "]"))
-                    {
-                        CharactersIDProducedCharacter[i] =
-                            ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
-                        break;
-                    }
+                    CharactersIDProducedCharacter[i] =
+                        ShiftCharacterId((uint)int.Parse(values[1]), savedVersion);
                 }
             }
 
@@ -1039,6 +1060,8 @@ public class SaveClass// : MonoBehaviour
         }
 
         }
+        if (slots != null)
+            slots.Clamp();
         return true;
         }
         catch (Exception exception)
@@ -1046,6 +1069,47 @@ public class SaveClass// : MonoBehaviour
             Debug.LogError("セーブの適用に失敗しました。 " + exception.Message);
             return false;
         }
+    }
+
+    static bool TryReadSlotState(ProductionSlotState slots, string key, string value)
+    {
+        int number;
+        bool parsed = int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out number);
+        if (key == "PixelProductionSlots" && parsed)
+            slots.PixelSlots = number;
+        else if (key == "CharacterProductionSlots" && parsed)
+            slots.CharacterSlots = number;
+        else if (key == "AdUnlockedPixelSlots" && parsed)
+            slots.AdPixelSlots = number;
+        else if (key == "AdUnlockedCharacterSlots" && parsed)
+            slots.AdCharacterSlots = number;
+        else if (key == "ClaimedQuestCount" && parsed)
+            slots.ClaimedQuests = number;
+        else if (key == "IapProductionSlots1")
+            slots.IapPlus1 = value == "true";
+        else if (key == "IapProductionSlots3")
+            slots.IapPlus3 = value == "true";
+        else if (key == "IapProductionSlots5")
+            slots.IapPlus5 = value == "true";
+        else if (key == "IapProductionSlots10")
+            slots.IapPlus10 = value == "true";
+        else
+            return false;
+        return true;
+    }
+
+    static bool TrySlotIndex(string key, out int index)
+    {
+        index = 0;
+        if (string.IsNullOrEmpty(key))
+            return false;
+        int open = key.IndexOf('[');
+        int close = key.IndexOf(']');
+        if (open < 0 || close <= open)
+            return false;
+        if (!int.TryParse(key.Substring(open + 1, close - open - 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out index))
+            return false;
+        return index >= 1 && index <= Constants.PRODUCTION_SLOT_MAX;
     }
 
     static ulong ReadUlong(string[] values)

@@ -116,7 +116,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int ColorProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ColorProductionPixelIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             //選択キャラクターのステータスを表示
             TextSelectCharacter1.text = "      SPD       : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].SPD;
@@ -137,7 +137,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
-            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             TextSelectCharacter1.text = "";
             TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
@@ -149,7 +149,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
-            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             TextSelectCharacter1.text = "";
             TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
@@ -299,7 +299,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         //Pixel生産のキャラクターの管理
         if(ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionPixelIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
             //前に設定されていたキャラの居場所変更
@@ -314,7 +314,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
-            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             ReleaseCharacterFromOtherProduction(CharacterIDTmp, ButtonTmp);
             //前に設定されていたキャラの居場所変更
@@ -328,7 +328,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
-            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             CharactersIDProducedCharacter[ProductionCharacterIndex] = CharacterIDTmp;
         }
@@ -389,7 +389,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         //Pixel生産のキャラクターの管理
         if (ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionPixelIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             //前に設定されていたキャラの居場所変更
             ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Whereabouts = Place.None;
@@ -400,7 +400,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
-            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             //前に設定されていたキャラの居場所変更
             ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).Whereabouts = Place.None;
@@ -410,7 +410,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
-            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             CharactersIDProducedCharacter[ProductionCharacterIndex] = 0;
         }
@@ -546,7 +546,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             TextSelectCharacter3.text = "  Pixel/sec   : ";
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
-            int ProductionPixelIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionPixelIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
             if (CharactersIDProductionPixel[ProductionPixelIndex] != 0)
             {
@@ -590,7 +590,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             TextSelectCharacter3.text = "";
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
-            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
             if (CharactersIDProductionCharacter[ProductionCharacterIndex] != 0)
             {
                 //選択キャラクターの画像を表示
@@ -619,7 +619,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             TextSelectCharacter3.text = "";
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
 
-            int ProductionCharacterIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 2, 2));
+            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
             if (CharactersIDProducedCharacter[ProductionCharacterIndex] != 0)
             {
                 //選択キャラクターの画像を表示
@@ -768,7 +768,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (argButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int ColorProductionPixelIndex = int.Parse(argButtonTmp.name.Substring(argButtonTmp.name.Length - 2, 2));
+            int ColorProductionPixelIndex = ControllerProduction.ProductionSlotIndex(argButtonTmp.name);
 
             GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], (uint)argCharacterIndex)
                                                                * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].b));
@@ -885,9 +885,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (name.StartsWith("ButtonBProductionHelpCharacter"))
             return CharactersIDHelpProductionB[int.Parse(name.Substring(name.Length - 1, 1))] == characterId;
         if (name.Contains("ButtonPixelProductionCharacter"))
-            return CharactersIDProductionPixel[int.Parse(name.Substring(name.Length - 2, 2))] == characterId;
+            return CharactersIDProductionPixel[ControllerProduction.ProductionSlotIndex(name)] == characterId;
         if (name.Contains("ButtonCharacterProductionCharacter"))
-            return CharactersIDProductionCharacter[int.Parse(name.Substring(name.Length - 2, 2))] == characterId;
+            return CharactersIDProductionCharacter[ControllerProduction.ProductionSlotIndex(name)] == characterId;
         return false;
     }
 
@@ -1196,7 +1196,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             return "B " + person.RgbAmount(2, PersonBalance).ToString() + "/秒";
         if (source != null && source.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int index = int.Parse(source.name.Substring(source.name.Length - 2, 2));
+            int index = ControllerProduction.ProductionSlotIndex(source.name);
             int r = CharacterClass.ColorByte(ColorProductionPixel[index].r);
             int g = CharacterClass.ColorByte(ColorProductionPixel[index].g);
             int b = CharacterClass.ColorByte(ColorProductionPixel[index].b);
@@ -1218,9 +1218,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (source.name.StartsWith("ButtonBProductionHelpCharacter"))
             return (int)PersonIdHelpProductionB[int.Parse(source.name.Substring(source.name.Length - 1, 1))];
         if (source.name.Contains("ButtonPixelProductionCharacter"))
-            return (int)PersonIdProductionPixel[int.Parse(source.name.Substring(source.name.Length - 2, 2))];
+            return (int)PersonIdProductionPixel[ControllerProduction.ProductionSlotIndex(source.name)];
         if (source.name.Contains("ButtonCharacterProductionCharacter"))
-            return (int)PersonIdProductionCharacter[int.Parse(source.name.Substring(source.name.Length - 2, 2))];
+            return (int)PersonIdProductionCharacter[ControllerProduction.ProductionSlotIndex(source.name)];
         return 0;
     }
 

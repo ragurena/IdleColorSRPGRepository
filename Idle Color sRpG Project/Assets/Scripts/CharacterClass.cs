@@ -118,8 +118,13 @@ public class CharacterClass //: MonoBehaviour
 
     public string StockText()
     {
+        return StockText(false);
+    }
+
+    public string StockText(bool compact)
+    {
         EnsureStock();
-        return OwnedStock.Format(Stock.Full, Stock.Eight, Stock.Half);
+        return OwnedStock.Format(Stock.Full, Stock.Eight, Stock.Half, compact);
     }
 
     void ApplyStockTotal()

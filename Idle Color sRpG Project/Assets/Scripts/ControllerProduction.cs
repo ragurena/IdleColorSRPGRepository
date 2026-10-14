@@ -21,8 +21,12 @@ static class Constants
 {
     public const int CHARACTERS_ALL_NUM = 32;
     public const int CHARACTERS_HELP_PRODUCTION_NUM = 3;
-    public const int CHARACTERS_PRODUCTION_PIXEL_NUM = 5;
-    public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = 5;
+    public const int PRODUCTION_SLOT_MAX = 255;
+    public const int PRODUCTION_SLOT_INITIAL = 5;
+    public const int QUEST_PRODUCTION_SLOT_REWARD = 3;
+    public const int AD_PRODUCTION_SLOT_BASE = 3;
+    public const int CHARACTERS_PRODUCTION_PIXEL_NUM = PRODUCTION_SLOT_MAX;
+    public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = PRODUCTION_SLOT_MAX;
     public const int BATTLE_PARTY_SET_NUM = 5;
     public const int BATTLE_FORMATION_SIZE = 3;
     public const int BATTLE_STAGE_NUM = 5;
@@ -107,6 +111,12 @@ public class ControllerProduction : MonoBehaviour
     int ActiveBattleStage = 0;
     int ActiveBattleFloorFrom = 0;
     int ActiveBattleFloorTo = 0;
+    // いま戦っている階。0 は範囲の最初から。クリア直後の保存は次の階
+    int ActiveBattleFloor = 0;
+    // 1, 2, 4, 8。出撃が終わっても残す
+    int BattleSpeed = 1;
+    // ステージ1の50階をクリアすると使える。出撃が終わっても残す
+    bool BattleRepeat;
     int ClearedBattleStage = 0;
     //ステージごとの最高クリア階。0は未クリア。開始階はこの直後の10階区切りまで
     int[] ClearedBattleFloor = new int[Constants.BATTLE_STAGE_GALLERY + 1];
@@ -181,6 +191,8 @@ public class ControllerProduction : MonoBehaviour
 
     //ピクセル生産のクリック時の進捗数
     ushort UserProductionPixelNum = 10;
+    readonly ProductionSlotState Slots = new ProductionSlotState();
+    bool _adBusy;
 
     //シーンパネル
     [SerializeField] GameObject PanelRGBProduction;
@@ -261,8 +273,11 @@ public class ControllerProduction : MonoBehaviour
 #endif
 
         Debug.Log("ControllerProduction Begin");
-#if UNITY_ANDROID && !UNITY_EDITOR
-        Advertisement.Initialize("3635910");
+#if UNITY_EDITOR
+        Advertisement.Initialize("3635910", true, new RewardedInit());
+#elif UNITY_ANDROID
+        Advertisement.Initialize("3635910", false, new RewardedInit());
+        Advertisement.Load(GameConfig.RewardedAdPlacement);
 #endif
 
         ControllerCharacterSelect = GetComponent<ControllerCharacterSelectClass>();
@@ -383,7 +398,7 @@ public class ControllerProduction : MonoBehaviour
             RebuildNormalizedImages();
         }
 
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        for (int i = 1; i <= Slots.CharacterSlots; i++)
         {
             //生産者がいなくても、作る対象がいればシルエットを出す
             if (CharactersIDProducedCharacter[i] == 0)
@@ -416,6 +431,7 @@ public class ControllerProduction : MonoBehaviour
         if (ControllerBattle == null)
             ControllerBattle = gameObject.AddComponent<ControllerBattleClass>();
         ControllerBattle.Initialize(this);
+        ControllerBattle.ApplySavedSpeed(BattleSpeed);
 
         ControllerCatalog = GetComponent<ControllerCatalogClass>();
         if (ControllerCatalog == null)
@@ -456,6 +472,7 @@ public class ControllerProduction : MonoBehaviour
         PushButtonSelectSceneRGBProduction();
         if (ControllerBattle != null)
             ControllerBattle.Hide();
+        ResumeSortie();
 
         Debug.Log("ControllerProduction End");
     }
@@ -487,7 +504,7 @@ public class ControllerProduction : MonoBehaviour
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
             //ピクセルの生産
-            for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+            for (int i = 1; i <= Slots.PixelSlots; i++)
                 ProductionPixel(Trigger.Update, i, out _);
             UpdateRGBProductionScene();
 
@@ -496,7 +513,7 @@ public class ControllerProduction : MonoBehaviour
                 ulong tmpR = 0;
                 ulong tmpG = 0;
                 ulong tmpB = 0;
-                for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+                for (int i = 1; i <= Slots.PixelSlots; i++)
                 {
                     uint pixelYield = PixelYield(i);
                     if (pixelYield == 0 && PersonIdProductionPixel[i] == 0)
@@ -531,7 +548,7 @@ public class ControllerProduction : MonoBehaviour
             //キャラクター生産
             bool ProductionCharacterFlag = false;
             bool RepeatComplete = true;
-            for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1; i++)
+            for (int i = 1; i <= Slots.CharacterSlots; i++)
             {
                 uint personId = PersonIdProductionCharacter[i];
                 CharacterClass productionWorker = personId == 0 ? CharacterOf(CharactersIDProductionCharacter[i]) : null;
@@ -624,10 +641,14 @@ public class ControllerProduction : MonoBehaviour
             ActiveBattleStage,
             ActiveBattleFloorFrom,
             ActiveBattleFloorTo,
+            ActiveBattleFloor,
+            BattleSpeed,
+            BattleRepeat,
             ClearedBattleStage,
             ClearedBattleFloor,
             ItemCounts,
-            CapturePeople()
+            CapturePeople(),
+            Slots
             );
         if (saved)
         {
@@ -797,10 +818,14 @@ public class ControllerProduction : MonoBehaviour
                     ref ActiveBattleStage,
                     ref ActiveBattleFloorFrom,
                     ref ActiveBattleFloorTo,
+                    ref ActiveBattleFloor,
+                    ref BattleSpeed,
+                    ref BattleRepeat,
                     ref ClearedBattleStage,
                     ref ClearedBattleFloor,
                     ref ItemCounts,
                     CapturePeople(),
+                    Slots,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -816,6 +841,7 @@ public class ControllerProduction : MonoBehaviour
 
             version = info.DataVersion ?? "";
             SaveBlocked = false;
+            SetBattleSpeed(BattleSpeed);
             return true;
         }
 
@@ -850,6 +876,7 @@ public class ControllerProduction : MonoBehaviour
         ClearArray(PersonIdHelpProductionB);
         ClearArray(PersonIdProductionPixel);
         ClearArray(PersonIdProductionCharacter);
+        Slots.Reset();
         if (BattlePartyCharacterIds != null)
             Array.Clear(BattlePartyCharacterIds, 0, BattlePartyCharacterIds.Length);
         if (BattlePartyPersonIds != null)
@@ -899,6 +926,9 @@ public class ControllerProduction : MonoBehaviour
         ActiveBattleStage = 0;
         ActiveBattleFloorFrom = 0;
         ActiveBattleFloorTo = 0;
+        ActiveBattleFloor = 0;
+        BattleSpeed = 1;
+        BattleRepeat = false;
         ClearedBattleStage = 0;
 
         if (ConsumePixelsProductionCharacter != null)
@@ -1744,7 +1774,7 @@ public class ControllerProduction : MonoBehaviour
         uint previousProducedId = 0;
         if (ButtonCharacterTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
-            producedIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
+            producedIndex = ProductionSlotIndex(ButtonCharacterTmp.name);
             previousProducedId = CharactersIDProducedCharacter[producedIndex];
         }
 
@@ -1805,7 +1835,7 @@ public class ControllerProduction : MonoBehaviour
         if (ButtonCharacterTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
             //生産対象を外したら、塗った分のピクセルを戻してシルエットを消す。生産担当を外してもここは通らない
-            int ProductionIndex = int.Parse(ButtonCharacterTmp.name.Substring(ButtonCharacterTmp.name.Length - 2, 2));
+            int ProductionIndex = ProductionSlotIndex(ButtonCharacterTmp.name);
             InitializeProgressProductionCharacter(ProductionIndex);
             SetCharacterStockLabel(ProductionIndex);
         }
@@ -2094,7 +2124,9 @@ public class ControllerProduction : MonoBehaviour
     //RGB値で色指定の決定ボタンが押されたら
     public void PushButtonConfirmSelectColorRGBNum()
     {
-        int ProductionPixelIndex = int.Parse(ButtonColorTmp.name.Substring(ButtonColorTmp.name.Length - 2, 2));
+        int ProductionPixelIndex = ProductionSlotIndex(ButtonColorTmp.name);
+        if (ProductionPixelIndex < 1)
+            return;
 
         ApplyPixelProductionColor(ProductionPixelIndex, ColorTmp);
 
@@ -2249,7 +2281,9 @@ public class ControllerProduction : MonoBehaviour
     //カラーセレクトの色指定方法のキャラクターで色指定で決定ボタンが押されたら
     public void PushButtonConfirmSelectColorCharacter()
     {
-        int ProductionPixelIndex = int.Parse(ButtonColorTmp.name.Substring(ButtonColorTmp.name.Length - 2, 2));
+        int ProductionPixelIndex = ProductionSlotIndex(ButtonColorTmp.name);
+        if (ProductionPixelIndex < 1)
+            return;
 
         ApplyPixelProductionColor(ProductionPixelIndex, ColorTmp);
 
@@ -2286,7 +2320,9 @@ public class ControllerProduction : MonoBehaviour
     //ピクセル生産でスピードアップボタンが押されたら
     public void PushButtonSpeedUpProductionPixel(string argName)
     {
-        int ProductionPixelIndex = int.Parse(argName.Substring(argName.Length - 2, 2));
+        int ProductionPixelIndex = ProductionSlotIndex(argName);
+        if (ProductionPixelIndex < 1)
+            return;
 
         ProductionPixel(Trigger.User, ProductionPixelIndex, out _);
         RefreshProductionFigures();
@@ -2466,7 +2502,9 @@ public class ControllerProduction : MonoBehaviour
     //キャラクター生産でスピードアップボタンが押されたら
     public void PushButtonSpeedUpProductionCharacter(string argName)
     {
-        int ProductionCharacterIndex = int.Parse(argName.Substring(argName.Length - 2, 2));
+        int ProductionCharacterIndex = ProductionSlotIndex(argName);
+        if (ProductionCharacterIndex < 1)
+            return;
 
         bool ProductionCharacterFlag;
         bool RepeatComplete;
@@ -2613,6 +2651,7 @@ public class ControllerProduction : MonoBehaviour
         ActiveBattleStage = stageIndex;
         ActiveBattleFloorFrom = floorFrom;
         ActiveBattleFloorTo = floorTo;
+        ActiveBattleFloor = floorFrom;
         return true;
     }
 
@@ -2642,6 +2681,39 @@ public class ControllerProduction : MonoBehaviour
     public int GetActiveBattleFloorTo()
     {
         return ActiveBattleFloorTo;
+    }
+
+    public int GetActiveBattleFloor()
+    {
+        return ActiveBattleFloor;
+    }
+
+    public void SetActiveBattleFloor(int floor)
+    {
+        ActiveBattleFloor = floor;
+    }
+
+    public int GetBattleSpeed()
+    {
+        return BattleSpeed;
+    }
+
+    public void SetBattleSpeed(int speed)
+    {
+        if (speed == 2 || speed == 4 || speed == 8)
+            BattleSpeed = speed;
+        else
+            BattleSpeed = 1;
+    }
+
+    public bool GetBattleRepeat()
+    {
+        return BattleRepeat;
+    }
+
+    public void SetBattleRepeat(bool on)
+    {
+        BattleRepeat = on;
     }
 
     public int GetClearedBattleStage()
@@ -2870,6 +2942,7 @@ public class ControllerProduction : MonoBehaviour
         ActiveBattleStage = 0;
         ActiveBattleFloorFrom = 0;
         ActiveBattleFloorTo = 0;
+        ActiveBattleFloor = 0;
     }
 
     public bool IsBattleRepeatOn()
@@ -2887,6 +2960,61 @@ public class ControllerProduction : MonoBehaviour
             return false;
         ControllerBattle.Begin(ActiveBattleStage, ActiveBattlePartySet, ActiveBattleFloorFrom, ActiveBattleFloorTo);
         return ControllerBattle.IsRunning();
+    }
+
+    // 読み込んだ出撃が有効なら、保存した階と倍速でバトルを開く
+    bool ResumeSortie()
+    {
+        if (ControllerBattle == null)
+            return false;
+        if (ActiveBattlePartySet == 0 || !IsKnownBattleStage(ActiveBattleStage))
+            return false;
+        if (!CanEnterStage(ActiveBattleStage) || !IsSortieFloorRange(ActiveBattleStage, ActiveBattleFloorFrom, ActiveBattleFloorTo))
+            return WithdrawSavedSortie();
+        if (!HasBattlePartyMember(ActiveBattlePartySet))
+            return WithdrawSavedSortie();
+        if (ActiveBattleFloor > ActiveBattleFloorTo)
+        {
+            if (IsBattleRepeatOn())
+                ActiveBattleFloor = ActiveBattleFloorFrom;
+            else
+                return WithdrawSavedSortie();
+        }
+        if (ActiveBattleFloor < ActiveBattleFloorFrom)
+            ActiveBattleFloor = ActiveBattleFloorFrom;
+
+        EnsureSortiePlaces();
+        if (!BeginAutoBattle())
+            return WithdrawSavedSortie();
+        return true;
+    }
+
+    bool WithdrawSavedSortie()
+    {
+        if (ActiveBattlePartySet != 0 || ActiveBattleStage != 0)
+            LeaveBattle();
+        SaveGame();
+        return false;
+    }
+
+    void EnsureSortiePlaces()
+    {
+        int setIndex = ActiveBattlePartySet;
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+            {
+                uint characterId = BattlePartyCharacterIds[setIndex, x, y];
+                if (characterId == 0)
+                    continue;
+                ReleaseCharacterFromProduction(characterId);
+                CharacterClass battleCharacter = CharacterOf(characterId);
+                if (battleCharacter != null)
+                    battleCharacter.Whereabouts = Place.Battle;
+            }
+        }
+        ReleasePeopleFromProduction(setIndex);
+        RefreshProductionAssignmentViews();
     }
 
     public BattleBalanceConfig GetBattleBalance()
@@ -3095,13 +3223,13 @@ public class ControllerProduction : MonoBehaviour
                 CharactersIDHelpProductionB[i] = 0;
         }
 
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        for (int i = 1; i <= Slots.PixelSlots; i++)
         {
             if (CharactersIDProductionPixel[i] == characterId)
                 CharactersIDProductionPixel[i] = 0;
         }
 
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        for (int i = 1; i <= Slots.CharacterSlots; i++)
         {
             if (CharactersIDProductionCharacter[i] == characterId)
                 CharactersIDProductionCharacter[i] = 0;
@@ -3110,14 +3238,15 @@ public class ControllerProduction : MonoBehaviour
 
     void RefreshProductionAssignmentViews()
     {
+        EnsureProductionSlotRows();
         UpdateRGBProductionHelpCharacter();
         ClearEmptyHelpProductionButton("ButtonRProductionHelpCharacter", CharactersIDHelpProductionR, PersonIdHelpProductionR, new Color(50 / 255f, 0.0f, 0.0f, 1.0f));
         ClearEmptyHelpProductionButton("ButtonGProductionHelpCharacter", CharactersIDHelpProductionG, PersonIdHelpProductionG, new Color(0.0f, 50 / 255f, 0.0f, 1.0f));
         ClearEmptyHelpProductionButton("ButtonBProductionHelpCharacter", CharactersIDHelpProductionB, PersonIdHelpProductionB, new Color(0.0f, 0.0f, 50 / 255f, 1.0f));
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        for (int i = 1; i <= Slots.PixelSlots; i++)
             UpdateCharacterPixelProduction(i);
 
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        for (int i = 1; i <= Slots.CharacterSlots; i++)
             UpdateProductionCharacterButton("ButtonCharacterProductionCharacter" + i.ToString("00"), CharactersIDProductionCharacter[i], PersonIdProductionCharacter[i]);
     }
 
@@ -3445,7 +3574,7 @@ public class ControllerProduction : MonoBehaviour
     //古いセーブは消費量が無い。今の担当キャラの生産数で、色が0でないチャンネルだけ見積もる
     void SeedPixelSpendFromProgress()
     {
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        for (int i = 1; i <= Slots.PixelSlots; i++)
         {
             if (SpentProductionPixel[i, 1] != 0 || SpentProductionPixel[i, 2] != 0 || SpentProductionPixel[i, 3] != 0)
                 continue;
@@ -3578,9 +3707,10 @@ public class ControllerProduction : MonoBehaviour
     //ピクセル生産
     public void UpdatePixelProductionScene()
     {
+        EnsureProductionSlotRows();
         CreatePixelListPixelProduction();
 
-        for (int i = 1; i < Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1; i++)
+        for (int i = 1; i <= Slots.PixelSlots; i++)
         {
             UpdateCharacterPixelProduction(i);
 
@@ -3595,7 +3725,7 @@ public class ControllerProduction : MonoBehaviour
         UpdateRGBProductionSliderOneColor(TextR, CurR, MaxR, SliderR, SliderCostIncreaseValueRUp, SliderCostMaxRUp);
         UpdateRGBProductionSliderOneColor(TextG, CurG, MaxG, SliderG, SliderCostIncreaseValueGUp, SliderCostMaxGUp);
         UpdateRGBProductionSliderOneColor(TextB, CurB, MaxB, SliderB, SliderCostIncreaseValueBUp, SliderCostMaxBUp);
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+        for (int i = 1; i <= Slots.PixelSlots; i++)
             UpdateSliderPixelProduction(i);
         RefreshPixelListCounts();
         UpdateProductionCharacterConsumeViews();
@@ -3616,7 +3746,7 @@ public class ControllerProduction : MonoBehaviour
         GameObject pixelList = GameObject.Find("ContentPixelProductionList");
         if (pixelList != null)
         {
-            for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_PIXEL_NUM; i++)
+            for (int i = 1; i <= Slots.PixelSlots; i++)
             {
                 Transform row = pixelList.transform.Find("PrefabOnePixelProduction" + i.ToString("00"));
                 if (row == null)
@@ -3626,7 +3756,7 @@ public class ControllerProduction : MonoBehaviour
                     SyncPersonSkillBar(buttons[0]);
             }
         }
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        for (int i = 1; i <= Slots.CharacterSlots; i++)
             SyncNamedPersonSkillBar("ButtonCharacterProductionCharacter" + i.ToString("00"));
     }
 
@@ -3681,7 +3811,8 @@ public class ControllerProduction : MonoBehaviour
         else if (name.Contains("ButtonCharacterProductionCharacter"))
         {
             int index;
-            if (!int.TryParse(name.Substring(name.Length - 2, 2), out index))
+            index = ProductionSlotIndex(name);
+            if (index < 1)
                 return;
             if (index < 1 || index >= PersonIdProductionCharacter.Length)
                 return;
@@ -3707,15 +3838,33 @@ public class ControllerProduction : MonoBehaviour
         PersonSkillBar.Show(button, level, exp, need);
     }
 
+    public static int ProductionSlotIndex(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return -1;
+        int start = name.Length;
+        while (start > 0 && name[start - 1] >= '0' && name[start - 1] <= '9')
+            start--;
+        if (start == name.Length)
+            return -1;
+        int index;
+        if (!int.TryParse(name.Substring(start), out index))
+            return -1;
+        return index;
+    }
+
     static int PixelProductionIndex(Button button)
     {
-        int index;
-        if (button.name.Length >= 2 && int.TryParse(button.name.Substring(button.name.Length - 2, 2), out index))
+        if (button == null)
+            return 0;
+        int index = ProductionSlotIndex(button.name);
+        if (index >= 1)
             return index;
         Transform parent = button.transform.parent;
-        if (parent != null && parent.name.Length >= 2 && int.TryParse(parent.name.Substring(parent.name.Length - 2, 2), out index))
-            return index;
-        return 0;
+        if (parent == null)
+            return 0;
+        index = ProductionSlotIndex(parent.name);
+        return index >= 1 ? index : 0;
     }
 
     void RefreshPixelListCounts()
@@ -3886,9 +4035,20 @@ public class ControllerProduction : MonoBehaviour
             Destroy(child.gameObject);
         }
     }
+    GameObject PixelProductionRow(int argIndex)
+    {
+        GameObject list = GameObject.Find("ContentPixelProductionList");
+        if (list == null)
+            return null;
+        Transform row = list.transform.Find("PrefabOnePixelProduction" + argIndex.ToString("00"));
+        return row != null ? row.gameObject : null;
+    }
+
     public void UpdateCharacterPixelProduction(int argIndex)
     {
-        GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (argIndex).ToString("00")).gameObject;
+        GameObject Content = PixelProductionRow(argIndex);
+        if (Content == null)
+            return;
 
         CharacterClass pixelCharacter = PersonIdProductionPixel[argIndex] != 0 ? null : ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]);
         Button pixelButton = Content.GetComponentsInChildren<Button>()[0];
@@ -3911,7 +4071,9 @@ public class ControllerProduction : MonoBehaviour
     }
     public void UpdatePixelColorPixelProduction(int argIndex)
     {
-        GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (argIndex).ToString("00")).gameObject;
+        GameObject Content = PixelProductionRow(argIndex);
+        if (Content == null)
+            return;
 
         //ピクセルカラー
         Content.GetComponentsInChildren<Button>()[1].image.color
@@ -4044,7 +4206,9 @@ public class ControllerProduction : MonoBehaviour
     }
     public void UpdateSliderPixelProduction(int argIndex)
     {
-        GameObject Content = GameObject.Find("ContentPixelProductionList").transform.Find("PrefabOnePixelProduction" + (argIndex).ToString("00")).gameObject;
+        GameObject Content = PixelProductionRow(argIndex);
+        if (Content == null)
+            return;
 
         //進捗スライダー
         Slider SliderPixelColorR = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorR").gameObject.GetComponent<Slider>();
@@ -4174,6 +4338,7 @@ public class ControllerProduction : MonoBehaviour
     //起動時など、進捗画像・消費ピクセル・所持数をまとめて描く
     public void UpdateProductionCharacterScene()
     {
+        EnsureProductionSlotRows();
         UpdateProductionCharacterButtons();
         UpdateAllProductionCharacterProgressImages();
         UpdateProductionCharacterConsumeViews();
@@ -4183,7 +4348,7 @@ public class ControllerProduction : MonoBehaviour
     //作成担当キャラと作成するキャラのボタンを、保存されている割り当てに合わせる
     void UpdateProductionCharacterButtons()
     {
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        for (int i = 1; i <= Slots.CharacterSlots; i++)
         {
             UpdateProductionCharacterButton("ButtonCharacterProductionCharacter" + i.ToString("00"), CharactersIDProductionCharacter[i], PersonIdProductionCharacter[i]);
             UpdateProductionCharacterButton("ButtonCharacterProducedCharacter" + i.ToString("00"), CharactersIDProducedCharacter[i], 0);
@@ -4193,14 +4358,14 @@ public class ControllerProduction : MonoBehaviour
 
     void UpdateCharacterProductionStockLabels()
     {
-        for (int i = 1; i <= Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM; i++)
+        for (int i = 1; i <= Slots.CharacterSlots; i++)
             SetCharacterStockLabel(i);
     }
 
     //作る対象ボタンの下に、今の所持数と、1体できたあとの所持数を出す
     void SetCharacterStockLabel(int argIndex)
     {
-        if (argIndex < 1 || argIndex > Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM)
+        if (argIndex < 1 || argIndex > Slots.CharacterSlots)
             return;
         GameObject buttonObject = GameObject.Find("ButtonCharacterProducedCharacter" + argIndex.ToString("00"));
         if (buttonObject == null)
@@ -4223,6 +4388,10 @@ public class ControllerProduction : MonoBehaviour
 
         label.gameObject.SetActive(true);
         label.text = "在庫 " + stockCharacter.StockText();
+        label.verticalOverflow = VerticalWrapMode.Overflow;
+        RectTransform labelRect = label.rectTransform;
+        if (labelRect.sizeDelta.y < 52f)
+            labelRect.sizeDelta = new Vector2(labelRect.sizeDelta.x, 52f);
     }
 
     void UpdateProductionCharacterButton(string argButtonName, uint argCharacterID, uint argPersonId)
@@ -4277,13 +4446,13 @@ public class ControllerProduction : MonoBehaviour
             {
                 if (child.name.Contains("RawImageCharacterProduction"))
                 {
-                    productionIndex = int.Parse(child.name.Substring(child.name.Length - 1, 1));
+                    productionIndex = ProductionSlotIndex(child.name);
                     progressImage = child.GetComponent<RawImage>();
                 }
                 if (child.name.Contains("ScrollViewConsumePixel"))
                 {
                     if (productionIndex < 0)
-                        productionIndex = int.Parse(child.name.Substring(child.name.Length - 2, 2));
+                        productionIndex = ProductionSlotIndex(child.name);
                     consumeContent = FindConsumePixelContent(child);
                 }
             }
@@ -4447,7 +4616,7 @@ public class ControllerProduction : MonoBehaviour
             {
                 Text label = OwnedCountLabel(existing);
                 if (label != null)
-                    label.text = "所持 " + character.StockText();
+                    FitOwnedStockLabel(label, "所持 " + character.StockText(true));
                 existing.SetSiblingIndex(shown);
                 shown++;
                 return;
@@ -4458,7 +4627,7 @@ public class ControllerProduction : MonoBehaviour
             characterButton.transform.SetSiblingIndex(shown);
             characterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f));
             Text createdLabel = characterButton.GetComponentInChildren<Text>();
-            createdLabel.text = "所持 " + character.StockText();
+            FitOwnedStockLabel(createdLabel, "所持 " + character.StockText(true));
             createdLabel.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
             if (character.Whereabouts == Place.CreateR ||
                 character.Whereabouts == Place.CreateG ||
@@ -4475,6 +4644,28 @@ public class ControllerProduction : MonoBehaviour
 
         if (added)
             LayoutRebuilder.ForceRebuildLayoutImmediate(list as RectTransform);
+    }
+
+    static void FitOwnedStockLabel(Text label, string text)
+    {
+        if (label == null)
+            return;
+        RectTransform rect = label.rectTransform;
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, -64f);
+        rect.sizeDelta = new Vector2(120f, 40f);
+        label.alignment = TextAnchor.UpperCenter;
+        label.alignByGeometry = false;
+        label.lineSpacing = 0.8f;
+        label.horizontalOverflow = HorizontalWrapMode.Wrap;
+        label.verticalOverflow = VerticalWrapMode.Truncate;
+        label.resizeTextForBestFit = true;
+        label.resizeTextMinSize = 8;
+        label.resizeTextMaxSize = 13;
+        label.text = text;
+        label.color = new Color(0f, 0f, 0f, 1f);
     }
 
     static Text OwnedCountLabel(Transform button)
@@ -4681,14 +4872,18 @@ public class ControllerProduction : MonoBehaviour
             AssignRgbPerson(PersonIdHelpProductionB, CharactersIDHelpProductionB, button, personId);
         else if (button.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int index = int.Parse(button.name.Substring(button.name.Length - 2, 2));
+            int index = ProductionSlotIndex(button.name);
+            if (index < 1 || index >= CharactersIDProductionPixel.Length)
+                return;
             ReleaseWorkerCharacter(CharactersIDProductionPixel, index);
             CharactersIDProductionPixel[index] = 0;
             PersonIdProductionPixel[index] = (uint)personId;
         }
         else if (button.name.Contains("ButtonCharacterProductionCharacter"))
         {
-            int index = int.Parse(button.name.Substring(button.name.Length - 2, 2));
+            int index = ProductionSlotIndex(button.name);
+            if (index < 1 || index >= CharactersIDProductionCharacter.Length)
+                return;
             ReleaseWorkerCharacter(CharactersIDProductionCharacter, index);
             CharactersIDProductionCharacter[index] = 0;
             PersonIdProductionCharacter[index] = (uint)personId;
@@ -4746,12 +4941,14 @@ public class ControllerProduction : MonoBehaviour
             ClearRgbPerson(PersonIdHelpProductionB, button);
         else if (button.name.Contains("ButtonPixelProductionCharacter"))
         {
-            int index = int.Parse(button.name.Substring(button.name.Length - 2, 2));
+            int index = ProductionSlotIndex(button.name);
+            if (index >= 1 && index < PersonIdProductionPixel.Length)
             PersonIdProductionPixel[index] = 0;
         }
         else if (button.name.Contains("ButtonCharacterProductionCharacter"))
         {
-            int index = int.Parse(button.name.Substring(button.name.Length - 2, 2));
+            int index = ProductionSlotIndex(button.name);
+            if (index >= 1 && index < PersonIdProductionCharacter.Length)
             PersonIdProductionCharacter[index] = 0;
         }
         SyncPersonSkillBar(button);
@@ -4999,6 +5196,342 @@ public class ControllerProduction : MonoBehaviour
             }
         }
         return list.ToArray();
+    }
+
+    public void ClaimQuestProductionReward()
+    {
+        if (Slots.ClaimedQuests < int.MaxValue)
+            Slots.ClaimedQuests++;
+        AddProductionSlots(Constants.QUEST_PRODUCTION_SLOT_REWARD, true, true);
+        RefreshUnlockedProductionSlots();
+        SaveGame();
+    }
+
+    public bool GrantPurchasedProductionSlots(int amount)
+    {
+        bool already;
+        if (amount == 1)
+            already = Slots.IapPlus1;
+        else if (amount == 3)
+            already = Slots.IapPlus3;
+        else if (amount == 5)
+            already = Slots.IapPlus5;
+        else if (amount == 10)
+            already = Slots.IapPlus10;
+        else
+            return false;
+        if (already)
+            return false;
+        if (amount == 1)
+            Slots.IapPlus1 = true;
+        else if (amount == 3)
+            Slots.IapPlus3 = true;
+        else if (amount == 5)
+            Slots.IapPlus5 = true;
+        else
+            Slots.IapPlus10 = true;
+        AddProductionSlots(amount, true, true);
+        RefreshUnlockedProductionSlots();
+        SaveGame();
+        return true;
+    }
+
+    void PushButtonAdPixelSlot()
+    {
+        ShowRewardedForSlot(true);
+    }
+
+    void PushButtonAdCharacterSlot()
+    {
+        ShowRewardedForSlot(false);
+    }
+
+    bool CanWatchAd(bool pixel)
+    {
+        int slots = pixel ? Slots.PixelSlots : Slots.CharacterSlots;
+        int used = pixel ? Slots.AdPixelSlots : Slots.AdCharacterSlots;
+        int cap = Constants.AD_PRODUCTION_SLOT_BASE + Slots.ClaimedQuests;
+        return slots < Constants.PRODUCTION_SLOT_MAX && used < cap;
+    }
+
+    void ShowRewardedForSlot(bool pixel)
+    {
+        if (_adBusy || !CanWatchAd(pixel))
+            return;
+#if UNITY_ANDROID || UNITY_EDITOR
+        if (!Advertisement.isInitialized)
+        {
+            Debug.LogWarning("広告の準備ができていません。");
+            return;
+        }
+        _adBusy = true;
+        string placement = GameConfig.RewardedAdPlacement;
+        Advertisement.Load(placement, new RewardedLoad(placement,
+            () => Advertisement.Show(placement, new RewardedShow(
+                () =>
+                {
+                    _adBusy = false;
+                    GrantAdSlot(pixel);
+                },
+                () => { _adBusy = false; })),
+            () => { _adBusy = false; }));
+#else
+        Debug.LogWarning("広告はAndroidで表示します。");
+#endif
+    }
+
+    void GrantAdSlot(bool pixel)
+    {
+        if (!CanWatchAd(pixel))
+            return;
+        if (pixel)
+            Slots.AdPixelSlots++;
+        else
+            Slots.AdCharacterSlots++;
+        AddProductionSlots(1, pixel, !pixel);
+        RefreshUnlockedProductionSlots();
+        SaveGame();
+    }
+
+    void AddProductionSlots(int amount, bool pixel, bool character)
+    {
+        if (amount < 1)
+            return;
+        if (pixel)
+            Slots.PixelSlots = ProductionSlotState.ClampCount(Slots.PixelSlots + amount);
+        if (character)
+            Slots.CharacterSlots = ProductionSlotState.ClampCount(Slots.CharacterSlots + amount);
+    }
+
+    void RefreshUnlockedProductionSlots()
+    {
+        EnsureProductionSlotRows();
+        if (GameObject.Find("ContentPixelProductionList") != null)
+        {
+            for (int i = 1; i <= Slots.PixelSlots; i++)
+            {
+                UpdateCharacterPixelProduction(i);
+                UpdatePixelColorPixelProduction(i);
+                UpdateSliderPixelProduction(i);
+            }
+        }
+        if (GameObject.Find("ContentCharacterProductionList") != null)
+            UpdateProductionCharacterScene();
+    }
+
+    void EnsureProductionSlotRows()
+    {
+        Transform pixelList = GameObject.Find("ContentPixelProductionList") != null
+            ? GameObject.Find("ContentPixelProductionList").transform : null;
+        Transform characterList = GameObject.Find("ContentCharacterProductionList") != null
+            ? GameObject.Find("ContentCharacterProductionList").transform : null;
+        if (pixelList != null)
+        {
+            EnsureClonedRows(pixelList, "PrefabOnePixelProduction", Slots.PixelSlots);
+            EnsureAdSlotButton(pixelList, "ButtonAdUnlockPixelSlot", true);
+        }
+        if (characterList != null)
+        {
+            EnsureClonedRows(characterList, "PrefabOneCharacterProduction", Slots.CharacterSlots);
+            EnsureAdSlotButton(characterList, "ButtonAdUnlockCharacterSlot", false);
+        }
+    }
+
+    void EnsureClonedRows(Transform list, string rowPrefix, int count)
+    {
+        Transform template = list.Find(rowPrefix + "01");
+        if (template == null || count <= Constants.PRODUCTION_SLOT_INITIAL)
+            return;
+        if (count > Constants.PRODUCTION_SLOT_MAX)
+            count = Constants.PRODUCTION_SLOT_MAX;
+        for (int i = Constants.PRODUCTION_SLOT_INITIAL + 1; i <= count; i++)
+        {
+            string suffix = i.ToString("00");
+            if (list.Find(rowPrefix + suffix) != null)
+                continue;
+            GameObject clone = Instantiate(template.gameObject, list);
+            clone.name = rowPrefix + suffix;
+            RenameSlotTree(clone.transform, "01", suffix);
+            RetargetSlotButtons(clone.transform);
+        }
+    }
+
+    static void RenameSlotTree(Transform root, string fromSuffix, string toSuffix)
+    {
+        if (root.name.EndsWith(fromSuffix, StringComparison.Ordinal))
+            root.name = root.name.Substring(0, root.name.Length - fromSuffix.Length) + toSuffix;
+        for (int i = 0; i < root.childCount; i++)
+            RenameSlotTree(root.GetChild(i), fromSuffix, toSuffix);
+    }
+
+    static void RetargetSlotButtons(Transform root)
+    {
+        Button[] buttons = root.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            int count = button.onClick.GetPersistentEventCount();
+            if (count == 0)
+                continue;
+            var calls = new List<KeyValuePair<UnityEngine.Object, string>>();
+            for (int c = 0; c < count; c++)
+                calls.Add(new KeyValuePair<UnityEngine.Object, string>(button.onClick.GetPersistentTarget(c), button.onClick.GetPersistentMethodName(c)));
+            button.onClick = new Button.ButtonClickedEvent();
+            for (int c = 0; c < calls.Count; c++)
+            {
+                UnityEngine.Object target = calls[c].Key;
+                string methodName = calls[c].Value;
+                Button captured = button;
+                button.onClick.AddListener(() => InvokeNamed(target, methodName, captured.gameObject.name));
+            }
+        }
+    }
+
+    static void InvokeNamed(UnityEngine.Object target, string methodName, string argument)
+    {
+        if (target == null || string.IsNullOrEmpty(methodName))
+            return;
+        System.Reflection.MethodInfo method = target.GetType().GetMethod(methodName, new Type[] { typeof(string) });
+        if (method != null)
+        {
+            method.Invoke(target, new object[] { argument });
+            return;
+        }
+        method = target.GetType().GetMethod(methodName, Type.EmptyTypes);
+        if (method != null)
+            method.Invoke(target, null);
+    }
+
+    void EnsureAdSlotButton(Transform list, string buttonName, bool pixel)
+    {
+        int slots = pixel ? Slots.PixelSlots : Slots.CharacterSlots;
+        Transform existing = list.Find(buttonName);
+        if (slots >= Constants.PRODUCTION_SLOT_MAX)
+        {
+            if (existing != null)
+                existing.gameObject.SetActive(false);
+            return;
+        }
+        if (existing == null)
+        {
+            GameObject buttonObject = new GameObject(buttonName, typeof(RectTransform));
+            buttonObject.transform.SetParent(list, false);
+            Image image = buttonObject.AddComponent<Image>();
+            Texture2D pixelTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            pixelTexture.SetPixel(0, 0, Color.white);
+            pixelTexture.Apply();
+            image.sprite = Sprite.Create(pixelTexture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+            image.color = new Color(0.85f, 0.85f, 0.85f, 1f);
+            Button button = buttonObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            if (pixel)
+                button.onClick.AddListener(PushButtonAdPixelSlot);
+            else
+                button.onClick.AddListener(PushButtonAdCharacterSlot);
+
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(buttonObject.transform, false);
+            RectTransform textRect = textObject.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(12f, 8f);
+            textRect.offsetMax = new Vector2(-12f, -8f);
+            Text text = textObject.AddComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.fontSize = 36;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.black;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.raycastTarget = false;
+            existing = buttonObject.transform;
+        }
+        existing.gameObject.SetActive(true);
+        existing.SetAsLastSibling();
+        Text label = existing.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = CanWatchAd(pixel) ? "+" : "クエストで上限が上がる";
+    }
+
+    sealed class RewardedInit : IUnityAdsInitializationListener
+    {
+        public void OnInitializationComplete()
+        {
+        }
+
+        public void OnInitializationFailed(UnityAdsInitializationError error, string message)
+        {
+            Debug.LogWarning("広告を初期化できませんでした。 " + message);
+        }
+    }
+
+    sealed class RewardedLoad : IUnityAdsLoadListener
+    {
+        readonly string _placement;
+        readonly Action _onLoaded;
+        readonly Action _onFailed;
+
+        public RewardedLoad(string placement, Action onLoaded, Action onFailed)
+        {
+            _placement = placement;
+            _onLoaded = onLoaded;
+            _onFailed = onFailed;
+        }
+
+        public void OnUnityAdsAdLoaded(string placementId)
+        {
+            if (placementId == _placement && _onLoaded != null)
+                _onLoaded();
+        }
+
+        public void OnUnityAdsFailedToLoad(string placementId, UnityAdsLoadError error, string message)
+        {
+            if (placementId != _placement)
+                return;
+            Debug.LogWarning("広告を読み込めませんでした。 " + message);
+            if (_onFailed != null)
+                _onFailed();
+        }
+    }
+
+    sealed class RewardedShow : IUnityAdsShowListener
+    {
+        readonly Action _onCompleted;
+        readonly Action _onClosed;
+
+        public RewardedShow(Action onCompleted, Action onClosed)
+        {
+            _onCompleted = onCompleted;
+            _onClosed = onClosed;
+        }
+
+        public void OnUnityAdsShowFailure(string placementId, UnityAdsShowError error, string message)
+        {
+            if (_onClosed != null)
+                _onClosed();
+        }
+
+        public void OnUnityAdsShowStart(string placementId)
+        {
+        }
+
+        public void OnUnityAdsShowClick(string placementId)
+        {
+        }
+
+        public void OnUnityAdsShowComplete(string placementId, UnityAdsShowCompletionState showCompletionState)
+        {
+            if (showCompletionState == UnityAdsShowCompletionState.COMPLETED)
+            {
+                if (_onCompleted != null)
+                    _onCompleted();
+                return;
+            }
+            if (_onClosed != null)
+                _onClosed();
+        }
     }
 
     static bool IsProductionWorkerButton(Button button)
