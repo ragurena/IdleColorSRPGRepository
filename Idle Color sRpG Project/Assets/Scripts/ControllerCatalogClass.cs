@@ -85,7 +85,7 @@ public class ControllerCatalogClass : MonoBehaviour
         });
 
         if (_count != null)
-            _count.text = "開いた " + opened.ToString() + " / " + total.ToString();
+            _count.text = "開いた " + UiNumber.Format(opened) + " / " + UiNumber.Format(total);
         ShowDetail();
     }
 
@@ -189,13 +189,13 @@ public class ControllerCatalogClass : MonoBehaviour
             expNeed = 1;
         long fusionCount = character.FusionCount > (ulong)long.MaxValue ? long.MaxValue : (long)character.FusionCount;
         _detail.text = character.Name + "\n"
-            + "Lv " + character.Level + "\n"
-            + "経験値 " + character.Exp + " / " + expNeed + "\n"
-            + "合成 " + fusionCount.ToString() + "回（+" + FusionBonus.Percent(fusionCount).ToString() + "%）\n"
+            + "Lv " + UiNumber.Format(character.Level) + "\n"
+            + "経験値 " + UiNumber.Format(character.Exp) + " / " + UiNumber.Format(expNeed) + "\n"
+            + "合成 " + UiNumber.Format(fusionCount) + "回（+" + FusionBonus.Percent(fusionCount).ToString() + "%）\n"
             + TypeName(character.CharacterType) + "    弱点 " + TypeName(character.WeaknessType) + "\n"
-            + "HP " + stats.HPMax + "\n"
-            + "ATK " + stats.ATK + "    DEF " + stats.DEF + "\n"
-            + "SPD " + stats.SPD + "    LUC " + stats.LUC + "\n"
+            + "HP " + UiNumber.Format(stats.HPMax) + "\n"
+            + "ATK " + UiNumber.Format(stats.ATK) + "    DEF " + UiNumber.Format(stats.DEF) + "\n"
+            + "SPD " + stats.SPD + "    LUC " + UiNumber.Format(stats.LUC) + "\n"
             + "代表 " + character.RepresentativeR + ", " + character.RepresentativeG + ", " + character.RepresentativeB + "\n"
             + "弱点色 " + character.WeaknessR + ", " + character.WeaknessG + ", " + character.WeaknessB + "\n"
             + "作者 " + _production.AuthorName(character) + "\n"

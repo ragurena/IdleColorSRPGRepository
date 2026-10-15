@@ -15,6 +15,7 @@ public class ControllerBattleClass : MonoBehaviour
     Text _logText;
     Button _fastButton;
     QuestBoard _questBoard;
+    Transform _questOverlay;
     GameObject _questBanner;
     Image _questBannerFill;
     Text _questBannerText;
@@ -771,6 +772,8 @@ public class ControllerBattleClass : MonoBehaviour
 
     void PushFast()
     {
+        if (_production == null || !_production.IsMainFeatureOpen(MainFeature.BattleSpeed))
+            return;
         if (_battleSpeed == 1)
             _battleSpeed = 2;
         else if (_battleSpeed == 2)
@@ -796,13 +799,24 @@ public class ControllerBattleClass : MonoBehaviour
         ApplySpeedButton();
     }
 
+    public void RefreshFeatureLocks()
+    {
+        ApplySpeedButton();
+    }
+
     void ApplySpeedButton()
     {
         if (_fastButton == null)
             return;
+        bool open = _production != null && _production.IsMainFeatureOpen(MainFeature.BattleSpeed);
+        _fastButton.interactable = open;
+        Image image = _fastButton.GetComponent<Image>();
+        if (image != null)
+            image.color = open ? new Color(0.25f, 0.45f, 0.75f, 1f) : new Color(0.45f, 0.45f, 0.45f, 1f);
         Text label = _fastButton.GetComponentInChildren<Text>();
         if (label == null)
             return;
+        label.color = open ? Color.white : new Color(0.62f, 0.62f, 0.62f, 1f);
         if (_battleSpeed == 2)
             label.text = "2倍";
         else if (_battleSpeed == 4)
@@ -955,17 +969,25 @@ public class ControllerBattleClass : MonoBehaviour
 
     public void Hide()
     {
-        if (_questBoard != null)
-            _questBoard.Close();
         if (_root != null)
             _root.SetActive(false);
     }
 
     public void RefreshQuestBoard()
     {
+        BringQuestForward();
         if (_questBoard != null)
             _questBoard.Refresh();
         RefreshQuestBanner();
+    }
+
+    public void BringQuestForward()
+    {
+        if (_questOverlay == null || _questOverlay.parent == null)
+            return;
+        int last = _questOverlay.parent.childCount - 1;
+        if (_questOverlay.GetSiblingIndex() != last)
+            _questOverlay.SetAsLastSibling();
     }
 
     void ShowIdle()
@@ -1057,18 +1079,35 @@ public class ControllerBattleClass : MonoBehaviour
         _fastButton.onClick.AddListener(PushFast);
         ApplySpeedButton();
 
-        Button quest = CreateButton("ButtonBattleQuest", "クエスト", new Color(0.62f, 0.46f, 0.16f, 1f));
-        PlaceRect(quest.GetComponent<RectTransform>(), 430f, 177f, 150f, 150f);
-        quest.onClick.AddListener(ToggleQuest);
-        BuildQuestBanner();
-        _questBoard = new QuestBoard();
-        _questBoard.Build(_root.transform, _font, _production);
+        BuildQuestAccess();
     }
 
-    void BuildQuestBanner()
+    // クエストボタン、達成率、一覧はバトル画面の外に置く。バトルを閉じていても見える。
+    void BuildQuestAccess()
     {
-        Image track = CreateImage("ImageBattleQuestBanner", _root.transform, new Color(0.10f, 0.12f, 0.16f, 0.95f));
-        PlaceRect(track.rectTransform, -92f, 231f, 870f, 56f);
+        Transform canvas = _root.transform.parent != null ? _root.transform.parent : _root.transform;
+        GameObject overlay = new GameObject("PanelQuestAccess", typeof(RectTransform));
+        overlay.transform.SetParent(canvas, false);
+        Stretch(overlay.GetComponent<RectTransform>());
+        _questOverlay = overlay.transform;
+
+        RectTransform battleRect = _root.GetComponent<RectTransform>();
+        Vector2 battlePos = battleRect != null ? battleRect.anchoredPosition : new Vector2(0f, 745f);
+        BuildQuestBanner(battlePos);
+
+        Button quest = CreateButton("ButtonBattleQuest", "クエスト", new Color(0.62f, 0.46f, 0.16f, 1f), _questOverlay);
+        PlaceRect(quest.GetComponent<RectTransform>(), battlePos.x + 430f, battlePos.y + 177f, 150f, 150f);
+        quest.onClick.AddListener(ToggleQuest);
+
+        _questBoard = new QuestBoard();
+        _questBoard.Build(_questOverlay, _font, _production);
+        BringQuestForward();
+    }
+
+    void BuildQuestBanner(Vector2 battlePos)
+    {
+        Image track = CreateImage("ImageBattleQuestBanner", _questOverlay, new Color(0.10f, 0.12f, 0.16f, 0.95f));
+        PlaceRect(track.rectTransform, battlePos.x - 92f, battlePos.y + 231f, 870f, 56f);
         track.raycastTarget = false;
         _questBanner = track.gameObject;
 
@@ -1106,6 +1145,7 @@ public class ControllerBattleClass : MonoBehaviour
             if (shown == null || def.Id < shown.Id)
                 shown = def;
         }
+        // 一覧は受取可が上。バーはそれとは別に、出ている未受取の最小番号。
         if (shown == null)
         {
             _questBanner.SetActive(false);
@@ -1113,6 +1153,10 @@ public class ControllerBattleClass : MonoBehaviour
         }
         _questBanner.SetActive(true);
         _questBannerText.text = shown.Title;
+        bool cleared = _production.IsQuestCleared(shown);
+        _questBannerFill.color = cleared
+            ? new Color(0.95f, 0.78f, 0.18f, 1f)
+            : new Color(0.32f, 0.72f, 0.4f, 1f);
         float rate = _production.QuestBar(shown);
         if (rate < 0f)
             rate = 0f;
@@ -1377,7 +1421,12 @@ public class ControllerBattleClass : MonoBehaviour
 
     Button CreateButton(string name, string label, Color color)
     {
-        Image image = CreateImage(name, _root.transform, color);
+        return CreateButton(name, label, color, _root.transform);
+    }
+
+    Button CreateButton(string name, string label, Color color, Transform parent)
+    {
+        Image image = CreateImage(name, parent, color);
         Button button = image.gameObject.AddComponent<Button>();
         Text text = CreateText("Text", image.transform, 22, TextAnchor.MiddleCenter);
         Stretch(text.rectTransform);
@@ -1439,7 +1488,7 @@ public class ControllerBattleClass : MonoBehaviour
                 exp = (exp + 1) / 2;
             int levels = _view._production.GrantBattleExp(ally, exp, _view._config);
             if (exp > 0)
-                _view.AddLog(ally.Name + " 経験値 +" + exp.ToString());
+                _view.AddLog(ally.Name + " 経験値 +" + UiNumber.Format(exp));
             if (levels > 0)
                 _view.AddLog(ally.Name + " レベル " + levels.ToString() + " 上昇");
         }
@@ -1460,6 +1509,11 @@ public class ControllerBattleClass : MonoBehaviour
         {
             _view._production.NoteEnemyDefeat();
             _view._production.MarkCatalogDefeated(characterId);
+        }
+
+        public bool IsGuaranteedRecruit()
+        {
+            return _view._production != null && _view._production.IsNextEnemyDefeatGuaranteedRecruit();
         }
     }
 }

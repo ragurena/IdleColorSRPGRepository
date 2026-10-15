@@ -749,19 +749,19 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             if (argButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
             {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateR/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].RCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateR/sec : " + UiNumber.Format(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].RCreates);
                 GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
             }
             else
             if (argButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
             {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateG/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].GCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateG/sec : " + UiNumber.Format(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].GCreates);
                 GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
             }
             else
             if (argButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
             {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateB/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].BCreates.ToString();
+                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateB/sec : " + UiNumber.Format(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].BCreates);
                 GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
             }
         }
@@ -1189,21 +1189,21 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (PersonBalance == null || person == null)
             return "";
         if (source != null && source.name.Contains("RProductionHelpCharacter"))
-            return "R " + person.RgbAmount(0, PersonBalance).ToString() + "/秒";
+            return "R " + UiNumber.Format(person.RgbAmount(0, PersonBalance)) + "/秒";
         if (source != null && source.name.Contains("GProductionHelpCharacter"))
-            return "G " + person.RgbAmount(1, PersonBalance).ToString() + "/秒";
+            return "G " + UiNumber.Format(person.RgbAmount(1, PersonBalance)) + "/秒";
         if (source != null && source.name.Contains("BProductionHelpCharacter"))
-            return "B " + person.RgbAmount(2, PersonBalance).ToString() + "/秒";
+            return "B " + UiNumber.Format(person.RgbAmount(2, PersonBalance)) + "/秒";
         if (source != null && source.name.Contains("ButtonPixelProductionCharacter"))
         {
             int index = ControllerProduction.ProductionSlotIndex(source.name);
             int r = CharacterClass.ColorByte(ColorProductionPixel[index].r);
             int g = CharacterClass.ColorByte(ColorProductionPixel[index].g);
             int b = CharacterClass.ColorByte(ColorProductionPixel[index].b);
-            return person.PixelAmount(r, g, b, PersonBalance).ToString() + " px";
+            return UiNumber.Format(person.PixelAmount(r, g, b, PersonBalance)) + " px";
         }
         if (source != null && source.name.Contains("ButtonCharacterProductionCharacter"))
-            return person.CharacterAmount(false, PersonBalance).ToString() + " /秒";
+            return UiNumber.Format(person.CharacterAmount(false, PersonBalance)) + " /秒";
         return "バトル Lv" + person.BattleLevel.ToString();
     }
 

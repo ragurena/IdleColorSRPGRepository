@@ -176,7 +176,7 @@ public class ControllerBattlePartyClass : MonoBehaviour
 
         TextBattlePartyTotal.text = memberNum.ToString() + "/" + (Constants.BATTLE_FORMATION_SIZE * Constants.BATTLE_FORMATION_SIZE).ToString()
                                     + "   人 " + personNum.ToString() + "/" + Constants.BATTLE_PERSON_SLOT_NUM.ToString()
-                                    + "   HP " + totalHP + "   ATK " + totalATK + "   DEF " + totalDEF;
+                                    + "   HP " + UiNumber.Format(totalHP) + "   ATK " + UiNumber.Format(totalATK) + "   DEF " + UiNumber.Format(totalDEF);
 
         ButtonClearBattleParty.interactable = !isActiveSet && (memberNum > 0 || personNum > 0);
         PlacePersonSlots();

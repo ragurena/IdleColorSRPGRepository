@@ -212,15 +212,15 @@ public class ControllerFusionClass : MonoBehaviour
         long createG = (long)character.Stats[0].GCreates;
         long createB = (long)character.Stats[0].BCreates;
         _detail.text = character.Name + "\n"
-            + "合成 " + count.ToString() + "回（+" + FusionBonus.Percent(count).ToString() + "%）\n"
+            + "合成 " + UiNumber.Format(count) + "回（+" + FusionBonus.Percent(count).ToString() + "%）\n"
             + "次は " + cost.ToString() + "体で +" + FusionBonus.PercentPerFusion.ToString() + "%（+" + FusionBonus.Percent(count + 1).ToString() + "%）\n"
             + "残機 " + lives.ToString() + " → " + (lives - cost).ToString() + "\n"
-            + "HP " + hp.ToString() + " → " + NextStat(hp, grownHp, count).ToString() + "\n"
-            + "ATK " + atk.ToString() + " → " + NextStat(atk, grownAtk, count).ToString() + "\n"
-            + "DEF " + def.ToString() + " → " + NextStat(def, grownDef, count).ToString() + "\n"
-            + "R " + createR.ToString() + " → " + NextStat(createR, grownR, count).ToString() + "\n"
-            + "G " + createG.ToString() + " → " + NextStat(createG, grownG, count).ToString() + "\n"
-            + "B " + createB.ToString() + " → " + NextStat(createB, grownB, count).ToString();
+            + "HP " + UiNumber.Format(hp) + " → " + UiNumber.Format(NextStat(hp, grownHp, count)) + "\n"
+            + "ATK " + UiNumber.Format(atk) + " → " + UiNumber.Format(NextStat(atk, grownAtk, count)) + "\n"
+            + "DEF " + UiNumber.Format(def) + " → " + UiNumber.Format(NextStat(def, grownDef, count)) + "\n"
+            + "R " + UiNumber.Format(createR) + " → " + UiNumber.Format(NextStat(createR, grownR, count)) + "\n"
+            + "G " + UiNumber.Format(createG) + " → " + UiNumber.Format(NextStat(createG, grownG, count)) + "\n"
+            + "B " + UiNumber.Format(createB) + " → " + UiNumber.Format(NextStat(createB, grownB, count));
     }
 
     static long NextStat(long current, long grown, long fusionCount)

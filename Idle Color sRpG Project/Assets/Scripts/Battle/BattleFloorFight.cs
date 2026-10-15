@@ -15,6 +15,7 @@ public interface IBattleRewardSink
     void GrantItem(int itemId, int count);
     void Recruit(uint characterId);
     void NoteDefeated(uint characterId);
+    bool IsGuaranteedRecruit();
 }
 
 public struct BattleAttackResult
@@ -262,7 +263,7 @@ public static class BattleDefeatProcessor
             sink.GrantItem(config.ResolveExpOrbItemId(enemy.Size), 1);
 
         double recruitProbability = BattleRewardCalculator.RecruitProbability(killer.Luc, killer.Obs, config);
-        if (rng.NextDouble() < recruitProbability)
+        if (sink.IsGuaranteedRecruit() || (rng != null && rng.NextDouble() < recruitProbability))
             sink.Recruit(enemy.CharacterId);
 
         sink.NoteDefeated(enemy.CharacterId);

@@ -36,8 +36,6 @@ public class ControllerBattleStageClass : MonoBehaviour
     [SerializeField] Button ButtonBattleRepeat;
     Button ButtonGalleryStage;
 
-    const int RepeatUnlockStage = 1;
-    const int RepeatUnlockFloor = 50;
 
     Color RepeatLabelColor = Color.black;
     bool RepeatLabelColorStored;
@@ -227,8 +225,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     bool IsRepeatUnlocked()
     {
-        return ControllerProduction != null
-            && ControllerProduction.GetHighestClearedBattleFloor(RepeatUnlockStage) >= RepeatUnlockFloor;
+        return ControllerProduction != null && ControllerProduction.IsMainFeatureOpen(MainFeature.FloorRepeat);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -366,9 +363,9 @@ public class ControllerBattleStageClass : MonoBehaviour
         if (TextBattleStagePartyTotal != null)
         {
             TextBattleStagePartyTotal.text = memberNum.ToString() + "/" + (Constants.BATTLE_FORMATION_SIZE * Constants.BATTLE_FORMATION_SIZE).ToString() + "人\n"
-                + "HP " + totalHP + "\n"
-                + "ATK " + totalATK + "\n"
-                + "DEF " + totalDEF;
+                + "HP " + UiNumber.Format(totalHP) + "\n"
+                + "ATK " + UiNumber.Format(totalATK) + "\n"
+                + "DEF " + UiNumber.Format(totalDEF);
             TextBattleStagePartyTotal.horizontalOverflow = HorizontalWrapMode.Overflow;
             TextBattleStagePartyTotal.verticalOverflow = VerticalWrapMode.Overflow;
         }
@@ -402,7 +399,7 @@ public class ControllerBattleStageClass : MonoBehaviour
                     repeatLabel.color = new Color(0.28f, 0.28f, 0.28f, 1f);
                     repeatLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
                     repeatLabel.verticalOverflow = VerticalWrapMode.Overflow;
-                    repeatLabel.text = "繰り返し\n" + GetStageName(RepeatUnlockStage) + "の" + RepeatUnlockFloor.ToString() + "階をクリアすると開く";
+                    repeatLabel.text = "繰り返し\nクエストを受け取ると開く";
                 }
             }
             else
@@ -570,9 +567,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         if (ButtonGalleryStage == null || ControllerProduction == null)
             return;
 
-        bool prairieCleared = ControllerProduction.GetClearedBattleStage() >= 1;
-        bool hasImported = ImportedCharacters.Count > 0;
-        bool open = prairieCleared && hasImported;
+        bool open = ControllerProduction.CanEnterStage(Constants.BATTLE_STAGE_GALLERY);
         bool sortieing = activeStage == Constants.BATTLE_STAGE_GALLERY;
         ButtonGalleryStage.interactable = open || sortieing;
 
@@ -588,10 +583,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             ButtonGalleryStage.image.color = ColorStageLocked;
             if (label == null)
                 return;
-            if (!prairieCleared)
-                label.text = "ギャラリー\n" + GetStageName(1) + "をクリアすると開く";
-            else
-                label.text = "ギャラリー\n読み込んだキャラがいない";
+            label.text = "ギャラリー\nキャラ読込のクエストをクリアすると開く";
             return;
         }
 

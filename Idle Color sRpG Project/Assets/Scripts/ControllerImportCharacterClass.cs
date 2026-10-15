@@ -46,7 +46,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
     public void Refresh()
     {
         if (_count != null && _production != null)
-            _count.text = "自作 " + _production.ImportedCharacterCount().ToString() + " / " + ImportedCharacters.ImportCap.ToString()
+            _count.text = "自作 " + UiNumber.Format(_production.ImportedCharacterCount()) + " / " + UiNumber.Format(ImportedCharacters.ImportCap)
                 + "\nクエストクリアなどで上限が増えます";
         if (_sizes != null && _production != null)
             _sizes.text = ImportSizeRules.Describe(_production.GetClearedBattleStage());
@@ -195,10 +195,10 @@ public class ControllerImportCharacterClass : MonoBehaviour
         StatisticsClass stats = character.Stats[0];
         return "一辺 " + character.Size.ToString() + "\n"
             + TypeName(character.CharacterType) + "    弱点 " + TypeName(character.WeaknessType) + "\n"
-            + "HP " + stats.HPMax.ToString() + "\n"
-            + "ATK " + stats.ATK.ToString() + "    DEF " + stats.DEF.ToString() + "\n"
-            + "SPD " + stats.SPD.ToString() + "    LUC " + stats.LUC.ToString() + "\n"
-            + "R " + stats.RCreates.ToString() + "    G " + stats.GCreates.ToString() + "    B " + stats.BCreates.ToString();
+            + "HP " + UiNumber.Format(stats.HPMax) + "\n"
+            + "ATK " + UiNumber.Format(stats.ATK) + "    DEF " + UiNumber.Format(stats.DEF) + "\n"
+            + "SPD " + stats.SPD.ToString() + "    LUC " + UiNumber.Format(stats.LUC) + "\n"
+            + "R " + UiNumber.Format(stats.RCreates) + "    G " + UiNumber.Format(stats.GCreates) + "    B " + UiNumber.Format(stats.BCreates);
     }
 
     static string TypeName(CharacterType type)

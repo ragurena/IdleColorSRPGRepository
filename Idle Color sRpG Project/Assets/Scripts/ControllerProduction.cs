@@ -77,6 +77,8 @@ public class ControllerProduction : MonoBehaviour
     Color FusionButtonImageColor = Color.white;
     Color FusionButtonTextColor = Color.white;
     bool FusionButtonColorsStored;
+    readonly Dictionary<string, Color> FeatureButtonImageColors = new Dictionary<string, Color>();
+    readonly Dictionary<string, Color> FeatureButtonTextColors = new Dictionary<string, Color>();
     BattleBalanceConfig BattleBalance = BattleBalanceConfig.CreateDefault();
     Dictionary<int, int> ItemCounts = new Dictionary<int, int>();
     bool SaveBlocked;
@@ -471,6 +473,9 @@ public class ControllerProduction : MonoBehaviour
                 NotShowPanel(PanelImport);
         }
         WireSelectScenePages();
+        ApplyMainFeatureLocks();
+        if (ControllerBattle != null)
+            ControllerBattle.BringQuestForward();
 
         PushButtonSelectSceneRGBProduction();
         if (ControllerBattle != null)
@@ -1132,6 +1137,9 @@ public class ControllerProduction : MonoBehaviour
     //ピクセル生産シーンボタンが押されたら
     public void PushButtonSelectScenePixelProduction()
     {
+        if (!IsMainFeatureOpen(MainFeature.PixelScreen))
+            return;
+
         //PanelPixelProductionの表示
         ShowPanel(PanelPixelProduction);
         //UIの更新
@@ -1153,6 +1161,9 @@ public class ControllerProduction : MonoBehaviour
     //キャラクター生産シーンボタンが押されたら
     public void PushButtonSelectSceneCharacterProduction()
     {
+        if (!IsMainFeatureOpen(MainFeature.CharacterScreen))
+            return;
+
         //PanelCharacterProductionの表示
         ShowPanel(PanelCharacterProduction);
 
@@ -1175,6 +1186,9 @@ public class ControllerProduction : MonoBehaviour
     //バトル編成シーンボタンが押されたら
     public void PushButtonSelectSceneBattleParty()
     {
+        if (!IsMainFeatureOpen(MainFeature.Battle))
+            return;
+
         //PanelBattlePartyの表示
         ShowPanel(PanelBattleParty);
         //UIの更新
@@ -1197,6 +1211,8 @@ public class ControllerProduction : MonoBehaviour
     //バトルステージ選択シーンボタンが押されたら
     public void PushButtonSelectSceneBattleStage()
     {
+        if (!IsMainFeatureOpen(MainFeature.Battle))
+            return;
         if (PanelBattleStage == null)
             return;
 
@@ -1697,6 +1713,13 @@ public class ControllerProduction : MonoBehaviour
         Quests.EnemyDefeats++;
     }
 
+    public bool IsNextEnemyDefeatGuaranteedRecruit()
+    {
+        if (!Quests.DefaultsApplied || Quests.EnemyDefeats >= ulong.MaxValue)
+            return false;
+        return BattleRewardCalculator.IsGuaranteedRecruitCount(Quests.EnemyDefeats + 1);
+    }
+
     public void MarkCatalogDefeated(uint characterId)
     {
         CharacterClass character = GetCharacter(characterId);
@@ -1950,6 +1973,11 @@ public class ControllerProduction : MonoBehaviour
     //色選択ボタンが押されたら
     public void PushButtonSelectColor(string argButtonName)
     {
+        if (argButtonName != null
+            && argButtonName.Contains("ButtonPixelProductionPixelColor")
+            && !IsMainFeatureOpen(MainFeature.PixelTargets))
+            return;
+
         //どのボタンで呼び出されたか保存
         ButtonColorTmp = GameObject.Find(argButtonName).GetComponent<Button>();
 
@@ -2832,8 +2860,21 @@ public class ControllerProduction : MonoBehaviour
     public bool CanEnterStage(int stageIndex)
     {
         if (stageIndex == Constants.BATTLE_STAGE_GALLERY)
-            return ClearedBattleStage >= 1 && ImportedCharacters.Count > 0;
+            return HasClearedImportQuest();
         return IsBattleStageUnlocked(stageIndex);
+    }
+
+    public bool HasClearedImportQuest()
+    {
+        EnsureQuestDefaults();
+        LatchQuests();
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i].Metric == QuestMetric.ImportedOfSize && IsQuestCleared(all[i]))
+                return true;
+        }
+        return false;
     }
 
     public void CollectImportedCharacterIds(List<uint> ids)
@@ -3053,7 +3094,7 @@ public class ControllerProduction : MonoBehaviour
 
     public string GetRgbText()
     {
-        return "R " + CurR.ToString() + "   G " + CurG.ToString() + "   B " + CurB.ToString();
+        return "R " + UiNumber.Format(CurR) + "   G " + UiNumber.Format(CurG) + "   B " + UiNumber.Format(CurB);
     }
 
     public void AddBattleRgb(CharacterAttribute attribute, long amount)
@@ -3663,9 +3704,9 @@ public class ControllerProduction : MonoBehaviour
     {
         UpdateRGBProductionSliderOneColor(TextColorValue, ColorValue, MaxValue, SliderColorValue, SliderCostIncrease, SliderCostMaxValueUp);
 
-        TextIncreaseValueLeft.text = string.Format("+{0}", IncreaseValue);
-        TextIncreaseValueRight.text = string.Format("+{0}", IncreaseValue);
-        TextCostIncreaseValueUp.text = string.Format("コスト : {0}", CostIncreaseUp);
+        TextIncreaseValueLeft.text = "+" + UiNumber.Format(IncreaseValue);
+        TextIncreaseValueRight.text = "+" + UiNumber.Format(IncreaseValue);
+        TextCostIncreaseValueUp.text = "コスト : " + UiNumber.Format(CostIncreaseUp);
         SliderCostIncrease.maxValue = CostIncreaseUp;
         SliderCostIncrease.minValue = 0;
         SliderCostIncrease.value = ColorValue;
@@ -3678,7 +3719,7 @@ public class ControllerProduction : MonoBehaviour
             ButtonIncreaseValueUp.interactable = true;
         }
 
-        TextCostMaxValueUp.text = string.Format("コスト : {0}", CostMaxValueUp);
+        TextCostMaxValueUp.text = "コスト : " + UiNumber.Format(CostMaxValueUp);
         SliderCostMaxValueUp.maxValue = CostMaxValueUp;
         SliderCostMaxValueUp.minValue = 0;
         SliderCostMaxValueUp.value = ColorValue;
@@ -3693,7 +3734,7 @@ public class ControllerProduction : MonoBehaviour
     }
     public void UpdateRGBProductionSliderOneColor(Text TextColorValue, ulong ColorValue, ulong MaxValue, Slider SliderColorValue, Slider SliderCostIncrease, Slider SliderCostMaxValueUp)
     {
-        TextColorValue.text = string.Format("{0} / {1}", ColorValue, MaxValue);
+        TextColorValue.text = UiNumber.Format(ColorValue) + " / " + UiNumber.Format(MaxValue);
         SliderColorValue.maxValue = MaxValue;
         SliderColorValue.minValue = 0;
         SliderColorValue.value = ColorValue;
@@ -4112,13 +4153,20 @@ public class ControllerProduction : MonoBehaviour
         Content.GetComponentsInChildren<Button>()[1].image.GetComponentInChildren<Text>().text
             = "#" + (ColorByte(ColorProductionPixel[argIndex].r)).ToString("X2") + (ColorByte(ColorProductionPixel[argIndex].g)).ToString("X2") + (ColorByte(ColorProductionPixel[argIndex].b)).ToString("X2");
 
+        Button colorButton = Content.GetComponentsInChildren<Button>()[1];
+        bool targetsOpen = IsMainFeatureOpen(MainFeature.PixelTargets);
+        ColorBlock colors = colorButton.colors;
+        colors.disabledColor = Color.white;
+        colorButton.colors = colors;
+        colorButton.interactable = targetsOpen;
+
         if (((ColorProductionPixel[argIndex].r + ColorProductionPixel[argIndex].g + ColorProductionPixel[argIndex].b) / 3.0f) < 0.5f)
         {
-            Content.GetComponentsInChildren<Button>()[1].image.GetComponentInChildren<Text>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            colorButton.image.GetComponentInChildren<Text>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
         }
         else
         {
-            Content.GetComponentsInChildren<Button>()[1].image.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            colorButton.image.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
 
         //RGB値の表示
@@ -4232,8 +4280,8 @@ public class ControllerProduction : MonoBehaviour
         int value = ColorByte(color01);
         long total = (long)value * pixelCount;
         text.text = channel + " " + value.ToString() + "\n"
-            + "× " + pixelCount.ToString() + " px\n"
-            + "= " + total.ToString();
+            + "× " + UiNumber.Format(pixelCount) + " px\n"
+            + "= " + UiNumber.Format(total);
     }
     public void UpdateSliderPixelProduction(int argIndex)
     {
@@ -5275,7 +5323,7 @@ public class ControllerProduction : MonoBehaviour
         ulong target = QuestTarget(def);
         if (target > 0 && current > target)
             current = target;
-        string text = current.ToString() + "/" + target.ToString();
+        string text = UiNumber.Format(current) + "/" + UiNumber.Format(target);
         if (def != null && def.Metric == QuestMetric.StageFloor)
             text += "階";
         return text;
@@ -5298,7 +5346,7 @@ public class ControllerProduction : MonoBehaviour
             return "";
         if (def.Reward == QuestRewardKind.RgbAll)
             return RgbRewardClips(def.RewardAmount) ? "上限を超える分は破棄されます" : "";
-        if (def.Reward == QuestRewardKind.ChooseSlots)
+        if (def.Reward == QuestRewardKind.ChooseSlots || def.Reward == QuestRewardKind.TapChooseSlot)
         {
             bool pixelFull = Slots.PixelSlots >= Constants.PRODUCTION_SLOT_MAX;
             bool characterFull = Slots.CharacterSlots >= Constants.PRODUCTION_SLOT_MAX;
@@ -5334,7 +5382,7 @@ public class ControllerProduction : MonoBehaviour
         QuestDef def = QuestCatalog.Find(id);
         if (def == null || !IsQuestClaimable(def))
             return false;
-        if (def.Reward == QuestRewardKind.ChooseSlots)
+        if (QuestCatalog.ChoosesProductionSlot(def))
         {
             if (choice != 1 && choice != 2)
                 return false;
@@ -5351,17 +5399,25 @@ public class ControllerProduction : MonoBehaviour
             Slots.ClaimedQuests++;
         ImportedCharacters.SetImportCap(Quests.ImportCap);
         RefreshUnlockedProductionSlots();
+        ApplyMainFeatureLocks();
+        if (ControllerBattleStage != null)
+            ControllerBattleStage.Refresh();
         UpdateRGBProductionScene();
+        RefreshProductionFigures();
         SaveGame();
         return true;
     }
 
     void ApplyQuestReward(QuestDef def, int choice)
     {
-        if (def.Reward == QuestRewardKind.ChooseSlots)
+        if (def.Reward == QuestRewardKind.ChooseSlots || def.Reward == QuestRewardKind.TapChooseSlot)
         {
             int amount = def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount;
+            if (amount < 1)
+                amount = 1;
             AddProductionSlots(amount, choice == 1, choice == 2);
+            if (def.Reward == QuestRewardKind.TapChooseSlot)
+                BoostButtonTapAmounts();
         }
         else if (def.Reward == QuestRewardKind.ImportCap)
             RaiseImportCap(1);
@@ -5394,6 +5450,8 @@ public class ControllerProduction : MonoBehaviour
             FusionBonus.ExtraPercent = Quests.FusionEfficiency;
             RebuildAllCharacterStats();
         }
+        else if (def.Reward == QuestRewardKind.GrantPalette)
+            GrantProduciblePixels(def.RewardAmount > 0 ? (ulong)def.RewardAmount : 0);
     }
 
     void RaiseImportCap(int amount)
@@ -5445,6 +5503,7 @@ public class ControllerProduction : MonoBehaviour
         RebuildAllCharacterStats();
         RefreshUnlockedProductionSlots();
         ApplyFusionButtonLock();
+        ApplyMainFeatureLocks();
     }
 
     void MigrateLegacyInitialSlots()
@@ -5493,6 +5552,15 @@ public class ControllerProduction : MonoBehaviour
     {
         if (def == null)
             return false;
+        if (def.Main)
+        {
+            if (IsQuestClaimed(def))
+                return false;
+            QuestDef previousMain = QuestCatalog.PreviousMain(def);
+            if (previousMain != null && !IsQuestCleared(previousMain))
+                return false;
+            return true;
+        }
         if (def.Metric == QuestMetric.StageFloor && def.Arg == Constants.BATTLE_STAGE_NUM)
         {
             if (!IsBattleStageUnlocked(def.Arg - 1) && !IsQuestCleared(def) && !IsQuestClaimed(def))
@@ -5575,7 +5643,143 @@ public class ControllerProduction : MonoBehaviour
             int count = ImportedCharacters.CountOfSize(def.Arg);
             return count > 0 ? (ulong)count : 0;
         }
+        if (def.Metric == QuestMetric.FusionCount)
+            return SumFusionCount();
+        if (def.Metric == QuestMetric.StageCompanions)
+            return CountStageCompanions();
+        if (def.Metric == QuestMetric.RgbHeld)
+            return LowestRgbHeld();
+        if (def.Metric == QuestMetric.BlackPixels)
+            return PixelStock(0, 0, 0);
+        if (def.Metric == QuestMetric.PrimaryPixels)
+            return LowestPrimaryPixel();
+        if (def.Metric == QuestMetric.MiniSlimes)
+            return LowestMiniSlimeOwned();
         return 0;
+    }
+
+    public bool IsMainFeatureOpen(int feature)
+    {
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            QuestDef def = all[i];
+            if (def == null || !def.Main || def.Reward != QuestRewardKind.UnlockFeature || def.RewardAmount != feature)
+                continue;
+            return IsQuestClaimed(def);
+        }
+        return false;
+    }
+
+    void ApplyMainFeatureLocks()
+    {
+        SetFeatureButton("ButtonSelectScenePixelProduction", IsMainFeatureOpen(MainFeature.PixelScreen));
+        SetFeatureButton("ButtonSelectSceneCharacterProduction", IsMainFeatureOpen(MainFeature.CharacterScreen));
+        SetFeatureButton("ButtonSelectSceneBattleParty", IsMainFeatureOpen(MainFeature.Battle));
+        SetFeatureButton("ButtonSelectSceneBattleStage", IsMainFeatureOpen(MainFeature.Battle));
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshFeatureLocks();
+    }
+
+    void SetFeatureButton(string name, bool open)
+    {
+        GameObject bar = GameObject.Find("PanelSelectScene");
+        if (bar == null)
+            return;
+        Transform child = bar.transform.Find(name);
+        if (child == null)
+            return;
+        Button button = child.GetComponent<Button>();
+        if (button == null)
+            return;
+
+        Image image = button.GetComponent<Image>();
+        Text label = button.GetComponentInChildren<Text>();
+        if (!FeatureButtonImageColors.ContainsKey(name))
+        {
+            if (image != null)
+                FeatureButtonImageColors[name] = image.color;
+            if (label != null)
+                FeatureButtonTextColors[name] = label.color;
+        }
+
+        button.interactable = open;
+        Color imageColor;
+        if (image != null && FeatureButtonImageColors.TryGetValue(name, out imageColor))
+            image.color = open ? imageColor : new Color(0.45f, 0.45f, 0.45f, imageColor.a);
+        Color textColor;
+        if (label != null && FeatureButtonTextColors.TryGetValue(name, out textColor))
+            label.color = open ? textColor : new Color(0.62f, 0.62f, 0.62f, textColor.a);
+    }
+
+    static readonly int[] ProducibleChannels = { 0, 32, 64, 96, 128, 160, 192, 224, 255 };
+
+    void GrantProduciblePixels(ulong amount)
+    {
+        if (amount == 0 || CurPixels == null)
+            return;
+        for (int r = 0; r < ProducibleChannels.Length; r++)
+        {
+            for (int g = 0; g < ProducibleChannels.Length; g++)
+            {
+                for (int b = 0; b < ProducibleChannels.Length; b++)
+                {
+                    int red = ProducibleChannels[r];
+                    int green = ProducibleChannels[g];
+                    int blue = ProducibleChannels[b];
+                    ulong stock = CurPixels[red, green, blue];
+                    CurPixels[red, green, blue] = stock > ulong.MaxValue - amount ? ulong.MaxValue : stock + amount;
+                }
+            }
+        }
+    }
+
+    ulong LowestRgbHeld()
+    {
+        ulong lowest = CurR;
+        if (CurG < lowest)
+            lowest = CurG;
+        if (CurB < lowest)
+            lowest = CurB;
+        return lowest;
+    }
+
+    ulong PixelStock(int r, int g, int b)
+    {
+        if (CurPixels == null || r < 0 || g < 0 || b < 0 || r > 255 || g > 255 || b > 255)
+            return 0;
+        return CurPixels[r, g, b];
+    }
+
+    ulong LowestPrimaryPixel()
+    {
+        ulong lowest = PixelStock(255, 0, 0);
+        ulong green = PixelStock(0, 255, 0);
+        ulong blue = PixelStock(0, 0, 255);
+        if (green < lowest)
+            lowest = green;
+        if (blue < lowest)
+            lowest = blue;
+        return lowest;
+    }
+
+    ulong LowestMiniSlimeOwned()
+    {
+        ulong lowest = OwnedCount(1);
+        ulong green = OwnedCount(2);
+        ulong blue = OwnedCount(3);
+        if (green < lowest)
+            lowest = green;
+        if (blue < lowest)
+            lowest = blue;
+        return lowest;
+    }
+
+    ulong OwnedCount(int id)
+    {
+        if (CharactersAll == null || id < 0 || id >= CharactersAll.Length || CharactersAll[id] == null)
+            return 0;
+        return CharactersAll[id].OwnedNumCur;
     }
 
     bool RgbRewardClips(long amount)
@@ -5626,6 +5830,105 @@ public class ControllerProduction : MonoBehaviour
         if (!Quests.DefaultsApplied || Quests.GalleryClears >= long.MaxValue)
             return;
         Quests.GalleryClears++;
+    }
+
+    void BoostButtonTapAmounts()
+    {
+        IncreaseValueR = BoostTapAmount(IncreaseValueR);
+        IncreaseValueG = BoostTapAmount(IncreaseValueG);
+        IncreaseValueB = BoostTapAmount(IncreaseValueB);
+    }
+
+    static ulong BoostTapAmount(ulong value)
+    {
+        if (value == 0)
+            return 0;
+        if (value > (ulong.MaxValue - 99) / 110)
+            return ulong.MaxValue;
+        ulong boosted = (value * 110 + 99) / 100;
+        if (boosted <= value)
+            boosted = value + 1;
+        return boosted;
+    }
+
+    readonly HashSet<uint> StageCharacterIds = new HashSet<uint>();
+    bool StageCharacterIdsReady;
+
+    ulong CountStageCompanions()
+    {
+        EnsureStageCharacterIds();
+        ulong count = 0;
+        foreach (uint id in StageCharacterIds)
+        {
+            if (id == 0 || CharactersAll == null || id >= CharactersAll.Length)
+                continue;
+            CharacterClass character = CharactersAll[id];
+            if (character == null || character.ID != id || character.OwnedNumMax == 0)
+                continue;
+            count++;
+        }
+        return count;
+    }
+
+    void EnsureStageCharacterIds()
+    {
+        if (StageCharacterIdsReady)
+            return;
+        StageCharacterIds.Clear();
+        for (int stage = 1; stage <= Constants.BATTLE_STAGE_NUM; stage++)
+        {
+            StageBattleContent content = BattleStageCatalog.Get(stage);
+            if (content == null)
+                continue;
+            if (content.Bands != null)
+            {
+                for (int bandIndex = 0; bandIndex < content.Bands.Length; bandIndex++)
+                {
+                    FloorBandSpawn band = content.Bands[bandIndex];
+                    if (band == null || band.Entries == null)
+                        continue;
+                    for (int entryIndex = 0; entryIndex < band.Entries.Count; entryIndex++)
+                    {
+                        EnemySpawnEntry entry = band.Entries[entryIndex];
+                        if (entry != null && entry.CharacterId != 0)
+                            StageCharacterIds.Add(entry.CharacterId);
+                    }
+                }
+            }
+            if (content.Bosses == null)
+                continue;
+            for (int bossIndex = 0; bossIndex < content.Bosses.Count; bossIndex++)
+            {
+                BossFloorSpawn boss = content.Bosses[bossIndex];
+                if (boss != null && boss.CharacterId != 0)
+                    StageCharacterIds.Add(boss.CharacterId);
+            }
+        }
+        StageCharacterIdsReady = true;
+    }
+
+    ulong SumFusionCount()
+    {
+        ulong sum = 0;
+        if (CharactersAll != null)
+        {
+            int last = CharactersAll.Length - 1;
+            if (last > Constants.CHARACTERS_ALL_NUM)
+                last = Constants.CHARACTERS_ALL_NUM;
+            for (int i = 1; i <= last; i++)
+            {
+                CharacterClass character = CharactersAll[i];
+                if (character == null || character.ID != (uint)i)
+                    continue;
+                sum = AddUlong(sum, character.FusionCount);
+            }
+        }
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character != null)
+                sum = AddUlong(sum, character.FusionCount);
+        });
+        return sum;
     }
 
     ulong SumOwnedCharacters()

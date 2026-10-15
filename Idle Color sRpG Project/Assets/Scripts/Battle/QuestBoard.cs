@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-// バトル画面の上に出すクエスト一覧。行は定義の数だけ作る。
+// 画面の一番手前に出すクエスト一覧。バトル画面が閉じていても開ける。行は定義の数だけ作る。
 public sealed class QuestBoard
 {
     ControllerProduction _production;
@@ -90,6 +90,9 @@ public sealed class QuestBoard
             return;
         _choiceId = 0;
         _root.SetActive(true);
+        Transform overlay = _root.transform.parent;
+        if (overlay != null && overlay.parent != null)
+            overlay.SetAsLastSibling();
         _root.transform.SetAsLastSibling();
         Rebuild(true);
     }
@@ -228,7 +231,7 @@ public sealed class QuestBoard
         bool cleared = _production.IsQuestCleared(def);
         bool claimed = _production.IsQuestClaimed(def);
         bool claimable = cleared && !claimed;
-        bool choosing = claimable && def.Reward == QuestRewardKind.ChooseSlots && _choiceId == def.Id;
+        bool choosing = claimable && QuestCatalog.ChoosesProductionSlot(def) && _choiceId == def.Id;
         QuestRecord record;
         int choice = 0;
         if (_production.TryQuestRecord(def.Id, out record) && record != null)
@@ -262,7 +265,7 @@ public sealed class QuestBoard
         QuestDef def = QuestCatalog.Find(id);
         if (def == null || _production == null || !_production.IsQuestClaimable(def))
             return;
-        if (def.Reward == QuestRewardKind.ChooseSlots)
+        if (QuestCatalog.ChoosesProductionSlot(def))
         {
             _choiceId = id;
             Refresh();

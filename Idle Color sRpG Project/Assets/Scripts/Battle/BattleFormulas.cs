@@ -149,6 +149,14 @@ public static class BattleRewardCalculator
         return BattleMath.Clamp01((luc + obs) * config.RecruitRatePerPoint, config.RecruitRateCap);
     }
 
+    // 倒した累計が 10、50、または 100 以上の 100 刻みなら、その1体は必ず仲間にする。
+    public static bool IsGuaranteedRecruitCount(ulong defeatCount)
+    {
+        if (defeatCount == 10 || defeatCount == 50)
+            return true;
+        return defeatCount >= 100 && defeatCount % 100 == 0;
+    }
+
     // 赤緑青はその色へ。光と闇は合計が取得量と一致するよう R, G, B に分ける。
     public static void SplitRgb(CharacterAttribute attribute, long amount, out long r, out long g, out long b)
     {
