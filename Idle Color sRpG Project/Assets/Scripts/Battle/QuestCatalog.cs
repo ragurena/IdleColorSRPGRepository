@@ -31,6 +31,15 @@ public enum QuestRewardKind
     GrantPalette
 }
 
+// サブクエストを受け取ったとき、広告で生産枠を増やせる回数をどちらに足すか。
+public enum QuestAdBonus
+{
+    None,
+    Pixel,
+    Character,
+    Both
+}
+
 // メインクエストの報酬で開く機能。番号は報酬の RewardAmount と一致させる。
 public static class MainFeature
 {
@@ -147,6 +156,7 @@ public static class QuestCatalog
 {
     public static readonly QuestDef[] All =
     {
+        // メインクエスト
         MainQuest(1, "スライムをRGB生産に配置し、R・G・Bをそれぞれ30,000以上所持する", QuestMetric.RgbHeld, 0, 30000, QuestRewardKind.UnlockFeature, MainFeature.PixelScreen),
         MainQuest(2, "黒(0,0,0)を1,000個以上調色する", QuestMetric.BlackPixels, 0, 1000, QuestRewardKind.UnlockFeature, MainFeature.PixelTargets),
         MainQuest(3, "赤・緑・青を各100個以上調色する", QuestMetric.PrimaryPixels, 0, 100, QuestRewardKind.UnlockFeature, MainFeature.CharacterScreen),
@@ -155,18 +165,21 @@ public static class QuestCatalog
         MainQuest(6, "黒猫を仲間にしながら、チュートリアルを10階クリアする", QuestMetric.StageFloor, 1, 10, QuestRewardKind.UnlockFeature, MainFeature.FloorRepeat),
         MainQuest(7, "キャラを10体以上生成する", QuestMetric.CharacterCompletions, 0, 10, QuestRewardKind.GrantPalette, 50),
 
+        // ステージクリア
         Stage(100, 1, 100),
         Stage(200, 2, 100),
         Stage(300, 3, 100),
         Stage(400, 4, 100),
         Stage(500, 5, 100),
 
+        // ギャラリークリア
         Gallery( 219, 100),
         Gallery( 429, 200),
         Gallery( 639, 300),
         Gallery( 849, 400),
         Gallery(1059, 500),
 
+        // RGB生産
         Rgb( 10, 0, "R",    50000),
         Rgb( 20, 0, "R",   100000),
         Rgb( 30, 0, "R",   250000),
@@ -203,6 +216,7 @@ public static class QuestCatalog
         Rgb(112, 2, "B", 10000000),
         Rgb(122, 2, "B", 15000000),
 
+        // ピクセル生成
         Pixel( 13,   100,    1000),
         Pixel( 23,   250,    2000),
         Pixel( 33,   500,    4000),
@@ -223,6 +237,7 @@ public static class QuestCatalog
         Pixel(183, 10000, 1000000),
         Pixel(193, 11000, 1000000),
 
+        // キャラ生成
         Character( 14,   50),
         Character( 24,  100),
         Character( 34,  200),
@@ -237,6 +252,7 @@ public static class QuestCatalog
         Character(124, 1250),
         Character(134, 1500),
 
+        // 敵を倒す
         Enemy( 15,   50, QuestRewardKind.FusionUnlock, 0),
         Enemy( 25,  100, QuestRewardKind.FusionEfficiency, 1),
         Enemy( 35,  250, QuestRewardKind.FusionEfficiency, 1),
@@ -248,6 +264,7 @@ public static class QuestCatalog
         Enemy( 95, 4000, QuestRewardKind.FusionEfficiency, 1),
         Enemy(105, 5000, QuestRewardKind.FusionEfficiency, 1),
 
+        // 合成
         Fusion( 16,  10),
         Fusion( 26,  25),
         Fusion( 36,  50),
@@ -262,6 +279,7 @@ public static class QuestCatalog
         Fusion(126, 450),
         Fusion(136, 500),
 
+        // ステージのキャラを仲間にする
         Companion( 37,  6),
         Companion(157,  8),
         Companion(257, 10),
@@ -269,6 +287,7 @@ public static class QuestCatalog
         Companion(457, 20),
         Companion(557, 25),
 
+        // キャラを読込
         Import(1016,   8, 1),
         Import(1026,   8, 3),
         Import(1036,   8, 9),
@@ -407,7 +426,37 @@ public static class QuestCatalog
         string unlock = StageUnlockText(def);
         if (unlock.Length > 0)
             body = unlock + "\n" + body;
-        return body + "\n広告でピクセル生成とキャラ生成を増やせる回数 +1";
+        string ad = AdRewardText(def);
+        if (ad.Length == 0)
+            return body;
+        if (body.Length == 0)
+            return ad;
+        return body + "\n" + ad;
+    }
+
+    public static QuestAdBonus AdBonus(QuestDef def)
+    {
+        if (def == null || def.Main)
+            return QuestAdBonus.None;
+        if (def.Metric == QuestMetric.RgbProduced || def.Metric == QuestMetric.PixelCompletions)
+            return QuestAdBonus.Pixel;
+        if (def.Metric == QuestMetric.CharacterCompletions
+            || def.Metric == QuestMetric.EnemyDefeats
+            || def.Metric == QuestMetric.FusionCount)
+            return QuestAdBonus.Character;
+        return QuestAdBonus.Both;
+    }
+
+    public static string AdRewardText(QuestDef def)
+    {
+        QuestAdBonus bonus = AdBonus(def);
+        if (bonus == QuestAdBonus.Pixel)
+            return "広告でピクセル生成を増やせる回数 +1";
+        if (bonus == QuestAdBonus.Character)
+            return "広告でキャラ生成を増やせる回数 +1";
+        if (bonus == QuestAdBonus.Both)
+            return "広告でピクセル生成とキャラ生成を増やせる回数 +1";
+        return "";
     }
 
     public static string ChoiceLabel(QuestDef def, int choice, string warning)

@@ -5395,8 +5395,7 @@ public class ControllerProduction : MonoBehaviour
         record.Cleared = true;
         record.Claimed = true;
         record.Choice = choice;
-        if (Slots.ClaimedQuests < int.MaxValue)
-            Slots.ClaimedQuests++;
+        NoteQuestAdBonus(def);
         ImportedCharacters.SetImportCap(Quests.ImportCap);
         RefreshUnlockedProductionSlots();
         ApplyMainFeatureLocks();
@@ -5406,6 +5405,26 @@ public class ControllerProduction : MonoBehaviour
         RefreshProductionFigures();
         SaveGame();
         return true;
+    }
+
+    void NoteQuestAdBonus(QuestDef def)
+    {
+        QuestAdBonus bonus = QuestCatalog.AdBonus(def);
+        if (bonus == QuestAdBonus.Pixel)
+        {
+            if (Slots.ClaimedPixelAdQuests < int.MaxValue)
+                Slots.ClaimedPixelAdQuests++;
+        }
+        else if (bonus == QuestAdBonus.Character)
+        {
+            if (Slots.ClaimedCharacterAdQuests < int.MaxValue)
+                Slots.ClaimedCharacterAdQuests++;
+        }
+        else if (bonus == QuestAdBonus.Both)
+        {
+            if (Slots.ClaimedQuests < int.MaxValue)
+                Slots.ClaimedQuests++;
+        }
     }
 
     void ApplyQuestReward(QuestDef def, int choice)
@@ -6014,7 +6033,8 @@ public class ControllerProduction : MonoBehaviour
     {
         int slots = pixel ? Slots.PixelSlots : Slots.CharacterSlots;
         int used = pixel ? Slots.AdPixelSlots : Slots.AdCharacterSlots;
-        int cap = Constants.AD_PRODUCTION_SLOT_BASE + Slots.ClaimedQuests;
+        int fromQuests = pixel ? Slots.ClaimedPixelAdQuests : Slots.ClaimedCharacterAdQuests;
+        int cap = Constants.AD_PRODUCTION_SLOT_BASE + Slots.ClaimedQuests + fromQuests;
         return slots < Constants.PRODUCTION_SLOT_MAX && used < cap;
     }
 

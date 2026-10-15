@@ -22,7 +22,7 @@ public static class GameConfig
     // public const int MAX_LEVEL = 99;
 }
 
-// ピクセル枠とキャラ枠の開放数。広告で増やした回数は、受け取ったクエスト数まで。
+// ピクセル枠とキャラ枠の開放数。広告で増やせる回数は、初期値にクエストの受け取り回数を足す。
 public sealed class ProductionSlotState
 {
     public int PixelSlots = Constants.PRODUCTION_SLOT_INITIAL;
@@ -30,6 +30,8 @@ public sealed class ProductionSlotState
     public int AdPixelSlots;
     public int AdCharacterSlots;
     public int ClaimedQuests;
+    public int ClaimedPixelAdQuests;
+    public int ClaimedCharacterAdQuests;
     public bool IapPlus1;
     public bool IapPlus3;
     public bool IapPlus5;
@@ -42,6 +44,8 @@ public sealed class ProductionSlotState
         AdPixelSlots = 0;
         AdCharacterSlots = 0;
         ClaimedQuests = 0;
+        ClaimedPixelAdQuests = 0;
+        ClaimedCharacterAdQuests = 0;
         IapPlus1 = false;
         IapPlus3 = false;
         IapPlus5 = false;
@@ -62,6 +66,10 @@ public sealed class ProductionSlotState
             AdCharacterSlots = Constants.PRODUCTION_SLOT_MAX;
         if (ClaimedQuests < 0)
             ClaimedQuests = 0;
+        if (ClaimedPixelAdQuests < 0)
+            ClaimedPixelAdQuests = 0;
+        if (ClaimedCharacterAdQuests < 0)
+            ClaimedCharacterAdQuests = 0;
     }
 
     public static int ClampCount(int value)

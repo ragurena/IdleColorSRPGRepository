@@ -144,6 +144,8 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("AdUnlockedPixelSlots," + (slots != null ? slots.AdPixelSlots : 0).ToString());
         sw.WriteLine("AdUnlockedCharacterSlots," + (slots != null ? slots.AdCharacterSlots : 0).ToString());
         sw.WriteLine("ClaimedQuestCount," + (slots != null ? slots.ClaimedQuests : 0).ToString());
+        sw.WriteLine("ClaimedPixelAdCount," + (slots != null ? slots.ClaimedPixelAdQuests : 0).ToString());
+        sw.WriteLine("ClaimedCharacterAdCount," + (slots != null ? slots.ClaimedCharacterAdQuests : 0).ToString());
         sw.WriteLine("IapProductionSlots1," + (slots != null && slots.IapPlus1 ? "true" : "false"));
         sw.WriteLine("IapProductionSlots3," + (slots != null && slots.IapPlus3 ? "true" : "false"));
         sw.WriteLine("IapProductionSlots5," + (slots != null && slots.IapPlus5 ? "true" : "false"));
@@ -1232,6 +1234,10 @@ public class SaveClass// : MonoBehaviour
             slots.AdCharacterSlots = number;
         else if (key == "ClaimedQuestCount" && parsed)
             slots.ClaimedQuests = number;
+        else if (key == "ClaimedPixelAdCount" && parsed)
+            slots.ClaimedPixelAdQuests = number;
+        else if (key == "ClaimedCharacterAdCount" && parsed)
+            slots.ClaimedCharacterAdQuests = number;
         else if (key == "IapProductionSlots1")
             slots.IapPlus1 = value == "true";
         else if (key == "IapProductionSlots3")
