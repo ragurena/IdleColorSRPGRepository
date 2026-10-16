@@ -54,6 +54,11 @@ sealed class RecordingSink : IBattleRewardSink
     {
         Calls.Add("catalog");
     }
+
+    public bool IsGuaranteedRecruit()
+    {
+        return false;
+    }
 }
 
 static class Program
@@ -146,18 +151,20 @@ static class Program
     {
         LevelGrowth growth = BattleLevelGrowth.Grow(100, 20, 10, 50, config);
         long hp = 40 + growth.HpDelta;
-        Check(growth.NewHpMax == 110 && growth.HpDelta == 10 && hp == 50, "hp growth");
+        Check(growth.NewHpMax == 105 && growth.HpDelta == 5 && hp == 45, "hp growth");
         Check(growth.NewAtk == 21 && growth.AtkDelta == 1, "atk growth");
         Check(growth.NewDef == 11 && growth.DefDelta == 1, "def growth");
-        Check(growth.NewSpd == 50 && growth.SpdDelta == 0, "spd stays on level");
+        Check(growth.NewSpd == 51 && growth.SpdDelta == 1, "spd gains 1");
         long hp2;
         long atk2;
         long def2;
         long spd2;
-        BattleLevelGrowth.ApplyLevels(100, 20, 10, 50, 2, config, out hp2, out atk2, out def2, out spd2);
-        Check(hp2 == 120 && atk2 == 22 && def2 == 12 && spd2 == 50, "two levels from base");
-        BattleLevelGrowth.ApplyLevels(1000, 10, 10, 10, 327, config, out hp2, out atk2, out def2, out spd2);
-        Check(hp2 == 33700 && atk2 == 337 && def2 == 337, "level 327 stays additive");
+        BattleLevelGrowth.ApplyLevels(100, 20, 10, 50, 1, config, out hp2, out atk2, out def2, out spd2);
+        Check(hp2 == 100 && atk2 == 20 && def2 == 10 && spd2 == 50, "level 1 stays base");
+        BattleLevelGrowth.ApplyLevels(100, 20, 10, 50, 3, config, out hp2, out atk2, out def2, out spd2);
+        Check(hp2 == 110 && atk2 == 22 && def2 == 12 && spd2 == 52, "level 3 is two growths");
+        BattleLevelGrowth.ApplyLevels(1000, 10, 10, 10, 328, config, out hp2, out atk2, out def2, out spd2);
+        Check(hp2 == 17350 && atk2 == 337 && def2 == 337, "level 328 is 327 growths");
         Check(BattleLevelGrowth.AddGrowth(100, config.RgbGrowthRate, 327) == 427, "rgb grows 1 percent of base");
         Check(BattleLevelGrowth.AddGrowth(1, 0.01, 50) == 51, "small stat gains at least 1 per level");
     }
@@ -179,11 +186,16 @@ static class Program
 
     static void TestAttribute()
     {
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Fire, 12, 3, 4) == 12, "red");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Grass, 12, 3, 4) == 3, "green");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Water, 12, 3, 4) == 4, "blue");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Light, 2, 2, 1) == 5, "light");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Dark, 2, 2, 1) == 2, "dark");
+        Check(AttributeColorValue.ChannelStep(0) == 1, "step 0");
+        Check(AttributeColorValue.ChannelStep(32) == 2, "step 32");
+        Check(AttributeColorValue.ChannelStep(64) == 3, "step 64");
+        Check(AttributeColorValue.ChannelStep(224) == 8, "step 224");
+        Check(AttributeColorValue.ChannelStep(255) == 9, "step 255");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Fire, 32, 64, 255) == 2, "red");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Grass, 32, 64, 255) == 3, "green");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Water, 32, 64, 255) == 9, "blue");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Light, 32, 64, 255) == 14, "light");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Dark, 32, 64, 255) == 5, "dark");
     }
 
     static void TestRewards(BattleBalanceConfig config)
@@ -193,9 +205,12 @@ static class Program
         Check(BattleRewardCalculator.ExpGain(10, 10, config) == 100, "exp");
         Check(BattleRewardCalculator.ExpGain(43, 0, config) == 43, "exp black");
         Check(BattleRewardCalculator.ExpGain(0, 0, config) == 0, "exp empty");
-        Check(config.ExpToNext(0, 43) == 43, "exp table lv0");
-        Check(config.ExpToNext(1, 43) == 122, "exp table lv1");
-        Check(config.ExpToNext(2, 10) == 52, "exp table lv2");
+        Check(BattleRewardCalculator.ExpReward(20) == 10, "exp divided by 2");
+        Check(BattleRewardCalculator.ExpReward(1) == 1, "exp divide keeps 1");
+        Check(BattleRewardCalculator.ExpReward(0) == 0, "exp divide zero");
+        Check(config.ExpToNext(1, 43) == 43, "exp table lv1");
+        Check(config.ExpToNext(2, 43) == 122, "exp table lv2");
+        Check(config.ExpToNext(3, 10) == 52, "exp table lv3");
         Check(BattleRewardCalculator.ExpShare(100, 1) == 100, "exp share 1");
         Check(BattleRewardCalculator.ExpShare(100, 3) == 34, "exp share 3");
         Check(BattleRewardCalculator.ExpShare(100, 0) == 0, "exp share 0");

@@ -157,11 +157,11 @@ public static class QuestCatalog
     public static readonly QuestDef[] All =
     {
         // メインクエスト
-        MainQuest(1, "スライムをRGB生産に配置し、R・G・Bをそれぞれ30,000以上所持する", QuestMetric.RgbHeld, 0, 30000, QuestRewardKind.UnlockFeature, MainFeature.PixelScreen),
+        MainQuest(1, "スライムをRGB生産に配置し、R・G・Bをそれぞれ10,000以上所持する", QuestMetric.RgbHeld, 0, 10000, QuestRewardKind.UnlockFeature, MainFeature.PixelScreen),
         MainQuest(2, "黒(0,0,0)を1,000個以上調色する", QuestMetric.BlackPixels, 0, 1000, QuestRewardKind.UnlockFeature, MainFeature.PixelTargets),
-        MainQuest(3, "赤・緑・青を各100個以上調色する", QuestMetric.PrimaryPixels, 0, 100, QuestRewardKind.UnlockFeature, MainFeature.CharacterScreen),
-        MainQuest(4, "R・G・Bミニスライムをそれぞれ3体以上作成する", QuestMetric.MiniSlimes, 0, 3, QuestRewardKind.UnlockFeature, MainFeature.Battle),
-        MainQuest(5, "「チュートリアル」ステージの1階をクリアする", QuestMetric.StageFloor, 1, 1, QuestRewardKind.UnlockFeature, MainFeature.BattleSpeed),
+        MainQuest(3, "赤・緑・青を各30個以上調色する", QuestMetric.PrimaryPixels, 0, 30, QuestRewardKind.UnlockFeature, MainFeature.CharacterScreen),
+        MainQuest(4, "R・G・Bミニスライムをそれぞれ1体以上作成する", QuestMetric.MiniSlimes, 0, 2, QuestRewardKind.UnlockFeature, MainFeature.Battle),
+        MainQuest(5, "「チュートリアル」ステージの3階をクリアする", QuestMetric.StageFloor, 1, 3, QuestRewardKind.UnlockFeature, MainFeature.BattleSpeed),
         MainQuest(6, "黒猫を仲間にしながら、チュートリアルを10階クリアする", QuestMetric.StageFloor, 1, 10, QuestRewardKind.UnlockFeature, MainFeature.FloorRepeat),
         MainQuest(7, "キャラを10体以上生成する", QuestMetric.CharacterCompletions, 0, 10, QuestRewardKind.GrantPalette, 50),
 
@@ -180,41 +180,38 @@ public static class QuestCatalog
         Gallery(1059, 500),
 
         // RGB生産
-        Rgb( 10, 0, "R",    50000),
-        Rgb( 20, 0, "R",   100000),
-        Rgb( 30, 0, "R",   250000),
-        Rgb( 40, 0, "R",   500000),
-        Rgb( 50, 0, "R",   750000),
-        Rgb( 60, 0, "R",  1000000),
-        Rgb( 70, 0, "R",  2500000),
-        Rgb( 80, 0, "R",  5000000),
-        Rgb( 90, 0, "R",  7500000),
-        Rgb(110, 0, "R", 10000000),
-        Rgb(120, 0, "R", 15000000),
+        Rgb( 10, 0, "R",   100000),
+        Rgb( 20, 0, "R",   250000),
+        Rgb( 30, 0, "R",   500000),
+        Rgb( 40, 0, "R",   750000),
+        Rgb( 50, 0, "R",  1000000),
+        Rgb( 60, 0, "R",  2500000),
+        Rgb( 70, 0, "R",  5000000),
+        Rgb( 80, 0, "R",  7500000),
+        Rgb( 90, 0, "R", 10000000),
+        Rgb(100, 0, "R", 25000000),
 
-        Rgb( 11, 1, "G",    50000),
-        Rgb( 21, 1, "G",   100000),
-        Rgb( 31, 1, "G",   250000),
-        Rgb( 41, 1, "G",   500000),
-        Rgb( 51, 1, "G",   750000),
-        Rgb( 61, 1, "G",  1000000),
-        Rgb( 71, 1, "G",  2500000),
-        Rgb( 81, 1, "G",  5000000),
-        Rgb( 91, 1, "G",  7500000),
-        Rgb(111, 1, "G", 10000000),
-        Rgb(121, 1, "G", 15000000),
+        Rgb( 11, 1, "G",   100000, QuestRewardKind.GrantPalette,  50),
+        Rgb( 21, 1, "G",   250000, QuestRewardKind.GrantPalette, 100),
+        Rgb( 31, 1, "G",   500000, QuestRewardKind.GrantPalette, 150),
+        Rgb( 41, 1, "G",   750000, QuestRewardKind.GrantPalette, 200),
+        Rgb( 51, 1, "G",  1000000, QuestRewardKind.GrantPalette, 250),
+        Rgb( 61, 1, "G",  2500000, QuestRewardKind.GrantPalette, 300),
+        Rgb( 71, 1, "G",  5000000, QuestRewardKind.GrantPalette, 350),
+        Rgb( 81, 1, "G",  7500000, QuestRewardKind.GrantPalette, 400),
+        Rgb( 91, 1, "G", 10000000, QuestRewardKind.GrantPalette, 450),
+        Rgb(101, 1, "G", 25000000, QuestRewardKind.GrantPalette, 500),
 
-        Rgb( 12, 2, "B",    50000),
-        Rgb( 22, 2, "B",   100000),
-        Rgb( 32, 2, "B",   250000),
-        Rgb( 42, 2, "B",   500000),
-        Rgb( 52, 2, "B",   750000),
-        Rgb( 62, 2, "B",  1000000),
-        Rgb( 72, 2, "B",  2500000),
-        Rgb( 82, 2, "B",  5000000),
-        Rgb( 92, 2, "B",  7500000),
-        Rgb(112, 2, "B", 10000000),
-        Rgb(122, 2, "B", 15000000),
+        Rgb( 12, 2, "B",   100000, QuestRewardKind.RgbAll,   5000),
+        Rgb( 22, 2, "B",   250000, QuestRewardKind.RgbAll,  10000),
+        Rgb( 32, 2, "B",   500000, QuestRewardKind.RgbAll,  25000),
+        Rgb( 42, 2, "B",   750000, QuestRewardKind.RgbAll,  50000),
+        Rgb( 52, 2, "B",  1000000, QuestRewardKind.RgbAll,  75000),
+        Rgb( 62, 2, "B",  2500000, QuestRewardKind.RgbAll, 100000),
+        Rgb( 72, 2, "B",  5000000, QuestRewardKind.RgbAll, 250000),
+        Rgb( 82, 2, "B",  7500000, QuestRewardKind.RgbAll, 500000),
+        Rgb( 92, 2, "B", 10000000, QuestRewardKind.RgbAll, 500000),
+        Rgb(102, 2, "B", 25000000, QuestRewardKind.RgbAll, 500000),
 
         // ピクセル生成
         Pixel( 13,   100,    1000),
@@ -492,7 +489,12 @@ public static class QuestCatalog
 
     static QuestDef Rgb(int id, int channel, string name, long target)
     {
-        return new QuestDef(id, name + "を" + UiNumber.Format(target) + "生産", QuestMetric.RgbProduced, channel, target, QuestRewardKind.ImportCap, 1, true);
+        return Rgb(id, channel, name, target, QuestRewardKind.ImportCap, 1);
+    }
+
+    static QuestDef Rgb(int id, int channel, string name, long target, QuestRewardKind reward, long amount)
+    {
+        return new QuestDef(id, name + "を" + UiNumber.Format(target) + "生産", QuestMetric.RgbProduced, channel, target, reward, amount, true);
     }
 
     static QuestDef Pixel(int id, long count, long rgb)

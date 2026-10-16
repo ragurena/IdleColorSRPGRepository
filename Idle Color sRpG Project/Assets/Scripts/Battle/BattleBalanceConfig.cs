@@ -18,16 +18,16 @@ public class BattleBalanceConfig
     // 経験値 = 切り上げ(不透明ピクセル * 属性値 * ExpMultiplier)
     public double ExpMultiplier = 1.0;
 
-    // 次のレベルまでに必要な経験値 = 切り上げ(非透過ピクセル数 * 次レベルの1.5乗)。
-    // レベル0の次は 1^1.5 なので、必要量は非透過ピクセル数そのもの。
+    // 次のレベルまでに必要な経験値 = 切り上げ(非透過ピクセル数 * 今のレベルの1.5乗)。
+    // レベル1は 1^1.5 なので、必要量は非透過ピクセル数そのもの。
     public long MaxLevel = 9999;
     public int MaxLevelsPerExpGrant = 30;
 
     // 1レベルごとに、基礎ステータスのこの割合を足す。今の値へ掛けない。
-    public double HpGrowthRate = 0.10;
-    public double AtkGrowthRate = 0.05;
+    public double HpGrowthRate = 0.05;
+    public double AtkGrowthRate = 0.04;
     public double DefGrowthRate = 0.05;
-    // レベルでは SPD を増やさない。基礎値のまま。
+    // SPD は割合を掛けず、1レベルにつき +1 する。
     public double SpdGrowthRate = 0.0;
     public double RgbGrowthRate = 0.01;
 
@@ -62,12 +62,11 @@ public class BattleBalanceConfig
 
     public long ExpToNext(long level, long opaquePixels)
     {
-        if (level < 0)
-            level = 0;
+        if (level < 1)
+            level = 1;
         if (opaquePixels < 1)
             opaquePixels = 1;
-        long nextLevel = level + 1;
-        double need = opaquePixels * Math.Pow(nextLevel, 1.5);
+        double need = opaquePixels * Math.Pow(level, 1.5);
         long result = BattleMath.CeilToLong(need);
         if (result < 1)
             result = 1;

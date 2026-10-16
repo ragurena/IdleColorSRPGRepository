@@ -63,7 +63,7 @@ public class CharacterClass //: MonoBehaviour
     //残機合成の回数。1回につき、基礎＋レベル成長後の HP/ATK/DEF と RGB生産量が5%増える。
     public ulong FusionCount;
     //TODO:レベル
-    public ulong Level;
+    public ulong Level = 1;
     //TODO:経験値
     public ulong Exp;
     public ulong ExpMax;
@@ -250,7 +250,7 @@ public class CharacterClass //: MonoBehaviour
         AuthorSpecified = false;
         ReincarnationTimes = 0;
         FusionCount = 0;
-        Level = 0;
+        Level = 1;
         Exp = 0;
         ExpMax = 0;
         FlagFNT = false;
@@ -590,9 +590,12 @@ public class CharacterClass //: MonoBehaviour
         uint RPixels = 0;
         uint GPixels = 0;
         uint BPixels = 0;
-        uint LightPixels = 0;
-        uint DarkPixels = 0;
-        ulong opaqueRgbSum = 0;
+        long hpSteps = 0;
+        long atkFire = 0;
+        long atkGrass = 0;
+        long atkWater = 0;
+        long atkLight = 0;
+        long atkDark = 0;
         APixels = 0;
         uint NoneRGBPixels = 0;
         ListExistsColors.Clear();
@@ -642,37 +645,44 @@ public class CharacterClass //: MonoBehaviour
                         (ImageColor[x + y * ImageTexture2D.width].r +
                          ImageColor[x + y * ImageTexture2D.width].g +
                          ImageColor[x + y * ImageTexture2D.width].b) * 255f / 3f;
-                    if (brightness > 128f)
-                        LightPixels++;
-                    else
-                        DarkPixels++;
-
                     int channelR = ColorByte(ImageColor[x + y * ImageTexture2D.width].r);
                     int channelG = ColorByte(ImageColor[x + y * ImageTexture2D.width].g);
                     int channelB = ColorByte(ImageColor[x + y * ImageTexture2D.width].b);
-                    opaqueRgbSum += (ulong)channelR + (ulong)channelG + (ulong)channelB;
+                    int stepR = AttributeColorValue.ChannelStep(channelR);
+                    int stepG = AttributeColorValue.ChannelStep(channelG);
+                    int stepB = AttributeColorValue.ChannelStep(channelB);
+                    long stepSum = (long)stepR + stepG + stepB;
+                    hpSteps += stepSum;
 
                     if ((ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].g) &&
                         (ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].b))
                     {
                         RPixels++;
+                        atkFire += stepR;
                     }
                     else
                     if ((ImageColor[x + y * ImageTexture2D.width].g > ImageColor[x + y * ImageTexture2D.width].r) &&
                         (ImageColor[x + y * ImageTexture2D.width].g > ImageColor[x + y * ImageTexture2D.width].b))
                     {
                         GPixels++;
+                        atkGrass += stepG;
                     }
                     else
                     if ((ImageColor[x + y * ImageTexture2D.width].b > ImageColor[x + y * ImageTexture2D.width].r) &&
                         (ImageColor[x + y * ImageTexture2D.width].b > ImageColor[x + y * ImageTexture2D.width].g))
                     {
                         BPixels++;
+                        atkWater += stepB;
                     }
                     else
                     {
                         NoneRGBPixels++;
                     }
+
+                    if (brightness > 128f)
+                        atkLight += stepSum;
+                    else
+                        atkDark += BattleMath.CeilDivPositive(stepSum, 3);
                 }
 
             }
@@ -727,42 +737,42 @@ public class CharacterClass //: MonoBehaviour
         }
 
         uint opaqueCount = RPixels + GPixels + BPixels + NoneRGBPixels;
-        uint matchedPixels = 0;
+        int side = ImageTexture2D.width;
+        if (side < 1)
+            side = 1;
+        long atkSteps = 0;
         switch (CharacterType)
         {
             case CharacterType.Fire:
-                matchedPixels = RPixels;
+                atkSteps = atkFire;
                 break;
             case CharacterType.Grass:
-                matchedPixels = GPixels;
+                atkSteps = atkGrass;
                 break;
             case CharacterType.Water:
-                matchedPixels = BPixels;
+                atkSteps = atkWater;
                 break;
             case CharacterType.Light:
-                matchedPixels = LightPixels;
+                atkSteps = atkLight;
                 break;
             case CharacterType.Dark:
-                matchedPixels = DarkPixels;
+                atkSteps = atkDark;
                 break;
             default:
-                matchedPixels = 0;
+                atkSteps = 0;
                 break;
         }
-        Stats[1].ATK = matchedPixels;
-        Stats[1].DEF = opaqueCount - matchedPixels;
+        // ATK = 属性に合うピクセルの階調番号の合計 / 一辺。DEF = 不透明数 / 一辺。端数は切り上げ。
+        Stats[1].ATK = (ulong)BattleMath.CeilDivPositive(atkSteps, side);
+        Stats[1].DEF = (ulong)BattleMath.CeilDivPositive(opaqueCount, side);
 
         //運の算出に使う、不透明ピクセルの4連結の島
         uint islandCount;
         uint largestIslandSize;
         CountOpaqueIslands(ImageColor, ImageTexture2D.width, ImageTexture2D.height, out islandCount, out largestIslandSize);
 
-        //体力 = 不透明ピクセルの R+G+B の合計 / 画像の一辺。端数は切り上げ
-        int side = ImageTexture2D.width;
-        if (side < 1)
-            side = 1;
-        long rgbSum = opaqueRgbSum > long.MaxValue ? long.MaxValue : (long)opaqueRgbSum;
-        long hp = BattleMath.CeilDivPositive(rgbSum, side);
+        //体力 = 階調番号 R+G+B の合計 / 辺の段数。8は1、16は2、32は3、64は4。端数は切り上げ。
+        long hp = BattleMath.CeilDivPositive(hpSteps, HpSideDivisor(side));
         if (hp < 1)
             hp = 1;
         Stats[1].HPMax = (ulong)hp;
@@ -771,7 +781,7 @@ public class CharacterClass //: MonoBehaviour
         //素早さの算出
         //SPD = APixels;
         Stats[1].SPD = (byte)(((float)APixels / (ImageTexture2D.width * ImageTexture2D.height)) * 100);
-        if (Stats[1].SPD == 0)
+        if (Stats[1].SPD < 1)
             Stats[1].SPD = 1;
 
         //諧調数の算出
@@ -784,8 +794,8 @@ public class CharacterClass //: MonoBehaviour
                 Debug.Log("諧調 : r" + ColorByte(E.Color.r) + " g" + ColorByte(E.Color.g) + " b" + ColorByte(E.Color.b));
             }
 
-            //運の算出
-            Stats[1].LUC = islandCount;
+            //運の算出。島の数を 1〜10 に収める。
+            Stats[1].LUC = ClampLuc(islandCount);
             //観察力の算出
             Stats[1].OBS = GradationNum;
             PaintPixels = GradationNum;
@@ -885,6 +895,21 @@ public class CharacterClass //: MonoBehaviour
         }
     }
 
+    // 一辺 8 を 1 段として、2 倍になるごとに 1 増やす。8→1、16→2、32→3、64→4。
+    static int HpSideDivisor(int side)
+    {
+        if (side < 16)
+            return 1;
+        int divisor = 1;
+        int span = 8;
+        while (span <= side / 2 && span <= int.MaxValue / 2)
+        {
+            span *= 2;
+            divisor++;
+        }
+        return divisor;
+    }
+
     // 0〜1 の色を、0〜255 のいちばん近い整数にする。切り捨てると 32 が 31 になる。
     public static int ColorByte(float value)
     {
@@ -910,7 +935,7 @@ public class CharacterClass //: MonoBehaviour
         return ColorByte(value);
     }
 
-    //画像から基礎ステータス(Stats[1])を計算し、レベル回数ぶん成長を掛け直してトータルを更新する。
+    //画像から基礎ステータス(Stats[1])を計算し、レベル-1 回ぶん成長を掛け直してトータルを更新する。
     public bool RecalculateBaseStats(BattleBalanceConfig config)
     {
         if (ImageTexture2D == null && string.IsNullOrEmpty(ImagePath))
@@ -921,15 +946,15 @@ public class CharacterClass //: MonoBehaviour
         return true;
     }
 
-    //Stats[2]を、基礎ステータスへ成長率をレベル回数ぶん足した増加分にする。
+    //Stats[2]を、基礎ステータスへ成長率を (レベル-1) 回ぶん足した増加分にする。レベル1は基礎のまま。
     public void RebuildLevelStats(BattleBalanceConfig config)
     {
         if (config == null)
             config = BattleBalanceConfig.CreateDefault();
 
         long level = (long)Level;
-        if (level < 0)
-            level = 0;
+        if (level < 1)
+            level = 1;
         if (level > config.MaxLevel)
             level = config.MaxLevel;
 
@@ -966,9 +991,10 @@ public class CharacterClass //: MonoBehaviour
         long baseR = ToStatLong(Stats[1].RCreates);
         long baseG = ToStatLong(Stats[1].GCreates);
         long baseB = ToStatLong(Stats[1].BCreates);
-        long rBonus = BattleLevelGrowth.AddGrowth(baseR, config.RgbGrowthRate, level) - baseR;
-        long gBonus = BattleLevelGrowth.AddGrowth(baseG, config.RgbGrowthRate, level) - baseG;
-        long bBonus = BattleLevelGrowth.AddGrowth(baseB, config.RgbGrowthRate, level) - baseB;
+        long steps = BattleLevelGrowth.GrowthSteps(level);
+        long rBonus = BattleLevelGrowth.AddGrowth(baseR, config.RgbGrowthRate, steps) - baseR;
+        long gBonus = BattleLevelGrowth.AddGrowth(baseG, config.RgbGrowthRate, steps) - baseG;
+        long bBonus = BattleLevelGrowth.AddGrowth(baseB, config.RgbGrowthRate, steps) - baseB;
         if (rBonus < 0)
             rBonus = 0;
         if (gBonus < 0)
@@ -995,15 +1021,13 @@ public class CharacterClass //: MonoBehaviour
         Stats[0].HPCur = SumCapped(Stats[1].HPCur, Stats[2].HPCur, Stats[3].HPCur, Stats[4].HPCur, fusionHp);
         Stats[0].ATK = SumCapped(Stats[1].ATK, Stats[2].ATK, Stats[3].ATK, Stats[4].ATK, fusionAtk);
         Stats[0].DEF = SumCapped(Stats[1].DEF, Stats[2].DEF, Stats[3].DEF, Stats[4].DEF, fusionDef);
-        if (Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD <= 100)
-        {
-            Stats[0].SPD = (byte)(Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD);
-        }
-        else
-        {
-            Stats[0].SPD = 100;
-        }
-        Stats[0].LUC = Stats[1].LUC + Stats[2].LUC + Stats[3].LUC + Stats[4].LUC;
+        int totalSpd = Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD;
+        if (totalSpd < 1)
+            totalSpd = 1;
+        if (totalSpd > byte.MaxValue)
+            totalSpd = byte.MaxValue;
+        Stats[0].SPD = (byte)totalSpd;
+        Stats[0].LUC = ClampLuc(Stats[1].LUC + Stats[2].LUC + Stats[3].LUC + Stats[4].LUC);
         Stats[0].OBS = Stats[1].OBS + Stats[2].OBS + Stats[3].OBS + Stats[4].OBS;
         Stats[0].HealPower = Stats[1].HealPower + Stats[2].HealPower + Stats[3].HealPower + Stats[4].HealPower;
         Stats[0].RCreates = SumCapped(Stats[1].RCreates, Stats[2].RCreates, Stats[3].RCreates, Stats[4].RCreates, FusionStatBonus(Stats[1].RCreates, Stats[2].RCreates));
@@ -1024,6 +1048,18 @@ public class CharacterClass //: MonoBehaviour
         if (bonus < 0)
             bonus = 0;
         return (ulong)bonus;
+    }
+
+    public const ulong LucMin = 1;
+    public const ulong LucMax = 10;
+
+    public static ulong ClampLuc(ulong value)
+    {
+        if (value < LucMin)
+            return LucMin;
+        if (value > LucMax)
+            return LucMax;
+        return value;
     }
 
     static ulong SumCapped(ulong a, ulong b, ulong c, ulong d, ulong e)

@@ -505,6 +505,18 @@ public static class ImportedCharacters
         }
     }
 
+    // レベルを 1 始まりにする前のセーブは、0 が基礎だった。1 足して強さを保つ。
+    public static void RaisePendingLevels()
+    {
+        for (int i = 0; i < Pending.Count; i++)
+        {
+            ImportedCharacterRecord record = Pending[i];
+            if (record == null || !record.HasLevel || record.Level >= ulong.MaxValue)
+                continue;
+            record.Level++;
+        }
+    }
+
     public static void Restore(BattleBalanceConfig balance)
     {
         Entries.Clear();

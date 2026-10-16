@@ -9,14 +9,17 @@ public static class GameConfig
     // 0.0.3 は ID 7, 8 に黒猫、ID 9 に灰猫を入れた版。これより古いセーブは ID 9 以降を 1 つずらす。
     // 0.0.4 は初期所持を ID 1〜3 だけにした版。これより古いセーブは、それ以外の初期所持を外す。
     // 0.0.5 は 255 以上の色を 255 のまま残す減色。これより古いセーブは減色画像を作り直す。
-    public const string DataVersion = "0.0.5";
+    // 0.0.6 はキャラのレベルを 1 始まりにした。これより古いセーブはレベルを 1 足す。
+    public const string DataVersion = "0.0.6";
     public const string ImageDataVersion = "0.0.5";
 
     // ファイルの手順。DataVersion とは別。2 はチェックサムと SaveEnd がある。
     public const int SaveFormat = 2;
 
-    // Unity Ads の報酬付きプレースメント。ゲーム 3635910 では rewardedVideo。
-    public const string RewardedAdPlacement = "rewardedVideo";
+    // 本番の AdMob 報酬型広告ユニット ID。空のままの Release ビルドでは広告を読まない。
+    // 値は AdMob の広告ユニット画面のものを入れる。開発用のサンプル ID はここへ書かない。
+    public const string AndroidRewardedAdUnitId = "ca-app-pub-6699312150986616/5586223306";
+    public const string IosRewardedAdUnitId = "";
 
     // もし今後、他の設定（最大レベル、制限時間など）が増えたらここに並べていきます
     // public const int MAX_LEVEL = 99;

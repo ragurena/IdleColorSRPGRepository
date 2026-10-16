@@ -11,10 +11,6 @@ using System.IO;
 
 using UnityEngine.Networking;
 
-using UnityEngine.Advertisements;
-
-
-
 public enum Trigger {User, Update};
 
 static class Constants
@@ -277,11 +273,8 @@ public class ControllerProduction : MonoBehaviour
 #endif
 
         Debug.Log("ControllerProduction Begin");
-#if UNITY_EDITOR
-        Advertisement.Initialize("3635910", true, new RewardedInit());
-#elif UNITY_ANDROID
-        Advertisement.Initialize("3635910", false, new RewardedInit());
-        Advertisement.Load(GameConfig.RewardedAdPlacement);
+#if UNITY_EDITOR || UNITY_ANDROID
+        AdService.Begin();
 #endif
 
         ControllerCharacterSelect = GetComponent<ControllerCharacterSelectClass>();
@@ -387,6 +380,8 @@ public class ControllerProduction : MonoBehaviour
             ClearedBattleStage = 0;
         NormalizeClearedBattleFloors();
         DropFormerStarterOwnership(acceptedVersion);
+        if (acceptedSave && SaveClass.IsOlderThan(acceptedVersion, "0.0.6"))
+            SaveGame();
         EnsureQuestDefaults();
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
         {
@@ -3172,8 +3167,8 @@ public class ControllerProduction : MonoBehaviour
         long previousHpMax = unit.HpMax;
         int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config, character.OpaquePixelCount());
 
-        if (level < 0)
-            level = 0;
+        if (level < 1)
+            level = 1;
         if (exp < 0)
             exp = 0;
         if (expMax < 0)
@@ -6043,22 +6038,17 @@ public class ControllerProduction : MonoBehaviour
         if (_adBusy || !CanWatchAd(pixel))
             return;
 #if UNITY_ANDROID || UNITY_EDITOR
-        if (!Advertisement.isInitialized)
-        {
-            Debug.LogWarning("広告の準備ができていません。");
-            return;
-        }
         _adBusy = true;
-        string placement = GameConfig.RewardedAdPlacement;
-        Advertisement.Load(placement, new RewardedLoad(placement,
-            () => Advertisement.Show(placement, new RewardedShow(
-                () =>
-                {
-                    _adBusy = false;
-                    GrantAdSlot(pixel);
-                },
-                () => { _adBusy = false; })),
-            () => { _adBusy = false; }));
+        if (!AdService.TryShowRewarded(
+            () =>
+            {
+                _adBusy = false;
+                GrantAdSlot(pixel);
+            },
+            () => { _adBusy = false; }))
+        {
+            _adBusy = false;
+        }
 #else
         Debug.LogWarning("広告はAndroidで表示します。");
 #endif
@@ -6253,85 +6243,6 @@ public class ControllerProduction : MonoBehaviour
         Text label = existing.GetComponentInChildren<Text>();
         if (label != null)
             label.text = CanWatchAd(pixel) ? "+" : "クエストで上限が上がる";
-    }
-
-    sealed class RewardedInit : IUnityAdsInitializationListener
-    {
-        public void OnInitializationComplete()
-        {
-        }
-
-        public void OnInitializationFailed(UnityAdsInitializationError error, string message)
-        {
-            Debug.LogWarning("広告を初期化できませんでした。 " + message);
-        }
-    }
-
-    sealed class RewardedLoad : IUnityAdsLoadListener
-    {
-        readonly string _placement;
-        readonly Action _onLoaded;
-        readonly Action _onFailed;
-
-        public RewardedLoad(string placement, Action onLoaded, Action onFailed)
-        {
-            _placement = placement;
-            _onLoaded = onLoaded;
-            _onFailed = onFailed;
-        }
-
-        public void OnUnityAdsAdLoaded(string placementId)
-        {
-            if (placementId == _placement && _onLoaded != null)
-                _onLoaded();
-        }
-
-        public void OnUnityAdsFailedToLoad(string placementId, UnityAdsLoadError error, string message)
-        {
-            if (placementId != _placement)
-                return;
-            Debug.LogWarning("広告を読み込めませんでした。 " + message);
-            if (_onFailed != null)
-                _onFailed();
-        }
-    }
-
-    sealed class RewardedShow : IUnityAdsShowListener
-    {
-        readonly Action _onCompleted;
-        readonly Action _onClosed;
-
-        public RewardedShow(Action onCompleted, Action onClosed)
-        {
-            _onCompleted = onCompleted;
-            _onClosed = onClosed;
-        }
-
-        public void OnUnityAdsShowFailure(string placementId, UnityAdsShowError error, string message)
-        {
-            if (_onClosed != null)
-                _onClosed();
-        }
-
-        public void OnUnityAdsShowStart(string placementId)
-        {
-        }
-
-        public void OnUnityAdsShowClick(string placementId)
-        {
-        }
-
-        public void OnUnityAdsShowComplete(string placementId, UnityAdsShowCompletionState showCompletionState)
-        {
-            if (showCompletionState == UnityAdsShowCompletionState.COMPLETED)
-            {
-                if (_onCompleted != null)
-                    _onCompleted();
-                return;
-            }
-            if (_onClosed != null)
-                _onClosed();
-        }
     }
 
     static bool IsProductionWorkerButton(Button button)

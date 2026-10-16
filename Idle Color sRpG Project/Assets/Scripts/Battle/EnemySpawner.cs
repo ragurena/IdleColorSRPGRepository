@@ -9,7 +9,7 @@ public class EnemySpawnEntry
     public int Level;
 
     public EnemySpawnEntry(uint characterId, int weight, int minCount, int maxCount)
-        : this(characterId, weight, minCount, maxCount, 0)
+        : this(characterId, weight, minCount, maxCount, 1)
     {
     }
 
@@ -19,7 +19,7 @@ public class EnemySpawnEntry
         Weight = weight;
         MinCount = minCount;
         MaxCount = maxCount < minCount ? minCount : maxCount;
-        Level = level < 0 ? 0 : level;
+        Level = level < 1 ? 1 : level;
     }
 }
 

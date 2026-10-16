@@ -921,8 +921,8 @@ public class ControllerBattleClass : MonoBehaviour
             if (character != null && character.ID == unit.CharacterId)
                 level = character.Level > int.MaxValue ? int.MaxValue : (int)character.Level;
         }
-        if (level < 0)
-            level = 0;
+        if (level < 1)
+            level = 1;
         if (!unit.IsAlly)
             return "Lv " + level.ToString("D3");
 

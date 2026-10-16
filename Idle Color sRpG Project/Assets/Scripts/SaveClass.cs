@@ -952,7 +952,10 @@ public class SaveClass// : MonoBehaviour
 
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].Level"))
                     {
-                        CharactersAll[slot].Level = ReadUlong(values);
+                        ulong level = ReadUlong(values);
+                        if (IsOlderThan(savedVersion, "0.0.6") && level < ulong.MaxValue)
+                            level++;
+                        CharactersAll[slot].Level = level;
                         break;
                     }
 
@@ -1069,6 +1072,8 @@ public class SaveClass// : MonoBehaviour
         }
 
         }
+        if (IsOlderThan(savedVersion, "0.0.6"))
+            ImportedCharacters.RaisePendingLevels();
         if (slots != null)
             slots.Clamp();
         return true;

@@ -47,7 +47,7 @@ public static class BattleCharacterFactory
             unit.Spd = 1;
         unit.Hp = unit.HpMax;
         unit.Lives = ClampLives(config.EnemyInitialLives, config);
-        unit.Level = level < 0 ? 0 : level;
+        unit.Level = level < 1 ? 1 : level;
         return unit;
     }
 
@@ -73,7 +73,7 @@ public static class BattleCharacterFactory
         unit.Spd = character.Stats[0].SPD;
         if (unit.Spd < 1)
             unit.Spd = 1;
-        unit.Luc = (long)character.Stats[0].LUC;
+        unit.Luc = (long)CharacterClass.ClampLuc(character.Stats[0].LUC);
         unit.Obs = (long)character.Stats[0].OBS;
         unit.Attribute = ToAttribute(character.CharacterType);
         unit.InBattle = true;
@@ -124,7 +124,7 @@ public static class BattleCharacterFactory
         unit.Atk = grownAtk < 0 ? 0 : grownAtk;
         unit.Def = grownDef < 0 ? 0 : grownDef;
         unit.Spd = grownSpd < 1 ? 1 : grownSpd;
-        unit.Luc = (long)character.Stats[1].LUC;
+        unit.Luc = (long)CharacterClass.ClampLuc(character.Stats[1].LUC);
         unit.Obs = (long)character.Stats[1].OBS;
     }
 

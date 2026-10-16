@@ -1,5 +1,31 @@
 {
   "dependencies": {
+    "com.google.ads.mobile": {
+      "version": "11.5.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.google.external-dependency-manager": "1.2.187",
+        "com.unity.modules.androidjni": "1.0.0"
+      },
+      "url": "https://package.openupm.com"
+    },
+    "com.google.ads.mobile.mediation.unity": {
+      "version": "3.21.1",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.google.ads.mobile": "11.0.0"
+      },
+      "url": "https://package.openupm.com"
+    },
+    "com.google.external-dependency-manager": {
+      "version": "1.2.187",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://package.openupm.com"
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
@@ -14,16 +40,6 @@
         "com.unity.modules.tilemap": "1.0.0",
         "com.unity.modules.uielements": "1.0.0"
       }
-    },
-    "com.unity.ads": {
-      "version": "4.19.0",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.ugui": "1.0.0",
-        "com.unity.modules.androidjni": "1.0.0"
-      },
-      "url": "https://packages.unity.com"
     },
     "com.unity.ai.navigation": {
       "version": "2.0.14",

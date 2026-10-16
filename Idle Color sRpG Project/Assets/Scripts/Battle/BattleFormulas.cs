@@ -105,7 +105,7 @@ public static class BattleRewardCalculator
             opaquePixels = 0;
         if (attributeValue < 0)
             attributeValue = 0;
-        // 黒体は代表色が 0 で属性値も 0 になる。ピクセルがある敵は最低 1 にする。
+        // 無属性は属性値が 0。ピクセルがある敵は最低 1 にする。
         if (opaquePixels > 0 && attributeValue < 1)
             attributeValue = 1;
         double multiplier = config.ExpMultiplier;
@@ -125,6 +125,12 @@ public static class BattleRewardCalculator
         if (bonus < 0)
             bonus = 0;
         return baseExp + bonus;
+    }
+
+    // レベル上乗せ後の経験値を 2 で割る。端数は切り上げ。0 はそのまま。
+    public static long ExpReward(long totalExp)
+    {
+        return BattleMath.CeilDivPositive(totalExp, 2);
     }
 
     // 倒したときの経験値を、その時点で生き残っている味方の人数で割る。端数は切り上げ。
@@ -214,7 +220,8 @@ public static class BattleLevelGrowth
         growth.NewHpMax = AddGrowth(hpMax, config.HpGrowthRate, 1);
         growth.NewAtk = AddGrowth(atk, config.AtkGrowthRate, 1);
         growth.NewDef = AddGrowth(def, config.DefGrowthRate, 1);
-        growth.NewSpd = spd < 0 ? 0 : spd;
+        long currentSpd = spd < 0 ? 0 : spd;
+        growth.NewSpd = currentSpd >= long.MaxValue ? long.MaxValue : currentSpd + 1;
         if (growth.NewHpMax < 1)
             growth.NewHpMax = 1;
         growth.HpDelta = growth.NewHpMax - (hpMax < 0 ? 0 : hpMax);
@@ -232,7 +239,14 @@ public static class BattleLevelGrowth
         return growth;
     }
 
-    //基礎ステータスに、レベル回数 × 成長率を足す。レベル0は基礎のまま。
+    // レベル1は基礎のまま。2以降は、レベル-1 回ぶん成長率を足す。
+    public static long GrowthSteps(long level)
+    {
+        if (level <= 1)
+            return 0;
+        return level - 1;
+    }
+
     public static void ApplyLevels(long hp, long atk, long def, long spd, long level, BattleBalanceConfig config, out long grownHp, out long grownAtk, out long grownDef, out long grownSpd)
     {
         if (hp < 0)
@@ -241,20 +255,26 @@ public static class BattleLevelGrowth
             atk = 0;
         if (def < 0)
             def = 0;
-        if (spd < 0)
-            spd = 0;
+        if (spd < 1)
+            spd = 1;
         grownHp = hp;
         grownAtk = atk;
         grownDef = def;
         grownSpd = spd;
-        if (config == null || level <= 0)
+        if (level < 1)
+            level = 1;
+        if (config == null)
             return;
         if (level > config.MaxLevel)
             level = config.MaxLevel;
+        long steps = GrowthSteps(level);
+        if (steps <= 0)
+            return;
 
-        grownHp = AddGrowth(hp, config.HpGrowthRate, level);
-        grownAtk = AddGrowth(atk, config.AtkGrowthRate, level);
-        grownDef = AddGrowth(def, config.DefGrowthRate, level);
+        grownHp = AddGrowth(hp, config.HpGrowthRate, steps);
+        grownAtk = AddGrowth(atk, config.AtkGrowthRate, steps);
+        grownDef = AddGrowth(def, config.DefGrowthRate, steps);
+        grownSpd = spd > long.MaxValue - steps ? long.MaxValue : spd + steps;
         if (grownHp < 1)
             grownHp = 1;
     }
@@ -289,8 +309,8 @@ public static class BattleExperience
     {
         if (gain < 0)
             gain = 0;
-        if (level < 0)
-            level = 0;
+        if (level < 1)
+            level = 1;
         if (exp < 0)
             exp = 0;
         if (expMax <= 0)
