@@ -1105,14 +1105,15 @@ public class SaveClass// : MonoBehaviour
             QuestRecord record;
             if (!quests.TryGet(all[i].Id, out record))
                 continue;
-            if (!record.Cleared && !record.Claimed)
+            if (!record.Cleared && !record.Claimed && !record.Locked)
                 continue;
             int cleared = record.Cleared ? 1 : 0;
             int claimed = record.Claimed ? 1 : 0;
             int choice = record.Choice;
             if (choice != 1 && choice != 2)
                 choice = 0;
-            sw.WriteLine("QuestState[" + all[i].Id.ToString() + "]," + cleared.ToString() + "," + claimed.ToString() + "," + choice.ToString());
+            int locked = record.Locked ? 1 : 0;
+            sw.WriteLine("QuestState[" + all[i].Id.ToString() + "]," + cleared.ToString() + "," + claimed.ToString() + "," + choice.ToString() + "," + locked.ToString());
         }
     }
 
@@ -1207,12 +1208,20 @@ public class SaveClass// : MonoBehaviour
         int cleared = ReadQuestFlag(values[1]);
         int claimed = ReadQuestFlag(values[2]);
         int choice = ReadQuestFlag(values[3]);
+        int locked = 0;
+        if (values.Length >= 5)
+        {
+            locked = ReadQuestFlag(values[4]);
+            if (locked != 0 && locked != 1)
+                locked = 0;
+        }
         if (choice == 0 || choice == 1 || choice == 2)
         {
             QuestRecord record = quests.GetOrCreate(id);
             record.Cleared = cleared == 1 || claimed == 1;
             record.Claimed = claimed == 1;
             record.Choice = choice == 1 || choice == 2 ? choice : 0;
+            record.Locked = locked == 1;
         }
         return true;
     }

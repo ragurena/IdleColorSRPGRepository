@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 残機合成。残機が1以上のキャラを並べ、消費後も1体残るキャラだけ選べる。
+// 残機合成。残機が1以上のキャラはどれも選べる。合成ボタンは、選んだキャラが合成できるときだけ押せる。
 public class ControllerFusionClass : MonoBehaviour
 {
     ControllerProduction _production;
@@ -73,20 +73,15 @@ public class ControllerFusionClass : MonoBehaviour
                 selectedStillThere = true;
         });
 
-        if (!selectedStillThere || !CanFuse(_production.GetCharacter(_selectedId)))
-            _selectedId = FirstFusableId();
-        ShowDetail();
-    }
-
-    uint FirstFusableId()
-    {
-        for (int i = 0; i < _cells.Count; i++)
+        if (selectedStillThere)
+            ShowDetail();
+        else if (_cells.Count > 0)
+            Select(_cells[0].Id);
+        else
         {
-            CharacterClass character = _production.GetCharacter(_cells[i].Id);
-            if (CanFuse(character))
-                return character.ID;
+            _selectedId = 0;
+            ShowDetail();
         }
-        return 0;
     }
 
     static bool CanFuse(CharacterClass character)
@@ -99,7 +94,7 @@ public class ControllerFusionClass : MonoBehaviour
     void Select(uint characterId)
     {
         CharacterClass character = _production.GetCharacter(characterId);
-        if (!CanFuse(character))
+        if (character == null || character.ID != characterId)
             return;
         _selectedId = characterId;
         for (int i = 0; i < _cells.Count; i++)
@@ -124,14 +119,15 @@ public class ControllerFusionClass : MonoBehaviour
 
     CellEntry CreateCell(CharacterClass character)
     {
-        bool canFuse = CanFuse(character);
         GameObject cell = new GameObject("FusionCell" + character.ID, typeof(RectTransform));
         cell.transform.SetParent(_content, false);
         Image background = cell.AddComponent<Image>();
         background.color = CellColor(character, character.ID == _selectedId);
         Button button = cell.AddComponent<Button>();
         button.targetGraphic = background;
-        button.interactable = canFuse;
+        ColorBlock colors = button.colors;
+        colors.disabledColor = Color.white;
+        button.colors = colors;
         uint id = character.ID;
         button.onClick.AddListener(() => Select(id));
 
@@ -146,7 +142,7 @@ public class ControllerFusionClass : MonoBehaviour
         image.preserveAspect = true;
         image.raycastTarget = false;
         image.sprite = SpriteOf(character);
-        image.color = canFuse ? Color.white : new Color(0.35f, 0.35f, 0.35f, 1f);
+        image.color = Color.white;
 
         Text label = CreateText("Label", cell.transform, 16, TextAnchor.UpperCenter);
         RectTransform labelRect = label.rectTransform;
@@ -157,7 +153,7 @@ public class ControllerFusionClass : MonoBehaviour
         label.horizontalOverflow = HorizontalWrapMode.Wrap;
         label.verticalOverflow = VerticalWrapMode.Overflow;
         label.text = CellText(character);
-        label.color = canFuse ? new Color(0.12f, 0.12f, 0.14f, 1f) : new Color(0.45f, 0.45f, 0.48f, 1f);
+        label.color = new Color(0.12f, 0.12f, 0.14f, 1f);
 
         return new CellEntry { Id = character.ID, Background = background, Picture = image, Label = label };
     }
@@ -175,10 +171,10 @@ public class ControllerFusionClass : MonoBehaviour
 
     static Color CellColor(CharacterClass character, bool selected)
     {
-        if (!CanFuse(character))
-            return new Color(0.62f, 0.62f, 0.64f, 1f);
         if (selected)
             return new Color(0.55f, 0.72f, 0.9f, 1f);
+        if (!CanFuse(character))
+            return new Color(0.72f, 0.72f, 0.74f, 1f);
         return new Color(0.82f, 0.82f, 0.86f, 1f);
     }
 
@@ -190,9 +186,9 @@ public class ControllerFusionClass : MonoBehaviour
             _fuseButton.interactable = canFuse;
         if (_detail == null)
             return;
-        if (!canFuse)
+        if (character == null)
         {
-            _detail.text = "残機が1体以上残るキャラを選んでください";
+            _detail.text = "キャラを選んでください";
             return;
         }
 
@@ -211,16 +207,21 @@ public class ControllerFusionClass : MonoBehaviour
         long createR = (long)character.Stats[0].RCreates;
         long createG = (long)character.Stats[0].GCreates;
         long createB = (long)character.Stats[0].BCreates;
+        long nextLives = lives - cost;
+        if (nextLives < 0)
+            nextLives = 0;
         _detail.text = character.Name + "\n"
             + "合成 " + UiNumber.Format(count) + "回（+" + FusionBonus.Percent(count).ToString() + "%）\n"
             + "次は " + cost.ToString() + "体で +" + FusionBonus.PercentPerFusion.ToString() + "%（+" + FusionBonus.Percent(count + 1).ToString() + "%）\n"
-            + "残機 " + lives.ToString() + " → " + (lives - cost).ToString() + "\n"
+            + "残機 " + lives.ToString() + " → " + nextLives.ToString() + "\n"
             + "HP " + UiNumber.Format(hp) + " → " + UiNumber.Format(NextStat(hp, grownHp, count)) + "\n"
             + "ATK " + UiNumber.Format(atk) + " → " + UiNumber.Format(NextStat(atk, grownAtk, count)) + "\n"
             + "DEF " + UiNumber.Format(def) + " → " + UiNumber.Format(NextStat(def, grownDef, count)) + "\n"
             + "R " + UiNumber.Format(createR) + " → " + UiNumber.Format(NextStat(createR, grownR, count)) + "\n"
             + "G " + UiNumber.Format(createG) + " → " + UiNumber.Format(NextStat(createG, grownG, count)) + "\n"
             + "B " + UiNumber.Format(createB) + " → " + UiNumber.Format(NextStat(createB, grownB, count));
+        if (!canFuse)
+            _detail.text += "\n残機が足りないため合成できません";
     }
 
     static long NextStat(long current, long grown, long fusionCount)
@@ -301,8 +302,17 @@ public class ControllerFusionClass : MonoBehaviour
         _detail.horizontalOverflow = HorizontalWrapMode.Wrap;
         _detail.verticalOverflow = VerticalWrapMode.Truncate;
 
-        _fuseButton = CreateButton("ButtonFusion", "合成", new Color(0.25f, 0.48f, 0.75f, 1f));
+        _fuseButton = CreateButton("ButtonFusion", "合成", Color.white);
         Place(_fuseButton.GetComponent<RectTransform>(), 0f, -640f, 280f, 64f);
+        ColorBlock fuseColors = _fuseButton.colors;
+        fuseColors.normalColor = new Color(0.25f, 0.48f, 0.75f, 1f);
+        fuseColors.highlightedColor = new Color(0.35f, 0.58f, 0.85f, 1f);
+        fuseColors.pressedColor = new Color(0.18f, 0.38f, 0.62f, 1f);
+        fuseColors.selectedColor = fuseColors.normalColor;
+        fuseColors.disabledColor = new Color(0.62f, 0.62f, 0.64f, 1f);
+        fuseColors.colorMultiplier = 1f;
+        _fuseButton.colors = fuseColors;
+        _fuseButton.interactable = false;
         _fuseButton.onClick.AddListener(PushFuse);
     }
 

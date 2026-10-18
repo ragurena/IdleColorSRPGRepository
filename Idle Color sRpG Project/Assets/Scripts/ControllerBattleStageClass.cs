@@ -183,7 +183,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         Refresh();
     }
 
-    //見ているステージが出撃中なら撤退する。別のステージなら、今のセットを撤退してから選んでいるセットを出撃させる
+    // 見ているステージが出撃中なら撤退する。別のステージなら、戦闘を止めてから選んでいるセットを出撃させる。
     public void PushButtonSortieOrWithdraw()
     {
         int activeSet = ControllerProduction.GetActiveBattlePartySet();
@@ -198,12 +198,17 @@ public class ControllerBattleStageClass : MonoBehaviour
         }
         else
         {
+            bool resume = ControllerProduction.IsBattleRunning();
+            if (resume)
+                ControllerProduction.EndRunningBattle();
             GetSelectedFloorRange(out int floorFrom, out int floorTo);
             if (ControllerProduction.EnterBattleStage(CurrentStageIndex, CurrentSetIndex, floorFrom, floorTo))
             {
                 if (!ControllerProduction.BeginAutoBattle())
                     ControllerProduction.LeaveBattle();
             }
+            else if (resume)
+                ControllerProduction.BeginAutoBattle();
         }
 
         Refresh();

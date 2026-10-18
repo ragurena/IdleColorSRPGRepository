@@ -28,7 +28,8 @@ public enum QuestRewardKind
     FusionEfficiency,
     TapChooseSlot,
     UnlockFeature,
-    GrantPalette
+    GrantPalette,
+    BothSlots
 }
 
 // サブクエストを受け取ったとき、広告で生産枠を増やせる回数をどちらに足すか。
@@ -82,6 +83,7 @@ public sealed class QuestRecord
     public bool Cleared;
     public bool Claimed;
     public int Choice;
+    public bool Locked;
 }
 
 public sealed class QuestSave
@@ -180,38 +182,38 @@ public static class QuestCatalog
         Gallery(1059, 500),
 
         // RGB生産
-        Rgb( 10, 0, "R",   100000),
-        Rgb( 20, 0, "R",   250000),
-        Rgb( 30, 0, "R",   500000),
-        Rgb( 40, 0, "R",   750000),
-        Rgb( 50, 0, "R",  1000000),
-        Rgb( 60, 0, "R",  2500000),
-        Rgb( 70, 0, "R",  5000000),
-        Rgb( 80, 0, "R",  7500000),
-        Rgb( 90, 0, "R", 10000000),
-        Rgb(100, 0, "R", 25000000),
+        Rgb( 10, 0, "R",   250000),
+        Rgb( 20, 0, "R",   500000),
+        Rgb( 30, 0, "R",   750000),
+        Rgb( 40, 0, "R",  1000000),
+        Rgb( 50, 0, "R",  2500000),
+        Rgb( 60, 0, "R",  5000000),
+        Rgb( 70, 0, "R",  7500000),
+        Rgb( 80, 0, "R", 10000000),
+        Rgb( 90, 0, "R", 25000000),
+        Rgb(100, 0, "R", 50000000),
 
-        Rgb( 11, 1, "G",   100000, QuestRewardKind.GrantPalette,  50),
-        Rgb( 21, 1, "G",   250000, QuestRewardKind.GrantPalette, 100),
-        Rgb( 31, 1, "G",   500000, QuestRewardKind.GrantPalette, 150),
-        Rgb( 41, 1, "G",   750000, QuestRewardKind.GrantPalette, 200),
-        Rgb( 51, 1, "G",  1000000, QuestRewardKind.GrantPalette, 250),
-        Rgb( 61, 1, "G",  2500000, QuestRewardKind.GrantPalette, 300),
-        Rgb( 71, 1, "G",  5000000, QuestRewardKind.GrantPalette, 350),
-        Rgb( 81, 1, "G",  7500000, QuestRewardKind.GrantPalette, 400),
-        Rgb( 91, 1, "G", 10000000, QuestRewardKind.GrantPalette, 450),
-        Rgb(101, 1, "G", 25000000, QuestRewardKind.GrantPalette, 500),
+        Rgb( 11, 1, "G",   250000, QuestRewardKind.GrantPalette,  50),
+        Rgb( 21, 1, "G",   500000, QuestRewardKind.GrantPalette, 100),
+        Rgb( 31, 1, "G",   750000, QuestRewardKind.GrantPalette, 150),
+        Rgb( 41, 1, "G",  1000000, QuestRewardKind.GrantPalette, 200),
+        Rgb( 51, 1, "G",  2500000, QuestRewardKind.GrantPalette, 250),
+        Rgb( 61, 1, "G",  5000000, QuestRewardKind.GrantPalette, 300),
+        Rgb( 71, 1, "G",  7500000, QuestRewardKind.GrantPalette, 350),
+        Rgb( 81, 1, "G", 10000000, QuestRewardKind.GrantPalette, 400),
+        Rgb( 91, 1, "G", 25000000, QuestRewardKind.GrantPalette, 450),
+        Rgb(101, 1, "G", 50000000, QuestRewardKind.GrantPalette, 500),
 
-        Rgb( 12, 2, "B",   100000, QuestRewardKind.RgbAll,   5000),
-        Rgb( 22, 2, "B",   250000, QuestRewardKind.RgbAll,  10000),
-        Rgb( 32, 2, "B",   500000, QuestRewardKind.RgbAll,  25000),
-        Rgb( 42, 2, "B",   750000, QuestRewardKind.RgbAll,  50000),
-        Rgb( 52, 2, "B",  1000000, QuestRewardKind.RgbAll,  75000),
-        Rgb( 62, 2, "B",  2500000, QuestRewardKind.RgbAll, 100000),
-        Rgb( 72, 2, "B",  5000000, QuestRewardKind.RgbAll, 250000),
-        Rgb( 82, 2, "B",  7500000, QuestRewardKind.RgbAll, 500000),
-        Rgb( 92, 2, "B", 10000000, QuestRewardKind.RgbAll, 500000),
-        Rgb(102, 2, "B", 25000000, QuestRewardKind.RgbAll, 500000),
+        Rgb( 12, 2, "B",   250000, QuestRewardKind.RgbAll,   5000),
+        Rgb( 22, 2, "B",   500000, QuestRewardKind.RgbAll,  10000),
+        Rgb( 32, 2, "B",   750000, QuestRewardKind.RgbAll,  25000),
+        Rgb( 42, 2, "B",  1000000, QuestRewardKind.RgbAll,  50000),
+        Rgb( 52, 2, "B",  2500000, QuestRewardKind.RgbAll,  75000),
+        Rgb( 62, 2, "B",  5000000, QuestRewardKind.RgbAll, 100000),
+        Rgb( 72, 2, "B",  7500000, QuestRewardKind.RgbAll, 250000),
+        Rgb( 82, 2, "B", 10000000, QuestRewardKind.RgbAll, 500000),
+        Rgb( 92, 2, "B", 25000000, QuestRewardKind.RgbAll, 500000),
+        Rgb(102, 2, "B", 50000000, QuestRewardKind.RgbAll, 500000),
 
         // ピクセル生成
         Pixel( 13,   100,    1000),
@@ -317,6 +319,18 @@ public static class QuestCatalog
         return a != null && b != null && !a.Main && !b.Main && a.Metric == b.Metric && a.Arg == b.Arg;
     }
 
+    // 表示クエストの系統。メインは1本、それ以外は同じ指標と同じ対象。
+    public static bool SameDisplayChain(QuestDef a, QuestDef b)
+    {
+        if (a == null || b == null)
+            return false;
+        if (a.Id == b.Id)
+            return true;
+        if (a.Main || b.Main)
+            return a.Main && b.Main;
+        return SameChain(a, b);
+    }
+
     public static QuestDef PreviousMain(QuestDef def)
     {
         if (def == null || !def.Main)
@@ -418,6 +432,8 @@ public static class QuestCatalog
             body = FeatureUnlockText(def.RewardAmount);
         else if (def.Reward == QuestRewardKind.GrantPalette)
             body = "生産できるピクセルをすべて" + UiNumber.Format(def.RewardAmount) + "個";
+        else if (def.Reward == QuestRewardKind.BothSlots)
+            body = "ピクセル生成枠 +" + UiNumber.Format(def.RewardAmount) + "、キャラ生成枠 +" + UiNumber.Format(def.RewardAmount);
         else
             body = "";
         string unlock = StageUnlockText(def);
@@ -469,7 +485,7 @@ public static class QuestCatalog
     static QuestDef Stage(int id, int stage, long floor)
     {
         string name = ControllerBattleStageClass.GetStageName(stage);
-        return new QuestDef(id, name + "を" + UiNumber.Format(floor) + "階クリア", QuestMetric.StageFloor, stage, floor, QuestRewardKind.ChooseSlots, Constants.QUEST_PRODUCTION_SLOT_REWARD, true);
+        return new QuestDef(id, name + "を" + UiNumber.Format(floor) + "階クリア", QuestMetric.StageFloor, stage, floor, QuestRewardKind.BothSlots, 1, true);
     }
 
     static string StageUnlockText(QuestDef def)
@@ -484,7 +500,7 @@ public static class QuestCatalog
 
     static QuestDef Gallery(int id, long count)
     {
-        return new QuestDef(id, "ギャラリーを" + UiNumber.Format(count) + "回クリア", QuestMetric.GalleryClears, Constants.BATTLE_STAGE_GALLERY, count, QuestRewardKind.ChooseSlots, Constants.QUEST_PRODUCTION_SLOT_REWARD, true);
+        return new QuestDef(id, "ギャラリーを" + UiNumber.Format(count) + "回クリア", QuestMetric.GalleryClears, Constants.BATTLE_STAGE_GALLERY, count, QuestRewardKind.BothSlots, 1, true);
     }
 
     static QuestDef Rgb(int id, int channel, string name, long target)

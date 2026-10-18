@@ -685,7 +685,7 @@ public static class SaveFiles
         if (string.IsNullOrEmpty(raw))
             return false;
         string[] parts = raw.Split(',');
-        if (parts.Length != 3)
+        if (parts.Length != 3 && parts.Length != 4)
             return false;
         for (int i = 0; i < parts.Length; i++)
         {

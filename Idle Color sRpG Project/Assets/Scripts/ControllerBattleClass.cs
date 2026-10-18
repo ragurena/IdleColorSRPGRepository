@@ -19,6 +19,8 @@ public class ControllerBattleClass : MonoBehaviour
     GameObject _questBanner;
     Image _questBannerFill;
     Text _questBannerText;
+    GameObject _questBadge;
+    Text _questBadgeText;
     readonly List<QuestDef> _questCandidates = new List<QuestDef>();
     int _battleSpeed = 1;
     bool _running;
@@ -835,6 +837,24 @@ public class ControllerBattleClass : MonoBehaviour
         return true;
     }
 
+    // 別ステージへ出撃し直すとき、撤退の完了を待たずに戦闘だけ止める。編成の解除は呼び出し元が行う。
+    public void EndRunningBattle()
+    {
+        if (!_running && !_stop)
+            return;
+        StopAllCoroutines();
+        _running = false;
+        _stop = false;
+        _battleStageIndex = 0;
+        if (_production != null)
+            _production.SyncAllyLivesFromBattle(_units);
+        _units.Clear();
+        DrawSide(_allies, true);
+        DrawSide(_enemies, false);
+        ShowIdle();
+        Hide();
+    }
+
     void PushWithdraw()
     {
         RequestWithdraw();
@@ -1098,6 +1118,7 @@ public class ControllerBattleClass : MonoBehaviour
         Button quest = CreateButton("ButtonBattleQuest", "クエスト", new Color(0.62f, 0.46f, 0.16f, 1f), _questOverlay);
         PlaceRect(quest.GetComponent<RectTransform>(), battlePos.x + 430f, battlePos.y + 177f, 150f, 150f);
         quest.onClick.AddListener(ToggleQuest);
+        BuildQuestBadge(quest.transform);
 
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
@@ -1131,21 +1152,66 @@ public class ControllerBattleClass : MonoBehaviour
         _questBanner.SetActive(false);
     }
 
+    void BuildQuestBadge(Transform quest)
+    {
+        Image badge = CreateImage("ImageQuestBadge", quest, new Color(0.86f, 0.16f, 0.16f, 1f));
+        badge.sprite = CircleSprite();
+        badge.raycastTarget = false;
+        RectTransform rect = badge.rectTransform;
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(-26f, -26f);
+        rect.sizeDelta = new Vector2(40f, 40f);
+        _questBadge = badge.gameObject;
+
+        _questBadgeText = CreateText("Text", badge.transform, 22, TextAnchor.MiddleCenter);
+        Stretch(_questBadgeText.rectTransform);
+        _questBadgeText.raycastTarget = false;
+        _questBadgeText.resizeTextForBestFit = true;
+        _questBadgeText.resizeTextMinSize = 14;
+        _questBadgeText.resizeTextMaxSize = 22;
+        _questBadge.SetActive(false);
+    }
+
+    static Sprite CircleSprite()
+    {
+        const int size = 64;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.filterMode = FilterMode.Bilinear;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        float radius = (size - 1) * 0.5f;
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x - radius;
+                float dy = y - radius;
+                float alpha = Mathf.Clamp01(radius - Mathf.Sqrt(dx * dx + dy * dy) + 0.75f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        texture.SetPixels(pixels);
+        texture.Apply();
+        return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+    }
+
     void RefreshQuestBanner()
     {
         if (_questBanner == null || _production == null)
             return;
         _production.CollectVisibleQuests(_questCandidates);
-        QuestDef shown = null;
+        int claimable = 0;
         for (int i = 0; i < _questCandidates.Count; i++)
         {
             QuestDef def = _questCandidates[i];
-            if (def == null || _production.IsQuestClaimed(def))
-                continue;
-            if (shown == null || def.Id < shown.Id)
-                shown = def;
+            if (def != null && _production.IsQuestClaimable(def))
+                claimable++;
         }
-        // 一覧は受取可が上。バーはそれとは別に、出ている未受取の最小番号。
+        QuestDef shown = _production.DisplayQuest(_questCandidates);
+        RefreshQuestBadge(claimable);
+        // ロックした系統を優先し、なければ出ている未受取の最小番号。
         if (shown == null)
         {
             _questBanner.SetActive(false);
@@ -1163,6 +1229,20 @@ public class ControllerBattleClass : MonoBehaviour
         if (rate > 1f)
             rate = 1f;
         _questBannerFill.rectTransform.anchorMax = new Vector2(rate, 1f);
+    }
+
+    void RefreshQuestBadge(int claimable)
+    {
+        if (_questBadge == null)
+            return;
+        if (claimable <= 0)
+        {
+            _questBadge.SetActive(false);
+            return;
+        }
+        _questBadge.SetActive(true);
+        if (_questBadgeText != null)
+            _questBadgeText.text = claimable.ToString();
     }
 
     void ToggleQuest()

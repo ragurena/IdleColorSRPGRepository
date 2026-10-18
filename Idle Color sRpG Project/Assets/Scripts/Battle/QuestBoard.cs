@@ -207,6 +207,17 @@ public sealed class QuestBoard
         int claimId = def.Id;
         row.Claim.onClick.AddListener(() => PushClaim(claimId));
 
+        row.Lock = CreateButton("Lock", rowObject.transform, "ロック", new Color(0.28f, 0.30f, 0.36f, 1f));
+        RectTransform lockRect = row.Lock.GetComponent<RectTransform>();
+        lockRect.anchorMin = new Vector2(1f, 1f);
+        lockRect.anchorMax = new Vector2(1f, 1f);
+        lockRect.pivot = new Vector2(1f, 1f);
+        lockRect.anchoredPosition = new Vector2(-12f, -10f);
+        lockRect.sizeDelta = new Vector2(120f, 52f);
+        row.LockLabel = row.Lock.GetComponentInChildren<Text>();
+        int lockId = def.Id;
+        row.Lock.onClick.AddListener(() => ToggleLock(lockId));
+
         GameObject choices = new GameObject("Choices", typeof(RectTransform));
         choices.transform.SetParent(rowObject.transform, false);
         RectTransform choiceRect = choices.GetComponent<RectTransform>();
@@ -251,6 +262,11 @@ public sealed class QuestBoard
             : new Color(0.35f, 0.35f, 0.38f, 1f);
         row.Claim.gameObject.SetActive(!choosing);
         row.Choices.SetActive(choosing);
+        bool chainLocked = _production.IsQuestChainLocked(def);
+        row.LockLabel.text = chainLocked ? "ロック中" : "ロック";
+        row.Lock.GetComponent<Image>().color = chainLocked
+            ? new Color(0.72f, 0.52f, 0.16f, 1f)
+            : new Color(0.28f, 0.30f, 0.36f, 1f);
         if (choosing)
         {
             Text pixel = row.PixelChoice.GetComponentInChildren<Text>();
@@ -272,6 +288,14 @@ public sealed class QuestBoard
             return;
         }
         _production.ClaimQuest(id, 0);
+        Refresh();
+    }
+
+    void ToggleLock(int id)
+    {
+        if (_production == null)
+            return;
+        _production.ToggleQuestLock(id);
         Refresh();
     }
 
@@ -389,6 +413,8 @@ public sealed class QuestBoard
         public Slider Bar;
         public Button Claim;
         public Text ClaimLabel;
+        public Button Lock;
+        public Text LockLabel;
         public GameObject Choices;
         public Button PixelChoice;
         public Button CharacterChoice;

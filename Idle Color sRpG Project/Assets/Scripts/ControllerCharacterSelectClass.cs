@@ -25,6 +25,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     System.Func<int, bool> PersonSortieCheck;
     int SelectedPersonId;
     GameObject WorkerTabs;
+    Button _characterTab;
+    Button _personTab;
+    Button _workerToggle;
+    bool _showingCharacters = true;
+    bool _sceneWorkerTabs;
+    bool _workerTabsReady;
 
 
 
@@ -178,6 +184,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     //バトル編成のマスから呼ばれたキャラクターセレクトパネルの表示
     public void ShowPanelSelectCharacterBattleParty(Button ButtonTmp, uint argCurrentCharacterID)
     {
+        HideWorkerTabs();
         GameObject[] tag1_Objects;
         tag1_Objects = GameObject.FindGameObjectsWithTag("SelectCharacter");
         foreach (GameObject gameObject in tag1_Objects)
@@ -677,8 +684,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             if (assigned != 0)
                 ShowAssignedPerson(assigned, ButtonTmp);
         }
-        else if (WorkerTabs != null)
-            WorkerTabs.SetActive(false);
+        else
+            HideWorkerTabs();
     }
 
     void AddImportedCharacterButtons(Button source, bool warnIfUsedInOtherProduction)
@@ -941,17 +948,16 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     static void ClearProductionButton(string buttonName, Color emptyColor)
     {
-        GameObject buttonObject = GameObject.Find(buttonName);
-        if (buttonObject == null)
-            return;
-        Button button = buttonObject.GetComponent<Button>();
-        if (button == null || button.image == null)
-            return;
-        button.image.sprite = null;
-        button.image.color = emptyColor;
-        Text label = button.GetComponentInChildren<Text>();
-        if (label != null)
-            label.text = "+";
+        ControllerProduction.ForEachNamedButton(buttonName, button =>
+        {
+            if (button.image == null)
+                return;
+            button.image.sprite = null;
+            button.image.color = emptyColor;
+            Text label = button.GetComponentInChildren<Text>();
+            if (label != null)
+                label.text = "+";
+        });
     }
 
     public static void AddFaintWarningMark(GameObject buttonObject)
@@ -990,8 +996,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         //どのキャラクターが選ばれたか削除
         CharacterIDTmp = 0;
         SelectedPersonId = 0;
-        if (WorkerTabs != null)
-            WorkerTabs.SetActive(false);
+        HideWorkerTabs();
 
         GameObject gameObjectCharacterList = null;
         GameObject[] tag1_Objects;
@@ -1033,8 +1038,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     {
         SelectedPersonId = 0;
         CharacterIDTmp = 0;
-        if (WorkerTabs != null)
-            WorkerTabs.SetActive(false);
+        HideWorkerTabs();
         ClearCharacterList();
         TextSelectCharacter1.text = "人";
         TextSelectCharacter2.text = "";
@@ -1058,6 +1062,63 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             panel = panel.parent;
         if (panel == null)
             panel = content.parent;
+        if (!_workerTabsReady)
+            FindOrCreateWorkerTabs(panel);
+        if (!_workerTabsReady)
+            return;
+        _showingCharacters = true;
+        if (WorkerTabs != null)
+            WorkerTabs.SetActive(true);
+        SetWorkerToggleShown(true);
+        SetSceneWorkerTabsActive(true);
+        Button captured = source;
+        if (_workerToggle != null)
+        {
+            ForEachWorkerToggle(button =>
+            {
+                button.onClick.RemoveAllListeners();
+                button.onClick.AddListener(() => ToggleWorkerKind(captured));
+            });
+            return;
+        }
+        _characterTab.onClick.RemoveAllListeners();
+        _personTab.onClick.RemoveAllListeners();
+        _characterTab.onClick.AddListener(() => ShowCharacterTab(captured));
+        _personTab.onClick.AddListener(() => ShowPersonTab(captured));
+        PaintWorkerTabs(true);
+    }
+
+    void ToggleWorkerKind(Button source)
+    {
+        if (_showingCharacters)
+            ShowPersonTab(source);
+        else
+            ShowCharacterTab(source);
+    }
+
+    void FindOrCreateWorkerTabs(Transform panel)
+    {
+        Button toggle = FindWorkerToggle();
+        if (toggle != null)
+        {
+            _sceneWorkerTabs = true;
+            _workerToggle = toggle;
+            _workerTabsReady = true;
+            return;
+        }
+
+        Button characterTab = FindNamedButton(panel, "ButtonWorkerTabCharacter");
+        Button personTab = FindNamedButton(panel, "ButtonWorkerTabPerson");
+        if (characterTab != null && personTab != null)
+        {
+            _sceneWorkerTabs = true;
+            _characterTab = characterTab;
+            _personTab = personTab;
+            _workerTabsReady = true;
+            return;
+        }
+
+        _sceneWorkerTabs = false;
         if (WorkerTabs == null)
         {
             WorkerTabs = new GameObject("WorkerKindTabs", typeof(RectTransform));
@@ -1068,22 +1129,141 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             tabs.pivot = new Vector2(0.5f, 1f);
             tabs.anchoredPosition = new Vector2(0f, -8f);
             tabs.sizeDelta = new Vector2(-24f, 64f);
-            CreateTab(WorkerTabs.transform, "ButtonWorkerTabCharacter", "キャラ", new Vector2(-160f, 0f), () => ShowCharacterTab(source));
-            CreateTab(WorkerTabs.transform, "ButtonWorkerTabPerson", "人", new Vector2(160f, 0f), () => ShowPersonTab(source));
+            CreateTab(WorkerTabs.transform, "ButtonWorkerTabCharacter", "キャラ", new Vector2(-160f, 0f), null);
+            CreateTab(WorkerTabs.transform, "ButtonWorkerTabPerson", "人", new Vector2(160f, 0f), null);
         }
-        WorkerTabs.SetActive(true);
-        Button characterTab = WorkerTabs.transform.Find("ButtonWorkerTabCharacter").GetComponent<Button>();
-        Button personTab = WorkerTabs.transform.Find("ButtonWorkerTabPerson").GetComponent<Button>();
-        characterTab.onClick.RemoveAllListeners();
-        personTab.onClick.RemoveAllListeners();
-        Button captured = source;
-        characterTab.onClick.AddListener(() => ShowCharacterTab(captured));
-        personTab.onClick.AddListener(() => ShowPersonTab(captured));
+        _characterTab = WorkerTabs.transform.Find("ButtonWorkerTabCharacter").GetComponent<Button>();
+        _personTab = WorkerTabs.transform.Find("ButtonWorkerTabPerson").GetComponent<Button>();
+        _workerTabsReady = _characterTab != null && _personTab != null;
+    }
+
+    static Button FindNamedButton(Transform panel, string name)
+    {
+        if (panel == null)
+            return null;
+        Button[] buttons = panel.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            if (buttons[i] != null && buttons[i].name == name)
+                return buttons[i];
+        }
+        return null;
+    }
+
+    void HideWorkerTabs()
+    {
+        RememberSceneWorkerTabs();
+        if (WorkerTabs != null)
+            WorkerTabs.SetActive(false);
+        SetWorkerToggleShown(false);
+        SetSceneWorkerTabsActive(false);
+    }
+
+    void RememberSceneWorkerTabs()
+    {
+        if (_workerToggle == null)
+            _workerToggle = FindWorkerToggle();
+        if (_workerToggle != null)
+        {
+            _sceneWorkerTabs = true;
+            _workerTabsReady = true;
+        }
+        if (_sceneWorkerTabs || _characterTab != null)
+            return;
+        Transform content = FindCharacterList();
+        if (content == null)
+            return;
+        Transform panel = content;
+        while (panel != null && panel.name != "PanelSelectCharacter")
+            panel = panel.parent;
+        if (panel == null)
+            panel = content.parent;
+        Button characterTab = FindNamedButton(panel, "ButtonWorkerTabCharacter");
+        Button personTab = FindNamedButton(panel, "ButtonWorkerTabPerson");
+        if (characterTab == null || personTab == null)
+            return;
+        _sceneWorkerTabs = true;
+        _characterTab = characterTab;
+        _personTab = personTab;
+        _workerTabsReady = true;
+    }
+
+    static Button FindWorkerToggle()
+    {
+        Button found = null;
+        ForEachWorkerToggle(button =>
+        {
+            if (found == null)
+                found = button;
+        });
+        return found;
+    }
+
+    static bool IsWorkerToggle(string name)
+    {
+        return name == "ButtonWorkerTabCharacterPerson"
+            || (name != null && name.StartsWith("ButtonWorkerTabCharacterPerson ", System.StringComparison.Ordinal));
+    }
+
+    static void ForEachWorkerToggle(System.Action<Button> action)
+    {
+        if (action == null)
+            return;
+        Button[] buttons = Resources.FindObjectsOfTypeAll<Button>();
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            if (button == null || !IsWorkerToggle(button.name))
+                continue;
+            if (!button.gameObject.scene.IsValid())
+                continue;
+            action(button);
+        }
+    }
+
+    static void SetWorkerToggleShown(bool shown)
+    {
+        ForEachWorkerToggle(button =>
+        {
+            if (button.gameObject.activeSelf != shown)
+                button.gameObject.SetActive(shown);
+        });
+    }
+
+    void SetSceneWorkerTabsActive(bool active)
+    {
+        if (!_sceneWorkerTabs)
+            return;
+        if (_workerToggle != null)
+            _workerToggle.gameObject.SetActive(active);
+        if (_characterTab != null)
+            _characterTab.gameObject.SetActive(active);
+        if (_personTab != null)
+            _personTab.gameObject.SetActive(active);
+    }
+
+    void PaintWorkerTabs(bool characterSelected)
+    {
+        PaintWorkerTab(_characterTab, characterSelected);
+        PaintWorkerTab(_personTab, !characterSelected);
+    }
+
+    static void PaintWorkerTab(Button button, bool selected)
+    {
+        if (button == null)
+            return;
+        Image image = button.GetComponent<Image>();
+        if (image != null)
+            image.color = selected
+                ? new Color(0.25f, 0.48f, 0.75f, 1f)
+                : new Color(0.75f, 0.78f, 0.84f, 1f);
+        Text label = button.GetComponentInChildren<Text>();
+        if (label != null)
+            label.color = selected ? Color.white : new Color(0.1f, 0.1f, 0.12f, 1f);
     }
 
     void ShowCharacterTab(Button source)
     {
-        SelectedPersonId = 0;
         ClearCharacterList();
         for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
         {
@@ -1092,14 +1272,17 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 CreateCharacterButton(indexCharacter, source, true);
         }
         AddImportedCharacterButtons(source, true);
+        _showingCharacters = true;
+        PaintWorkerTabs(true);
     }
 
     void ShowPersonTab(Button source)
     {
-        CharacterIDTmp = 0;
         ClearCharacterList();
         for (int id = 1; id <= PersonIds.Count; id++)
             CreatePersonButton(id, source);
+        _showingCharacters = false;
+        PaintWorkerTabs(false);
     }
 
     void CreatePersonButton(int personId, Button source)
@@ -1234,7 +1417,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         rect.sizeDelta = new Vector2(280f, 56f);
         rect.anchoredPosition = position;
         buttonObject.GetComponent<Image>().color = new Color(0.75f, 0.78f, 0.84f, 1f);
-        buttonObject.GetComponent<Button>().onClick.AddListener(click);
+        if (click != null)
+            buttonObject.GetComponent<Button>().onClick.AddListener(click);
         GameObject textObject = new GameObject("Text", typeof(RectTransform));
         textObject.transform.SetParent(buttonObject.transform, false);
         RectTransform textRect = textObject.GetComponent<RectTransform>();

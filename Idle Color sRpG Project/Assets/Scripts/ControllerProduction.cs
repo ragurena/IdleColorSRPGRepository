@@ -510,43 +510,7 @@ public class ControllerProduction : MonoBehaviour
             for (int i = 1; i <= Slots.PixelSlots; i++)
                 ProductionPixel(Trigger.Update, i, out _);
             UpdateRGBProductionScene();
-
-            //RGB不足フラグの表示
-            {
-                ulong tmpR = 0;
-                ulong tmpG = 0;
-                ulong tmpB = 0;
-                for (int i = 1; i <= Slots.PixelSlots; i++)
-                {
-                    uint pixelYield = PixelYield(i);
-                    if (pixelYield == 0 && PersonIdProductionPixel[i] == 0)
-                        continue;
-                    tmpR += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].r), ProgressProductionPixel[i, 1], pixelYield);
-                    tmpG += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].g), ProgressProductionPixel[i, 2], pixelYield);
-                    tmpB += CalcProductionPixelRGB(UserProductionPixelNum, (uint)ColorByte(ColorProductionPixel[i].b), ProgressProductionPixel[i, 3], pixelYield);
-                }
-
-                //Debug.Log("temR = " + tmpR + "\n"
-                //        + "(uint)(ColorProductionPixel[1].r * 255) = " + (uint)(ColorProductionPixel[1].r * 255) + "\n"
-                //        + "ProgressProductionPixel[1, 1] = " + ProgressProductionPixel[1, 1]);
-                //Debug.Log("temG = " + tmpG);
-                //Debug.Log("temB = " + tmpB);
-
-                if (CurR >= tmpR)
-                    ImageAttentionR.enabled = false;
-                else
-                    ImageAttentionR.enabled = true;
-
-                if (CurG >= tmpG)
-                    ImageAttentionG.enabled = false;
-                else
-                    ImageAttentionG.enabled = true;
-
-                if (CurB >= tmpB)
-                    ImageAttentionB.enabled = false;
-                else
-                    ImageAttentionB.enabled = true;
-            }
+            RefreshPixelAttention();
 
             //キャラクター生産
             bool ProductionCharacterFlag = false;
@@ -1818,6 +1782,8 @@ public class ControllerProduction : MonoBehaviour
         if (ButtonCharacterTmp != null && IsProductionWorkerButton(ButtonCharacterTmp))
             ClearProductionPerson(ButtonCharacterTmp);
         ControllerCharacterSelect.ConfirmSelectCharacter(ButtonCharacterTmp);
+        if (ButtonCharacterTmp != null && IsProductionWorkerButton(ButtonCharacterTmp))
+            RefreshProductionAssignmentViews();
 
         if (ButtonCharacterTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
@@ -2983,6 +2949,17 @@ public class ControllerProduction : MonoBehaviour
         return ControllerBattle != null && ControllerBattle.RequestWithdraw();
     }
 
+    public bool IsBattleRunning()
+    {
+        return ControllerBattle != null && ControllerBattle.IsRunning();
+    }
+
+    public void EndRunningBattle()
+    {
+        if (ControllerBattle != null)
+            ControllerBattle.EndRunningBattle();
+    }
+
     public void LeaveBattle()
     {
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
@@ -3324,14 +3301,16 @@ public class ControllerProduction : MonoBehaviour
                 continue;
             if (personIds != null && i < personIds.Length && personIds[i] != 0)
                 continue;
-            GameObject buttonObject = GameObject.Find(buttonPrefix + i.ToString());
-            if (buttonObject == null)
-                continue;
-            Button button = buttonObject.GetComponent<Button>();
-            button.image.sprite = null;
-            button.image.color = emptyColor;
-            button.GetComponentInChildren<Text>().text = "+";
-            SyncPersonSkillBar(button);
+            int slot = i;
+            ForEachNamedButton(buttonPrefix + slot.ToString(), button =>
+            {
+                button.image.sprite = null;
+                button.image.color = emptyColor;
+                Text label = button.GetComponentInChildren<Text>();
+                if (label != null)
+                    label.text = "+";
+                SyncPersonSkillBar(button);
+            });
         }
     }
 
@@ -3455,25 +3434,8 @@ public class ControllerProduction : MonoBehaviour
         if (pixelPerson == null && (CharactersIDProductionPixel[argIndex] == 0 || pixelWorker == null || pixelWorker.ID == 0))
             return pixelPerson == null && CharactersIDProductionPixel[argIndex] == 0;
 
-        ushort Progress;
-        if (argTrigger == Trigger.Update)
-        {
-            if (pixelPerson != null)
-            {
-                int personSpd = PersonBalance != null ? PersonBalance.PixelSpd : 50;
-                if (personSpd < 1)
-                    personSpd = 1;
-                if (personSpd > ushort.MaxValue)
-                    personSpd = ushort.MaxValue;
-                Progress = (ushort)personSpd;
-            }
-            else
-                Progress = pixelWorker.Stats[0].SPD;
-        }
-        else
-        if (argTrigger == Trigger.User)
-            Progress = UserProductionPixelNum;
-        else
+        ushort Progress = PixelTickProgress(argIndex, argTrigger, pixelPerson, pixelWorker);
+        if (argTrigger != Trigger.Update && argTrigger != Trigger.User)
         {
             Debug.Log("NG !!!!!!!!!!!!!!!!!!!!!!!");
             return false;
@@ -3570,6 +3532,91 @@ public class ControllerProduction : MonoBehaviour
             Progress = 0;
 
         return (ulong)(Progress * argCreatePixels);
+    }
+
+    // 自動生産が、今進んでいる色の支払いができなければ、その色の警告を出す。
+    void RefreshPixelAttention()
+    {
+        bool shortR = false;
+        bool shortG = false;
+        bool shortB = false;
+        int last = Slots.PixelSlots;
+        if (PersonIdProductionPixel != null && last >= PersonIdProductionPixel.Length)
+            last = PersonIdProductionPixel.Length - 1;
+        for (int i = 1; i <= last; i++)
+        {
+            uint pixelPersonId = PersonIdProductionPixel[i];
+            PersonClass pixelPerson = pixelPersonId == 0 ? null : PersonAt((int)pixelPersonId);
+            CharacterClass pixelWorker = pixelPerson != null ? null : CharacterOf(CharactersIDProductionPixel[i]);
+            if (pixelPerson == null && (CharactersIDProductionPixel[i] == 0 || pixelWorker == null || pixelWorker.ID == 0))
+                continue;
+
+            int channel = PixelChannelInProgress(i);
+            if (channel == 0)
+                continue;
+            ushort progress = PixelTickProgress(i, Trigger.Update, pixelPerson, pixelWorker);
+            uint createPixels = PixelYield(i);
+            int target = ColorByte(channel == 1 ? ColorProductionPixel[i].r : channel == 2 ? ColorProductionPixel[i].g : ColorProductionPixel[i].b);
+            ulong cost = CalcProductionPixelRGB(progress, (uint)target, ProgressProductionPixel[i, channel], createPixels);
+            if (cost == 0)
+                continue;
+            ulong held = channel == 1 ? CurR : channel == 2 ? CurG : CurB;
+            if (held >= cost)
+                continue;
+            if (channel == 1)
+                shortR = true;
+            else if (channel == 2)
+                shortG = true;
+            else
+                shortB = true;
+        }
+        if (ImageAttentionR != null)
+            ImageAttentionR.enabled = shortR;
+        if (ImageAttentionG != null)
+            ImageAttentionG.enabled = shortG;
+        if (ImageAttentionB != null)
+            ImageAttentionB.enabled = shortB;
+    }
+
+    ushort PixelTickProgress(int argIndex, Trigger argTrigger, PersonClass pixelPerson, CharacterClass pixelWorker)
+    {
+        if (argTrigger == Trigger.User)
+            return UserProductionPixelNum;
+        if (argTrigger != Trigger.Update)
+            return 0;
+        if (pixelPerson != null)
+        {
+            int personSpd = PersonBalance != null ? PersonBalance.PixelSpd : 50;
+            if (personSpd < 1)
+                personSpd = 1;
+            if (personSpd > ushort.MaxValue)
+                personSpd = ushort.MaxValue;
+            return (ushort)personSpd;
+        }
+        if (pixelWorker == null || pixelWorker.Stats == null || pixelWorker.Stats[0] == null)
+            return 0;
+        return pixelWorker.Stats[0].SPD;
+    }
+
+    // 1=R, 2=G, 3=B。その拍で自動的に進む色や、完成直前は 0。
+    int PixelChannelInProgress(int argIndex)
+    {
+        int pixelR = ColorByte(ColorProductionPixel[argIndex].r);
+        int pixelG = ColorByte(ColorProductionPixel[argIndex].g);
+        int pixelB = ColorByte(ColorProductionPixel[argIndex].b);
+        if (pixelR == 0 && ProgressProductionPixel[argIndex, 1] == 0)
+            return 0;
+        if (ProgressProductionPixel[argIndex, 1] < pixelR)
+            return 1;
+        if (pixelG == 0 && ProgressProductionPixel[argIndex, 2] == 0)
+            return 0;
+        if (ProgressProductionPixel[argIndex, 2] < pixelG)
+            return 2;
+        if (pixelB == 0 && ProgressProductionPixel[argIndex, 3] == 0)
+            return 0;
+        if (ProgressProductionPixel[argIndex, 3] < pixelB)
+            return 3;
+        return 0;
     }
     //色が変わったときだけ、途中の消費RGBを戻して進捗を捨てる。同じ色なら何もしない
     void ApplyPixelProductionColor(int argIndex, Color nextColor)
@@ -3751,18 +3798,12 @@ public class ControllerProduction : MonoBehaviour
         PaintHelpWorker("ButtonBProductionHelpCharacter3", PersonIdHelpProductionB[3], CharactersIDHelpProductionB[3]);
     }
 
-    void PaintHelpCharacter(string buttonName, uint id)
+    void PaintHelpCharacter(Button button, uint id)
     {
-        if (id == 0)
+        if (button == null || button.image == null || id == 0)
             return;
         CharacterClass character = CharacterOf(id);
         if (character == null || character.ID != id || character.ImageTexture2D == null)
-            return;
-        GameObject buttonObject = GameObject.Find(buttonName);
-        if (buttonObject == null)
-            return;
-        Button button = buttonObject.GetComponent<Button>();
-        if (button == null || button.image == null)
             return;
         button.image.sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f));
         button.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
@@ -3829,10 +3870,7 @@ public class ControllerProduction : MonoBehaviour
 
     void SyncNamedPersonSkillBar(string buttonName)
     {
-        GameObject buttonObject = GameObject.Find(buttonName);
-        if (buttonObject == null)
-            return;
-        SyncPersonSkillBar(buttonObject.GetComponent<Button>());
+        ForEachNamedButton(buttonName, SyncPersonSkillBar);
     }
 
     void SyncPersonSkillBar(Button button)
@@ -4113,26 +4151,42 @@ public class ControllerProduction : MonoBehaviour
 
     public void UpdateCharacterPixelProduction(int argIndex)
     {
-        GameObject Content = PixelProductionRow(argIndex);
-        if (Content == null)
-            return;
+        string rowName = "PrefabOnePixelProduction" + argIndex.ToString("00");
+        GameObject[] objects = Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < objects.Length; i++)
+        {
+            GameObject content = objects[i];
+            if (content == null || !content.scene.IsValid())
+                continue;
+            if (content.name != rowName && !content.name.StartsWith(rowName + " ", System.StringComparison.Ordinal))
+                continue;
+            PaintPixelProductionCharacter(content, argIndex);
+        }
+    }
 
+    void PaintPixelProductionCharacter(GameObject content, int argIndex)
+    {
+        Button[] buttons = content.GetComponentsInChildren<Button>();
+        if (buttons.Length == 0)
+            return;
+        Button pixelButton = buttons[0];
         CharacterClass pixelCharacter = PersonIdProductionPixel[argIndex] != 0 ? null : ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]);
-        Button pixelButton = Content.GetComponentsInChildren<Button>()[0];
         if (PersonIdProductionPixel[argIndex] != 0)
             PaintPerson(pixelButton, PersonAt((int)PersonIdProductionPixel[argIndex]));
         else
         if (pixelCharacter == null || pixelCharacter.ImagePath == null)
         {
-            Content.GetComponentsInChildren<Button>()[0].image.sprite = null;
-            Content.GetComponentsInChildren<Button>()[0].GetComponentInChildren<Text>().text = "+";
+            pixelButton.image.sprite = null;
+            Text label = pixelButton.GetComponentInChildren<Text>();
+            if (label != null)
+                label.text = "+";
         }
         else
         {
-            //キャラクター
-            Content.GetComponentsInChildren<Button>()[0].image.sprite
-                = Sprite.Create(ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).ImageTexture2D, new UnityEngine.Rect(0, 0, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).Size, ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[argIndex])).Size), new Vector2(0.5f, 0.5f));
-            Content.GetComponentsInChildren<Button>()[0].GetComponentInChildren<Text>().text = "";
+            pixelButton.image.sprite = Sprite.Create(pixelCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, pixelCharacter.Size, pixelCharacter.Size), new Vector2(0.5f, 0.5f));
+            Text label = pixelButton.GetComponentInChildren<Text>();
+            if (label != null)
+                label.text = "";
         }
         SyncPersonSkillBar(pixelButton);
     }
@@ -4470,30 +4524,32 @@ public class ControllerProduction : MonoBehaviour
 
     void UpdateProductionCharacterButton(string argButtonName, uint argCharacterID, uint argPersonId)
     {
-        GameObject buttonObject = GameObject.Find(argButtonName);
-        if (buttonObject == null)
-            return;
-        Button button = buttonObject.GetComponent<Button>();
-        if (argPersonId != 0)
+        ForEachNamedButton(argButtonName, button =>
         {
-            PaintPerson(button, PersonAt((int)argPersonId));
-            SyncPersonSkillBar(button);
-            return;
-        }
+            if (argPersonId != 0)
+            {
+                PaintPerson(button, PersonAt((int)argPersonId));
+                SyncPersonSkillBar(button);
+                return;
+            }
 
-        CharacterClass shownCharacter = argCharacterID == 0 ? null : ImportedCharacters.FindAny(CharactersAll, argCharacterID);
-        if (shownCharacter == null || shownCharacter.ImageTexture2D == null)
-        {
-            button.image.sprite = null;
-            button.GetComponentInChildren<Text>().text = "+";
-            SyncPersonSkillBar(button);
-            return;
-        }
+            CharacterClass shownCharacter = argCharacterID == 0 ? null : ImportedCharacters.FindAny(CharactersAll, argCharacterID);
+            Text label = button.GetComponentInChildren<Text>();
+            if (shownCharacter == null || shownCharacter.ImageTexture2D == null)
+            {
+                button.image.sprite = null;
+                if (label != null)
+                    label.text = "+";
+                SyncPersonSkillBar(button);
+                return;
+            }
 
-        button.image.sprite = Sprite.Create(shownCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, shownCharacter.Size, shownCharacter.Size), new Vector2(0.5f, 0.5f));
-        button.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-        button.GetComponentInChildren<Text>().text = "";
-        SyncPersonSkillBar(button);
+            button.image.sprite = Sprite.Create(shownCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, shownCharacter.Size, shownCharacter.Size), new Vector2(0.5f, 0.5f));
+            button.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            if (label != null)
+                label.text = "";
+            SyncPersonSkillBar(button);
+        });
     }
 
     void ForEachProductionCharacterView(Action<int, RawImage, Transform> visit)
@@ -5086,20 +5142,36 @@ public class ControllerProduction : MonoBehaviour
 
     void PaintHelpWorker(string buttonName, uint personId, uint characterId)
     {
-        GameObject buttonObject = GameObject.Find(buttonName);
-        if (buttonObject == null)
-            return;
-        Button button = buttonObject.GetComponent<Button>();
-        if (personId != 0)
+        ForEachNamedButton(buttonName, button =>
         {
-            PaintPerson(button, PersonAt((int)personId));
+            if (personId != 0)
+            {
+                PaintPerson(button, PersonAt((int)personId));
+                SyncPersonSkillBar(button);
+                return;
+            }
             SyncPersonSkillBar(button);
+            if (characterId == 0)
+                return;
+            PaintHelpCharacter(button, characterId);
+        });
+    }
+
+    public static void ForEachNamedButton(string buttonName, System.Action<Button> action)
+    {
+        if (string.IsNullOrEmpty(buttonName) || action == null)
             return;
+        Button[] buttons = Resources.FindObjectsOfTypeAll<Button>();
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            if (button == null || !button.gameObject.scene.IsValid())
+                continue;
+            string name = button.name;
+            if (name != buttonName && !name.StartsWith(buttonName + " ", System.StringComparison.Ordinal))
+                continue;
+            action(button);
         }
-        SyncPersonSkillBar(button);
-        if (characterId == 0)
-            return;
-        PaintHelpCharacter(buttonName, characterId);
     }
 
     public static void PaintPerson(Button button, PersonClass person)
@@ -5312,6 +5384,108 @@ public class ControllerProduction : MonoBehaviour
         return Quests.TryGet(id, out record);
     }
 
+    public bool IsQuestLocked(QuestDef def)
+    {
+        QuestRecord record;
+        return def != null && Quests.TryGet(def.Id, out record) && record.Locked;
+    }
+
+    public bool IsQuestChainLocked(QuestDef def)
+    {
+        if (def == null)
+            return false;
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (!IsQuestLocked(all[i]))
+                continue;
+            if (QuestCatalog.SameDisplayChain(all[i], def))
+                return true;
+        }
+        return false;
+    }
+
+    public void ToggleQuestLock(int id)
+    {
+        EnsureQuestDefaults();
+        QuestDef def = QuestCatalog.Find(id);
+        if (def == null)
+            return;
+        if (IsQuestChainLocked(def))
+            ClearChainLocks(def);
+        else
+            Quests.GetOrCreate(def.Id).Locked = true;
+        SaveGame();
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshQuestBoard();
+    }
+
+    void ClearChainLocks(QuestDef def)
+    {
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            QuestRecord record;
+            if (!Quests.TryGet(all[i].Id, out record) || !record.Locked)
+                continue;
+            if (QuestCatalog.SameDisplayChain(all[i], def))
+                record.Locked = false;
+        }
+    }
+
+    public QuestDef DisplayQuest(List<QuestDef> visible)
+    {
+        QuestDef fallback = null;
+        QuestDef locked = null;
+        QuestDef lockedShown = null;
+        if (visible != null)
+        {
+            for (int i = 0; i < visible.Count; i++)
+            {
+                QuestDef def = visible[i];
+                if (def == null || IsQuestClaimed(def))
+                    continue;
+                if (fallback == null || def.Id < fallback.Id)
+                    fallback = def;
+            }
+        }
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (!IsQuestLocked(all[i]))
+                continue;
+            QuestDef shown = YoungestUnclaimed(visible, all[i]);
+            if (shown == null)
+                continue;
+            if (locked == null || all[i].Id < locked.Id)
+            {
+                locked = all[i];
+                lockedShown = shown;
+            }
+        }
+        if (lockedShown != null)
+            return lockedShown;
+        return fallback;
+    }
+
+    QuestDef YoungestUnclaimed(List<QuestDef> visible, QuestDef locked)
+    {
+        if (visible == null || locked == null)
+            return null;
+        QuestDef shown = null;
+        for (int i = 0; i < visible.Count; i++)
+        {
+            QuestDef def = visible[i];
+            if (def == null || IsQuestClaimed(def))
+                continue;
+            if (!QuestCatalog.SameDisplayChain(locked, def))
+                continue;
+            if (shown == null || def.Id < shown.Id)
+                shown = def;
+        }
+        return shown;
+    }
+
     public string QuestFraction(QuestDef def)
     {
         ulong current = QuestRaw(def);
@@ -5367,6 +5541,10 @@ public class ControllerProduction : MonoBehaviour
             if (importFull)
                 return "読み込み上限は500までです";
         }
+        if (def.Reward == QuestRewardKind.BothSlots
+            && (Slots.PixelSlots >= Constants.PRODUCTION_SLOT_MAX
+                || Slots.CharacterSlots >= Constants.PRODUCTION_SLOT_MAX))
+            return "生産枠は255までです";
         return "";
     }
 
@@ -5396,6 +5574,8 @@ public class ControllerProduction : MonoBehaviour
         ApplyMainFeatureLocks();
         if (ControllerBattleStage != null)
             ControllerBattleStage.Refresh();
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshQuestBoard();
         UpdateRGBProductionScene();
         RefreshProductionFigures();
         SaveGame();
@@ -5466,6 +5646,13 @@ public class ControllerProduction : MonoBehaviour
         }
         else if (def.Reward == QuestRewardKind.GrantPalette)
             GrantProduciblePixels(def.RewardAmount > 0 ? (ulong)def.RewardAmount : 0);
+        else if (def.Reward == QuestRewardKind.BothSlots)
+        {
+            int amount = def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount;
+            if (amount < 1)
+                amount = 1;
+            AddProductionSlots(amount, true, true);
+        }
     }
 
     void RaiseImportCap(int amount)
