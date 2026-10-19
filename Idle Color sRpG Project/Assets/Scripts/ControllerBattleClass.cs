@@ -22,6 +22,7 @@ public class ControllerBattleClass : MonoBehaviour
     GameObject _questBadge;
     Text _questBadgeText;
     readonly List<QuestDef> _questCandidates = new List<QuestDef>();
+    static readonly Color EmptyCellColor = new Color(0.15f, 0.15f, 0.18f, 0.3f);
     int _battleSpeed = 1;
     bool _running;
     bool _stop;
@@ -509,7 +510,7 @@ public class ControllerBattleClass : MonoBehaviour
             PlaceRect(walker.rectTransform, origin.x, origin.y, 70f, 70f);
             walker.transform.SetAsLastSibling();
             cell.Image.sprite = null;
-            cell.Image.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+            cell.Image.color = EmptyCellColor;
             SetMetersVisible(cell, false, false);
             RestoreCell(cell);
         }
@@ -746,7 +747,7 @@ public class ControllerBattleClass : MonoBehaviour
                 if (view == null || view.Image == null)
                     continue;
                 view.Image.sprite = null;
-                view.Image.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+                view.Image.color = EmptyCellColor;
                 SetMetersVisible(view, false, false);
                 RestoreCell(view);
             }
@@ -904,7 +905,7 @@ public class ControllerBattleClass : MonoBehaviour
                 if (unit == null)
                 {
                     view.Image.sprite = null;
-                    view.Image.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+                    view.Image.color = EmptyCellColor;
                     SetMetersVisible(view, false, false);
                     continue;
                 }
@@ -1067,9 +1068,6 @@ public class ControllerBattleClass : MonoBehaviour
         _header = CreateText("TextBattleHeader", _root.transform, 28, TextAnchor.MiddleLeft);
         PlaceRect(_header.rectTransform, 110f, 175f, 620f, 44f);
 
-        _resource = CreateText("TextBattleRgb", _root.transform, 24, TextAnchor.MiddleCenter);
-        PlaceRect(_resource.rectTransform, 0f, 128f, 1040f, 32f);
-
         _allies = new CellView[_config.FormationSize + 1, _config.FormationSize + 1];
         _enemies = new CellView[_config.FormationSize + 1, _config.FormationSize + 1];
         BuildGrid(_allies, -170f);
@@ -1099,7 +1097,285 @@ public class ControllerBattleClass : MonoBehaviour
         _fastButton.onClick.AddListener(PushFast);
         ApplySpeedButton();
 
+        PlaceTextPlate(_header);
+        PlaceTextPlate(_logText);
         BuildQuestAccess();
+        StartCoroutine(FitTextPlates());
+    }
+
+    IEnumerator FitTextPlates()
+    {
+        yield return null;
+        SpaceBattleText();
+    }
+
+    // 文字の板を、ボタンとキャラのマスから離して置く
+    void SpaceBattleText()
+    {
+        if (_root == null || _header == null)
+            return;
+        RectTransform panel = _root.GetComponent<RectTransform>();
+        float panelH = panel != null ? panel.rect.height : 0f;
+        float panelW = panel != null ? panel.rect.width : 0f;
+        if (panelH < 8f || panelW < 8f)
+            return;
+
+        float gridTop;
+        float gridBottom;
+        if (CellSpan(out gridTop, out gridBottom) == false)
+            return;
+
+        const float gap = 14f;
+        float questLeft = 430f - 75f;
+        float right = questLeft - gap;
+        float panelLeft = -panelW * 0.5f + 12f;
+
+        RectTransform header = _header.rectTransform;
+        float headerH = header.sizeDelta.y;
+        float resourceH = _resource != null ? _resource.rectTransform.sizeDelta.y : 32f;
+        const float headerDrop = 24f;
+        float headerY = gridTop + gap + resourceH + gap + headerH * 0.5f - headerDrop;
+        float resourceY = gridTop + gap + resourceH * 0.5f;
+        float headerBottom = headerY - headerH * 0.5f;
+        float resourceTop = resourceY + resourceH * 0.5f;
+        if (headerBottom < resourceTop + 6f)
+        {
+            float resourceDrop = resourceTop + 6f - headerBottom;
+            float maxDrop = resourceY - resourceH * 0.5f - (gridTop + 4f);
+            if (maxDrop < 0f)
+                maxDrop = 0f;
+            if (resourceDrop > maxDrop)
+                resourceDrop = maxDrop;
+            resourceY -= resourceDrop;
+            if (headerY - headerH * 0.5f < resourceY + resourceH * 0.5f + 6f)
+                headerY = resourceY + resourceH * 0.5f + 6f + headerH * 0.5f;
+        }
+        float shift = headerY - header.anchoredPosition.y;
+
+        RectTransform fast = _fastButton != null ? _fastButton.GetComponent<RectTransform>() : null;
+        float headerLeft = panelLeft;
+        if (fast != null)
+        {
+            fast.anchoredPosition += new Vector2(0f, shift);
+            headerLeft = fast.anchoredPosition.x + fast.sizeDelta.x * 0.5f + gap;
+        }
+        GameObject withdraw = GameObject.Find("ButtonBattleWithdraw");
+        if (withdraw != null)
+        {
+            RectTransform withdrawRect = withdraw.GetComponent<RectTransform>();
+            withdrawRect.anchoredPosition += new Vector2(0f, shift);
+        }
+
+        float headerWidth = right - headerLeft;
+        if (headerWidth < 80f)
+            headerWidth = 80f;
+        header.anchoredPosition = new Vector2(headerLeft + headerWidth * 0.5f, headerY);
+        header.sizeDelta = new Vector2(headerWidth, headerH);
+        _header.alignment = TextAnchor.MiddleCenter;
+
+        PlaceQuestBannerInPanel(gap);
+
+        if (_logText != null)
+        {
+            RectTransform log = _logText.rectTransform;
+            float logH = log.sizeDelta.y;
+            const float logDrop = 32f;
+            float logTop = gridBottom - gap - logDrop;
+            float logBottom = logTop - logH;
+            float panelBottom = -panelH * 0.5f + 8f;
+            if (logBottom < panelBottom)
+            {
+                logBottom = panelBottom;
+                logH = logTop - logBottom;
+                if (logH < 64f)
+                    logH = 64f;
+            }
+            log.anchoredPosition = new Vector2(0f, logBottom + panelH * 0.5f);
+            log.sizeDelta = new Vector2(panelW - 24f, logH);
+        }
+
+        PlaceTextPlate(_header);
+        PlaceTextPlate(_logText);
+    }
+
+    // クエストのバーはバトルパネルの矩形の中に収める。上に余白があれば階数の行から離す
+    void PlaceQuestBannerInPanel(float gap)
+    {
+        if (_questBanner == null || _root == null || _header == null)
+            return;
+        RectTransform banner = _questBanner.GetComponent<RectTransform>();
+        RectTransform parent = banner.parent as RectTransform;
+        RectTransform panelRect = _root.GetComponent<RectTransform>();
+        if (parent == null || panelRect == null)
+            return;
+
+        Vector2 panelMin;
+        Vector2 panelMax;
+        Vector2 headerMin;
+        Vector2 headerMax;
+        if (TryBoundsIn(panelRect, parent, out panelMin, out panelMax) == false)
+            return;
+        if (TryBoundsIn(_header.rectTransform, parent, out headerMin, out headerMax) == false)
+            return;
+        if (headerMax.y < headerMin.y)
+            return;
+
+        const float margin = 10f;
+        const float bannerH = 42f;
+        float left = panelMin.x + margin;
+        float right = panelMax.x - margin;
+        float limitTop = panelMax.y - margin;
+
+        Transform quest = parent.Find("ButtonBattleQuest");
+        Vector2 questMin;
+        Vector2 questMax;
+        if (quest is RectTransform && TryBoundsIn((RectTransform)quest, parent, out questMin, out questMax))
+        {
+            float bannerBottom = limitTop - bannerH;
+            bool overlaps = questMax.y > bannerBottom && questMin.y < limitTop;
+            if (overlaps && questMin.x - gap < right)
+                right = questMin.x - gap;
+        }
+        if (right > panelMax.x - margin)
+            right = panelMax.x - margin;
+        if (right < left + 80f)
+            right = left + 80f;
+
+        float bottom = headerMax.y + gap;
+        float top = bottom + bannerH;
+        if (top > limitTop)
+        {
+            top = limitTop;
+            bottom = top - bannerH;
+        }
+        if (bottom < panelMin.y + margin)
+            bottom = panelMin.y + margin;
+
+        banner.anchorMin = new Vector2(0.5f, 0.5f);
+        banner.anchorMax = new Vector2(0.5f, 0.5f);
+        banner.pivot = new Vector2(0.5f, 0.5f);
+        Vector2 anchorFromPivot = new Vector2(
+            (0.5f - parent.pivot.x) * parent.rect.width,
+            (0.5f - parent.pivot.y) * parent.rect.height);
+        banner.sizeDelta = new Vector2(right - left, bannerH);
+        banner.anchoredPosition = new Vector2((left + right) * 0.5f, (bottom + top) * 0.5f) - anchorFromPivot;
+    }
+
+    static bool TryBoundsIn(RectTransform rect, RectTransform parent, out Vector2 min, out Vector2 max)
+    {
+        min = Vector2.zero;
+        max = Vector2.zero;
+        if (rect == null || parent == null)
+            return false;
+        Canvas canvas = parent.GetComponentInParent<Canvas>();
+        Camera camera = null;
+        if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            camera = canvas.worldCamera;
+        Vector3[] corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        bool has = false;
+        for (int i = 0; i < 4; i++)
+        {
+            Vector2 local;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                parent,
+                RectTransformUtility.WorldToScreenPoint(camera, corners[i]),
+                camera,
+                out local) == false)
+                return false;
+            if (has == false)
+            {
+                min = max = local;
+                has = true;
+            }
+            else
+            {
+                min = Vector2.Min(min, local);
+                max = Vector2.Max(max, local);
+            }
+        }
+        return has;
+    }
+
+    bool CellSpan(out float top, out float bottom)
+    {
+        top = float.NegativeInfinity;
+        bottom = float.PositiveInfinity;
+        bool any = false;
+        any |= SpanOf(_allies, ref top, ref bottom);
+        any |= SpanOf(_enemies, ref top, ref bottom);
+        return any && top > bottom;
+    }
+
+    static bool SpanOf(CellView[,] cells, ref float top, ref float bottom)
+    {
+        if (cells == null)
+            return false;
+        bool any = false;
+        int width = cells.GetLength(0);
+        int height = cells.GetLength(1);
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                CellView view = cells[x, y];
+                if (view == null || view.Image == null)
+                    continue;
+                RectTransform rect = view.Image.rectTransform;
+                float half = rect.sizeDelta.y * 0.5f;
+                float cellTop = rect.anchoredPosition.y + half;
+                float cellBottom = rect.anchoredPosition.y - half;
+                if (cellTop > top)
+                    top = cellTop;
+                if (cellBottom < bottom)
+                    bottom = cellBottom;
+                any = true;
+            }
+        }
+        return any;
+    }
+
+    // 背景画像と文字の間。板は文字と同じ大きさにして、隣のボタンやマスには被せない
+    void PlaceTextPlate(Text text)
+    {
+        if (text == null)
+            return;
+        Transform parent = text.transform.parent;
+        string name = "Image" + text.gameObject.name + "Back";
+        Transform existing = parent.Find(name);
+        RectTransform back;
+        if (existing == null)
+        {
+            Image image = CreateImage(name, parent, new Color(0f, 0f, 0f, 0.7f));
+            image.raycastTarget = false;
+            back = image.rectTransform;
+        }
+        else
+            back = existing as RectTransform;
+
+        RectTransform textRect = text.rectTransform;
+        back.anchorMin = textRect.anchorMin;
+        back.anchorMax = textRect.anchorMax;
+        back.pivot = textRect.pivot;
+        back.anchoredPosition = textRect.anchoredPosition;
+        back.sizeDelta = textRect.sizeDelta;
+
+        int textIndex = textRect.GetSiblingIndex();
+        int backIndex = back.GetSiblingIndex();
+        int desired = backIndex < textIndex ? textIndex - 1 : textIndex;
+        if (backIndex != desired)
+            back.SetSiblingIndex(desired);
+    }
+
+    float BattleTextWidth()
+    {
+        RectTransform rect = _root != null ? _root.GetComponent<RectTransform>() : null;
+        float width = rect != null ? rect.rect.width : 0f;
+        if (width < 8f && rect != null)
+            width = rect.sizeDelta.x;
+        if (width < 8f)
+            width = 1080f;
+        return width - 24f;
     }
 
     // クエストボタン、達成率、一覧はバトル画面の外に置く。バトルを閉じていても見える。
@@ -1128,7 +1404,7 @@ public class ControllerBattleClass : MonoBehaviour
     void BuildQuestBanner(Vector2 battlePos)
     {
         Image track = CreateImage("ImageBattleQuestBanner", _questOverlay, new Color(0.10f, 0.12f, 0.16f, 0.95f));
-        PlaceRect(track.rectTransform, battlePos.x - 92f, battlePos.y + 231f, 870f, 56f);
+        PlaceRect(track.rectTransform, battlePos.x, battlePos.y + 250f, BattleTextWidth(), 42f);
         track.raycastTarget = false;
         _questBanner = track.gameObject;
 
@@ -1329,7 +1605,7 @@ public class ControllerBattleClass : MonoBehaviour
                 float py = 70f - (size - y) * pitch;
                 string side = cells == _allies ? "A" : "E";
                 string suffix = side + x.ToString() + y.ToString();
-                Image image = CreateImage("ImageBattleCell" + suffix, _root.transform, new Color(0.12f, 0.05f, 0.05f, 0.85f));
+                Image image = CreateImage("ImageBattleCell" + suffix, _root.transform, EmptyCellColor);
                 PlaceRect(image.rectTransform, px, py, cell, cell);
                 image.preserveAspect = true;
                 image.raycastTarget = false;
