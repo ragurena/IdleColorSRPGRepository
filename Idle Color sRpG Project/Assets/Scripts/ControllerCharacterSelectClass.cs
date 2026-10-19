@@ -344,9 +344,19 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         NotShowPanelSelectCharacter();
     }
 
+    void ReleaseWorker(uint characterId)
+    {
+        if (characterId == 0)
+            return;
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, characterId);
+        if (character != null)
+            character.Whereabouts = Place.None;
+    }
+
     //キャラクターセレクトの外すボタンが押されたら
     public void RemoveCharacterSelect(Button ButtonTmp)
     {
+        ControllerProduction.HidePersonPortrait(ButtonTmp);
         ButtonTmp.image.sprite = null;
         ButtonTmp.GetComponentInChildren<Text>().text = "+";
 
@@ -362,9 +372,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                //前に設定されていたキャラの居場所変更
-                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Whereabouts = Place.None;
-
+                ReleaseWorker(CharactersIDHelpProductionR[HelpProductionIndex]);
                 CharactersIDHelpProductionR[HelpProductionIndex] = 0;
             }
             else
@@ -374,9 +382,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                //前に設定されていたキャラの居場所変更
-                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Whereabouts = Place.None;
-
+                ReleaseWorker(CharactersIDHelpProductionG[HelpProductionIndex]);
                 CharactersIDHelpProductionG[HelpProductionIndex] = 0;
             }
             else
@@ -386,9 +392,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 int HelpProductionIndex = int.Parse(ButtonTmp.name.Substring(ButtonTmp.name.Length - 1, 1));
 
-                //前に設定されていたキャラの居場所変更
-                ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Whereabouts = Place.None;
-
+                ReleaseWorker(CharactersIDHelpProductionB[HelpProductionIndex]);
                 CharactersIDHelpProductionB[HelpProductionIndex] = 0;
             }
         }
@@ -398,9 +402,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             int ProductionPixelIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
-            //前に設定されていたキャラの居場所変更
-            ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Whereabouts = Place.None;
-
+            ReleaseWorker(CharactersIDProductionPixel[ProductionPixelIndex]);
             CharactersIDProductionPixel[ProductionPixelIndex] = 0;
 
         }
@@ -409,9 +411,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
 
-            //前に設定されていたキャラの居場所変更
-            ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).Whereabouts = Place.None;
-
+            ReleaseWorker(CharactersIDProductionCharacter[ProductionCharacterIndex]);
             CharactersIDProductionCharacter[ProductionCharacterIndex] = 0;
         }
         else
@@ -954,6 +954,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 return;
             button.image.sprite = null;
             button.image.color = emptyColor;
+            ControllerProduction.HidePersonPortrait(button);
             Text label = button.GetComponentInChildren<Text>();
             if (label != null)
                 label.text = "+";

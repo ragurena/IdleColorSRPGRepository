@@ -72,7 +72,7 @@ public static class PersonSkillBar
         else
         {
             root.pivot = new Vector2(0.5f, 1f);
-            root.anchoredPosition = new Vector2(0f, -2f);
+            root.anchoredPosition = new Vector2(0f, 18f);
         }
         root.sizeDelta = new Vector2(0f, 28f);
     }

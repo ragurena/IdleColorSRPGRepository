@@ -483,6 +483,17 @@ public class ControllerProduction : MonoBehaviour
     // Update is called once per frame
     private float TimeOut = 1;
     private float TimeElapsed = 0;
+    struct PendingRgbFx
+    {
+        public string ButtonName;
+        public bool Hop;
+        public Color Tint;
+        public ulong Amount;
+    }
+    readonly List<PendingRgbFx> _pendingRgbFx = new List<PendingRgbFx>(9);
+    Action<int, ulong, bool> _onRgbSlot;
+    string _rgbFxPrefix;
+    Color _rgbFxTint;
     void Update()
     {
         TimeElapsed += Time.deltaTime;
@@ -490,19 +501,28 @@ public class ControllerProduction : MonoBehaviour
         if (TimeElapsed >= TimeOut)
         {
             TimeElapsed = 0;
+            if (_onRgbSlot == null)
+                _onRgbSlot = NoteRgbSlot;
+            _pendingRgbFx.Clear();
 
             //Rの生産
-            ulong IncreaseValueRHelp = RgbSlotOutput(PersonIdHelpProductionR, CharactersIDHelpProductionR, 0);
+            _rgbFxPrefix = "ButtonRProductionHelpCharacter";
+            _rgbFxTint = RgbProduceFx.ChannelColor(0);
+            ulong IncreaseValueRHelp = RgbSlotOutput(PersonIdHelpProductionR, CharactersIDHelpProductionR, 0, _onRgbSlot);
             GainRgb(ref CurR, MaxR, IncreaseValueRHelp, 0);
             UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
 
             //Gの生産
-            ulong IncreaseValueGHelp = RgbSlotOutput(PersonIdHelpProductionG, CharactersIDHelpProductionG, 1);
+            _rgbFxPrefix = "ButtonGProductionHelpCharacter";
+            _rgbFxTint = RgbProduceFx.ChannelColor(1);
+            ulong IncreaseValueGHelp = RgbSlotOutput(PersonIdHelpProductionG, CharactersIDHelpProductionG, 1, _onRgbSlot);
             GainRgb(ref CurG, MaxG, IncreaseValueGHelp, 1);
             UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
 
             //Bの生産
-            ulong IncreaseValueBHelp = RgbSlotOutput(PersonIdHelpProductionB, CharactersIDHelpProductionB, 2);
+            _rgbFxPrefix = "ButtonBProductionHelpCharacter";
+            _rgbFxTint = RgbProduceFx.ChannelColor(2);
+            ulong IncreaseValueBHelp = RgbSlotOutput(PersonIdHelpProductionB, CharactersIDHelpProductionB, 2, _onRgbSlot);
             GainRgb(ref CurB, MaxB, IncreaseValueBHelp, 2);
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
@@ -564,7 +584,51 @@ public class ControllerProduction : MonoBehaviour
             if (ControllerBattle != null)
                 ControllerBattle.RefreshQuestBoard();
 
+            //絵を塗り直したあとで出す。跳ねる絵は今のスプライトを使う
+            PlayPendingRgbFx();
         }
+    }
+
+    void NoteRgbSlot(int index, ulong amount, bool person)
+    {
+        if (amount == 0 || string.IsNullOrEmpty(_rgbFxPrefix))
+            return;
+        _pendingRgbFx.Add(new PendingRgbFx
+        {
+            ButtonName = _rgbFxPrefix + index.ToString(),
+            Hop = !person,
+            Tint = _rgbFxTint,
+            Amount = amount
+        });
+    }
+
+    void PlayPendingRgbFx()
+    {
+        if (_pendingRgbFx.Count == 0)
+            return;
+        if (!RgbPanelShown())
+        {
+            _pendingRgbFx.Clear();
+            return;
+        }
+        for (int i = 0; i < _pendingRgbFx.Count; i++)
+        {
+            PendingRgbFx fx = _pendingRgbFx[i];
+            string buttonName = fx.ButtonName;
+            bool hop = fx.Hop;
+            Color tint = fx.Tint;
+            ulong amount = fx.Amount;
+            ForEachNamedButton(buttonName, button => RgbProduceFx.Play(button, hop, tint, amount));
+        }
+        _pendingRgbFx.Clear();
+    }
+
+    bool RgbPanelShown()
+    {
+        if (PanelRGBProduction == null)
+            return false;
+        CanvasGroup group = PanelRGBProduction.GetComponent<CanvasGroup>();
+        return group != null && group.alpha > 0.01f;
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1072,8 +1136,11 @@ public class ControllerProduction : MonoBehaviour
     //シーンセレクト
 
     //RGB生産シーンボタンが押されたら
+    static Sprite RgbPanelBackgroundSprite;
+
     public void PushButtonSelectSceneRGBProduction()
     {
+        EnsureRgbPanelBackground();
         //PanelRGBProductionの表示
         ShowPanel(PanelRGBProduction);
         //UIの更新
@@ -3376,6 +3443,7 @@ public class ControllerProduction : MonoBehaviour
             {
                 button.image.sprite = null;
                 button.image.color = emptyColor;
+                HidePersonPortrait(button);
                 Text label = button.GetComponentInChildren<Text>();
                 if (label != null)
                     label.text = "+";
@@ -3786,6 +3854,703 @@ public class ControllerProduction : MonoBehaviour
     //View
 
     //パネルの表示
+    void EnsureRgbPanelBackground()
+    {
+        if (PanelRGBProduction == null)
+            return;
+
+        Transform existing = PanelRGBProduction.transform.Find("RgbPanelBackground");
+        Image image;
+        if (existing == null)
+        {
+            GameObject obj = new GameObject("RgbPanelBackground", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(PanelRGBProduction.transform, false);
+            image = obj.GetComponent<Image>();
+            image.raycastTarget = false;
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+        else
+            image = existing.GetComponent<Image>();
+
+        image.sprite = RgbBackgroundGradient();
+        image.type = Image.Type.Simple;
+        image.color = Color.white;
+        image.transform.SetAsFirstSibling();
+        StyleChromeButtons(PanelRGBProduction);
+        StyleChemSliders(PanelRGBProduction);
+
+        Image panelImage = PanelRGBProduction.GetComponent<Image>();
+        if (panelImage != null)
+            panelImage.color = new Color(panelImage.color.r, panelImage.color.g, panelImage.color.b, 0f);
+
+        for (int i = 0; i < PanelRGBProduction.transform.childCount; i++)
+        {
+            Transform child = PanelRGBProduction.transform.GetChild(i);
+            if (child.name == "RgbPanelBackground")
+                continue;
+            if (child.GetComponent<Button>() != null)
+                continue;
+            Image childImage = child.GetComponent<Image>();
+            RectTransform childRect = child as RectTransform;
+            if (childImage == null || childRect == null)
+                continue;
+            if (childRect.anchorMin != Vector2.zero || childRect.anchorMax != Vector2.one)
+                continue;
+            if (childImage.color.g < childImage.color.r + 0.08f || childImage.color.g < childImage.color.b + 0.08f)
+                continue;
+            childImage.enabled = false;
+        }
+    }
+
+    static Sprite RgbBackgroundGradient()
+    {
+        if (RgbPanelBackgroundSprite != null)
+            return RgbPanelBackgroundSprite;
+
+        const int height = 64;
+        Texture2D texture = new Texture2D(1, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        Color top = new Color(0.11f, 0.028f, 0.026f, 1f);
+        Color middle = new Color(0.022f, 0.09f, 0.028f, 1f);
+        Color bottom = new Color(0.022f, 0.036f, 0.12f, 1f);
+        for (int y = 0; y < height; y++)
+        {
+            float t = (y + 0.5f) / height;
+            Color color = t < 0.5f
+                ? Color.Lerp(bottom, middle, t / 0.5f)
+                : Color.Lerp(middle, top, (t - 0.5f) / 0.5f);
+            texture.SetPixel(0, y, color);
+        }
+        texture.Apply();
+        RgbPanelBackgroundSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, height), new Vector2(0.5f, 0.5f), 100f);
+        RgbPanelBackgroundSprite.hideFlags = HideFlags.HideAndDontSave;
+        return RgbPanelBackgroundSprite;
+    }
+
+    static readonly Sprite[] RgbButtonFillSprites = new Sprite[3];
+    static readonly Sprite[] RgbUpgradeFillSprites = new Sprite[3];
+    static readonly Sprite[] RgbButtonGlowSprites = new Sprite[4];
+    const float RgbButtonGlow = 3f;
+    const float RgbButtonCore = 1.5f;
+
+    void StyleChromeButtons(GameObject root)
+    {
+        if (root == null)
+            return;
+        Button[] buttons = root.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+            StyleChromeButton(buttons[i]);
+    }
+
+    void StyleChromeButton(Button button)
+    {
+        if (button == null || IsWorkerButton(button.name) || IsSelectUi(button.transform))
+            return;
+        Image image = button.targetGraphic as Image;
+        if (image == null)
+            image = button.GetComponent<Image>();
+        if (image == null)
+            return;
+
+        int channel = ButtonChannel(button.name);
+        if (channel < 0)
+            channel = ChannelFromColor(image.color);
+        if (channel < 0)
+            return;
+
+        bool upgrade = button.name.Contains("Max") || button.name.Contains("Increase");
+        image.sprite = RgbButtonFill(channel, upgrade);
+        image.type = Image.Type.Simple;
+        image.color = Color.white;
+        image.preserveAspect = false;
+        if (FeatureButtonImageColors.ContainsKey(button.name))
+            FeatureButtonImageColors[button.name] = Color.white;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = Color.white;
+        colors.pressedColor = Color.white;
+        colors.selectedColor = Color.white;
+        colors.disabledColor = new Color(0.02f, 0.02f, 0.02f, 1f);
+        colors.fadeDuration = 0.05f;
+        button.colors = colors;
+        EnsureButtonNeon(button.transform, channel, button.interactable, upgrade);
+        if (!upgrade)
+            StyleProductionButtonText(button, channel);
+        RgbButtonPressGlow press = button.GetComponent<RgbButtonPressGlow>();
+        if (press == null)
+            press = button.gameObject.AddComponent<RgbButtonPressGlow>();
+        press.Production = this;
+    }
+
+    static void StyleProductionButtonText(Button button, int channel)
+    {
+        Text[] labels = button.GetComponentsInChildren<Text>(true);
+        Color ink = new Color(0.93f, 0.94f, 0.96f, 1f);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            labels[i].color = ink;
+            StyleGaugeTextGlow(labels[i], channel);
+        }
+    }
+
+    static int ButtonChannel(string name)
+    {
+        if (string.IsNullOrEmpty(name) || name.Contains("RGB"))
+            return -1;
+        if (name.Contains("ValueG") || name.Contains("MaxG") || name.Contains("ButtonG"))
+            return 1;
+        if (name.Contains("ValueB") || name.Contains("MaxB") || name.Contains("ButtonB"))
+            return 2;
+        if (name.Contains("ValueR") || name.Contains("MaxR") || name.Contains("ButtonR"))
+            return 0;
+        return -1;
+    }
+
+    static int ChannelFromColor(Color color)
+    {
+        if (color.a < 0.2f)
+            return -1;
+        if (color.r > color.g + 0.15f && color.r > color.b + 0.15f)
+            return 0;
+        if (color.g > color.r + 0.15f && color.g > color.b + 0.15f)
+            return 1;
+        if (color.b > color.r + 0.15f && color.b > color.g + 0.15f)
+            return 2;
+        return -1;
+    }
+
+    static Color ButtonBottomColor(int channel)
+    {
+        if (channel == 1)
+            return new Color(0.08f, 0.62f, 0.14f, 1f);
+        if (channel == 2)
+            return new Color(0.1f, 0.24f, 0.78f, 1f);
+        return new Color(0.78f, 0.1f, 0.08f, 1f);
+    }
+
+    static Color ButtonGlowColor(int channel)
+    {
+        if (channel == 1)
+            return new Color(0.45f, 1f, 0.5f, 0.9f);
+        if (channel == 2)
+            return new Color(0.45f, 0.72f, 1f, 0.9f);
+        return new Color(1f, 0.4f, 0.32f, 0.9f);
+    }
+
+    static bool IsWorkerButton(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return false;
+        return name.Contains("ProductionHelpCharacter")
+            || name.Contains("ButtonPixelProduction")
+            || name.Contains("ButtonCharacterProduction")
+            || name.Contains("ProducedCharacter");
+    }
+
+    static bool IsSelectUi(Transform transform)
+    {
+        while (transform != null)
+        {
+            string name = transform.name;
+            if (name.Contains("SelectCharacter") || name.Contains("SelectColor") || name.Contains("Quest"))
+                return true;
+            transform = transform.parent;
+        }
+        return false;
+    }
+
+    static Sprite RgbButtonFill(int channel, bool upgrade)
+    {
+        if (channel < 0 || channel > 2)
+            channel = 0;
+        Sprite[] cache = upgrade ? RgbUpgradeFillSprites : RgbButtonFillSprites;
+        if (cache[channel] != null)
+            return cache[channel];
+
+        const int height = 32;
+        Texture2D texture = new Texture2D(1, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        Color top = new Color(0.02f, 0.02f, 0.02f, 1f);
+        Color bottom = ButtonBottomColor(channel);
+        float blackFrom = upgrade ? 2f / 3f : 1f / 3f;
+        for (int y = 0; y < height; y++)
+        {
+            float t = (y + 0.5f) / height;
+            if (t >= blackFrom)
+                texture.SetPixel(0, y, top);
+            else
+                texture.SetPixel(0, y, Color.Lerp(bottom, top, t / blackFrom));
+        }
+        texture.Apply();
+        cache[channel] = Sprite.Create(texture, new Rect(0f, 0f, 1f, height), new Vector2(0.5f, 0.5f), 100f);
+        cache[channel].hideFlags = HideFlags.HideAndDontSave;
+        return cache[channel];
+    }
+
+    readonly Dictionary<int, Coroutine> ButtonPressGlows = new Dictionary<int, Coroutine>();
+
+    public void PlayButtonPressGlow(Button button)
+    {
+        if (button == null || !button.interactable)
+            return;
+        int id = button.GetInstanceID();
+        Coroutine running;
+        if (ButtonPressGlows.TryGetValue(id, out running) && running != null)
+            StopCoroutine(running);
+        ButtonPressGlows[id] = StartCoroutine(ButtonPressGlow(button));
+    }
+
+    IEnumerator ButtonPressGlow(Button button)
+    {
+        Image wash = EnsurePressWash(button.transform);
+        int channel = ButtonChannel(button.name);
+        float duration = 0.34f;
+        float time = 0f;
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            float u = time / duration;
+            float wave = u < 0.2f ? u / 0.2f : Mathf.Pow(1f - (u - 0.2f) / 0.8f, 1.35f);
+            wash.color = new Color(1f, 1f, 1f, 0.2f * wave);
+            if (channel >= 0)
+                PaintButtonNeonStrength(button.transform, channel, 1f + 0.55f * wave);
+            yield return null;
+        }
+        wash.color = new Color(1f, 1f, 1f, 0f);
+        if (channel >= 0 && button != null)
+            EnsureButtonNeon(button.transform, channel, button.interactable, button.name.Contains("Max") || button.name.Contains("Increase"));
+    }
+
+    static Image EnsurePressWash(Transform button)
+    {
+        Transform existing = button.Find("PressWash");
+        Image image;
+        if (existing == null)
+        {
+            GameObject obj = new GameObject("PressWash", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(button, false);
+            image = obj.GetComponent<Image>();
+            image.raycastTarget = false;
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+        else
+            image = existing.GetComponent<Image>();
+
+        int textIndex = button.childCount;
+        for (int i = 0; i < button.childCount; i++)
+        {
+            if (button.GetChild(i).GetComponent<Text>() != null)
+            {
+                textIndex = i;
+                break;
+            }
+        }
+        image.transform.SetSiblingIndex(textIndex);
+        return image;
+    }
+
+    static void PaintButtonNeonStrength(Transform button, int channel, float strength)
+    {
+        Transform frame = button.Find("NeonFrame");
+        if (frame == null)
+            return;
+        Color glow = ButtonGlowColor(channel);
+        glow = Color.Lerp(glow, Color.white, Mathf.Clamp01(strength - 1f));
+        glow.a = Mathf.Clamp01(ButtonGlowColor(channel).a * strength);
+        Color core = Color.Lerp(glow, Color.white, 0.7f);
+        core.a = 0.95f;
+        PaintButtonNeon(frame, "GlowTop", RgbButtonGlowSprite(0), glow);
+        PaintButtonNeon(frame, "GlowRight", RgbButtonGlowSprite(1), glow);
+        PaintButtonNeon(frame, "GlowBottom", RgbButtonGlowSprite(2), glow);
+        PaintButtonNeon(frame, "GlowLeft", RgbButtonGlowSprite(3), glow);
+        PaintButtonNeon(frame, "CoreTop", null, core);
+        PaintButtonNeon(frame, "CoreRight", null, core);
+        PaintButtonNeon(frame, "CoreBottom", null, core);
+        PaintButtonNeon(frame, "CoreLeft", null, core);
+    }
+
+    static void EnsureButtonNeon(Transform button, int channel, bool bright, bool upgrade)
+    {
+        float glowSize = upgrade && bright ? 5f : RgbButtonGlow;
+        float coreSize = upgrade && bright ? 4f : RgbButtonCore;
+        Transform frame = button.Find("NeonFrame");
+        if (frame == null)
+        {
+            GameObject root = new GameObject("NeonFrame", typeof(RectTransform));
+            root.transform.SetParent(button, false);
+            AddButtonNeonEdge(root.transform, "GlowTop", true, true, glowSize, 0f);
+            AddButtonNeonEdge(root.transform, "GlowBottom", true, false, glowSize, 0f);
+            AddButtonNeonEdge(root.transform, "GlowLeft", false, false, glowSize, 0f);
+            AddButtonNeonEdge(root.transform, "GlowRight", false, true, glowSize, 0f);
+            AddButtonNeonEdge(root.transform, "CoreTop", true, true, coreSize, glowSize);
+            AddButtonNeonEdge(root.transform, "CoreBottom", true, false, coreSize, glowSize);
+            AddButtonNeonEdge(root.transform, "CoreLeft", false, false, coreSize, glowSize);
+            AddButtonNeonEdge(root.transform, "CoreRight", false, true, coreSize, glowSize);
+            frame = root.transform;
+        }
+
+        RectTransform rootRect = frame.GetComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.offsetMin = new Vector2(-glowSize, -glowSize);
+        rootRect.offsetMax = new Vector2(glowSize, glowSize);
+        LayoutButtonNeonEdge(frame, "GlowTop", true, true, glowSize, 0f);
+        LayoutButtonNeonEdge(frame, "GlowBottom", true, false, glowSize, 0f);
+        LayoutButtonNeonEdge(frame, "GlowLeft", false, false, glowSize, 0f);
+        LayoutButtonNeonEdge(frame, "GlowRight", false, true, glowSize, 0f);
+        LayoutButtonNeonEdge(frame, "CoreTop", true, true, coreSize, glowSize);
+        LayoutButtonNeonEdge(frame, "CoreBottom", true, false, coreSize, glowSize);
+        LayoutButtonNeonEdge(frame, "CoreLeft", false, false, coreSize, glowSize);
+        LayoutButtonNeonEdge(frame, "CoreRight", false, true, coreSize, glowSize);
+
+        Color glow = ButtonGlowColor(channel);
+        Color core = Color.Lerp(glow, Color.white, bright ? (upgrade ? 0.88f : 0.55f) : 0.2f);
+        if (bright)
+            core.a = 0.95f;
+        else
+        {
+            glow.a *= 0.28f;
+            core.a = 0.38f;
+        }
+        frame.gameObject.SetActive(true);
+        PaintButtonNeon(frame, "GlowTop", RgbButtonGlowSprite(0), glow);
+        PaintButtonNeon(frame, "GlowRight", RgbButtonGlowSprite(1), glow);
+        PaintButtonNeon(frame, "GlowBottom", RgbButtonGlowSprite(2), glow);
+        PaintButtonNeon(frame, "GlowLeft", RgbButtonGlowSprite(3), glow);
+        PaintButtonNeon(frame, "CoreTop", null, core);
+        PaintButtonNeon(frame, "CoreRight", null, core);
+        PaintButtonNeon(frame, "CoreBottom", null, core);
+        PaintButtonNeon(frame, "CoreLeft", null, core);
+        frame.SetAsFirstSibling();
+    }
+
+    static void AddButtonNeonEdge(Transform parent, string name, bool horizontal, bool end, float thickness, float inset)
+    {
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        obj.transform.SetParent(parent, false);
+        Image image = obj.GetComponent<Image>();
+        image.raycastTarget = false;
+        LayoutButtonNeonEdge(obj.transform.parent, name, horizontal, end, thickness, inset);
+    }
+
+    static void LayoutButtonNeonEdge(Transform frame, string name, bool horizontal, bool end, float thickness, float inset)
+    {
+        Transform edge = frame.Find(name);
+        if (edge == null)
+            return;
+        RectTransform rect = edge.GetComponent<RectTransform>();
+        if (horizontal)
+        {
+            rect.anchorMin = new Vector2(0f, end ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, end ? 1f : 0f);
+            rect.pivot = new Vector2(0.5f, end ? 1f : 0f);
+            rect.sizeDelta = new Vector2(-inset * 2f, thickness);
+            rect.anchoredPosition = new Vector2(0f, end ? -inset : inset);
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(end ? 1f : 0f, 0f);
+            rect.anchorMax = new Vector2(end ? 1f : 0f, 1f);
+            rect.pivot = new Vector2(end ? 1f : 0f, 0.5f);
+            rect.sizeDelta = new Vector2(thickness, -inset * 2f);
+            rect.anchoredPosition = new Vector2(end ? -inset : inset, 0f);
+        }
+    }
+
+    static void PaintButtonNeon(Transform frame, string name, Sprite sprite, Color color)
+    {
+        Transform edge = frame.Find(name);
+        if (edge == null)
+            return;
+        Image image = edge.GetComponent<Image>();
+        image.sprite = sprite;
+        image.color = color;
+        image.type = Image.Type.Simple;
+        image.raycastTarget = false;
+    }
+
+    // 0上 1右 2下 3左。白のぼかしにして、色はボタンの属性で乗せる。
+    static Sprite RgbButtonGlowSprite(int edge)
+    {
+        if (edge < 0 || edge > 3)
+            edge = 0;
+        if (RgbButtonGlowSprites[edge] != null)
+            return RgbButtonGlowSprites[edge];
+
+        const int along = 24;
+        const int across = 12;
+        bool vertical = edge == 1 || edge == 3;
+        int width = vertical ? across : along;
+        int height = vertical ? along : across;
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                float outer;
+                if (edge == 0)
+                    outer = (y + 0.5f) / height;
+                else if (edge == 1)
+                    outer = (x + 0.5f) / width;
+                else if (edge == 2)
+                    outer = 1f - (y + 0.5f) / height;
+                else
+                    outer = 1f - (x + 0.5f) / width;
+                float fade = 1f - outer;
+                fade = fade * fade * (3f - 2f * fade);
+                texture.SetPixel(x, y, new Color(1f, 1f, 1f, fade));
+            }
+        }
+        texture.Apply();
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 100f);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        RgbButtonGlowSprites[edge] = sprite;
+        return sprite;
+    }
+
+    void StyleChemSliders(GameObject root)
+    {
+        if (root == null)
+            return;
+        Slider[] sliders = root.GetComponentsInChildren<Slider>(true);
+        for (int i = 0; i < sliders.Length; i++)
+            StyleChemSlider(sliders[i]);
+    }
+
+    void StyleChemSlider(Slider slider)
+    {
+        if (slider == null)
+            return;
+        int channel = SliderChannel(slider.name);
+        if (channel < 0)
+            return;
+
+        slider.transition = Selectable.Transition.None;
+        slider.interactable = false;
+        if (slider.handleRect != null)
+            slider.handleRect.gameObject.SetActive(false);
+
+        Transform background = slider.transform.Find("Background");
+        Image backImage = background != null ? background.GetComponent<Image>() : null;
+        if (backImage != null)
+        {
+            backImage.sprite = null;
+            backImage.color = new Color(0.012f, 0.012f, 0.016f, 1f);
+            backImage.type = Image.Type.Simple;
+            Transform tube = background.Find("ChemTube");
+            if (tube != null)
+                Destroy(tube.gameObject);
+        }
+
+        if (slider.fillRect == null)
+            return;
+        Image fill = slider.fillRect.GetComponent<Image>();
+        if (fill == null)
+            return;
+        fill.sprite = null;
+        fill.type = Image.Type.Simple;
+        fill.color = ChemLiquidColor(channel);
+        fill.preserveAspect = false;
+        Transform tip = slider.fillRect.Find("ChemTip");
+        if (tip != null)
+            Destroy(tip.gameObject);
+        EnsureChemGlow(slider.fillRect, channel);
+    }
+
+    static int SliderChannel(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return -1;
+        if (name.Contains("G"))
+            return 1;
+        if (name.Contains("B"))
+            return 2;
+        if (name.Contains("R"))
+            return 0;
+        return -1;
+    }
+
+    static readonly Sprite[] ChemGlowCornerSprites = new Sprite[4];
+
+    static Color ChemGlowColor(int channel)
+    {
+        if (channel == 1)
+            return new Color(0.2f, 0.9f, 0.26f, 1f);
+        if (channel == 2)
+            return new Color(0.2f, 0.46f, 1f, 1f);
+        return new Color(1f, 0.2f, 0.14f, 1f);
+    }
+
+    static Color ChemLiquidColor(int channel)
+    {
+        Color color = Color.Lerp(ChemGlowColor(channel), Color.white, 0.62f);
+        color.a = 1f;
+        return color;
+    }
+
+    static void EnsureChemGlow(RectTransform fill, int channel)
+    {
+        const float blur = 22f;
+        Transform frame = fill.Find("ChemGlow");
+        if (frame == null)
+        {
+            GameObject root = new GameObject("ChemGlow", typeof(RectTransform));
+            root.transform.SetParent(fill, false);
+            frame = root.transform;
+        }
+        EnsureChemGlowPiece(frame, "GlowTop");
+        EnsureChemGlowPiece(frame, "GlowBottom");
+        EnsureChemGlowPiece(frame, "GlowLeft");
+        EnsureChemGlowPiece(frame, "GlowRight");
+        EnsureChemGlowPiece(frame, "CornerTL");
+        EnsureChemGlowPiece(frame, "CornerTR");
+        EnsureChemGlowPiece(frame, "CornerBR");
+        EnsureChemGlowPiece(frame, "CornerBL");
+
+        RectTransform rootRect = frame.GetComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.offsetMin = new Vector2(-blur, -blur);
+        rootRect.offsetMax = new Vector2(blur, blur);
+        LayoutChemGlowEdge(frame, "GlowTop", true, true, blur);
+        LayoutChemGlowEdge(frame, "GlowBottom", true, false, blur);
+        LayoutChemGlowEdge(frame, "GlowLeft", false, false, blur);
+        LayoutChemGlowEdge(frame, "GlowRight", false, true, blur);
+        LayoutChemGlowCorner(frame, "CornerTL", 0, blur);
+        LayoutChemGlowCorner(frame, "CornerTR", 1, blur);
+        LayoutChemGlowCorner(frame, "CornerBR", 2, blur);
+        LayoutChemGlowCorner(frame, "CornerBL", 3, blur);
+
+        Color glow = ChemGlowColor(channel);
+        glow.a = 0.85f;
+        PaintButtonNeon(frame, "GlowTop", RgbButtonGlowSprite(0), glow);
+        PaintButtonNeon(frame, "GlowRight", RgbButtonGlowSprite(1), glow);
+        PaintButtonNeon(frame, "GlowBottom", RgbButtonGlowSprite(2), glow);
+        PaintButtonNeon(frame, "GlowLeft", RgbButtonGlowSprite(3), glow);
+        PaintButtonNeon(frame, "CornerTL", ChemGlowCornerSprite(0), glow);
+        PaintButtonNeon(frame, "CornerTR", ChemGlowCornerSprite(1), glow);
+        PaintButtonNeon(frame, "CornerBR", ChemGlowCornerSprite(2), glow);
+        PaintButtonNeon(frame, "CornerBL", ChemGlowCornerSprite(3), glow);
+    }
+
+    static void EnsureChemGlowPiece(Transform frame, string name)
+    {
+        if (frame.Find(name) != null)
+            return;
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        obj.transform.SetParent(frame, false);
+        obj.GetComponent<Image>().raycastTarget = false;
+    }
+
+    static void LayoutChemGlowEdge(Transform frame, string name, bool horizontal, bool end, float thickness)
+    {
+        Transform edge = frame.Find(name);
+        if (edge == null)
+            return;
+        RectTransform rect = edge.GetComponent<RectTransform>();
+        if (horizontal)
+        {
+            rect.anchorMin = new Vector2(0f, end ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, end ? 1f : 0f);
+            rect.pivot = new Vector2(0.5f, end ? 1f : 0f);
+            rect.sizeDelta = new Vector2(-thickness * 2f, thickness);
+            rect.anchoredPosition = Vector2.zero;
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(end ? 1f : 0f, 0f);
+            rect.anchorMax = new Vector2(end ? 1f : 0f, 1f);
+            rect.pivot = new Vector2(end ? 1f : 0f, 0.5f);
+            rect.sizeDelta = new Vector2(thickness, -thickness * 2f);
+            rect.anchoredPosition = Vector2.zero;
+        }
+    }
+
+    static void LayoutChemGlowCorner(Transform frame, string name, int corner, float size)
+    {
+        Transform edge = frame.Find(name);
+        if (edge == null)
+            return;
+        bool right = corner == 1 || corner == 2;
+        bool top = corner == 0 || corner == 1;
+        RectTransform rect = edge.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(right ? 1f : 0f, top ? 1f : 0f);
+        rect.anchorMax = rect.anchorMin;
+        rect.pivot = new Vector2(right ? 1f : 0f, top ? 1f : 0f);
+        rect.sizeDelta = new Vector2(size, size);
+        rect.anchoredPosition = Vector2.zero;
+    }
+
+    // 0左上 1右上 2右下 3左下。ゲージの角からの距離でぼかすので、辺と足しても明るくならない。
+    static Sprite ChemGlowCornerSprite(int corner)
+    {
+        if (corner < 0 || corner > 3)
+            corner = 0;
+        if (ChemGlowCornerSprites[corner] != null)
+            return ChemGlowCornerSprites[corner];
+
+        const int size = 32;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float nx = (x + 0.5f) / size;
+                float ny = (y + 0.5f) / size;
+                float dx;
+                float dy;
+                if (corner == 0)
+                {
+                    dx = 1f - nx;
+                    dy = ny;
+                }
+                else if (corner == 1)
+                {
+                    dx = nx;
+                    dy = ny;
+                }
+                else if (corner == 2)
+                {
+                    dx = nx;
+                    dy = 1f - ny;
+                }
+                else
+                {
+                    dx = 1f - nx;
+                    dy = 1f - ny;
+                }
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float t = 1f - Mathf.Clamp01(dist);
+                float fade = t * t * (3f - 2f * t);
+                texture.SetPixel(x, y, new Color(1f, 1f, 1f, fade));
+            }
+        }
+        texture.Apply();
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        ChemGlowCornerSprites[corner] = sprite;
+        return sprite;
+    }
+
     public void ShowPanel(GameObject argPanel)
     {
         CanvasGroup PanelCanvasGroup = argPanel.GetComponent<CanvasGroup>();
@@ -3843,16 +4608,36 @@ public class ControllerProduction : MonoBehaviour
         {
             ButtonMaxValueUp.interactable = true;
         }
+        StyleChromeButton(ButtonIncreaseValueUp);
+        StyleChromeButton(ButtonMaxValueUp);
     }
     public void UpdateRGBProductionSliderOneColor(Text TextColorValue, ulong ColorValue, ulong MaxValue, Slider SliderColorValue, Slider SliderCostIncrease, Slider SliderCostMaxValueUp)
     {
         TextColorValue.text = UiNumber.Format(ColorValue) + " / " + UiNumber.Format(MaxValue);
+        TextColorValue.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+        StyleGaugeTextGlow(TextColorValue, SliderColorValue != null ? SliderChannel(SliderColorValue.name) : -1);
         SliderColorValue.maxValue = MaxValue;
         SliderColorValue.minValue = 0;
         SliderColorValue.value = ColorValue;
 
         SliderCostIncrease.value = ColorValue;
         SliderCostMaxValueUp.value = ColorValue;
+    }
+
+    static void StyleGaugeTextGlow(Text text, int channel)
+    {
+        if (text == null || channel < 0)
+            return;
+        GaugeTextGlow glow = text.GetComponent<GaugeTextGlow>();
+        if (glow == null)
+            glow = text.gameObject.AddComponent<GaugeTextGlow>();
+        Color color = ChemGlowColor(channel);
+        color.a = 0.9f;
+        if (glow.Glow == color && Mathf.Approximately(glow.Spread, 1.8f))
+            return;
+        glow.Glow = color;
+        glow.Spread = 1.8f;
+        text.SetVerticesDirty();
     }
 
     public void UpdateRGBProductionHelpCharacter()
@@ -3872,6 +4657,7 @@ public class ControllerProduction : MonoBehaviour
     {
         if (button == null || button.image == null || id == 0)
             return;
+        HidePersonPortrait(button);
         CharacterClass character = CharacterOf(id);
         if (character == null || character.ID != id || character.ImageTexture2D == null)
             return;
@@ -4247,6 +5033,7 @@ public class ControllerProduction : MonoBehaviour
         if (pixelCharacter == null || pixelCharacter.ImagePath == null)
         {
             pixelButton.image.sprite = null;
+            HidePersonPortrait(pixelButton);
             Text label = pixelButton.GetComponentInChildren<Text>();
             if (label != null)
                 label.text = "+";
@@ -4254,6 +5041,7 @@ public class ControllerProduction : MonoBehaviour
         else
         {
             pixelButton.image.sprite = Sprite.Create(pixelCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, pixelCharacter.Size, pixelCharacter.Size), new Vector2(0.5f, 0.5f));
+            HidePersonPortrait(pixelButton);
             Text label = pixelButton.GetComponentInChildren<Text>();
             if (label != null)
                 label.text = "";
@@ -4608,6 +5396,7 @@ public class ControllerProduction : MonoBehaviour
             if (shownCharacter == null || shownCharacter.ImageTexture2D == null)
             {
                 button.image.sprite = null;
+                HidePersonPortrait(button);
                 if (label != null)
                     label.text = "+";
                 SyncPersonSkillBar(button);
@@ -4616,6 +5405,7 @@ public class ControllerProduction : MonoBehaviour
 
             button.image.sprite = Sprite.Create(shownCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, shownCharacter.Size, shownCharacter.Size), new Vector2(0.5f, 0.5f));
             button.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            HidePersonPortrait(button);
             if (label != null)
                 label.text = "";
             SyncPersonSkillBar(button);
@@ -4917,7 +5707,7 @@ public class ControllerProduction : MonoBehaviour
         return PersonIds.Count;
     }
 
-    ulong RgbSlotOutput(uint[] people, uint[] characters, int channel)
+    ulong RgbSlotOutput(uint[] people, uint[] characters, int channel, Action<int, ulong, bool> onSlot = null)
     {
         ulong sum = 0;
         int length = people != null ? people.Length : 0;
@@ -4936,10 +5726,17 @@ public class ControllerProduction : MonoBehaviour
                     sum = ulong.MaxValue;
                 else
                     sum += (ulong)amount;
+                if (onSlot != null && amount > 0)
+                    onSlot(i, (ulong)amount, true);
                 continue;
             }
             if (characters != null && i < characters.Length)
-                sum += HelpCreates(characters[i], channel);
+            {
+                ulong produced = HelpCreates(characters[i], channel);
+                sum += produced;
+                if (onSlot != null && produced > 0)
+                    onSlot(i, produced, false);
+            }
         }
         return sum;
     }
@@ -5153,6 +5950,22 @@ public class ControllerProduction : MonoBehaviour
             if (index >= 1 && index < PersonIdProductionCharacter.Length)
             PersonIdProductionCharacter[index] = 0;
         }
+        HidePersonPortrait(button);
+        if (button.image != null)
+        {
+            button.image.sprite = null;
+            if (button.name.StartsWith("ButtonRProductionHelpCharacter"))
+                button.image.color = new Color(50f / 255f, 0f, 0f, 1f);
+            else if (button.name.StartsWith("ButtonGProductionHelpCharacter"))
+                button.image.color = new Color(0f, 50f / 255f, 0f, 1f);
+            else if (button.name.StartsWith("ButtonBProductionHelpCharacter"))
+                button.image.color = new Color(0f, 0f, 50f / 255f, 1f);
+            else
+                button.image.color = Color.white;
+        }
+        Text label = button.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = "+";
         SyncPersonSkillBar(button);
     }
 
@@ -5254,19 +6067,368 @@ public class ControllerProduction : MonoBehaviour
         Text label = button.GetComponentInChildren<Text>();
         if (portrait != null)
         {
-            button.image.sprite = portrait;
-            button.image.color = Color.white;
+            if (button.name.Contains("Production"))
+            {
+                ShowPersonPortrait(button, portrait, PersonFrameColors(person));
+                button.image.sprite = null;
+                button.image.color = new Color(1f, 1f, 1f, 0f);
+            }
+            else
+            {
+                HidePersonPortrait(button);
+                button.image.sprite = portrait;
+                button.image.color = Color.white;
+            }
             if (label != null)
                 label.text = "";
             return;
         }
 
+        HidePersonPortrait(button);
         button.image.sprite = null;
         button.image.color = PersonColor(person.Id);
         if (label != null)
         {
             label.text = person.Name;
             label.color = person.Id == PersonIds.TeacherBlack ? Color.white : new Color(0.1f, 0.1f, 0.1f, 1f);
+        }
+    }
+
+    public static void HidePersonPortrait(Button button)
+    {
+        if (button == null)
+            return;
+        Transform portrait = button.transform.Find("PersonPortrait");
+        if (portrait != null)
+            portrait.gameObject.SetActive(false);
+    }
+
+    static readonly Dictionary<int, Sprite> PersonFrameSprites = new Dictionary<int, Sprite>();
+    const float PersonFrameSolid = 4f;
+    const float PersonFrameBlur = 3f;
+    const float PersonFrameThickness = PersonFrameSolid + PersonFrameBlur;
+
+    static void ShowPersonPortrait(Button button, Sprite sprite, Color[] frameColors)
+    {
+        const float lift = 18f;
+        Transform existing = button.transform.Find("PersonPortrait");
+        Image image;
+        if (existing == null)
+        {
+            GameObject obj = new GameObject("PersonPortrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(button.transform, false);
+            image = obj.GetComponent<Image>();
+            image.raycastTarget = false;
+        }
+        else
+            image = existing.GetComponent<Image>();
+
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(0f, lift);
+        rect.sizeDelta = new Vector2(0f, 0f);
+        AspectRatioFitter fitter = image.GetComponent<AspectRatioFitter>();
+        if (fitter == null)
+            fitter = image.gameObject.AddComponent<AspectRatioFitter>();
+        fitter.aspectMode = AspectRatioFitter.AspectMode.WidthControlsHeight;
+        fitter.aspectRatio = 1f;
+        image.sprite = sprite;
+        image.color = Color.white;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = false;
+        image.gameObject.SetActive(true);
+        image.transform.SetAsFirstSibling();
+        EnsurePersonFrame(image.transform, frameColors);
+    }
+
+    // 属性なしは灰色。複数は赤・緑・青・闇・光の順に、枠を一周するグラデーション。
+    static Color[] PersonFrameColors(PersonClass person)
+    {
+        CharacterAttribute[] found = new CharacterAttribute[5];
+        int count = 0;
+        if (person != null && person.Specialties != null)
+        {
+            for (int i = 0; i < person.Specialties.Count; i++)
+            {
+                CharacterAttribute attribute = person.Specialties[i];
+                int order = PersonFrameOrder(attribute);
+                if (order > 4)
+                    continue;
+                bool exists = false;
+                for (int j = 0; j < count; j++)
+                {
+                    if (found[j] == attribute)
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (exists)
+                    continue;
+                int at = count;
+                for (int j = 0; j < count; j++)
+                {
+                    if (PersonFrameOrder(found[j]) > order)
+                    {
+                        at = j;
+                        break;
+                    }
+                }
+                for (int j = count; j > at; j--)
+                    found[j] = found[j - 1];
+                found[at] = attribute;
+                count++;
+            }
+        }
+
+        if (count == 0)
+            return new Color[] { PersonFrameGray() };
+        Color[] colors = new Color[count];
+        for (int i = 0; i < count; i++)
+            colors[i] = PersonFrameColor(found[i]);
+        return colors;
+    }
+
+    static int PersonFrameOrder(CharacterAttribute attribute)
+    {
+        switch (attribute)
+        {
+            case CharacterAttribute.Fire: return 0;
+            case CharacterAttribute.Grass: return 1;
+            case CharacterAttribute.Water: return 2;
+            case CharacterAttribute.Dark: return 3;
+            case CharacterAttribute.Light: return 4;
+            default: return 9;
+        }
+    }
+
+    static Color PersonFrameGray()
+    {
+        return new Color(0.24f, 0.24f, 0.26f, 0.92f);
+    }
+
+    static Color PersonFrameColor(CharacterAttribute attribute)
+    {
+        switch (attribute)
+        {
+            case CharacterAttribute.Fire:
+                return new Color(0.34f, 0.09f, 0.06f, 0.92f);
+            case CharacterAttribute.Grass:
+                return new Color(0.06f, 0.24f, 0.1f, 0.92f);
+            case CharacterAttribute.Water:
+                return new Color(0.06f, 0.16f, 0.32f, 0.92f);
+            case CharacterAttribute.Light:
+                return new Color(0.72f, 0.72f, 0.74f, 0.92f);
+            case CharacterAttribute.Dark:
+                return new Color(0.03f, 0.03f, 0.035f, 0.95f);
+            default:
+                return PersonFrameGray();
+        }
+    }
+
+    static void EnsurePersonFrame(Transform portrait, Color[] colors)
+    {
+        if (colors == null || colors.Length == 0)
+            colors = new Color[] { PersonFrameGray() };
+
+        Transform frame = portrait.Find("PersonFrame");
+        if (frame == null)
+        {
+            GameObject root = new GameObject("PersonFrame", typeof(RectTransform));
+            root.transform.SetParent(portrait, false);
+            RectTransform rootRect = root.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+            AddFrameEdge(root.transform, "Top", true, true, PersonFrameThickness, 0f);
+            AddFrameEdge(root.transform, "Bottom", true, false, PersonFrameThickness, 0f);
+            AddFrameEdge(root.transform, "Left", false, false, PersonFrameThickness, 0f);
+            AddFrameEdge(root.transform, "Right", false, true, PersonFrameThickness, 0f);
+            frame = root.transform;
+        }
+
+        RectTransform frameRect = frame as RectTransform;
+        frameRect.anchorMin = Vector2.zero;
+        frameRect.anchorMax = Vector2.one;
+        frameRect.pivot = new Vector2(0.5f, 0.5f);
+        frameRect.offsetMin = new Vector2(-PersonFrameBlur, -PersonFrameBlur);
+        frameRect.offsetMax = new Vector2(PersonFrameBlur, PersonFrameBlur);
+
+        for (int i = frame.childCount - 1; i >= 0; i--)
+        {
+            Transform child = frame.GetChild(i);
+            if (child.name.EndsWith("In"))
+                Destroy(child.gameObject);
+        }
+
+        LayoutFrameEdge(frame, "Top", true, true, 0f);
+        LayoutFrameEdge(frame, "Bottom", true, false, 0f);
+        LayoutFrameEdge(frame, "Left", false, false, 0f);
+        LayoutFrameEdge(frame, "Right", false, true, 0f);
+        PaintFrameEdge(frame, "Top", FrameEdgeSprite(colors, 0), Color.white);
+        PaintFrameEdge(frame, "Right", FrameEdgeSprite(colors, 1), Color.white);
+        PaintFrameEdge(frame, "Bottom", FrameEdgeSprite(colors, 2), Color.white);
+        PaintFrameEdge(frame, "Left", FrameEdgeSprite(colors, 3), Color.white);
+        frame.SetAsLastSibling();
+    }
+
+    static void LayoutFrameEdge(Transform frame, string name, bool horizontal, bool end, float inset)
+    {
+        Transform edge = frame.Find(name);
+        if (edge == null)
+            return;
+        RectTransform rect = edge.GetComponent<RectTransform>();
+        if (horizontal)
+        {
+            rect.anchorMin = new Vector2(0f, end ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, end ? 1f : 0f);
+            rect.pivot = new Vector2(0.5f, end ? 1f : 0f);
+            rect.sizeDelta = new Vector2(-inset * 2f, PersonFrameThickness);
+            rect.anchoredPosition = new Vector2(0f, end ? -inset : inset);
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(end ? 1f : 0f, 0f);
+            rect.anchorMax = new Vector2(end ? 1f : 0f, 1f);
+            rect.pivot = new Vector2(end ? 1f : 0f, 0.5f);
+            rect.sizeDelta = new Vector2(PersonFrameThickness, -inset * 2f);
+            rect.anchoredPosition = new Vector2(end ? -inset : inset, 0f);
+        }
+    }
+
+    static void PaintFrameEdge(Transform frame, string name, Sprite sprite, Color color)
+    {
+        Transform edge = frame.Find(name);
+        if (edge == null)
+            return;
+        Image image = edge.GetComponent<Image>();
+        image.sprite = sprite;
+        image.color = color;
+        image.type = Image.Type.Simple;
+    }
+
+    // 上辺の左から時計回りに色を置き、外側の広げた分だけ透明度を落としてぼかす。
+    static Sprite FrameEdgeSprite(Color[] colors, int edge)
+    {
+        int key = edge + 101;
+        for (int i = 0; i < colors.Length; i++)
+        {
+            Color color = colors[i];
+            key = key * 31 + Mathf.RoundToInt(color.r * 255f);
+            key = key * 31 + Mathf.RoundToInt(color.g * 255f);
+            key = key * 31 + Mathf.RoundToInt(color.b * 255f);
+            key = key * 31 + Mathf.RoundToInt(color.a * 255f);
+        }
+
+        Sprite cached;
+        if (PersonFrameSprites.TryGetValue(key, out cached) && cached != null)
+            return cached;
+
+        const int along = 32;
+        const int across = 16;
+        bool vertical = edge == 1 || edge == 3;
+        int width = vertical ? across : along;
+        int height = vertical ? along : across;
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                float alongU;
+                float outer;
+                if (edge == 0)
+                {
+                    alongU = (x + 0.5f) / width;
+                    outer = (y + 0.5f) / height;
+                }
+                else if (edge == 1)
+                {
+                    alongU = (y + 0.5f) / height;
+                    outer = (x + 0.5f) / width;
+                }
+                else if (edge == 2)
+                {
+                    alongU = (x + 0.5f) / width;
+                    outer = 1f - (y + 0.5f) / height;
+                }
+                else
+                {
+                    alongU = (y + 0.5f) / height;
+                    outer = 1f - (x + 0.5f) / width;
+                }
+
+                float t;
+                if (edge == 0)
+                    t = alongU * 0.25f;
+                else if (edge == 1)
+                    t = 0.5f - alongU * 0.25f;
+                else if (edge == 2)
+                    t = 0.75f - alongU * 0.25f;
+                else
+                    t = 0.75f + alongU * 0.25f;
+                Color sample = SampleFrameColor(colors, t);
+                sample.a *= FrameOuterAlpha(outer);
+                texture.SetPixel(x, y, sample);
+            }
+        }
+        texture.Apply();
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 100f);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        PersonFrameSprites[key] = sprite;
+        return sprite;
+    }
+
+    static float FrameOuterAlpha(float outer)
+    {
+        float blurPortion = PersonFrameBlur / PersonFrameThickness;
+        float solidEnd = 1f - blurPortion;
+        if (outer <= solidEnd)
+            return 1f;
+        float fade = 1f - (outer - solidEnd) / blurPortion;
+        return fade * fade * (3f - 2f * fade);
+    }
+
+    static Color SampleFrameColor(Color[] colors, float t)
+    {
+        int count = colors.Length;
+        float scaled = t * count;
+        int index = Mathf.FloorToInt(scaled);
+        if (index >= count)
+            index = count - 1;
+        if (index < 0)
+            index = 0;
+        float blend = scaled - index;
+        return Color.Lerp(colors[index], colors[(index + 1) % count], blend);
+    }
+
+    static void AddFrameEdge(Transform parent, string name, bool horizontal, bool end, float thickness, float inset)
+    {
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        obj.transform.SetParent(parent, false);
+        Image image = obj.GetComponent<Image>();
+        image.raycastTarget = false;
+        RectTransform rect = image.rectTransform;
+        if (horizontal)
+        {
+            rect.anchorMin = new Vector2(0f, end ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, end ? 1f : 0f);
+            rect.pivot = new Vector2(0.5f, end ? 1f : 0f);
+            rect.sizeDelta = new Vector2(-inset * 2f, thickness);
+            rect.anchoredPosition = new Vector2(0f, end ? -inset : inset);
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(end ? 1f : 0f, 0f);
+            rect.anchorMax = new Vector2(end ? 1f : 0f, 1f);
+            rect.pivot = new Vector2(end ? 1f : 0f, 0.5f);
+            rect.sizeDelta = new Vector2(thickness, -inset * 2f);
+            rect.anchoredPosition = new Vector2(end ? -inset : inset, 0f);
         }
     }
 
@@ -6514,4 +7676,65 @@ public class ControllerProduction : MonoBehaviour
             || name.Contains("ButtonCharacterProductionCharacter");
     }
 
+}
+
+public class RgbButtonPressGlow : MonoBehaviour, IPointerDownHandler
+{
+    public ControllerProduction Production;
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        if (Production != null)
+            Production.PlayButtonPressGlow(GetComponent<Button>());
+    }
+}
+
+public class GaugeTextGlow : BaseMeshEffect
+{
+    public Color Glow = new Color(1f, 1f, 1f, 0.9f);
+    public float Spread = 1.8f;
+
+    readonly List<UIVertex> verts = new List<UIVertex>();
+
+    public override void ModifyMesh(VertexHelper vh)
+    {
+        if (!IsActive())
+            return;
+        verts.Clear();
+        vh.GetUIVertexStream(verts);
+        int count = verts.Count;
+        if (count == 0)
+            return;
+
+        vh.Clear();
+        AddRing(vh, count, Spread, 0.32f);
+        AddRing(vh, count, Spread * 0.45f, 0.62f);
+        int origin = vh.currentVertCount;
+        for (int i = 0; i < count; i++)
+            vh.AddVert(verts[i]);
+        for (int i = 0; i < count; i += 3)
+            vh.AddTriangle(origin + i, origin + i + 1, origin + i + 2);
+    }
+
+    void AddRing(VertexHelper vh, int count, float radius, float alphaScale)
+    {
+        const int steps = 8;
+        Color32 color = Glow;
+        color.a = (byte)Mathf.Clamp(Mathf.RoundToInt(Glow.a * alphaScale * 255f), 0, 255);
+        for (int step = 0; step < steps; step++)
+        {
+            float angle = step * Mathf.PI * 2f / steps;
+            Vector3 offset = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+            int start = vh.currentVertCount;
+            for (int i = 0; i < count; i++)
+            {
+                UIVertex vert = verts[i];
+                vert.position += offset;
+                vert.color = color;
+                vh.AddVert(vert);
+            }
+            for (int i = 0; i < count; i += 3)
+                vh.AddTriangle(start + i, start + i + 1, start + i + 2);
+        }
+    }
 }

@@ -352,6 +352,7 @@ public class ControllerBattlePartyClass : MonoBehaviour
             {
                 button.image.sprite = null;
                 button.image.color = ColorCellEmpty;
+                ControllerProduction.HidePersonPortrait(button);
                 Text empty = button.GetComponentInChildren<Text>();
                 if (empty != null)
                 {
