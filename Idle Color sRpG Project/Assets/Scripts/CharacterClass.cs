@@ -22,6 +22,19 @@ public class ExistColor
     }
 }
 
+// その一辺の画像が出せる、各ステータスの上限。
+public struct SizeStatCeiling
+{
+    public ulong HP;
+    public ulong ATK;
+    public ulong DEF;
+    public ulong SPD;
+    public ulong LUC;
+    public ulong R;
+    public ulong G;
+    public ulong B;
+}
+
 
 public class CharacterClass //: MonoBehaviour
 {
@@ -908,6 +921,31 @@ public class CharacterClass //: MonoBehaviour
             divisor++;
         }
         return divisor;
+    }
+
+    // 一辺ごとの上限。攻撃は、全部のドットが白い光属性のときが最大になる。
+    public static SizeStatCeiling CeilingForSize(int side)
+    {
+        if (side < 1)
+            side = 1;
+        long pixels = (long)side * side;
+        int stepMax = AttributeColorValue.ChannelStep(255);
+        long stepSum = (long)stepMax * 3;
+        long hp = BattleMath.CeilDivPositive(stepSum * pixels, HpSideDivisor(side));
+        if (hp < 1)
+            hp = 1;
+
+        SizeStatCeiling ceiling = new SizeStatCeiling();
+        ceiling.HP = (ulong)hp;
+        ceiling.ATK = (ulong)BattleMath.CeilDivPositive(stepSum * pixels, side);
+        ceiling.DEF = (ulong)BattleMath.CeilDivPositive(pixels, side);
+        ceiling.SPD = 100;
+        ceiling.LUC = LucMax;
+        ulong count = (ulong)pixels;
+        ceiling.R = count;
+        ceiling.G = count;
+        ceiling.B = count;
+        return ceiling;
     }
 
     // 0〜1 の色を、0〜255 のいちばん近い整数にする。切り捨てると 32 が 31 になる。

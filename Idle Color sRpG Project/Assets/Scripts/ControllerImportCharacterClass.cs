@@ -14,11 +14,15 @@ public class ControllerImportCharacterClass : MonoBehaviour
     InputField _name;
     GameObject _confirm;
     Image _confirmImage;
-    Text _confirmStats;
     Text _confirmMessage;
+    GameObject _deleteConfirm;
+    Text _deletePrompt;
+    uint _deleteId;
     Sprite _confirmSprite;
     RectTransform _content;
     bool _picking;
+    bool _showingRebirth;
+    ImportRebirthPlayer _rebirth;
     readonly List<GameObject> _cells = new List<GameObject>();
 
     public GameObject Panel { get; private set; }
@@ -40,6 +44,10 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
     public void Close()
     {
+        if (_rebirth != null)
+            _rebirth.Halt();
+        _showingRebirth = false;
+        HideDelete();
         DiscardPending();
     }
 
@@ -55,9 +63,11 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
     public void PushPick()
     {
-        if (_picking || _production == null)
+        if (_picking || _showingRebirth || _production == null)
             return;
         if (_confirm != null && _confirm.activeSelf)
+            return;
+        if (_deleteConfirm != null && _deleteConfirm.activeSelf)
             return;
         string capMessage;
         if (ImportedCharacters.RejectImportCount(out capMessage))
@@ -72,9 +82,10 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
     public void PushConfirmName()
     {
-        if (_production == null)
+        if (_production == null || _showingRebirth)
             return;
         string name = _name != null ? _name.text : "";
+        CharacterClass character = _production.PreparedImportCharacter();
         string message;
         bool added = _production.CommitPreparedImport(name, out message);
         if (!added)
@@ -83,6 +94,19 @@ public class ControllerImportCharacterClass : MonoBehaviour
             return;
         }
         HideConfirm();
+        if (_rebirth == null || character == null)
+        {
+            SetMessage(message, true);
+            Refresh();
+            return;
+        }
+        _showingRebirth = true;
+        _rebirth.Play(character, message);
+    }
+
+    void OnRebirthClosed(string message)
+    {
+        _showingRebirth = false;
         SetMessage(message, true);
         Refresh();
     }
@@ -143,8 +167,6 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
         if (_name != null)
             _name.text = fileName ?? "";
-        if (_confirmStats != null)
-            _confirmStats.text = FormatStats(character);
         if (_confirmImage != null)
         {
             if (_confirmSprite != null)
@@ -188,32 +210,6 @@ public class ControllerImportCharacterClass : MonoBehaviour
         return name;
     }
 
-    static string FormatStats(CharacterClass character)
-    {
-        if (character == null || character.Stats == null || character.Stats[0] == null)
-            return "ステータスを読めませんでした。";
-        StatisticsClass stats = character.Stats[0];
-        return "一辺 " + character.Size.ToString() + "\n"
-            + TypeName(character.CharacterType) + "    弱点 " + TypeName(character.WeaknessType) + "\n"
-            + "HP " + UiNumber.Format(stats.HPMax) + "\n"
-            + "ATK " + UiNumber.Format(stats.ATK) + "    DEF " + UiNumber.Format(stats.DEF) + "\n"
-            + "SPD " + stats.SPD.ToString() + "    LUC " + UiNumber.Format(stats.LUC) + "\n"
-            + "R " + UiNumber.Format(stats.RCreates) + "    G " + UiNumber.Format(stats.GCreates) + "    B " + UiNumber.Format(stats.BCreates);
-    }
-
-    static string TypeName(CharacterType type)
-    {
-        switch (type)
-        {
-            case CharacterType.Fire: return "火";
-            case CharacterType.Grass: return "草";
-            case CharacterType.Water: return "水";
-            case CharacterType.Light: return "光";
-            case CharacterType.Dark: return "闇";
-            default: return "なし";
-        }
-    }
-
     void SetMessage(string message, bool ok)
     {
         PaintMessage(_message, message, ok);
@@ -242,6 +238,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
                 Destroy(_cells[i]);
         }
         _cells.Clear();
+        if (_deleteConfirm != null && _deleteConfirm.activeSelf && _production != null && ImportedCharacters.Find(_deleteId) == null)
+            HideDelete();
         _production.ForEachImportedCharacter(character =>
         {
             if (character == null)
@@ -259,8 +257,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
         GameObject picture = new GameObject("Picture", typeof(RectTransform));
         picture.transform.SetParent(cell.transform, false);
         RectTransform pictureRect = picture.GetComponent<RectTransform>();
-        pictureRect.anchorMin = new Vector2(0.15f, 0.38f);
-        pictureRect.anchorMax = new Vector2(0.85f, 0.94f);
+        pictureRect.anchorMin = new Vector2(0.15f, 0.46f);
+        pictureRect.anchorMax = new Vector2(0.85f, 0.96f);
         pictureRect.offsetMin = Vector2.zero;
         pictureRect.offsetMax = Vector2.zero;
         Image image = picture.AddComponent<Image>();
@@ -270,14 +268,71 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
         Text label = CreateText("Label", cell.transform, 18, TextAnchor.UpperCenter);
         RectTransform labelRect = label.rectTransform;
-        labelRect.anchorMin = new Vector2(0f, 0f);
-        labelRect.anchorMax = new Vector2(1f, 0.36f);
-        labelRect.offsetMin = new Vector2(4f, 4f);
-        labelRect.offsetMax = new Vector2(-4f, -2f);
+        labelRect.anchorMin = new Vector2(0f, 0.22f);
+        labelRect.anchorMax = new Vector2(1f, 0.46f);
+        labelRect.offsetMin = new Vector2(4f, 0f);
+        labelRect.offsetMax = new Vector2(-4f, 0f);
         label.horizontalOverflow = HorizontalWrapMode.Wrap;
         label.verticalOverflow = VerticalWrapMode.Truncate;
         label.text = character.Name + "\n" + character.Size.ToString();
+
+        uint id = character.ID;
+        string name = string.IsNullOrWhiteSpace(character.Name) ? "ななし" : character.Name.Trim();
+        GameObject deleteObject = new GameObject("ButtonDelete", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        deleteObject.transform.SetParent(cell.transform, false);
+        RectTransform deleteRect = deleteObject.GetComponent<RectTransform>();
+        deleteRect.anchorMin = new Vector2(0.08f, 0.03f);
+        deleteRect.anchorMax = new Vector2(0.92f, 0.2f);
+        deleteRect.offsetMin = Vector2.zero;
+        deleteRect.offsetMax = Vector2.zero;
+        deleteObject.GetComponent<Image>().color = new Color(0.72f, 0.28f, 0.28f, 1f);
+        Button delete = deleteObject.GetComponent<Button>();
+        delete.targetGraphic = deleteObject.GetComponent<Image>();
+        delete.onClick.AddListener(() => AskDelete(id, name));
+        Text deleteLabel = CreateText("Text", deleteObject.transform, 20, TextAnchor.MiddleCenter);
+        Stretch(deleteLabel.rectTransform);
+        deleteLabel.text = "消す";
+        deleteLabel.color = Color.white;
         return cell;
+    }
+
+    void AskDelete(uint id, string name)
+    {
+        if (_showingRebirth || _picking || _production == null)
+            return;
+        if (_confirm != null && _confirm.activeSelf)
+            return;
+        if (ImportedCharacters.Find(id) == null)
+            return;
+        _deleteId = id;
+        if (_deletePrompt != null)
+            _deletePrompt.text = name + " を消します。\n所持数や合成も消え、読み込み枠が1つ戻ります。\n生産と編成からも外れます。";
+        if (_deleteConfirm != null)
+            _deleteConfirm.SetActive(true);
+    }
+
+    public void PushDelete()
+    {
+        if (_production == null || _deleteId == 0)
+            return;
+        uint id = _deleteId;
+        HideDelete();
+        string message;
+        bool removed = _production.DeleteImportedCharacter(id, out message);
+        SetMessage(message, removed);
+        Refresh();
+    }
+
+    public void PushCancelDelete()
+    {
+        HideDelete();
+    }
+
+    void HideDelete()
+    {
+        _deleteId = 0;
+        if (_deleteConfirm != null)
+            _deleteConfirm.SetActive(false);
     }
 
     static Sprite SpriteOf(CharacterClass character)
@@ -345,6 +400,62 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
         BuildScroll();
         BuildConfirm();
+        BuildRebirth();
+        BuildDeleteConfirm();
+    }
+
+    void BuildDeleteConfirm()
+    {
+        _deleteConfirm = new GameObject("PanelImportDelete", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _deleteConfirm.transform.SetParent(Panel.transform, false);
+        Stretch(_deleteConfirm.GetComponent<RectTransform>());
+        _deleteConfirm.GetComponent<Image>().color = new Color(0.12f, 0.12f, 0.14f, 0.45f);
+        _deleteConfirm.GetComponent<Image>().raycastTarget = true;
+
+        GameObject card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        card.transform.SetParent(_deleteConfirm.transform, false);
+        Place(card.GetComponent<RectTransform>(), 0f, 40f, 820f, 460f);
+        card.GetComponent<Image>().color = new Color(0.96f, 0.96f, 0.97f, 1f);
+
+        _deletePrompt = CreateText("TextImportDeletePrompt", card.transform, 28, TextAnchor.MiddleCenter);
+        Place(_deletePrompt.rectTransform, 0f, 70f, 740f, 220f);
+        _deletePrompt.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _deletePrompt.verticalOverflow = VerticalWrapMode.Overflow;
+
+        GameObject okObject = new GameObject("ButtonImportDelete", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        okObject.transform.SetParent(card.transform, false);
+        Place(okObject.GetComponent<RectTransform>(), -170f, -140f, 280f, 80f);
+        okObject.GetComponent<Image>().color = new Color(0.72f, 0.28f, 0.28f, 1f);
+        Button ok = okObject.GetComponent<Button>();
+        ok.targetGraphic = okObject.GetComponent<Image>();
+        ok.onClick.AddListener(PushDelete);
+        Text okLabel = CreateText("Text", okObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(okLabel.rectTransform);
+        okLabel.text = "消す";
+        okLabel.color = Color.white;
+
+        GameObject cancelObject = new GameObject("ButtonImportDeleteCancel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        cancelObject.transform.SetParent(card.transform, false);
+        Place(cancelObject.GetComponent<RectTransform>(), 170f, -140f, 280f, 80f);
+        cancelObject.GetComponent<Image>().color = new Color(0.55f, 0.55f, 0.58f, 1f);
+        Button cancel = cancelObject.GetComponent<Button>();
+        cancel.targetGraphic = cancelObject.GetComponent<Image>();
+        cancel.onClick.AddListener(PushCancelDelete);
+        Text cancelLabel = CreateText("Text", cancelObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(cancelLabel.rectTransform);
+        cancelLabel.text = "やめる";
+        cancelLabel.color = Color.white;
+
+        _deleteConfirm.SetActive(false);
+    }
+
+    void BuildRebirth()
+    {
+        GameObject birth = new GameObject("PanelImportRebirth", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        birth.transform.SetParent(Panel.transform, false);
+        Stretch(birth.GetComponent<RectTransform>());
+        _rebirth = birth.AddComponent<ImportRebirthPlayer>();
+        _rebirth.Initialize(_font, OnRebirthClosed);
     }
 
     void BuildConfirm()
@@ -357,31 +468,26 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
         Text title = CreateText("TextImportConfirmTitle", _confirm.transform, 36, TextAnchor.MiddleCenter);
         Place(title.rectTransform, 0f, 620f, 1000f, 56f);
-        title.text = "読み込んだキャラ";
+        title.text = "この絵を読み込む";
 
         GameObject picture = new GameObject("ImageImportConfirm", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         picture.transform.SetParent(_confirm.transform, false);
-        Place(picture.GetComponent<RectTransform>(), 0f, 400f, 280f, 280f);
+        Place(picture.GetComponent<RectTransform>(), 0f, 230f, 380f, 380f);
         _confirmImage = picture.GetComponent<Image>();
         _confirmImage.preserveAspect = true;
         _confirmImage.raycastTarget = false;
 
-        _confirmStats = CreateText("TextImportConfirmStats", _confirm.transform, 28, TextAnchor.UpperCenter);
-        Place(_confirmStats.rectTransform, 0f, 40f, 900f, 300f);
-        _confirmStats.horizontalOverflow = HorizontalWrapMode.Wrap;
-        _confirmStats.verticalOverflow = VerticalWrapMode.Overflow;
-
         Text prompt = CreateText("TextImportConfirmPrompt", _confirm.transform, 26, TextAnchor.MiddleCenter);
-        Place(prompt.rectTransform, 0f, -160f, 960f, 110f);
+        Place(prompt.rectTransform, 0f, -30f, 960f, 100f);
         prompt.horizontalOverflow = HorizontalWrapMode.Wrap;
         prompt.verticalOverflow = VerticalWrapMode.Overflow;
-        prompt.text = "このキャラ名でよろしいですか？\n違う名前も設定できます。";
+        prompt.text = "名前を決めて読み込むと、この絵がキャラになります。\n違う名前も設定できます。";
 
         BuildNameField(_confirm.transform);
 
         GameObject okObject = new GameObject("ButtonImportConfirm", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         okObject.transform.SetParent(_confirm.transform, false);
-        Place(okObject.GetComponent<RectTransform>(), -200f, -360f, 360f, 84f);
+        Place(okObject.GetComponent<RectTransform>(), -200f, -260f, 360f, 84f);
         okObject.GetComponent<Image>().color = new Color(0.25f, 0.45f, 0.75f, 1f);
         Button ok = okObject.GetComponent<Button>();
         ok.targetGraphic = okObject.GetComponent<Image>();
@@ -393,7 +499,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
         GameObject cancelObject = new GameObject("ButtonImportCancel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         cancelObject.transform.SetParent(_confirm.transform, false);
-        Place(cancelObject.GetComponent<RectTransform>(), 200f, -360f, 280f, 84f);
+        Place(cancelObject.GetComponent<RectTransform>(), 200f, -260f, 280f, 84f);
         cancelObject.GetComponent<Image>().color = new Color(0.55f, 0.55f, 0.58f, 1f);
         Button cancel = cancelObject.GetComponent<Button>();
         cancel.targetGraphic = cancelObject.GetComponent<Image>();
@@ -404,7 +510,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         cancelLabel.color = Color.white;
 
         _confirmMessage = CreateText("TextImportConfirmMessage", _confirm.transform, 24, TextAnchor.MiddleCenter);
-        Place(_confirmMessage.rectTransform, 0f, -450f, 960f, 70f);
+        Place(_confirmMessage.rectTransform, 0f, -360f, 960f, 70f);
         _confirmMessage.horizontalOverflow = HorizontalWrapMode.Wrap;
 
         _confirm.SetActive(false);
@@ -414,7 +520,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
     {
         GameObject fieldObject = new GameObject("InputFieldImportCharacterName", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(InputField));
         fieldObject.transform.SetParent(parent, false);
-        Place(fieldObject.GetComponent<RectTransform>(), 0f, -260f, 760f, 80f);
+        Place(fieldObject.GetComponent<RectTransform>(), 0f, -140f, 760f, 80f);
         Image background = fieldObject.GetComponent<Image>();
         background.color = Color.white;
 
@@ -462,7 +568,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _content.sizeDelta = new Vector2(0f, 0f);
 
         GridLayoutGroup grid = content.AddComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(220f, 240f);
+        grid.cellSize = new Vector2(220f, 280f);
         grid.spacing = new Vector2(16f, 16f);
         grid.padding = new RectOffset(16, 16, 16, 16);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;

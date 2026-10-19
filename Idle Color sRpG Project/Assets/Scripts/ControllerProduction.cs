@@ -1486,6 +1486,76 @@ public class ControllerProduction : MonoBehaviour
         ImportedCharacters.DiscardPrepared();
     }
 
+    public bool DeleteImportedCharacter(uint id, out string message)
+    {
+        message = null;
+        CharacterClass character = ImportedCharacters.Find(id);
+        if (character == null || character.ID != id)
+        {
+            message = "そのキャラはいません。";
+            return false;
+        }
+        if (IsInRunningBattle(id))
+        {
+            message = "出撃中なので消せません。バトルを終えてから消してください。";
+            return false;
+        }
+
+        string name = string.IsNullOrWhiteSpace(character.Name) ? "ななし" : character.Name.Trim();
+        ReleaseCharacterFromProduction(id);
+        ClearBattlePartyCharacter(id);
+        ClearProducedCharacter(id);
+        RefreshProductionAssignmentViews();
+        RefreshProductionFigures();
+        if (!ImportedCharacters.TryRemove(id))
+        {
+            message = "消せませんでした。";
+            return false;
+        }
+        ShowCharacterOwnedNum();
+        if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerCatalog.Refresh();
+        if (ControllerFusion != null && PanelFusion != null && PanelFusion.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerFusion.Refresh();
+        if (ControllerBattleParty != null && PanelBattleParty != null)
+        {
+            CanvasGroup party = PanelBattleParty.GetComponent<CanvasGroup>();
+            if (party != null && party.alpha > 0f)
+                ControllerBattleParty.Refresh();
+        }
+        SaveGame();
+        message = name + " を消しました。";
+        return true;
+    }
+
+    bool IsInRunningBattle(uint characterId)
+    {
+        if (!IsBattleRunning() || ActiveBattlePartySet < 1)
+            return false;
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+            {
+                if (BattlePartyCharacterIds[ActiveBattlePartySet, x, y] == characterId)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    void ClearProducedCharacter(uint characterId)
+    {
+        for (int i = 1; i <= Slots.CharacterSlots; i++)
+        {
+            if (i >= CharactersIDProducedCharacter.Length || CharactersIDProducedCharacter[i] != characterId)
+                continue;
+            CharactersIDProducedCharacter[i] = 0;
+            ReductionPixelsProductionCharacter(i);
+            UpdateProductionCharacterProgressImage(i);
+        }
+        UpdateProductionCharacterConsumeViews();
+    }
+
     CharacterClass CharacterOf(uint id)
     {
         return ImportedCharacters.FindAny(CharactersAll, id);

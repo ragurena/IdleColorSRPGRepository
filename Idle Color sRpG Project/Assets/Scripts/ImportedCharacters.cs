@@ -431,6 +431,25 @@ public static class ImportedCharacters
         DeleteImportFiles(id);
     }
 
+    // 所持から外す。ID は再利用しない。枚数は Entries の数なので、消すと読み込み枠が戻る。
+    public static bool TryRemove(uint id)
+    {
+        if (id < FirstId)
+            return false;
+        for (int i = 0; i < Entries.Count; i++)
+        {
+            CharacterClass character = Entries[i].Character;
+            if (character == null || character.ID != id)
+                continue;
+            if (character.ImageTexture2D != null)
+                UnityEngine.Object.Destroy(character.ImageTexture2D);
+            Entries.RemoveAt(i);
+            DeleteImportFiles(id);
+            return true;
+        }
+        return false;
+    }
+
     public static void BeginLoad()
     {
         Pending.Clear();
