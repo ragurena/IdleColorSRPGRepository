@@ -20,7 +20,7 @@ static class Constants
     public const int PRODUCTION_SLOT_MAX = 255;
     public const int PRODUCTION_SLOT_INITIAL = 3;
     public const int QUEST_PRODUCTION_SLOT_REWARD = 3;
-    public const int AD_PRODUCTION_SLOT_BASE = 3;
+    public const int AD_PRODUCTION_SLOT_BASE = 1;
     public const int IMPORT_CHARACTER_CAP_INITIAL = 3;
     public const int CHARACTERS_PRODUCTION_PIXEL_NUM = PRODUCTION_SLOT_MAX;
     public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = PRODUCTION_SLOT_MAX;
@@ -112,8 +112,10 @@ public class ControllerProduction : MonoBehaviour
     int ActiveBattleFloorTo = 0;
     // いま戦っている階。0 は範囲の最初から。クリア直後の保存は次の階
     int ActiveBattleFloor = 0;
-    // 1, 2, 4, 8。出撃が終わっても残す
+    // 1, 2, 4, 8, 16。出撃が終わっても残す。上限は BattleSpeedCap
     int BattleSpeed = 1;
+    int BattleSpeedCap = 16;
+    bool AdWatchConfirm = true;
     // ステージ1の50階をクリアすると使える。出撃が終わっても残す
     bool BattleRepeat;
     int ClearedBattleStage = 0;
@@ -678,6 +680,8 @@ public class ControllerProduction : MonoBehaviour
             ActiveBattleFloorTo,
             ActiveBattleFloor,
             BattleSpeed,
+            BattleSpeedCap,
+            AdWatchConfirm,
             BattleRepeat,
             ClearedBattleStage,
             ClearedBattleFloor,
@@ -795,9 +799,22 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonDeleteSave()
     {
         SaveFiles.DeleteManaged();
-        SaveBlocked = false;
-        SaveFailureNotified = false;
+        SaveBlocked = true;
+        SaveFailureNotified = true;
         HideSaveNotice();
+        if (AdConfirm != null)
+            AdConfirm.SetActive(false);
+        ShowRestartLock();
+    }
+
+    public void ConfirmDeleteSave(Action onDeleted)
+    {
+        ShowConfirm("本当にセーブデータを消しますか？", () =>
+        {
+            PushButtonDeleteSave();
+            if (onDeleted != null)
+                onDeleted();
+        });
     }
 
     bool TryRestoreSave(out string version)
@@ -856,6 +873,8 @@ public class ControllerProduction : MonoBehaviour
                     ref ActiveBattleFloorTo,
                     ref ActiveBattleFloor,
                     ref BattleSpeed,
+                    ref BattleSpeedCap,
+                    ref AdWatchConfirm,
                     ref BattleRepeat,
                     ref ClearedBattleStage,
                     ref ClearedBattleFloor,
@@ -968,6 +987,8 @@ public class ControllerProduction : MonoBehaviour
         ActiveBattleFloorTo = 0;
         ActiveBattleFloor = 0;
         BattleSpeed = 1;
+        BattleSpeedCap = 16;
+        AdWatchConfirm = true;
         BattleRepeat = false;
         ClearedBattleStage = 0;
 
@@ -998,6 +1019,64 @@ public class ControllerProduction : MonoBehaviour
     {
         SaveBlocked = true;
         ShowSaveNotice(message);
+    }
+
+    GameObject RestartLock;
+
+    void ShowRestartLock()
+    {
+        if (RestartLock != null)
+        {
+            RestartLock.SetActive(true);
+            return;
+        }
+        GameObject canvas = GameObject.Find("CanvasProduction");
+        if (canvas == null)
+            return;
+
+        RestartLock = new GameObject("RestartLock", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster), typeof(Image));
+        RestartLock.transform.SetParent(canvas.transform, false);
+        RectTransform root = RestartLock.GetComponent<RectTransform>();
+        root.anchorMin = Vector2.zero;
+        root.anchorMax = Vector2.one;
+        root.offsetMin = Vector2.zero;
+        root.offsetMax = Vector2.zero;
+        root.localScale = Vector3.one;
+        Canvas overlay = RestartLock.GetComponent<Canvas>();
+        overlay.overrideSorting = true;
+        overlay.sortingOrder = 5000;
+        Image dim = RestartLock.GetComponent<Image>();
+        dim.color = new Color(0f, 0f, 0f, 0.72f);
+        dim.raycastTarget = true;
+
+        GameObject card = new GameObject("Card", typeof(RectTransform), typeof(Image));
+        card.transform.SetParent(RestartLock.transform, false);
+        RectTransform cardRect = card.GetComponent<RectTransform>();
+        cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+        cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+        cardRect.pivot = new Vector2(0.5f, 0.5f);
+        cardRect.sizeDelta = new Vector2(820f, 360f);
+        card.GetComponent<Image>().color = new Color(0.08f, 0.09f, 0.12f, 1f);
+
+        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (font == null)
+            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        textObject.transform.SetParent(card.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(36f, 28f);
+        textRect.offsetMax = new Vector2(-36f, -28f);
+        Text text = textObject.GetComponent<Text>();
+        text.font = font;
+        text.fontSize = 36;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = Color.white;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.raycastTarget = false;
+        text.text = "アプリを再起動してください";
     }
 
     void ShowSaveNotice(string message)
@@ -2843,12 +2922,46 @@ public class ControllerProduction : MonoBehaviour
         return BattleSpeed;
     }
 
+    public int GetBattleSpeedCap()
+    {
+        return NormalizeBattleSpeedCap(BattleSpeedCap);
+    }
+
+    public void SetBattleSpeedCap(int cap)
+    {
+        BattleSpeedCap = NormalizeBattleSpeedCap(cap);
+        if (BattleSpeed > BattleSpeedCap)
+            BattleSpeed = BattleSpeedCap;
+    }
+
     public void SetBattleSpeed(int speed)
     {
-        if (speed == 2 || speed == 4 || speed == 8)
-            BattleSpeed = speed;
-        else
+        int cap = GetBattleSpeedCap();
+        if (speed != 2 && speed != 4 && speed != 8 && speed != 16)
+        {
             BattleSpeed = 1;
+            return;
+        }
+        if (speed > cap)
+            speed = cap;
+        BattleSpeed = speed;
+    }
+
+    static int NormalizeBattleSpeedCap(int cap)
+    {
+        if (cap == 2 || cap == 4 || cap == 8 || cap == 16)
+            return cap;
+        return 16;
+    }
+
+    public bool GetAdWatchConfirm()
+    {
+        return AdWatchConfirm;
+    }
+
+    public void SetAdWatchConfirm(bool confirm)
+    {
+        AdWatchConfirm = confirm;
     }
 
     public bool GetBattleRepeat()
@@ -3876,9 +3989,18 @@ public class ControllerProduction : MonoBehaviour
         else
             image = existing.GetComponent<Image>();
 
-        image.sprite = RgbBackgroundGradient();
+        Rect panelRect = PanelRGBProduction.GetComponent<RectTransform>().rect;
+        if (panelRect.width < 8f || panelRect.height < 8f)
+        {
+            Canvas.ForceUpdateCanvases();
+            panelRect = PanelRGBProduction.GetComponent<RectTransform>().rect;
+        }
+        int meshWidth = Mathf.Max(16, Mathf.RoundToInt(panelRect.width));
+        int meshHeight = Mathf.Max(16, Mathf.RoundToInt(panelRect.height));
+        image.sprite = RgbBackgroundMesh(meshWidth, meshHeight);
         image.type = Image.Type.Simple;
         image.color = Color.white;
+        image.preserveAspect = false;
         image.transform.SetAsFirstSibling();
         StyleChromeButtons(PanelRGBProduction);
         StyleChemSliders(PanelRGBProduction);
@@ -3906,30 +4028,69 @@ public class ControllerProduction : MonoBehaviour
         }
     }
 
-    static Sprite RgbBackgroundGradient()
+    static int RgbBackgroundWidth;
+    static int RgbBackgroundHeight;
+    static readonly int[] MeshBayer4 =
     {
-        if (RgbPanelBackgroundSprite != null)
-            return RgbPanelBackgroundSprite;
+        0, 8, 2, 10,
+        12, 4, 14, 6,
+        3, 11, 1, 9,
+        15, 7, 13, 5
+    };
 
-        const int height = 64;
-        Texture2D texture = new Texture2D(1, height, TextureFormat.RGBA32, false);
+    static Sprite RgbBackgroundMesh(int width, int height)
+    {
+        const int cell = 4;
+        int cols = Mathf.Max(4, width / cell);
+        int rows = Mathf.Max(4, height / cell);
+        if (RgbPanelBackgroundSprite != null && RgbBackgroundWidth == cols && RgbBackgroundHeight == rows)
+            return RgbPanelBackgroundSprite;
+        if (RgbPanelBackgroundSprite != null)
+        {
+            if (RgbPanelBackgroundSprite.texture != null)
+                UnityEngine.Object.Destroy(RgbPanelBackgroundSprite.texture);
+            UnityEngine.Object.Destroy(RgbPanelBackgroundSprite);
+            RgbPanelBackgroundSprite = null;
+        }
+
+        Texture2D texture = new Texture2D(cols, rows, TextureFormat.RGBA32, false);
         texture.wrapMode = TextureWrapMode.Clamp;
-        texture.filterMode = FilterMode.Bilinear;
+        texture.filterMode = FilterMode.Point;
         texture.hideFlags = HideFlags.HideAndDontSave;
         Color top = new Color(0.11f, 0.028f, 0.026f, 1f);
         Color middle = new Color(0.022f, 0.09f, 0.028f, 1f);
         Color bottom = new Color(0.022f, 0.036f, 0.12f, 1f);
-        for (int y = 0; y < height; y++)
+        Color[] pixels = new Color[cols * rows];
+        for (int y = 0; y < rows; y++)
         {
-            float t = (y + 0.5f) / height;
-            Color color = t < 0.5f
-                ? Color.Lerp(bottom, middle, t / 0.5f)
-                : Color.Lerp(middle, top, (t - 0.5f) / 0.5f);
-            texture.SetPixel(0, y, color);
+            float t = (y + 0.5f) / rows;
+            Color from;
+            Color to;
+            float mix;
+            if (t < 0.5f)
+            {
+                from = bottom;
+                to = middle;
+                mix = t / 0.5f;
+            }
+            else
+            {
+                from = middle;
+                to = top;
+                mix = (t - 0.5f) / 0.5f;
+            }
+            for (int x = 0; x < cols; x++)
+            {
+                int threshold = MeshBayer4[(x & 3) + ((y & 3) * 4)];
+                pixels[y * cols + x] = mix * 16f > threshold ? to : from;
+            }
         }
+        texture.SetPixels(pixels);
         texture.Apply();
-        RgbPanelBackgroundSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, height), new Vector2(0.5f, 0.5f), 100f);
+        RgbPanelBackgroundSprite = Sprite.Create(texture, new Rect(0f, 0f, cols, rows), new Vector2(0.5f, 0.5f), 100f);
         RgbPanelBackgroundSprite.hideFlags = HideFlags.HideAndDontSave;
+        RgbBackgroundWidth = cols;
+        RgbBackgroundHeight = rows;
         return RgbPanelBackgroundSprite;
     }
 
@@ -4400,6 +4561,8 @@ public class ControllerProduction : MonoBehaviour
     static Color ChemLiquidColor(int channel)
     {
         Color color = Color.Lerp(ChemGlowColor(channel), Color.white, 0.62f);
+        if (channel == 1)
+            color = Color.Lerp(color, Color.black, 0.08f);
         color.a = 1f;
         return color;
     }
@@ -7445,14 +7608,37 @@ public class ControllerProduction : MonoBehaviour
 
     bool CanWatchAd(bool pixel)
     {
+        return RemainingAdWatches(pixel) > 0;
+    }
+
+    int RemainingAdWatches(bool pixel)
+    {
         int slots = pixel ? Slots.PixelSlots : Slots.CharacterSlots;
         int used = pixel ? Slots.AdPixelSlots : Slots.AdCharacterSlots;
         int fromQuests = pixel ? Slots.ClaimedPixelAdQuests : Slots.ClaimedCharacterAdQuests;
         int cap = Constants.AD_PRODUCTION_SLOT_BASE + Slots.ClaimedQuests + fromQuests;
-        return slots < Constants.PRODUCTION_SLOT_MAX && used < cap;
+        int adLeft = cap - used;
+        int slotLeft = Constants.PRODUCTION_SLOT_MAX - slots;
+        if (adLeft < 0)
+            adLeft = 0;
+        if (slotLeft < 0)
+            slotLeft = 0;
+        return adLeft < slotLeft ? adLeft : slotLeft;
     }
 
     void ShowRewardedForSlot(bool pixel)
+    {
+        if (_adBusy || !CanWatchAd(pixel))
+            return;
+        if (AdWatchConfirm)
+        {
+            ShowConfirm("広告が流れますよろしいですか？", () => PlayRewardedForSlot(pixel));
+            return;
+        }
+        PlayRewardedForSlot(pixel);
+    }
+
+    void PlayRewardedForSlot(bool pixel)
     {
         if (_adBusy || !CanWatchAd(pixel))
             return;
@@ -7471,6 +7657,129 @@ public class ControllerProduction : MonoBehaviour
 #else
         Debug.LogWarning("広告はAndroidで表示します。");
 #endif
+    }
+
+    GameObject AdConfirm;
+    Text _adConfirmText;
+    Action _adConfirmYes;
+
+    void ShowConfirm(string message, Action onYes)
+    {
+        _adConfirmYes = onYes;
+        EnsureAdConfirm();
+        if (AdConfirm == null)
+        {
+            _adConfirmYes = null;
+            return;
+        }
+        if (_adConfirmText != null)
+            _adConfirmText.text = message;
+        AdConfirm.SetActive(true);
+        AdConfirm.transform.SetAsLastSibling();
+    }
+
+    void EnsureAdConfirm()
+    {
+        if (AdConfirm != null)
+            return;
+        GameObject canvas = GameObject.Find("CanvasProduction");
+        if (canvas == null)
+            return;
+
+        AdConfirm = new GameObject("AdConfirm", typeof(RectTransform), typeof(Image));
+        AdConfirm.transform.SetParent(canvas.transform, false);
+        RectTransform root = AdConfirm.GetComponent<RectTransform>();
+        root.anchorMin = Vector2.zero;
+        root.anchorMax = Vector2.one;
+        root.offsetMin = Vector2.zero;
+        root.offsetMax = Vector2.zero;
+        root.localScale = Vector3.one;
+        Image dim = AdConfirm.GetComponent<Image>();
+        dim.color = new Color(0f, 0f, 0f, 0.62f);
+        dim.raycastTarget = true;
+
+        GameObject card = new GameObject("Card", typeof(RectTransform), typeof(Image));
+        card.transform.SetParent(AdConfirm.transform, false);
+        RectTransform cardRect = card.GetComponent<RectTransform>();
+        cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+        cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+        cardRect.pivot = new Vector2(0.5f, 0.5f);
+        cardRect.sizeDelta = new Vector2(820f, 420f);
+        Image cardImage = card.GetComponent<Image>();
+        cardImage.color = new Color(0.08f, 0.09f, 0.12f, 1f);
+
+        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (font == null)
+            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        textObject.transform.SetParent(card.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0f, 0.42f);
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(36f, 12f);
+        textRect.offsetMax = new Vector2(-36f, -28f);
+        Text text = textObject.GetComponent<Text>();
+        text.font = font;
+        text.fontSize = 36;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = Color.white;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.raycastTarget = false;
+        text.text = "";
+        _adConfirmText = text;
+
+        Button yes = CreateAdConfirmButton(card.transform, "ButtonAdConfirmYes", "はい", new Color(0.25f, 0.45f, 0.75f, 1f), font, true);
+        Button no = CreateAdConfirmButton(card.transform, "ButtonAdConfirmNo", "いいえ", new Color(0.45f, 0.28f, 0.28f, 1f), font, false);
+        yes.onClick.AddListener(AcceptAdConfirm);
+        no.onClick.AddListener(DismissAdConfirm);
+        AdConfirm.SetActive(false);
+    }
+
+    static Button CreateAdConfirmButton(Transform parent, string name, string label, Color color, Font font, bool yes)
+    {
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        obj.transform.SetParent(parent, false);
+        RectTransform rect = obj.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(yes ? 0.08f : 0.52f, 0.1f);
+        rect.anchorMax = new Vector2(yes ? 0.48f : 0.92f, 0.38f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        obj.GetComponent<Image>().color = color;
+        Button button = obj.GetComponent<Button>();
+        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        textObject.transform.SetParent(obj.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+        Text text = textObject.GetComponent<Text>();
+        text.font = font;
+        text.fontSize = 32;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = Color.white;
+        text.raycastTarget = false;
+        text.text = label;
+        return button;
+    }
+
+    void AcceptAdConfirm()
+    {
+        Action yes = _adConfirmYes;
+        _adConfirmYes = null;
+        if (AdConfirm != null)
+            AdConfirm.SetActive(false);
+        if (yes != null)
+            yes();
+    }
+
+    void DismissAdConfirm()
+    {
+        _adConfirmYes = null;
+        if (AdConfirm != null)
+            AdConfirm.SetActive(false);
     }
 
     void GrantAdSlot(bool pixel)
@@ -7619,6 +7928,9 @@ public class ControllerProduction : MonoBehaviour
         {
             if (existing != null)
                 existing.gameObject.SetActive(false);
+            Transform hidden = list.Find("TextAdSlotRemain");
+            if (hidden != null)
+                hidden.gameObject.SetActive(false);
             return;
         }
         if (existing == null)
@@ -7649,19 +7961,92 @@ public class ControllerProduction : MonoBehaviour
             text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (text.font == null)
                 text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            text.fontSize = 36;
+            text.fontSize = 96;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.black;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
             text.verticalOverflow = VerticalWrapMode.Overflow;
             text.raycastTarget = false;
             existing = buttonObject.transform;
         }
         existing.gameObject.SetActive(true);
-        existing.SetAsLastSibling();
-        Text label = existing.GetComponentInChildren<Text>();
+        LayoutElement buttonLayout = existing.GetComponent<LayoutElement>();
+        if (buttonLayout == null)
+            buttonLayout = existing.gameObject.AddComponent<LayoutElement>();
+        buttonLayout.minHeight = 150f;
+        buttonLayout.preferredHeight = 150f;
+        buttonLayout.flexibleHeight = 0f;
+        buttonLayout.flexibleWidth = 1f;
+
+        Transform oldCount = existing.Find("TextAdCount");
+        if (oldCount != null)
+            Destroy(oldCount.gameObject);
+
+        Text label = existing.Find("Text") != null ? existing.Find("Text").GetComponent<Text>() : null;
+        int left = RemainingAdWatches(pixel);
+        bool canWatch = left > 0;
         if (label != null)
-            label.text = CanWatchAd(pixel) ? "+" : "クエストで上限が上がる";
+        {
+            label.text = "+";
+            label.fontSize = 96;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform labelRect = label.rectTransform;
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+        }
+        Button slotButton = existing.GetComponent<Button>();
+        if (slotButton != null)
+            slotButton.interactable = canWatch;
+        existing.SetAsLastSibling();
+
+        Text count = AdRemainLabel(list, label);
+        if (count != null)
+        {
+            count.gameObject.SetActive(true);
+            count.text = "広告視聴可能回数：" + left + "回　クエスト達成により増加します";
+            count.transform.SetAsLastSibling();
+        }
+    }
+
+    Text AdRemainLabel(Transform list, Text sample)
+    {
+        Transform existing = list.Find("TextAdSlotRemain");
+        Text text;
+        if (existing != null)
+        {
+            text = existing.GetComponent<Text>();
+        }
+        else
+        {
+            GameObject textObject = new GameObject("TextAdSlotRemain", typeof(RectTransform));
+            textObject.transform.SetParent(list, false);
+            text = textObject.AddComponent<Text>();
+            text.font = sample != null && sample.font != null
+                ? sample.font
+                : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.raycastTarget = false;
+            existing = textObject.transform;
+        }
+        text.fontSize = 28;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = Color.black;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.lineSpacing = 1.05f;
+        LayoutElement layout = existing.GetComponent<LayoutElement>();
+        if (layout == null)
+            layout = existing.gameObject.AddComponent<LayoutElement>();
+        layout.minHeight = 84f;
+        layout.preferredHeight = 84f;
+        layout.flexibleHeight = 0f;
+        layout.flexibleWidth = 1f;
+        return text;
     }
 
     static bool IsProductionWorkerButton(Button button)

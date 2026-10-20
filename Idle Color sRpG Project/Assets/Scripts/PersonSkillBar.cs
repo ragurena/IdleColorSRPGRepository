@@ -67,7 +67,7 @@ public static class PersonSkillBar
         if (inside)
         {
             root.pivot = new Vector2(0.5f, 0f);
-            root.anchoredPosition = new Vector2(0f, 1f);
+            root.anchoredPosition = new Vector2(0f, 10f - 28f);
         }
         else
         {
@@ -90,6 +90,9 @@ public static class PersonSkillBar
         GameObject rootObject = new GameObject(RootName, typeof(RectTransform));
         rootObject.transform.SetParent(button, false);
         RectTransform root = rootObject.GetComponent<RectTransform>();
+        Image back = rootObject.AddComponent<Image>();
+        back.color = new Color(0f, 0f, 0f, 0.62f);
+        back.raycastTarget = false;
         Place(root, false);
 
         GameObject levelObject = new GameObject("Level", typeof(RectTransform));
@@ -120,7 +123,7 @@ public static class PersonSkillBar
         track.anchoredPosition = Vector2.zero;
         track.sizeDelta = new Vector2(0f, 10f);
         Image trackImage = trackObject.AddComponent<Image>();
-        trackImage.color = new Color(0f, 0f, 0f, 0.55f);
+        trackImage.color = new Color(0.05f, 0.22f, 0.08f, 1f);
         trackImage.raycastTarget = false;
 
         GameObject fillObject = new GameObject("Fill", typeof(RectTransform));
@@ -131,7 +134,7 @@ public static class PersonSkillBar
         fill.offsetMin = Vector2.zero;
         fill.offsetMax = Vector2.zero;
         Image fillImage = fillObject.AddComponent<Image>();
-        fillImage.color = new Color(1f, 0.82f, 0.28f, 1f);
+        fillImage.color = new Color(0.25f, 0.82f, 0.28f, 1f);
         fillImage.raycastTarget = false;
 
         return root;

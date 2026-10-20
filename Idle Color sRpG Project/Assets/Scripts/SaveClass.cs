@@ -44,6 +44,8 @@ public class SaveClass// : MonoBehaviour
         int ActiveBattleFloorTo,
         int ActiveBattleFloor,
         int BattleSpeed,
+        int BattleSpeedCap,
+        bool AdWatchConfirm,
         bool BattleRepeat,
         int ClearedBattleStage,
         int[] ClearedBattleFloor,
@@ -288,6 +290,8 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("ActiveBattleFloorTo," + ActiveBattleFloorTo.ToString());
         sw.WriteLine("ActiveBattleFloor," + ActiveBattleFloor.ToString());
         sw.WriteLine("BattleSpeed," + BattleSpeed.ToString());
+        sw.WriteLine("BattleSpeedCap," + BattleSpeedCap.ToString());
+        sw.WriteLine("AdWatchConfirm," + (AdWatchConfirm ? "true" : "false"));
         sw.WriteLine("BattleRepeat," + (BattleRepeat ? "true" : "false"));
         sw.WriteLine("ClearedBattleStage," + ClearedBattleStage.ToString());
         if (ClearedBattleFloor != null)
@@ -423,6 +427,8 @@ public class SaveClass// : MonoBehaviour
         ref int ActiveBattleFloorTo,
         ref int ActiveBattleFloor,
         ref int BattleSpeed,
+        ref int BattleSpeedCap,
+        ref bool AdWatchConfirm,
         ref bool BattleRepeat,
         ref int ClearedBattleStage,
         ref int[] ClearedBattleFloor,
@@ -829,7 +835,20 @@ public class SaveClass// : MonoBehaviour
             if (values[0].Equals("BattleSpeed"))
             {
                 int speed = int.Parse(values[1]);
-                BattleSpeed = speed == 2 || speed == 4 || speed == 8 ? speed : 1;
+                BattleSpeed = speed == 2 || speed == 4 || speed == 8 || speed == 16 ? speed : 1;
+            }
+
+            else
+            if (values[0].Equals("BattleSpeedCap"))
+            {
+                int cap = int.Parse(values[1]);
+                BattleSpeedCap = cap == 2 || cap == 4 || cap == 8 || cap == 16 ? cap : 16;
+            }
+
+            else
+            if (values[0].Equals("AdWatchConfirm"))
+            {
+                AdWatchConfirm = values[1].Equals("true");
             }
 
             else

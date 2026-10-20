@@ -11,10 +11,13 @@ public class ControllerBattleClass : MonoBehaviour
     Font _font;
     GameObject _root;
     Text _header;
+    Image _headerFill;
+    float _headerRate;
     Text _resource;
     Text _logText;
     Button _fastButton;
     QuestBoard _questBoard;
+    SettingsBoard _settings;
     Transform _questOverlay;
     GameObject _questBanner;
     Image _questBannerFill;
@@ -23,6 +26,7 @@ public class ControllerBattleClass : MonoBehaviour
     Text _questBadgeText;
     readonly List<QuestDef> _questCandidates = new List<QuestDef>();
     static readonly Color EmptyCellColor = new Color(0.15f, 0.15f, 0.18f, 0.3f);
+    static readonly Color HeaderFillColor = new Color(0.22f, 0.50f, 0.26f, 1f);
     int _battleSpeed = 1;
     bool _running;
     bool _stop;
@@ -46,6 +50,7 @@ public class ControllerBattleClass : MonoBehaviour
     class CellView
     {
         public Image Image;
+        public Image Portrait;
         public Image InfoBack;
         public Text Lives;
         public Slider Hp;
@@ -429,9 +434,17 @@ public class ControllerBattleClass : MonoBehaviour
 
     int BattleSpeed()
     {
-        if (_battleSpeed == 2 || _battleSpeed == 4 || _battleSpeed == 8)
-            return _battleSpeed;
+        int cap = SpeedCap();
+        if (_battleSpeed == 2 || _battleSpeed == 4 || _battleSpeed == 8 || _battleSpeed == 16)
+            return _battleSpeed <= cap ? _battleSpeed : cap;
         return 1;
+    }
+
+    int SpeedCap()
+    {
+        if (_production == null)
+            return 16;
+        return _production.GetBattleSpeedCap();
     }
 
     float ScaledSeconds(float normalSeconds)
@@ -462,15 +475,15 @@ public class ControllerBattleClass : MonoBehaviour
             float u = elapsed / duration;
             if (u > 1f)
                 u = 1f;
-            if (attacker != null && attacker.Image != null)
+            if (attacker != null && attacker.Portrait != null)
             {
                 float hop = Mathf.Sin(u * Mathf.PI) * AttackHop;
-                attacker.Image.rectTransform.anchoredPosition = attacker.Home + new Vector2(0f, hop);
+                NudgePortrait(attacker, new Vector2(0f, hop));
             }
-            if (defender != null && defender != attacker && defender.Image != null)
+            if (defender != null && defender != attacker && defender.Portrait != null)
             {
                 float shake = Mathf.Sin(u * Mathf.PI * 4f) * (1f - u) * HitShake;
-                defender.Image.rectTransform.anchoredPosition = defender.Home + new Vector2(shake, 0f);
+                NudgePortrait(defender, new Vector2(shake, 0f));
             }
             yield return null;
         }
@@ -501,16 +514,15 @@ public class ControllerBattleClass : MonoBehaviour
 
         Vector2 origin = cell.Home;
         Image walker = null;
-        if (_cueWalk && cell.Image.sprite != null)
+        if (_cueWalk && cell.Portrait != null && cell.Portrait.sprite != null)
         {
             walker = CreateImage("DropWalker", _root.transform, Color.white);
-            walker.sprite = cell.Image.sprite;
+            walker.sprite = cell.Portrait.sprite;
             walker.preserveAspect = true;
             walker.raycastTarget = false;
             PlaceRect(walker.rectTransform, origin.x, origin.y, 70f, 70f);
             walker.transform.SetAsLastSibling();
-            cell.Image.sprite = null;
-            cell.Image.color = EmptyCellColor;
+            SetPortrait(cell, null);
             SetMetersVisible(cell, false, false);
             RestoreCell(cell);
         }
@@ -709,7 +721,11 @@ public class ControllerBattleClass : MonoBehaviour
         while (elapsed < duration)
         {
             if (enter && _stop)
+            {
+                for (int i = 0; i < cells.Count; i++)
+                    NudgePortrait(cells[i], Vector2.zero);
                 yield break;
+            }
             elapsed += Time.deltaTime;
             float u = elapsed / duration;
             if (u > 1f)
@@ -721,7 +737,8 @@ public class ControllerBattleClass : MonoBehaviour
                 if (cells[i].Image == null)
                     continue;
                 Vector2 pos = Vector2.Lerp(from[i], to[i], move);
-                cells[i].Image.rectTransform.anchoredPosition = pos + new Vector2(0f, hop);
+                cells[i].Image.rectTransform.anchoredPosition = pos;
+                NudgePortrait(cells[i], new Vector2(0f, hop));
             }
             yield return null;
         }
@@ -747,7 +764,7 @@ public class ControllerBattleClass : MonoBehaviour
                 if (view == null || view.Image == null)
                     continue;
                 view.Image.sprite = null;
-                view.Image.color = EmptyCellColor;
+                SetPortrait(view, null);
                 SetMetersVisible(view, false, false);
                 RestoreCell(view);
             }
@@ -771,20 +788,39 @@ public class ControllerBattleClass : MonoBehaviour
         if (view == null || view.Image == null)
             return;
         view.Image.rectTransform.anchoredPosition = view.Home;
+        NudgePortrait(view, Vector2.zero);
+    }
+
+    static void NudgePortrait(CellView view, Vector2 offset)
+    {
+        if (view == null || view.Portrait == null)
+            return;
+        view.Portrait.rectTransform.anchoredPosition = offset;
+    }
+
+    static void SetPortrait(CellView view, Sprite sprite)
+    {
+        if (view == null || view.Image == null)
+            return;
+        view.Image.sprite = null;
+        bool show = sprite != null;
+        view.Image.color = show ? new Color(0f, 0f, 0f, 0f) : EmptyCellColor;
+        if (view.Portrait == null)
+            return;
+        view.Portrait.sprite = sprite;
+        view.Portrait.color = Color.white;
+        view.Portrait.gameObject.SetActive(show);
     }
 
     void PushFast()
     {
         if (_production == null || !_production.IsMainFeatureOpen(MainFeature.BattleSpeed))
             return;
-        if (_battleSpeed == 1)
-            _battleSpeed = 2;
-        else if (_battleSpeed == 2)
-            _battleSpeed = 4;
-        else if (_battleSpeed == 4)
-            _battleSpeed = 8;
-        else
-            _battleSpeed = 1;
+        int cap = SpeedCap();
+        int next = _battleSpeed < 2 ? 2 : _battleSpeed * 2;
+        if (next > cap || (next != 2 && next != 4 && next != 8 && next != 16))
+            next = 1;
+        _battleSpeed = next;
         ApplySpeedButton();
         if (_production != null)
         {
@@ -795,8 +831,11 @@ public class ControllerBattleClass : MonoBehaviour
 
     public void ApplySavedSpeed(int speed)
     {
-        if (speed == 2 || speed == 4 || speed == 8)
+        int cap = SpeedCap();
+        if ((speed == 2 || speed == 4 || speed == 8 || speed == 16) && speed <= cap)
             _battleSpeed = speed;
+        else if (speed > cap && cap >= 2)
+            _battleSpeed = cap;
         else
             _battleSpeed = 1;
         ApplySpeedButton();
@@ -826,6 +865,8 @@ public class ControllerBattleClass : MonoBehaviour
             label.text = "4倍";
         else if (_battleSpeed == 8)
             label.text = "8倍";
+        else if (_battleSpeed == 16)
+            label.text = "16倍";
         else
             label.text = "通常";
     }
@@ -876,6 +917,7 @@ public class ControllerBattleClass : MonoBehaviour
     {
         if (_header != null)
             _header.text = stageName + "  " + floor.ToString() + "階  （" + floorFrom.ToString() + "〜" + floorTo.ToString() + "）";
+        SetHeaderProgress(floor);
         if (_resource != null)
             _resource.text = _production.GetRgbText();
         if (_questBoard != null)
@@ -904,14 +946,12 @@ public class ControllerBattleClass : MonoBehaviour
                     unit = null;
                 if (unit == null)
                 {
-                    view.Image.sprite = null;
-                    view.Image.color = EmptyCellColor;
+                    SetPortrait(view, null);
                     SetMetersVisible(view, false, false);
                     continue;
                 }
 
-                view.Image.sprite = SpriteOf(unit.CharacterId);
-                view.Image.color = Color.white;
+                SetPortrait(view, SpriteOf(unit.CharacterId));
                 bool showExp = unit.IsAlly;
                 SetMetersVisible(view, true, showExp);
                 LayoutMeters(view, showExp);
@@ -1016,6 +1056,7 @@ public class ControllerBattleClass : MonoBehaviour
         Show();
         if (_header != null)
             _header.text = "バトル";
+        SetHeaderProgress(0);
         if (_resource != null && _production != null)
             _resource.text = _production.GetRgbText();
         if (_units.Count == 0)
@@ -1198,7 +1239,7 @@ public class ControllerBattleClass : MonoBehaviour
         PlaceTextPlate(_logText);
     }
 
-    // クエストのバーはバトルパネルの矩形の中に収める。上に余白があれば階数の行から離す
+    // クエストのバーは、消したセーブボタンの空きへ上げる。撤退・速度・ステージ名は、バーがあった高さへ上げる
     void PlaceQuestBannerInPanel(float gap)
     {
         if (_questBanner == null || _root == null || _header == null)
@@ -1250,6 +1291,15 @@ public class ControllerBattleClass : MonoBehaviour
         }
         if (bottom < panelMin.y + margin)
             bottom = panelMin.y + margin;
+        LiftHeaderRow((bottom + top) * 0.5f);
+
+        const float bannerDrawH = 50f;
+        float bannerCenter = panelMax.y + 38f;
+        float canvasTop = parent.rect.yMax;
+        if (bannerCenter + bannerDrawH * 0.5f > canvasTop - 8f)
+            bannerCenter = canvasTop - 8f - bannerDrawH * 0.5f;
+        left = panelMin.x + margin;
+        right = panelMax.x - margin;
 
         banner.anchorMin = new Vector2(0.5f, 0.5f);
         banner.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1257,8 +1307,31 @@ public class ControllerBattleClass : MonoBehaviour
         Vector2 anchorFromPivot = new Vector2(
             (0.5f - parent.pivot.x) * parent.rect.width,
             (0.5f - parent.pivot.y) * parent.rect.height);
-        banner.sizeDelta = new Vector2(right - left, bannerH);
-        banner.anchoredPosition = new Vector2((left + right) * 0.5f, (bottom + top) * 0.5f) - anchorFromPivot;
+        banner.sizeDelta = new Vector2(right - left, bannerDrawH);
+        banner.anchoredPosition = new Vector2((left + right) * 0.5f, bannerCenter) - anchorFromPivot;
+    }
+
+    void LiftHeaderRow(float canvasY)
+    {
+        if (_header == null || _root == null)
+            return;
+        RectTransform panel = _root.GetComponent<RectTransform>();
+        RectTransform header = _header.rectTransform;
+        if (panel == null)
+            return;
+        float delta = canvasY - (panel.anchoredPosition.y + header.anchoredPosition.y);
+        header.anchoredPosition += new Vector2(0f, delta);
+        if (_fastButton != null)
+        {
+            RectTransform fast = _fastButton.GetComponent<RectTransform>();
+            fast.anchoredPosition += new Vector2(0f, delta);
+        }
+        GameObject withdraw = GameObject.Find("ButtonBattleWithdraw");
+        if (withdraw != null)
+        {
+            RectTransform withdrawRect = withdraw.GetComponent<RectTransform>();
+            withdrawRect.anchoredPosition += new Vector2(0f, delta);
+        }
     }
 
     static bool TryBoundsIn(RectTransform rect, RectTransform parent, out Vector2 min, out Vector2 max)
@@ -1295,6 +1368,15 @@ public class ControllerBattleClass : MonoBehaviour
             }
         }
         return has;
+    }
+
+    // 上の行を下げ、3行の間隔を均等に広げる。y=1 が下、y=3 が上。
+    const float UnitPitchY = 104f;
+    const float UnitTopY = 90f;
+
+    static float UnitRowY(int y, int size)
+    {
+        return UnitTopY - (size - y) * UnitPitchY;
     }
 
     bool CellSpan(out float top, out float bottom)
@@ -1359,12 +1441,58 @@ public class ControllerBattleClass : MonoBehaviour
         back.pivot = textRect.pivot;
         back.anchoredPosition = textRect.anchoredPosition;
         back.sizeDelta = textRect.sizeDelta;
+        if (text == _header)
+            EnsureHeaderFill(back);
 
         int textIndex = textRect.GetSiblingIndex();
         int backIndex = back.GetSiblingIndex();
         int desired = backIndex < textIndex ? textIndex - 1 : textIndex;
         if (backIndex != desired)
             back.SetSiblingIndex(desired);
+    }
+
+    // 100階を満タンにする。10階なら1割、100階なら端まで塗る
+    void SetHeaderProgress(int floor)
+    {
+        float rate = 0f;
+        if (floor > 0)
+            rate = floor / (float)Constants.BATTLE_STAGE_FLOOR_MAX;
+        if (rate > 1f)
+            rate = 1f;
+        _headerRate = rate;
+        ApplyHeaderFill();
+    }
+
+    void EnsureHeaderFill(RectTransform back)
+    {
+        Transform existing = back.Find("Fill");
+        if (existing == null)
+        {
+            _headerFill = CreateImage("Fill", back, HeaderFillColor);
+            _headerFill.raycastTarget = false;
+        }
+        else
+            _headerFill = existing.GetComponent<Image>();
+        if (_headerFill != null)
+            _headerFill.color = HeaderFillColor;
+        ApplyHeaderFill();
+    }
+
+    void ApplyHeaderFill()
+    {
+        if (_headerFill == null)
+            return;
+        float rate = _headerRate;
+        if (rate < 0f)
+            rate = 0f;
+        if (rate > 1f)
+            rate = 1f;
+        RectTransform fill = _headerFill.rectTransform;
+        fill.anchorMin = Vector2.zero;
+        fill.anchorMax = new Vector2(rate, 1f);
+        fill.offsetMin = Vector2.zero;
+        fill.offsetMax = Vector2.zero;
+        fill.pivot = new Vector2(0f, 0.5f);
     }
 
     float BattleTextWidth()
@@ -1396,15 +1524,24 @@ public class ControllerBattleClass : MonoBehaviour
         quest.onClick.AddListener(ToggleQuest);
         BuildQuestBadge(quest.transform);
 
+        Button settings = CreateButton("ButtonSettings", "設定", new Color(0.30f, 0.34f, 0.42f, 1f), _questOverlay);
+        PlaceRect(settings.GetComponent<RectTransform>(), battlePos.x + 430f, battlePos.y + 41f, 150f, 90f);
+        Text settingsLabel = settings.GetComponentInChildren<Text>();
+        if (settingsLabel != null)
+            settingsLabel.fontSize = 28;
+        settings.onClick.AddListener(ToggleSettings);
+
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
+        _settings = new SettingsBoard();
+        _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, PushSettingsSave, PushSettingsDeleteSave);
         BringQuestForward();
     }
 
     void BuildQuestBanner(Vector2 battlePos)
     {
         Image track = CreateImage("ImageBattleQuestBanner", _questOverlay, new Color(0.10f, 0.12f, 0.16f, 0.95f));
-        PlaceRect(track.rectTransform, battlePos.x, battlePos.y + 250f, BattleTextWidth(), 42f);
+        PlaceRect(track.rectTransform, battlePos.x, battlePos.y + 250f, BattleTextWidth(), 50f);
         track.raycastTarget = false;
         _questBanner = track.gameObject;
 
@@ -1417,7 +1554,7 @@ public class ControllerBattleClass : MonoBehaviour
         fillRect.pivot = new Vector2(0f, 0.5f);
         _questBannerFill.raycastTarget = false;
 
-        _questBannerText = CreateText("Text", track.transform, 22, TextAnchor.MiddleCenter);
+        _questBannerText = CreateText("Text", track.transform, 24, TextAnchor.MiddleCenter);
         Stretch(_questBannerText.rectTransform);
         _questBannerText.horizontalOverflow = HorizontalWrapMode.Wrap;
         _questBannerText.verticalOverflow = VerticalWrapMode.Truncate;
@@ -1528,7 +1665,66 @@ public class ControllerBattleClass : MonoBehaviour
         if (_questBoard.IsOpen)
             _questBoard.Close();
         else
+        {
+            if (_settings != null && _settings.IsOpen)
+                _settings.Close();
             _questBoard.Open();
+        }
+    }
+
+    void ToggleSettings()
+    {
+        if (_settings == null)
+            return;
+        if (_settings.IsOpen)
+            _settings.Close();
+        else
+        {
+            if (_questBoard != null && _questBoard.IsOpen)
+                _questBoard.Close();
+            _settings.Open(SpeedCap(), AdWatchConfirm());
+        }
+    }
+
+    void ApplySpeedCap(int cap)
+    {
+        if (_production == null)
+            return;
+        _production.SetBattleSpeedCap(cap);
+        ApplySavedSpeed(_production.GetBattleSpeed());
+        _production.SaveGame();
+    }
+
+    bool AdWatchConfirm()
+    {
+        return _production != null && _production.GetAdWatchConfirm();
+    }
+
+    void ApplyAdWatchConfirm(bool confirm)
+    {
+        if (_production == null)
+            return;
+        _production.SetAdWatchConfirm(confirm);
+        _production.SaveGame();
+    }
+
+    void PushSettingsSave()
+    {
+        if (_production == null || _settings == null)
+            return;
+        bool saved = _production.SaveGame();
+        _settings.SetSaveStatus(saved ? "保存しました" : "保存できませんでした");
+    }
+
+    void PushSettingsDeleteSave()
+    {
+        if (_production == null || _settings == null)
+            return;
+        _production.ConfirmDeleteSave(() =>
+        {
+            if (_settings != null)
+                _settings.SetSaveStatus("セーブを削除しました");
+        });
     }
 
     void BuildBattlePeople()
@@ -1543,7 +1739,7 @@ public class ControllerBattleClass : MonoBehaviour
         for (int slot = 1; slot <= count; slot++)
         {
             int y = slot <= size ? slot : size;
-            float py = 70f - (size - y) * pitch;
+            float py = UnitRowY(y, size);
             Image image = CreateImage("ImageBattlePerson" + slot.ToString(), _root.transform, new Color(0.15f, 0.15f, 0.18f, 0.35f));
             PlaceRect(image.rectTransform, px, py, cell, cell);
             image.preserveAspect = true;
@@ -1601,14 +1797,19 @@ public class ControllerBattleClass : MonoBehaviour
             for (int y = 1; y <= size; y++)
             {
                 float px = originX + (x - 2) * pitch;
-                //編成パネルは y=1 が下、y=3 が上。バトルも同じ向きにする
-                float py = 70f - (size - y) * pitch;
+                float py = UnitRowY(y, size);
                 string side = cells == _allies ? "A" : "E";
                 string suffix = side + x.ToString() + y.ToString();
                 Image image = CreateImage("ImageBattleCell" + suffix, _root.transform, EmptyCellColor);
                 PlaceRect(image.rectTransform, px, py, cell, cell);
                 image.preserveAspect = true;
                 image.raycastTarget = false;
+
+                Image portrait = CreateImage("Portrait", image.transform, Color.white);
+                PlaceRect(portrait.rectTransform, 0f, 0f, cell, cell);
+                portrait.preserveAspect = true;
+                portrait.raycastTarget = false;
+                portrait.gameObject.SetActive(false);
 
                 Image infoBack = CreateImage("ImageBattleInfo" + suffix, image.transform, new Color(0f, 0f, 0f, 0.62f));
                 infoBack.raycastTarget = false;
@@ -1631,6 +1832,7 @@ public class ControllerBattleClass : MonoBehaviour
                 cells[x, y] = new CellView
                 {
                     Image = image,
+                    Portrait = portrait,
                     InfoBack = infoBack,
                     Lives = lives,
                     Hp = hp,
@@ -1660,7 +1862,12 @@ public class ControllerBattleClass : MonoBehaviour
 
     static void LayoutMeters(CellView view, bool showExp)
     {
-        float y = 1f;
+        int bars = 1;
+        if (showExp && view.Exp != null)
+            bars = 2;
+        const float livesOverlap = 10f;
+        float y = -((MeterHeight + MeterGap) * bars + (LivesHeight - livesOverlap));
+        float stackBottom = y;
         if (showExp && view.Exp != null)
         {
             PlaceMeter(view.Exp.GetComponent<RectTransform>(), y, MeterHeight);
@@ -1671,6 +1878,7 @@ public class ControllerBattleClass : MonoBehaviour
             PlaceMeter(view.Hp.GetComponent<RectTransform>(), y, MeterHeight);
             y += MeterHeight + MeterGap;
         }
+        float livesTop = y + LivesHeight;
         if (view.Lives != null)
         {
             RectTransform lives = view.Lives.rectTransform;
@@ -1678,7 +1886,7 @@ public class ControllerBattleClass : MonoBehaviour
             lives.anchorMax = new Vector2(1f, 0f);
             lives.pivot = new Vector2(0.5f, 0f);
             lives.offsetMin = new Vector2(0f, y);
-            lives.offsetMax = new Vector2(0f, y + LivesHeight);
+            lives.offsetMax = new Vector2(0f, livesTop);
         }
         if (view.InfoBack != null)
         {
@@ -1686,8 +1894,8 @@ public class ControllerBattleClass : MonoBehaviour
             back.anchorMin = new Vector2(0f, 0f);
             back.anchorMax = new Vector2(1f, 0f);
             back.pivot = new Vector2(0.5f, 0f);
-            back.offsetMin = Vector2.zero;
-            back.offsetMax = new Vector2(0f, y + LivesHeight);
+            back.offsetMin = new Vector2(0f, stackBottom);
+            back.offsetMax = new Vector2(0f, livesTop);
         }
     }
 
