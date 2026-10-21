@@ -530,7 +530,18 @@ public class ControllerProduction : MonoBehaviour
 
             //ピクセルの生産
             for (int i = 1; i <= Slots.PixelSlots; i++)
-                ProductionPixel(Trigger.Update, i, out _);
+            {
+                ushort beforeR = ProgressProductionPixel[i, 1];
+                ushort beforeG = ProgressProductionPixel[i, 2];
+                ushort beforeB = ProgressProductionPixel[i, 3];
+                bool completed;
+                ProductionPixel(Trigger.Update, i, out completed);
+                bool advanced = completed
+                    || ProgressProductionPixel[i, 1] != beforeR
+                    || ProgressProductionPixel[i, 2] != beforeG
+                    || ProgressProductionPixel[i, 3] != beforeB;
+                SyncPixelWorkerMotion(i, completed, advanced);
+            }
             UpdateRGBProductionScene();
             RefreshPixelAttention();
 
@@ -1247,6 +1258,7 @@ public class ControllerProduction : MonoBehaviour
 
         //PanelPixelProductionの表示
         ShowPanel(PanelPixelProduction);
+        EnsurePixelPanelBackground();
         //UIの更新
         UpdatePixelProductionScene();
 
@@ -1968,6 +1980,7 @@ public class ControllerProduction : MonoBehaviour
             ButtonCharacterTmp = null;
             ControllerCharacterSelect.NotShowPanelSelectCharacter();
             NotShowPanel(PanelSelectCharacter);
+            SaveGame();
             return;
         }
         if (ButtonCharacterTmp != null && ControllerCharacterSelect.GetSelectedPersonId() != 0 && IsProductionWorkerButton(ButtonCharacterTmp))
@@ -1979,6 +1992,7 @@ public class ControllerProduction : MonoBehaviour
             ButtonCharacterTmp = null;
             ControllerCharacterSelect.NotShowPanelSelectCharacter();
             NotShowPanel(PanelSelectCharacter);
+            SaveGame();
             return;
         }
         if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
@@ -2020,6 +2034,7 @@ public class ControllerProduction : MonoBehaviour
 
         ControllerCharacterSelect.NotShowPanelSelectCharacter();
         NotShowPanel(PanelSelectCharacter);
+        SaveGame();
     }
 
     //キャラクターセレクトの外すボタンが押されたら
@@ -2033,6 +2048,7 @@ public class ControllerProduction : MonoBehaviour
             ButtonCharacterTmp = null;
             ControllerCharacterSelect.NotShowPanelSelectCharacter();
             NotShowPanel(PanelSelectCharacter);
+            SaveGame();
             return;
         }
         if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
@@ -2064,6 +2080,7 @@ public class ControllerProduction : MonoBehaviour
 
         ControllerCharacterSelect.NotShowPanelSelectCharacter();
         NotShowPanel(PanelSelectCharacter);
+        SaveGame();
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2366,6 +2383,7 @@ public class ControllerProduction : MonoBehaviour
 
         UpdatePixelColorPixelProduction(ProductionPixelIndex);
         UpdateSliderPixelProduction(ProductionPixelIndex);
+        SaveGame();
     }
 
 
@@ -2537,6 +2555,7 @@ public class ControllerProduction : MonoBehaviour
 
         UpdatePixelColorPixelProduction(ProductionPixelIndex);
         UpdateSliderPixelProduction(ProductionPixelIndex);
+        SaveGame();
     }
 
 
@@ -2548,7 +2567,16 @@ public class ControllerProduction : MonoBehaviour
         if (ProductionPixelIndex < 1)
             return;
 
-        ProductionPixel(Trigger.User, ProductionPixelIndex, out _);
+        ushort beforeR = ProgressProductionPixel[ProductionPixelIndex, 1];
+        ushort beforeG = ProgressProductionPixel[ProductionPixelIndex, 2];
+        ushort beforeB = ProgressProductionPixel[ProductionPixelIndex, 3];
+        bool completed;
+        ProductionPixel(Trigger.User, ProductionPixelIndex, out completed);
+        bool advanced = completed
+            || ProgressProductionPixel[ProductionPixelIndex, 1] != beforeR
+            || ProgressProductionPixel[ProductionPixelIndex, 2] != beforeG
+            || ProgressProductionPixel[ProductionPixelIndex, 3] != beforeB;
+        SyncPixelWorkerMotion(ProductionPixelIndex, completed, advanced);
         RefreshProductionFigures();
     }
 
@@ -2789,6 +2817,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowPanel(PanelSelectCharacter);
 
         ControllerBattleParty.Refresh();
+        SaveGame();
     }
 
     public int GetActiveBattlePartySet()
@@ -2817,6 +2846,7 @@ public class ControllerProduction : MonoBehaviour
         }
         for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
             BattlePartyPersonIds[setIndex, slot] = 0;
+        SaveGame();
     }
 
     bool IsBattlePartyCell(int setIndex, int x, int y)
@@ -4109,7 +4139,7 @@ public class ControllerProduction : MonoBehaviour
             StyleChromeButton(buttons[i]);
     }
 
-    void StyleChromeButton(Button button)
+    void StyleChromeButton(Button button, int channelOverride = -1)
     {
         if (button == null || IsWorkerButton(button.name) || IsSelectUi(button.transform))
             return;
@@ -4119,10 +4149,10 @@ public class ControllerProduction : MonoBehaviour
         if (image == null)
             return;
 
-        int channel = ButtonChannel(button.name);
+        int channel = channelOverride >= 0 ? channelOverride : ButtonChannel(button.name);
         if (channel < 0)
             channel = ChannelFromColor(image.color);
-        if (channel < 0)
+        if (channel < 0 || channel > 2)
             return;
 
         bool upgrade = button.name.Contains("Max") || button.name.Contains("Increase");
@@ -4148,6 +4178,8 @@ public class ControllerProduction : MonoBehaviour
         if (press == null)
             press = button.gameObject.AddComponent<RgbButtonPressGlow>();
         press.Production = this;
+        press.Channel = channel;
+        press.UseTint = false;
     }
 
     static void StyleProductionButtonText(Button button, int channel)
@@ -4273,7 +4305,10 @@ public class ControllerProduction : MonoBehaviour
     IEnumerator ButtonPressGlow(Button button)
     {
         Image wash = EnsurePressWash(button.transform);
-        int channel = ButtonChannel(button.name);
+        RgbButtonPressGlow press = button.GetComponent<RgbButtonPressGlow>();
+        bool tinted = press != null && press.UseTint;
+        int channel = tinted ? -1 : PressedButtonChannel(button);
+        Color tint = tinted ? press.Tint : Color.clear;
         float duration = 0.34f;
         float time = 0f;
         while (time < duration)
@@ -4282,13 +4317,31 @@ public class ControllerProduction : MonoBehaviour
             float u = time / duration;
             float wave = u < 0.2f ? u / 0.2f : Mathf.Pow(1f - (u - 0.2f) / 0.8f, 1.35f);
             wash.color = new Color(1f, 1f, 1f, 0.2f * wave);
-            if (channel >= 0)
+            if (tinted)
+                PaintButtonNeonStrength(button.transform, tint, 1f + 0.55f * wave);
+            else if (channel >= 0)
                 PaintButtonNeonStrength(button.transform, channel, 1f + 0.55f * wave);
             yield return null;
         }
         wash.color = new Color(1f, 1f, 1f, 0f);
-        if (channel >= 0 && button != null)
-            EnsureButtonNeon(button.transform, channel, button.interactable, button.name.Contains("Max") || button.name.Contains("Increase"));
+        if (button != null)
+        {
+            bool upgrade = button.name.Contains("Max") || button.name.Contains("Increase");
+            if (tinted)
+                EnsureButtonNeon(button.transform, tint, button.interactable, upgrade);
+            else if (channel >= 0)
+                EnsureButtonNeon(button.transform, channel, button.interactable, upgrade);
+        }
+    }
+
+    static int PressedButtonChannel(Button button)
+    {
+        if (button == null)
+            return -1;
+        RgbButtonPressGlow glow = button.GetComponent<RgbButtonPressGlow>();
+        if (glow != null && glow.Channel >= 0)
+            return glow.Channel;
+        return ButtonChannel(button.name);
     }
 
     static Image EnsurePressWash(Transform button)
@@ -4325,12 +4378,17 @@ public class ControllerProduction : MonoBehaviour
 
     static void PaintButtonNeonStrength(Transform button, int channel, float strength)
     {
+        PaintButtonNeonStrength(button, ButtonGlowColor(channel), strength);
+    }
+
+    static void PaintButtonNeonStrength(Transform button, Color glow, float strength)
+    {
         Transform frame = button.Find("NeonFrame");
         if (frame == null)
             return;
-        Color glow = ButtonGlowColor(channel);
+        float alpha = glow.a;
         glow = Color.Lerp(glow, Color.white, Mathf.Clamp01(strength - 1f));
-        glow.a = Mathf.Clamp01(ButtonGlowColor(channel).a * strength);
+        glow.a = Mathf.Clamp01(alpha * strength);
         Color core = Color.Lerp(glow, Color.white, 0.7f);
         core.a = 0.95f;
         PaintButtonNeon(frame, "GlowTop", RgbButtonGlowSprite(0), glow);
@@ -4344,6 +4402,11 @@ public class ControllerProduction : MonoBehaviour
     }
 
     static void EnsureButtonNeon(Transform button, int channel, bool bright, bool upgrade)
+    {
+        EnsureButtonNeon(button, ButtonGlowColor(channel), bright, upgrade);
+    }
+
+    static void EnsureButtonNeon(Transform button, Color glow, bool bright, bool upgrade)
     {
         float glowSize = upgrade && bright ? 5f : RgbButtonGlow;
         float coreSize = upgrade && bright ? 4f : RgbButtonCore;
@@ -4377,7 +4440,6 @@ public class ControllerProduction : MonoBehaviour
         LayoutButtonNeonEdge(frame, "CoreLeft", false, false, coreSize, glowSize);
         LayoutButtonNeonEdge(frame, "CoreRight", false, true, coreSize, glowSize);
 
-        Color glow = ButtonGlowColor(channel);
         Color core = Color.Lerp(glow, Color.white, bright ? (upgrade ? 0.88f : 0.55f) : 0.2f);
         if (bright)
             core.a = 0.95f;
@@ -4494,7 +4556,7 @@ public class ControllerProduction : MonoBehaviour
             StyleChemSlider(sliders[i]);
     }
 
-    void StyleChemSlider(Slider slider)
+    void StyleChemSlider(Slider slider, float glowBlur = 22f)
     {
         if (slider == null)
             return;
@@ -4531,7 +4593,7 @@ public class ControllerProduction : MonoBehaviour
         Transform tip = slider.fillRect.Find("ChemTip");
         if (tip != null)
             Destroy(tip.gameObject);
-        EnsureChemGlow(slider.fillRect, channel);
+        EnsureChemGlow(slider.fillRect, channel, glowBlur);
     }
 
     static int SliderChannel(string name)
@@ -4567,9 +4629,15 @@ public class ControllerProduction : MonoBehaviour
         return color;
     }
 
-    static void EnsureChemGlow(RectTransform fill, int channel)
+    static void EnsureChemGlow(RectTransform fill, int channel, float blur = 22f)
     {
-        const float blur = 22f;
+        Color glow = ChemGlowColor(channel);
+        glow.a = 0.85f;
+        EnsureChemGlow(fill, glow, blur);
+    }
+
+    static void EnsureChemGlow(RectTransform fill, Color glow, float blur)
+    {
         Transform frame = fill.Find("ChemGlow");
         if (frame == null)
         {
@@ -4600,8 +4668,63 @@ public class ControllerProduction : MonoBehaviour
         LayoutChemGlowCorner(frame, "CornerBR", 2, blur);
         LayoutChemGlowCorner(frame, "CornerBL", 3, blur);
 
-        Color glow = ChemGlowColor(channel);
         glow.a = 0.85f;
+        PaintChemGlow(frame, glow);
+    }
+
+    const float PixelColorBlur = 11f;
+
+    // 色面の外側だけを、ゲージと同じ幅でぼかす。隣と接する辺は広げない。
+    static void ShowPixelColorHalo(Transform host, bool left = true, bool right = true)
+    {
+        RectTransform rect = host as RectTransform;
+        if (rect == null)
+            return;
+        Image image = host.GetComponent<Image>();
+        if (image == null)
+            return;
+        Color glow = image.color;
+        glow.a = 0.85f;
+        Transform frame = host.Find("ChemGlow");
+        if (frame == null)
+        {
+            EnsureChemGlow(rect, glow, PixelColorBlur);
+            frame = host.Find("ChemGlow");
+            if (frame != null)
+                frame.SetAsFirstSibling();
+        }
+        else
+        {
+            Transform top = frame.Find("GlowTop");
+            Image sample = top != null ? top.GetComponent<Image>() : null;
+            if (sample == null || sample.color != glow)
+                PaintChemGlow(frame, glow);
+        }
+        if (frame != null)
+            ClipPixelColorHalo(frame, left, right);
+    }
+
+    static void ClipPixelColorHalo(Transform frame, bool left, bool right)
+    {
+        SetHaloPiece(frame, "GlowLeft", left);
+        SetHaloPiece(frame, "GlowRight", right);
+        SetHaloPiece(frame, "GlowTop", true);
+        SetHaloPiece(frame, "GlowBottom", true);
+        SetHaloPiece(frame, "CornerTL", left);
+        SetHaloPiece(frame, "CornerBL", left);
+        SetHaloPiece(frame, "CornerTR", right);
+        SetHaloPiece(frame, "CornerBR", right);
+    }
+
+    static void SetHaloPiece(Transform frame, string name, bool visible)
+    {
+        Transform piece = frame.Find(name);
+        if (piece != null && piece.gameObject.activeSelf != visible)
+            piece.gameObject.SetActive(visible);
+    }
+
+    static void PaintChemGlow(Transform frame, Color glow)
+    {
         PaintButtonNeon(frame, "GlowTop", RgbButtonGlowSprite(0), glow);
         PaintButtonNeon(frame, "GlowRight", RgbButtonGlowSprite(1), glow);
         PaintButtonNeon(frame, "GlowBottom", RgbButtonGlowSprite(2), glow);
@@ -4791,10 +4914,16 @@ public class ControllerProduction : MonoBehaviour
     {
         if (text == null || channel < 0)
             return;
+        StyleGaugeTextGlow(text, ChemGlowColor(channel));
+    }
+
+    static void StyleGaugeTextGlow(Text text, Color color)
+    {
+        if (text == null)
+            return;
         GaugeTextGlow glow = text.GetComponent<GaugeTextGlow>();
         if (glow == null)
             glow = text.gameObject.AddComponent<GaugeTextGlow>();
-        Color color = ChemGlowColor(channel);
         color.a = 0.9f;
         if (glow.Glow == color && Mathf.Approximately(glow.Spread, 1.8f))
             return;
@@ -4835,6 +4964,7 @@ public class ControllerProduction : MonoBehaviour
     public void UpdatePixelProductionScene()
     {
         EnsureProductionSlotRows();
+        EnsurePixelPanelBackground();
         CreatePixelListPixelProduction();
 
         for (int i = 1; i <= Slots.PixelSlots; i++)
@@ -4844,7 +4974,112 @@ public class ControllerProduction : MonoBehaviour
             UpdatePixelColorPixelProduction(i);
 
             UpdateSliderPixelProduction(i);
+            RefreshPixelWorkerLook(i);
         }
+    }
+
+    void RefreshPixelWorkerLook(int index)
+    {
+        Button button = PixelWorkerButton(index);
+        if (button == null)
+            return;
+        PixelWorkerFx fx = button.GetComponent<PixelWorkerFx>();
+        if (!PixelWorkerAssigned(index))
+        {
+            if (fx != null)
+                fx.Hide();
+            return;
+        }
+        if (fx != null && fx.IsMoving)
+        {
+            fx.Show(PixelWorkerAuraColor(index), false, PixelWorkerBodyMoves(index));
+            return;
+        }
+        PixelWorkerFx.Attach(button).Show(PixelWorkerAuraColor(index), false, PixelWorkerBodyMoves(index));
+    }
+
+    void SyncPixelWorkerMotion(int index, bool completed, bool advanced)
+    {
+        Button button = PixelWorkerButton(index);
+        if (button == null)
+            return;
+        PixelWorkerFx fx = PixelWorkerFx.Attach(button);
+        if (fx == null)
+            return;
+        if (!PixelWorkerAssigned(index))
+        {
+            fx.Hide();
+            return;
+        }
+        bool moveBody = PixelWorkerBodyMoves(index);
+        if (completed)
+            fx.Burst(PixelWorkerBurstColor(index), PixelWorkerAuraColor(index), moveBody);
+        else
+            fx.Show(PixelWorkerAuraColor(index), advanced, moveBody);
+    }
+
+    bool PixelWorkerBodyMoves(int index)
+    {
+        return PersonIdProductionPixel[index] == 0;
+    }
+
+    Button PixelWorkerButton(int index)
+    {
+        GameObject row = PixelProductionRow(index);
+        if (row == null)
+            return null;
+        Button[] buttons = row.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            if (buttons[i].name.Contains("ButtonPixelProductionCharacter"))
+                return buttons[i];
+        }
+        return null;
+    }
+
+    bool PixelWorkerAssigned(int index)
+    {
+        if (index < 1)
+            return false;
+        if (PersonIdProductionPixel[index] != 0)
+            return PersonAt((int)PersonIdProductionPixel[index]) != null;
+        uint id = CharactersIDProductionPixel[index];
+        CharacterClass worker = id == 0 ? null : CharacterOf(id);
+        return worker != null && worker.ID == id;
+    }
+
+    Color PixelWorkerAuraColor(int index)
+    {
+        int channel = PixelWorkerAuraChannel(index);
+        if (channel == 1)
+            return new Color(0f, 1f, 0f, 1f);
+        if (channel == 2)
+            return new Color(0.18f, 0.25f, 1f, 1f);
+        if (channel == 0)
+            return new Color(1f, 0f, 0f, 1f);
+        return new Color(0f, 0f, 0f, 0f);
+    }
+
+    // 今進んでいるRGB。0の色は飛ばす。全部終わりなら -1。
+    int PixelWorkerAuraChannel(int index)
+    {
+        int pixelR = ColorByte(ColorProductionPixel[index].r);
+        int pixelG = ColorByte(ColorProductionPixel[index].g);
+        int pixelB = ColorByte(ColorProductionPixel[index].b);
+        if (ProgressProductionPixel[index, 1] < pixelR)
+            return 0;
+        if (ProgressProductionPixel[index, 2] < pixelG)
+            return 1;
+        if (ProgressProductionPixel[index, 3] < pixelB)
+            return 2;
+        return -1;
+    }
+
+    Color PixelWorkerBurstColor(int index)
+    {
+        Color color = ColorProductionPixel[index];
+        color.a = 1f;
+        return color;
     }
     //RGB、ピクセル在庫、キャラ生産の消費数など、今出ている数値だけ書き直す。マスの作り直しはしない
     public void RefreshProductionFigures()
@@ -5014,6 +5249,8 @@ public class ControllerProduction : MonoBehaviour
 
     public void CreatePixelListPixelProduction()
     {
+        StylePixelListShell();
+
         // ページ指定部分
         ShowPagePixelListPixelProduction(GameObject.Find("PrefabPixelListPageR"));
         ShowPagePixelListPixelProduction(GameObject.Find("PrefabPixelListPageG"));
@@ -5075,6 +5312,7 @@ public class ControllerProduction : MonoBehaviour
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[2].text = GColor.ToString();
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[4].text = BColor.ToString();
                 ArrayShowPixelColorAndNum[R % colNum, G % rowNum].GetComponentsInChildren<Text>()[5].text = CurPixels[RColor, GColor, BColor].ToString();
+                StylePixelListCard(ArrayShowPixelColorAndNum[R % colNum, G % rowNum]);
             }
 
         }
@@ -5084,6 +5322,9 @@ public class ControllerProduction : MonoBehaviour
 
     public void ShowPagePixelListPixelProduction(GameObject argPrefabPixelListPageRGB)
     {
+        if (argPrefabPixelListPageRGB == null)
+            return;
+        StylePixelListPage(argPrefabPixelListPageRGB);
         // 1ステップあたりの「色幅」を計算（8階調なら32刻み）
         int colorStep = 256 / GameConfig.GRADATION_LEVELS;
 
@@ -5149,6 +5390,187 @@ public class ControllerProduction : MonoBehaviour
 
     }
 
+    static readonly Color PixelListFrame = new Color(0.55f, 0.58f, 0.64f, 0.9f);
+
+    // 一覧の下地を黒にして、範囲が分かる枠だけ残す。
+    void StylePixelListShell()
+    {
+        GameObject panel = GameObject.Find("PanelPixelList");
+        if (panel == null)
+            return;
+        PaintPixelListPlate(panel);
+        FitPixelListColumns();
+        for (int i = 0; i < panel.transform.childCount; i++)
+        {
+            Transform child = panel.transform.GetChild(i);
+            if (!child.name.Contains("Scroll"))
+                continue;
+            Image scrollImage = child.GetComponent<Image>();
+            if (scrollImage != null)
+                scrollImage.color = new Color(0f, 0f, 0f, 0f);
+            Transform viewport = child.Find("Viewport");
+            if (viewport == null)
+                continue;
+            Image viewImage = viewport.GetComponent<Image>();
+            if (viewImage != null && viewport.GetComponent<Mask>() == null)
+                viewImage.color = Color.black;
+        }
+    }
+
+    // 色の3列と、下のページ操作を同じ幅で中央に揃える。
+    void FitPixelListColumns()
+    {
+        GameObject contentObject = GameObject.Find("ContentPixelList");
+        if (contentObject == null)
+            return;
+        RectTransform content = contentObject.transform as RectTransform;
+        RectTransform viewport = content.parent as RectTransform;
+        float width = viewport != null ? viewport.rect.width : 0f;
+        if (width < 100f)
+        {
+            GameObject scroll = GameObject.Find("ScrollViewPixelList");
+            RectTransform scrollRect = scroll != null ? scroll.transform as RectTransform : null;
+            if (scrollRect != null)
+                width = scrollRect.rect.width > 100f ? scrollRect.rect.width : scrollRect.sizeDelta.x;
+        }
+        if (width < 100f)
+            width = 1060f;
+
+        const int columns = 3;
+        const float gap = 25f;
+        float cell = 325f;
+        float span = cell * columns + gap * (columns - 1);
+        if (span > width)
+        {
+            cell = (width - gap * (columns - 1)) / columns;
+            span = cell * columns + gap * (columns - 1);
+        }
+
+        GridLayoutGroup grid = contentObject.GetComponent<GridLayoutGroup>();
+        if (grid != null)
+        {
+            grid.padding.left = 0;
+            grid.padding.right = 0;
+            grid.spacing = new Vector2(gap, grid.spacing.y);
+            grid.cellSize = new Vector2(cell, grid.cellSize.y);
+            grid.childAlignment = TextAnchor.UpperCenter;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = columns;
+        }
+
+        ContentSizeFitter fitter = contentObject.GetComponent<ContentSizeFitter>();
+        if (fitter != null)
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        content.anchorMin = new Vector2(0.5f, 1f);
+        content.anchorMax = new Vector2(0.5f, 1f);
+        content.pivot = new Vector2(0.5f, 1f);
+        content.anchoredPosition = new Vector2(0f, 0f);
+        content.sizeDelta = new Vector2(span, content.sizeDelta.y);
+
+        string[] names = { "PrefabPixelListPageR", "PrefabPixelListPageG", "PrefabPixelListPageB" };
+        for (int i = 0; i < columns; i++)
+        {
+            GameObject page = GameObject.Find(names[i]);
+            if (page == null)
+                continue;
+            RectTransform rect = page.transform as RectTransform;
+            float x = -span * 0.5f + cell * 0.5f + i * (cell + gap);
+            rect.sizeDelta = new Vector2(cell, rect.sizeDelta.y);
+            rect.anchoredPosition = new Vector2(x, rect.anchoredPosition.y);
+        }
+    }
+
+    void StylePixelListPage(GameObject page)
+    {
+        PaintPixelListPlate(page);
+        int channel = 0;
+        if (page.name.Contains("PageB"))
+            channel = 2;
+        else if (page.name.Contains("PageG"))
+            channel = 1;
+
+        Button[] buttons = page.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+            StyleChromeButton(buttons[i], channel);
+
+        Slider[] sliders = page.GetComponentsInChildren<Slider>(true);
+        for (int i = 0; i < sliders.Length; i++)
+            StylePixelListSlider(sliders[i], channel);
+
+        Transform label = page.transform.Find("TextCurShowRGB");
+        Text text = label != null ? label.GetComponent<Text>() : null;
+        StylePixelListNumber(text, channel);
+    }
+
+    static void StylePixelListSlider(Slider slider, int channel)
+    {
+        if (slider == null)
+            return;
+        Transform background = slider.transform.Find("Background");
+        Image backImage = background != null ? background.GetComponent<Image>() : null;
+        if (backImage != null)
+            backImage.color = new Color(0.02f, 0.02f, 0.02f, 1f);
+        if (slider.fillRect == null)
+            return;
+        Image fill = slider.fillRect.GetComponent<Image>();
+        if (fill != null)
+            fill.color = ChemGlowColor(channel);
+    }
+
+    void StylePixelListCard(GameObject card)
+    {
+        if (card == null)
+            return;
+        PaintPixelListPlate(card);
+        Transform swatch = card.transform.Find("ImagePixelColor");
+        if (swatch == null)
+            return;
+        Image chip = swatch.GetComponent<Image>();
+        if (chip == null)
+            return;
+        Sprite frame = PixelColorFrameSprite(null);
+        if (frame != null && (chip.sprite != frame || chip.type != Image.Type.Sliced))
+        {
+            chip.sprite = frame;
+            chip.type = Image.Type.Sliced;
+        }
+        ShowPixelColorHalo(swatch);
+        StylePixelListNumber(FindPixelListText(card.transform, "TextPixelNumR"), 0);
+        StylePixelListNumber(FindPixelListText(card.transform, "TextPixelNumG"), 1);
+        StylePixelListNumber(FindPixelListText(card.transform, "TextPixelNumB"), 2);
+        StylePixelListNumber(FindPixelListText(card.transform, "TextPixelNum"), -1);
+    }
+
+    static Text FindPixelListText(Transform card, string name)
+    {
+        Transform found = card.Find(name);
+        return found != null ? found.GetComponent<Text>() : null;
+    }
+
+    static void StylePixelListNumber(Text text, int channel)
+    {
+        if (text == null)
+            return;
+        text.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+        if (channel >= 0)
+            StyleGaugeTextGlow(text, channel);
+        else
+            StyleGaugeTextGlow(text, new Color(0.78f, 0.82f, 0.88f, 1f));
+    }
+
+    static void PaintPixelListPlate(GameObject plate)
+    {
+        if (plate == null)
+            return;
+        Image image = plate.GetComponent<Image>();
+        if (image == null)
+            return;
+        image.color = Color.black;
+        if (plate.transform.Find("NeonFrame") == null)
+            EnsureButtonNeon(plate.transform, PixelListFrame, true, false);
+    }
+
     public void ClearPixelListPixelProduction()
     {
         GameObject GameObjectContentPixelList = GameObject.Find("ContentPixelList");
@@ -5196,14 +5618,21 @@ public class ControllerProduction : MonoBehaviour
         if (pixelCharacter == null || pixelCharacter.ImagePath == null)
         {
             pixelButton.image.sprite = null;
+            pixelButton.image.color = new Color(1f, 1f, 1f, 0f);
             HidePersonPortrait(pixelButton);
             Text label = pixelButton.GetComponentInChildren<Text>();
             if (label != null)
+            {
                 label.text = "+";
+                label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+            }
         }
         else
         {
             pixelButton.image.sprite = Sprite.Create(pixelCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, pixelCharacter.Size, pixelCharacter.Size), new Vector2(0.5f, 0.5f));
+            pixelButton.image.type = Image.Type.Simple;
+            pixelButton.image.preserveAspect = false;
+            pixelButton.image.color = Color.white;
             HidePersonPortrait(pixelButton);
             Text label = pixelButton.GetComponentInChildren<Text>();
             if (label != null)
@@ -5238,6 +5667,7 @@ public class ControllerProduction : MonoBehaviour
         {
             colorButton.image.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
+        ShowPixelColorHalo(colorButton.transform);
 
         //RGB値の表示
         uint pixelCount = PixelYield(argIndex);
@@ -5275,6 +5705,43 @@ public class ControllerProduction : MonoBehaviour
         uint add = PixelYield(argIndex);
         ulong after = stock > ulong.MaxValue - add ? ulong.MaxValue : stock + add;
         label.text = "在庫 " + stock.ToString() + " → " + after.ToString();
+        label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+    }
+
+    // ピクセル生産の下地を黒にする。行の半透明の白も、黒の上だと灰色に残る。
+    void EnsurePixelPanelBackground()
+    {
+        PaintImageBlack(PanelPixelProduction);
+        PaintImageBlack(GameObject.Find("PanelPixelProductionList"));
+        Transform list = PanelPixelProduction != null ? PanelPixelProduction.transform.Find("PanelPixelProductionList") : null;
+        Transform scroll = list != null ? list.Find("Scroll View") : null;
+        if (scroll != null)
+            PaintImageBlack(scroll.gameObject);
+
+        GameObject content = GameObject.Find("ContentPixelProductionList");
+        if (content == null)
+            return;
+        for (int i = 0; i < content.transform.childCount; i++)
+        {
+            Transform row = content.transform.GetChild(i);
+            if (!row.name.StartsWith("PrefabOnePixelProduction", StringComparison.Ordinal))
+                continue;
+            PaintImageBlack(row.gameObject);
+            Transform colorPanel = row.Find("PanelImagePixelColor");
+            Image colorImage = colorPanel != null ? colorPanel.GetComponent<Image>() : null;
+            if (colorImage != null)
+                colorImage.color = new Color(0f, 0f, 0f, 0f);
+        }
+    }
+
+    static void PaintImageBlack(GameObject obj)
+    {
+        if (obj == null)
+            return;
+        Image image = obj.GetComponent<Image>();
+        if (image == null)
+            return;
+        image.color = Color.black;
     }
 
     static Transform FindPixelColorButton(Transform content, int argIndex)
@@ -5347,43 +5814,258 @@ public class ControllerProduction : MonoBehaviour
         if (text == null)
             return;
 
+        Image chip = image.GetComponent<Image>();
+        if (chip == null)
+            return;
+        if (imageName == "ImagePixelColorB")
+        {
+            Color blue = new Color(0.12f, 0.16f, 1f, 1f);
+            if (chip.color != blue)
+                chip.color = blue;
+        }
+        Sprite frame = PixelColorFrameSprite(colorPanel.parent);
+        if (frame != null && (chip.sprite != frame || chip.type != Image.Type.Sliced))
+        {
+            chip.sprite = frame;
+            chip.type = Image.Type.Sliced;
+        }
+
         int value = ColorByte(color01);
         long total = (long)value * pixelCount;
         text.text = channel + " " + value.ToString() + "\n"
             + "× " + UiNumber.Format(pixelCount) + " px\n"
             + "= " + UiNumber.Format(total);
+        ShowPixelColorHalo(image, imageName != "ImagePixelColorG" && imageName != "ImagePixelColorB", imageName != "ImagePixelColorR" && imageName != "ImagePixelColorG");
     }
+
+    static Sprite _pixelColorFrame;
+
+    // 対象カラーのボタンと同じ枠。縁の黒い線は、このスプライトの枠。
+    static Sprite PixelColorFrameSprite(Transform row)
+    {
+        if (_pixelColorFrame != null)
+            return _pixelColorFrame;
+        if (row != null)
+        {
+            for (int i = 0; i < row.childCount; i++)
+            {
+                Transform child = row.GetChild(i);
+                if (!child.name.StartsWith("ButtonPixelProductionPixelColor", StringComparison.Ordinal))
+                    continue;
+                Image image = child.GetComponent<Image>();
+                if (image != null && image.sprite != null)
+                {
+                    _pixelColorFrame = image.sprite;
+                    return _pixelColorFrame;
+                }
+            }
+        }
+        _pixelColorFrame = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd");
+        return _pixelColorFrame;
+    }
+
     public void UpdateSliderPixelProduction(int argIndex)
     {
         GameObject Content = PixelProductionRow(argIndex);
         if (Content == null)
             return;
 
-        //進捗スライダー
-        Slider SliderPixelColorR = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorR").gameObject.GetComponent<Slider>();
-        SliderPixelColorR.maxValue = ColorByte(ColorProductionPixel[argIndex].r);
-        if (SliderPixelColorR.maxValue == 0)
-        {
-            SliderPixelColorR.maxValue = 1;
-        }
-        SliderPixelColorR.value = ProgressProductionPixel[argIndex, 1];
-
-        Slider SliderPixelColorG = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorG").gameObject.GetComponent<Slider>();
-        SliderPixelColorG.maxValue = ColorByte(ColorProductionPixel[argIndex].g);
-        if (SliderPixelColorG.maxValue == 0)
-        {
-            SliderPixelColorG.maxValue = 1;
-        }
-        SliderPixelColorG.value = ProgressProductionPixel[argIndex, 2];
-
-        Slider SliderPixelColorB = Content.transform.Find("PanelImagePixelColor").gameObject.transform.Find("SliderPixelColorB").gameObject.GetComponent<Slider>();
-        SliderPixelColorB.maxValue = ColorByte(ColorProductionPixel[argIndex].b);
-        if (SliderPixelColorB.maxValue == 0)
-        {
-            SliderPixelColorB.maxValue = 1;
-        }
-        SliderPixelColorB.value = ProgressProductionPixel[argIndex, 3];
+        Transform colorPanel = Content.transform.Find("PanelImagePixelColor");
+        ApplyPixelChannelGauge(colorPanel, "SliderPixelColorR", ProgressProductionPixel[argIndex, 1], ColorByte(ColorProductionPixel[argIndex].r));
+        ApplyPixelChannelGauge(colorPanel, "SliderPixelColorG", ProgressProductionPixel[argIndex, 2], ColorByte(ColorProductionPixel[argIndex].g));
+        ApplyPixelChannelGauge(colorPanel, "SliderPixelColorB", ProgressProductionPixel[argIndex, 3], ColorByte(ColorProductionPixel[argIndex].b));
+        StylePixelSpeedButtons(Content.transform, ColorProductionPixel[argIndex]);
         SetPixelStockLabel(Content, argIndex);
+    }
+
+    // RGB生産の液体ゲージと同じ。進捗の数字はゲージの上に置く。
+    void ApplyPixelChannelGauge(Transform panel, string sliderName, int progress, int target)
+    {
+        if (panel == null)
+            return;
+        Transform found = panel.Find(sliderName);
+        if (found == null)
+            return;
+        Slider slider = found.GetComponent<Slider>();
+        if (slider == null)
+            return;
+
+        const float gaugeBlur = 11f;
+        bool styled = slider.fillRect != null && slider.fillRect.Find("ChemGlow") != null;
+        if (!styled)
+        {
+            LayoutPixelGaugeTrack(slider);
+            StyleChemSlider(slider, gaugeBlur);
+        }
+        if (slider.fillRect != null)
+        {
+            RectMask2D mask = slider.fillRect.GetComponent<RectMask2D>();
+            if (mask != null)
+                Destroy(mask);
+        }
+        Transform gaugeLabel = slider.transform.Find("TextPixelGauge");
+        if (gaugeLabel != null)
+            Destroy(gaugeLabel.gameObject);
+
+        // 以前と同じ。最大はその色の値で、0 のときだけ最大を 1 にする。値は進捗のまま。
+        float max = target <= 0 ? 1f : target;
+        if (slider.minValue != 0f || slider.maxValue != max || slider.value != progress)
+        {
+            slider.minValue = 0f;
+            slider.maxValue = max;
+            slider.value = progress;
+            ApplyPixelGaugeFill(slider);
+        }
+    }
+
+    // 光が進捗より先にはみ出して、進んでいないゲージが溜まって見えないようにする。
+    static void ApplyPixelGaugeFill(Slider slider)
+    {
+        if (slider == null || slider.fillRect == null)
+            return;
+        float span = slider.maxValue - slider.minValue;
+        float normalized = span <= 0f ? 0f : (slider.value - slider.minValue) / span;
+        if (normalized < 0f)
+            normalized = 0f;
+        if (normalized > 1f)
+            normalized = 1f;
+        RectTransform fill = slider.fillRect;
+        fill.anchorMin = new Vector2(0f, 0f);
+        fill.anchorMax = new Vector2(normalized, 1f);
+        fill.offsetMin = Vector2.zero;
+        fill.offsetMax = Vector2.zero;
+        fill.anchoredPosition = Vector2.zero;
+        fill.sizeDelta = Vector2.zero;
+    }
+
+    static void LayoutPixelGaugeTrack(Slider slider)
+    {
+        LayoutPixelGaugeBand(slider.transform.Find("Background") as RectTransform);
+        if (slider.fillRect != null)
+            LayoutPixelGaugeBand(slider.fillRect.parent as RectTransform);
+    }
+
+    // スライダーの高さの中央半分だけを棒にする。
+    static void LayoutPixelGaugeBand(RectTransform rect)
+    {
+        if (rect == null)
+            return;
+        rect.anchorMin = new Vector2(0f, 0.25f);
+        rect.anchorMax = new Vector2(1f, 0.75f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = Vector2.zero;
+    }
+
+    void StylePixelSpeedButtons(Transform row, Color color)
+    {
+        color.a = 1f;
+        StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpPixelProductionLeft"), color);
+        StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpPixelProductionRight"), color);
+    }
+
+    static Transform FindPixelSpeedButton(Transform row, string prefix)
+    {
+        if (row == null)
+            return null;
+        Transform exact = row.Find(prefix);
+        if (exact != null)
+            return exact;
+        for (int i = 0; i < row.childCount; i++)
+        {
+            Transform child = row.GetChild(i);
+            if (child.name.StartsWith(prefix, StringComparison.Ordinal))
+                return child;
+        }
+        return null;
+    }
+
+    void StylePixelSpeedButton(Transform buttonTransform, Color color)
+    {
+        if (buttonTransform == null)
+            return;
+        Button button = buttonTransform.GetComponent<Button>();
+        if (button == null)
+            return;
+        RgbButtonPressGlow glow = button.GetComponent<RgbButtonPressGlow>();
+        if (glow != null && glow.UseTint && SameRgb(glow.Tint, color) && buttonTransform.Find("NeonFrame") != null)
+            return;
+
+        Image image = button.targetGraphic as Image;
+        if (image == null)
+            image = button.GetComponent<Image>();
+        if (image == null)
+            return;
+
+        image.sprite = SpeedButtonFill();
+        image.type = Image.Type.Simple;
+        image.color = color;
+        image.preserveAspect = false;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = Color.white;
+        colors.pressedColor = Color.white;
+        colors.selectedColor = Color.white;
+        colors.disabledColor = new Color(0.02f, 0.02f, 0.02f, 1f);
+        colors.fadeDuration = 0.05f;
+        button.colors = colors;
+
+        Color neon = color;
+        neon.a = 0.9f;
+        EnsureButtonNeon(button.transform, neon, button.interactable, false);
+
+        Text[] labels = button.GetComponentsInChildren<Text>(true);
+        Color ink = new Color(0.93f, 0.94f, 0.96f, 1f);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            labels[i].color = ink;
+            StyleGaugeTextGlow(labels[i], color);
+        }
+
+        if (glow == null)
+            glow = button.gameObject.AddComponent<RgbButtonPressGlow>();
+        glow.Production = this;
+        glow.Channel = -1;
+        glow.UseTint = true;
+        glow.Tint = neon;
+    }
+
+    static bool SameRgb(Color a, Color b)
+    {
+        return ColorByte(a.r) == ColorByte(b.r)
+            && ColorByte(a.g) == ColorByte(b.g)
+            && ColorByte(a.b) == ColorByte(b.b);
+    }
+
+    static Sprite _speedButtonFill;
+
+    // 下三分の一だけ白。色はボタンの Image に乗せるので、対象カラーがそのまま出る。
+    static Sprite SpeedButtonFill()
+    {
+        if (_speedButtonFill != null)
+            return _speedButtonFill;
+
+        const int height = 32;
+        Texture2D texture = new Texture2D(1, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        Color top = new Color(0.02f, 0.02f, 0.02f, 1f);
+        float blackFrom = 1f / 3f;
+        for (int y = 0; y < height; y++)
+        {
+            float t = (y + 0.5f) / height;
+            if (t >= blackFrom)
+                texture.SetPixel(0, y, top);
+            else
+                texture.SetPixel(0, y, Color.Lerp(Color.white, top, t / blackFrom));
+        }
+        texture.Apply();
+        _speedButtonFill = Sprite.Create(texture, new Rect(0f, 0f, 1f, height), new Vector2(0.5f, 0.5f), 100f);
+        _speedButtonFill.hideFlags = HideFlags.HideAndDontSave;
+        return _speedButtonFill;
     }
 
 
@@ -5559,9 +6241,13 @@ public class ControllerProduction : MonoBehaviour
             if (shownCharacter == null || shownCharacter.ImageTexture2D == null)
             {
                 button.image.sprite = null;
+                button.image.color = new Color(1f, 1f, 1f, 0f);
                 HidePersonPortrait(button);
                 if (label != null)
+                {
                     label.text = "+";
+                    label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+                }
                 SyncPersonSkillBar(button);
                 return;
             }
@@ -6124,11 +6810,17 @@ public class ControllerProduction : MonoBehaviour
             else if (button.name.StartsWith("ButtonBProductionHelpCharacter"))
                 button.image.color = new Color(0f, 0f, 50f / 255f, 1f);
             else
-                button.image.color = Color.white;
+                button.image.color = new Color(1f, 1f, 1f, 0f);
         }
         Text label = button.GetComponentInChildren<Text>();
         if (label != null)
+        {
             label.text = "+";
+            if (!button.name.StartsWith("ButtonRProductionHelpCharacter")
+                && !button.name.StartsWith("ButtonGProductionHelpCharacter")
+                && !button.name.StartsWith("ButtonBProductionHelpCharacter"))
+                label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+        }
         SyncPersonSkillBar(button);
     }
 
@@ -8088,6 +8780,9 @@ public class ControllerProduction : MonoBehaviour
 public class RgbButtonPressGlow : MonoBehaviour, IPointerDownHandler
 {
     public ControllerProduction Production;
+    public int Channel = -1;
+    public bool UseTint;
+    public Color Tint;
 
     public void OnPointerDown(PointerEventData eventData)
     {
