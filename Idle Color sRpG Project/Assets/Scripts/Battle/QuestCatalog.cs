@@ -216,25 +216,29 @@ public static class QuestCatalog
         Rgb(102, 2, "B", 50000000, QuestRewardKind.RgbAll,  90000),
 
         // ピクセル生成
-        Pixel( 13,   100,    1000),
-        Pixel( 23,   250,    2000),
-        Pixel( 33,   500,    4000),
-        Pixel( 43,   750,    8000),
-        Pixel( 53,  1000,   16000),
-        Pixel( 63,  1500,   32000),
-        Pixel( 73,  2000,   64000),
-        Pixel( 83,  2500,  128000),
-        Pixel( 93,  3000,  256000),
-        Pixel(103,  3500,  512000),
-        Pixel(113,  4000, 1000000),
-        Pixel(123,  4500, 1000000),
-        Pixel(133,  5000, 1000000),
-        Pixel(143,  6000, 1000000),
-        Pixel(153,  7000, 1000000),
-        Pixel(163,  8000, 1000000),
-        Pixel(173,  9000, 1000000),
-        Pixel(183, 10000, 1000000),
-        Pixel(193, 11000, 1000000),
+        Pixel( 13,   250,    1000),
+        Pixel( 23,   500,    2000),
+        Pixel( 33,   750,    3000),
+        Pixel( 43,  1000,    4000),
+        Pixel( 53,  1500,    5000),
+        Pixel( 63,  2000,    6000),
+        Pixel( 73,  2500,    7000),
+        Pixel( 83,  3000,    8000),
+        Pixel( 93,  3500,    9000),
+        Pixel(103,  4000,   10000),
+        Pixel(113,  4500,   10000),
+        Pixel(123,  4500,   10000),
+        Pixel(133,  5000,   10000),
+        Pixel(143,  6000,   10000),
+        Pixel(153,  7000,   10000),
+        Pixel(163,  8000,   10000),
+        Pixel(173,  9000,   10000),
+        Pixel(183, 10000,   10000),
+        Pixel(193, 12000,   10000),
+        Pixel(203, 14000,   10000),
+        Pixel(213, 16000,   10000),
+        Pixel(223, 18000,   10000),
+        Pixel(233, 20000,   10000),
 
         // キャラ生成
         Character(  14,  100),
@@ -476,11 +480,11 @@ public static class QuestCatalog
     {
         QuestAdBonus bonus = AdBonus(def);
         if (bonus == QuestAdBonus.Pixel)
-            return "広告でピクセル生成を増やせる回数 +1";
+            return "広告でピクセル生成を増やせる回数 +0.5";
         if (bonus == QuestAdBonus.Character)
-            return "広告でキャラ生成を増やせる回数 +1";
+            return "広告でキャラ生成を増やせる回数 +0.3";
         if (bonus == QuestAdBonus.Both)
-            return "広告でピクセル生成とキャラ生成を増やせる回数 +1";
+            return "広告でピクセル生成を増やせる回数 +0.5、キャラ生成を増やせる回数 +0.3";
         return "";
     }
 

@@ -12,10 +12,13 @@ public class ControllerBattleClass : MonoBehaviour
     GameObject _root;
     Text _header;
     Image _headerFill;
+    Image _headerRecord;
     float _headerRate;
+    float _headerRecordRate;
     Text _resource;
     Text _logText;
     Button _fastButton;
+    Button _withdrawButton;
     QuestBoard _questBoard;
     SettingsBoard _settings;
     Transform _questOverlay;
@@ -26,6 +29,8 @@ public class ControllerBattleClass : MonoBehaviour
     Text _questBadgeText;
     readonly List<QuestDef> _questCandidates = new List<QuestDef>();
     static readonly Color EmptyCellColor = new Color(0.15f, 0.15f, 0.18f, 0.3f);
+    static readonly Color HeaderBackColor = new Color(0f, 0f, 0f, 1f);
+    static readonly Color HeaderRecordColor = new Color(0.40f, 0.41f, 0.44f, 1f);
     static readonly Color HeaderFillColor = new Color(0.22f, 0.50f, 0.26f, 1f);
     int _battleSpeed = 1;
     bool _running;
@@ -1129,9 +1134,9 @@ public class ControllerBattleClass : MonoBehaviour
             _logText.raycastTarget = false;
         }
 
-        Button withdraw = CreateButton("ButtonBattleWithdraw", "撤退", new Color(0.75f, 0.28f, 0.24f, 1f));
-        PlaceRect(withdraw.GetComponent<RectTransform>(), -430f, 175f, 120f, 44f);
-        withdraw.onClick.AddListener(PushWithdraw);
+        _withdrawButton = CreateButton("ButtonBattleWithdraw", "撤退", new Color(0.75f, 0.28f, 0.24f, 1f));
+        PlaceRect(_withdrawButton.GetComponent<RectTransform>(), -430f, 175f, 120f, 44f);
+        _withdrawButton.onClick.AddListener(PushWithdraw);
 
         _fastButton = CreateButton("ButtonBattleFast", "通常", new Color(0.25f, 0.45f, 0.75f, 1f));
         PlaceRect(_fastButton.GetComponent<RectTransform>(), -290f, 175f, 120f, 44f);
@@ -1200,10 +1205,9 @@ public class ControllerBattleClass : MonoBehaviour
             fast.anchoredPosition += new Vector2(0f, shift);
             headerLeft = fast.anchoredPosition.x + fast.sizeDelta.x * 0.5f + gap;
         }
-        GameObject withdraw = GameObject.Find("ButtonBattleWithdraw");
-        if (withdraw != null)
+        if (_withdrawButton != null)
         {
-            RectTransform withdrawRect = withdraw.GetComponent<RectTransform>();
+            RectTransform withdrawRect = _withdrawButton.GetComponent<RectTransform>();
             withdrawRect.anchoredPosition += new Vector2(0f, shift);
         }
 
@@ -1326,10 +1330,9 @@ public class ControllerBattleClass : MonoBehaviour
             RectTransform fast = _fastButton.GetComponent<RectTransform>();
             fast.anchoredPosition += new Vector2(0f, delta);
         }
-        GameObject withdraw = GameObject.Find("ButtonBattleWithdraw");
-        if (withdraw != null)
+        if (_withdrawButton != null)
         {
-            RectTransform withdrawRect = withdraw.GetComponent<RectTransform>();
+            RectTransform withdrawRect = _withdrawButton.GetComponent<RectTransform>();
             withdrawRect.anchoredPosition += new Vector2(0f, delta);
         }
     }
@@ -1442,7 +1445,12 @@ public class ControllerBattleClass : MonoBehaviour
         back.anchoredPosition = textRect.anchoredPosition;
         back.sizeDelta = textRect.sizeDelta;
         if (text == _header)
+        {
+            Image plate = back.GetComponent<Image>();
+            if (plate != null)
+                plate.color = HeaderBackColor;
             EnsureHeaderFill(back);
+        }
 
         int textIndex = textRect.GetSiblingIndex();
         int backIndex = back.GetSiblingIndex();
@@ -1451,43 +1459,74 @@ public class ControllerBattleClass : MonoBehaviour
             back.SetSiblingIndex(desired);
     }
 
-    // 100階を満タンにする。10階なら1割、100階なら端まで塗る
+    // 100階を満タンにする。緑がいまの階、その後ろの灰色が最高クリア階
     void SetHeaderProgress(int floor)
+    {
+        int current = floor > 0 ? floor : 0;
+        int reached = current;
+        if (_production != null && _battleStageIndex > 0)
+        {
+            int cleared = _production.GetHighestClearedBattleFloor(_battleStageIndex);
+            if (cleared > reached)
+                reached = cleared;
+        }
+        _headerRate = HeaderRate(current);
+        _headerRecordRate = HeaderRate(reached);
+        ApplyHeaderFill();
+    }
+
+    static float HeaderRate(int floor)
     {
         float rate = 0f;
         if (floor > 0)
             rate = floor / (float)Constants.BATTLE_STAGE_FLOOR_MAX;
-        if (rate > 1f)
-            rate = 1f;
-        _headerRate = rate;
-        ApplyHeaderFill();
-    }
-
-    void EnsureHeaderFill(RectTransform back)
-    {
-        Transform existing = back.Find("Fill");
-        if (existing == null)
-        {
-            _headerFill = CreateImage("Fill", back, HeaderFillColor);
-            _headerFill.raycastTarget = false;
-        }
-        else
-            _headerFill = existing.GetComponent<Image>();
-        if (_headerFill != null)
-            _headerFill.color = HeaderFillColor;
-        ApplyHeaderFill();
-    }
-
-    void ApplyHeaderFill()
-    {
-        if (_headerFill == null)
-            return;
-        float rate = _headerRate;
         if (rate < 0f)
             rate = 0f;
         if (rate > 1f)
             rate = 1f;
-        RectTransform fill = _headerFill.rectTransform;
+        return rate;
+    }
+
+    void EnsureHeaderFill(RectTransform back)
+    {
+        _headerRecord = EnsureHeaderBar(back, "Record", HeaderRecordColor);
+        _headerFill = EnsureHeaderBar(back, "Fill", HeaderFillColor);
+        if (_headerFill != null)
+            _headerFill.transform.SetAsLastSibling();
+        ApplyHeaderFill();
+    }
+
+    Image EnsureHeaderBar(RectTransform back, string name, Color color)
+    {
+        Transform existing = back.Find(name);
+        Image image;
+        if (existing == null)
+        {
+            image = CreateImage(name, back, color);
+            image.raycastTarget = false;
+        }
+        else
+            image = existing.GetComponent<Image>();
+        if (image != null)
+            image.color = color;
+        return image;
+    }
+
+    void ApplyHeaderFill()
+    {
+        PlaceHeaderBar(_headerRecord, _headerRecordRate);
+        PlaceHeaderBar(_headerFill, _headerRate);
+    }
+
+    static void PlaceHeaderBar(Image image, float rate)
+    {
+        if (image == null)
+            return;
+        if (rate < 0f)
+            rate = 0f;
+        if (rate > 1f)
+            rate = 1f;
+        RectTransform fill = image.rectTransform;
         fill.anchorMin = Vector2.zero;
         fill.anchorMax = new Vector2(rate, 1f);
         fill.offsetMin = Vector2.zero;

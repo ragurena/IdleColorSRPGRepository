@@ -7608,22 +7608,41 @@ public class ControllerProduction : MonoBehaviour
 
     bool CanWatchAd(bool pixel)
     {
-        return RemainingAdWatches(pixel) > 0;
+        return RemainingAdTenths(pixel) >= 10;
     }
 
-    int RemainingAdWatches(bool pixel)
+    // 1回を10とする。ピクセルは1件で5、キャラは1件で3。初期の1回は10。
+    static int AdCreditTenths(int quests, bool pixel)
+    {
+        if (quests < 0)
+            quests = 0;
+        long bonus = pixel ? (long)quests * 5L : (long)quests * 3L;
+        long total = 10L + bonus;
+        if (total > int.MaxValue)
+            total = int.MaxValue;
+        return (int)total;
+    }
+
+    static string FormatAdTenths(int tenths)
+    {
+        if (tenths < 0)
+            tenths = 0;
+        return (tenths / 10).ToString() + "." + (tenths % 10).ToString();
+    }
+
+    int RemainingAdTenths(bool pixel)
     {
         int slots = pixel ? Slots.PixelSlots : Slots.CharacterSlots;
         int used = pixel ? Slots.AdPixelSlots : Slots.AdCharacterSlots;
         int fromQuests = pixel ? Slots.ClaimedPixelAdQuests : Slots.ClaimedCharacterAdQuests;
-        int cap = Constants.AD_PRODUCTION_SLOT_BASE + Slots.ClaimedQuests + fromQuests;
-        int adLeft = cap - used;
-        int slotLeft = Constants.PRODUCTION_SLOT_MAX - slots;
-        if (adLeft < 0)
-            adLeft = 0;
+        int quests = Slots.ClaimedQuests + fromQuests;
+        int credit = AdCreditTenths(quests, pixel) - used * 10;
+        int slotLeft = (Constants.PRODUCTION_SLOT_MAX - slots) * 10;
+        if (credit < 0)
+            credit = 0;
         if (slotLeft < 0)
             slotLeft = 0;
-        return adLeft < slotLeft ? adLeft : slotLeft;
+        return credit < slotLeft ? credit : slotLeft;
     }
 
     void ShowRewardedForSlot(bool pixel)
@@ -7686,7 +7705,7 @@ public class ControllerProduction : MonoBehaviour
         if (canvas == null)
             return;
 
-        AdConfirm = new GameObject("AdConfirm", typeof(RectTransform), typeof(Image));
+        AdConfirm = new GameObject("AdConfirm", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster), typeof(Image));
         AdConfirm.transform.SetParent(canvas.transform, false);
         RectTransform root = AdConfirm.GetComponent<RectTransform>();
         root.anchorMin = Vector2.zero;
@@ -7694,6 +7713,9 @@ public class ControllerProduction : MonoBehaviour
         root.offsetMin = Vector2.zero;
         root.offsetMax = Vector2.zero;
         root.localScale = Vector3.one;
+        Canvas overlay = AdConfirm.GetComponent<Canvas>();
+        overlay.overrideSorting = true;
+        overlay.sortingOrder = 4000;
         Image dim = AdConfirm.GetComponent<Image>();
         dim.color = new Color(0f, 0f, 0f, 0.62f);
         dim.raycastTarget = true;
@@ -7731,7 +7753,7 @@ public class ControllerProduction : MonoBehaviour
         _adConfirmText = text;
 
         Button yes = CreateAdConfirmButton(card.transform, "ButtonAdConfirmYes", "はい", new Color(0.25f, 0.45f, 0.75f, 1f), font, true);
-        Button no = CreateAdConfirmButton(card.transform, "ButtonAdConfirmNo", "いいえ", new Color(0.45f, 0.28f, 0.28f, 1f), font, false);
+        Button no = CreateAdConfirmButton(card.transform, "ButtonAdConfirmNo", "いいえ", new Color(0.75f, 0.25f, 0.25f, 1f), font, false);
         yes.onClick.AddListener(AcceptAdConfirm);
         no.onClick.AddListener(DismissAdConfirm);
         AdConfirm.SetActive(false);
@@ -7983,8 +8005,8 @@ public class ControllerProduction : MonoBehaviour
             Destroy(oldCount.gameObject);
 
         Text label = existing.Find("Text") != null ? existing.Find("Text").GetComponent<Text>() : null;
-        int left = RemainingAdWatches(pixel);
-        bool canWatch = left > 0;
+        int leftTenths = RemainingAdTenths(pixel);
+        bool canWatch = leftTenths >= 10;
         if (label != null)
         {
             label.text = "+";
@@ -8007,7 +8029,7 @@ public class ControllerProduction : MonoBehaviour
         if (count != null)
         {
             count.gameObject.SetActive(true);
-            count.text = "広告視聴可能回数：" + left + "回　クエスト達成により増加します";
+            count.text = "広告視聴可能回数：" + FormatAdTenths(leftTenths) + "回　クエスト達成により増加します";
             count.transform.SetAsLastSibling();
         }
     }

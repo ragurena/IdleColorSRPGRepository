@@ -25,7 +25,7 @@ public static class GameConfig
     // public const int MAX_LEVEL = 99;
 }
 
-// ピクセル枠とキャラ枠の開放数。広告で増やせる回数は、初期値にクエストの受け取り回数を足す。
+// ピクセル枠とキャラ枠の開放数。広告で増やせる回数は、初期値にクエスト報酬を足す。ピクセルは1件+0.5、キャラは1件+0.3。
 public sealed class ProductionSlotState
 {
     public int PixelSlots = Constants.PRODUCTION_SLOT_INITIAL;
