@@ -27,6 +27,7 @@ public sealed class PersonClass
     public long PixelExp;
     public int BattleLevel = 1;
     public long BattleExp;
+    public int Affection;
     int _loadedPixelLevel;
 
     public CharacterAttribute[] SpecialtyArray()
@@ -289,6 +290,8 @@ public sealed class PersonSaveData
             sw.WriteLine(prefix + "PixelExp," + person.PixelExp.ToString());
             sw.WriteLine(prefix + "BattleLevel," + person.BattleLevel.ToString());
             sw.WriteLine(prefix + "BattleExp," + person.BattleExp.ToString());
+            if (person.Affection > 0)
+                sw.WriteLine(prefix + "Affection," + person.Affection.ToString());
         }
         WriteSlots(sw, "PersonIDHelpProductionR", HelpR);
         WriteSlots(sw, "PersonIDHelpProductionG", HelpG);
@@ -417,6 +420,8 @@ public sealed class PersonSaveData
             person.BattleLevel = ParseLevel(value);
         else if (field == "BattleExp" && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out longValue))
             person.BattleExp = longValue < 0 ? 0 : longValue;
+        else if (field == "Affection" && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out numberValue))
+            person.Affection = numberValue < 0 ? 0 : numberValue;
         else if (int.TryParse(value, out numberValue))
             return true;
         return true;

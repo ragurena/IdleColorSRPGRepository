@@ -116,6 +116,14 @@ public class CharacterClass //: MonoBehaviour
         ApplyStockTotal();
     }
 
+    public void RestoreStock(OwnedStock stock, ulong ownedMax)
+    {
+        Stock = stock;
+        Stock.Specified = true;
+        ApplyStockTotal();
+        OwnedNumMax = ownedMax;
+    }
+
     public void EnsureStock()
     {
         long current = OwnedNumCur > (ulong)long.MaxValue ? long.MaxValue : (long)OwnedNumCur;

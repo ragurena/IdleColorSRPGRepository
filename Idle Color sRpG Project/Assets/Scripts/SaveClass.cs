@@ -52,7 +52,8 @@ public class SaveClass// : MonoBehaviour
         Dictionary<int, int> ItemCounts,
         PersonSaveData people,
         ProductionSlotState slots,
-        QuestSave quests
+        QuestSave quests,
+        MessageSave messages
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -153,6 +154,8 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("IapProductionSlots5," + (slots != null && slots.IapPlus5 ? "true" : "false"));
         sw.WriteLine("IapProductionSlots10," + (slots != null && slots.IapPlus10 ? "true" : "false"));
         WriteQuestLines(sw, quests);
+        if (messages != null)
+            messages.Write(sw);
 
         // ピクセル生産枠の保存
         for (int i = 1; i <= pixelSlotCount; i++)
@@ -436,6 +439,7 @@ public class SaveClass// : MonoBehaviour
         PersonSaveData people,
         ProductionSlotState slots,
         QuestSave quests,
+        MessageSave messages,
         string sourcePath
         )
     {
@@ -496,6 +500,10 @@ public class SaveClass// : MonoBehaviour
             }
             else
             if (quests != null && TryReadQuestLine(quests, values))
+            {
+            }
+            else
+            if (messages != null && messages.TryRead(values))
             {
             }
             else

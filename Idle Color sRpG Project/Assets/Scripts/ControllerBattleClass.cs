@@ -21,7 +21,11 @@ public class ControllerBattleClass : MonoBehaviour
     Button _fastButton;
     Button _withdrawButton;
     QuestBoard _questBoard;
-    SettingsBoard _settings;
+        SettingsBoard _settings;
+        MessageBoard _messages;
+        GameObject _messageButton;
+        GameObject _messageBadge;
+        Text _messageBadgeText;
     Transform _questOverlay;
     GameObject _questBanner;
     Image _questBannerFill;
@@ -1305,6 +1309,10 @@ public class ControllerBattleClass : MonoBehaviour
             bannerCenter = canvasTop - 8f - bannerDrawH * 0.5f;
         left = panelMin.x + margin;
         right = panelMax.x - margin;
+        InsetBannerEdge(parent.Find("ButtonSettings"), parent, gap, ref left, true);
+        InsetBannerEdge(parent.Find("ButtonBattleQuest"), parent, gap, ref right, false);
+        if (right < left + 80f)
+            right = left + 80f;
 
         banner.anchorMin = new Vector2(0.5f, 0.5f);
         banner.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1314,6 +1322,47 @@ public class ControllerBattleClass : MonoBehaviour
             (0.5f - parent.pivot.y) * parent.rect.height);
         banner.sizeDelta = new Vector2(right - left, bannerDrawH);
         banner.anchoredPosition = new Vector2((left + right) * 0.5f, bannerCenter) - anchorFromPivot;
+        AlignTopButtons(parent, banner.anchoredPosition.y, bannerDrawH);
+    }
+
+    static void AlignTopButtons(RectTransform parent, float bannerCenterY, float bannerHeight)
+    {
+        float bannerTop = bannerCenterY + bannerHeight * 0.5f;
+        RectTransform settings = parent.Find("ButtonSettings") as RectTransform;
+        if (settings != null)
+        {
+            settings.sizeDelta = new Vector2(settings.sizeDelta.x, bannerHeight);
+            settings.anchoredPosition = new Vector2(settings.anchoredPosition.x, bannerCenterY);
+        }
+        RectTransform quest = parent.Find("ButtonBattleQuest") as RectTransform;
+        if (quest != null)
+        {
+            float questY = bannerTop - quest.sizeDelta.y * 0.5f;
+            quest.anchoredPosition = new Vector2(quest.anchoredPosition.x, questY);
+        }
+        RectTransform message = parent.Find("ButtonMessage") as RectTransform;
+        if (quest != null && message != null)
+        {
+            const float gap = 12f;
+            float messageY = quest.anchoredPosition.y - quest.sizeDelta.y * 0.5f - gap - message.sizeDelta.y * 0.5f;
+            message.anchoredPosition = new Vector2(quest.anchoredPosition.x, messageY);
+        }
+    }
+
+    static void InsetBannerEdge(Transform button, RectTransform parent, float gap, ref float edge, bool leftSide)
+    {
+        RectTransform rect = button as RectTransform;
+        Vector2 min;
+        Vector2 max;
+        if (rect == null || TryBoundsIn(rect, parent, out min, out max) == false)
+            return;
+        if (leftSide)
+        {
+            if (max.x + gap > edge)
+                edge = max.x + gap;
+        }
+        else if (min.x - gap < edge)
+            edge = min.x - gap;
     }
 
     void LiftHeaderRow(float canvasY)
@@ -1565,16 +1614,28 @@ public class ControllerBattleClass : MonoBehaviour
         BuildQuestBadge(quest.transform);
 
         Button settings = CreateButton("ButtonSettings", "設定", new Color(0.30f, 0.34f, 0.42f, 1f), _questOverlay);
-        PlaceRect(settings.GetComponent<RectTransform>(), battlePos.x + 430f, battlePos.y + 41f, 150f, 90f);
+        PlaceRect(settings.GetComponent<RectTransform>(), battlePos.x - 430f, battlePos.y + 207f, 150f, 50f);
         Text settingsLabel = settings.GetComponentInChildren<Text>();
         if (settingsLabel != null)
             settingsLabel.fontSize = 28;
         settings.onClick.AddListener(ToggleSettings);
 
+        Button message = CreateButton("ButtonMessage", "メッセージ", new Color(0.22f, 0.55f, 0.38f, 1f), _questOverlay);
+        PlaceRect(message.GetComponent<RectTransform>(), battlePos.x + 430f, battlePos.y - 65f, 150f, 90f);
+        Text messageLabel = message.GetComponentInChildren<Text>();
+        if (messageLabel != null)
+            messageLabel.fontSize = 31;
+        message.onClick.AddListener(ToggleMessage);
+        _messageButton = message.gameObject;
+        BuildMessageBadge(message.transform);
+
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
         _settings = new SettingsBoard();
         _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
+        _messages = new MessageBoard();
+        _messages.Build(_questOverlay, _font, _production);
+        RefreshMessageButton();
         BringQuestForward();
     }
 
@@ -1708,6 +1769,8 @@ public class ControllerBattleClass : MonoBehaviour
         {
             if (_settings != null && _settings.IsOpen)
                 _settings.Close();
+            if (_messages != null && _messages.IsOpen)
+                _messages.Close();
             _questBoard.Open();
         }
     }
@@ -1722,8 +1785,69 @@ public class ControllerBattleClass : MonoBehaviour
         {
             if (_questBoard != null && _questBoard.IsOpen)
                 _questBoard.Close();
+            if (_messages != null && _messages.IsOpen)
+                _messages.Close();
             _settings.Open(SpeedCap(), AdWatchConfirm());
         }
+    }
+
+    public void OnMessagesChanged(bool added)
+    {
+        RefreshMessageButton();
+        if (added && _messages != null && _messages.IsOpen && (_production == null || !_production.IsSaving))
+            _messages.Refresh();
+    }
+
+    public void RefreshMessageButton()
+    {
+        bool show = _production != null && _production.Messages != null && _production.Messages.AnyVisible();
+        if (_messageButton != null)
+            _messageButton.SetActive(show);
+        int badge = show && _production.Messages != null ? _production.Messages.BadgeCount() : 0;
+        if (_messageBadge == null)
+            return;
+        if (badge <= 0)
+        {
+            _messageBadge.SetActive(false);
+            return;
+        }
+        _messageBadge.SetActive(true);
+        if (_messageBadgeText != null)
+            _messageBadgeText.text = badge.ToString();
+    }
+
+    void ToggleMessage()
+    {
+        if (_messages == null)
+            return;
+        if (_messages.IsOpen)
+            _messages.Close();
+        else
+        {
+            if (_questBoard != null && _questBoard.IsOpen)
+                _questBoard.Close();
+            if (_settings != null && _settings.IsOpen)
+                _settings.Close();
+            _messages.Open();
+        }
+    }
+
+    void BuildMessageBadge(Transform message)
+    {
+        Image badge = CreateImage("ImageMessageBadge", message, new Color(0.86f, 0.16f, 0.16f, 1f));
+        badge.sprite = CircleSprite();
+        badge.raycastTarget = false;
+        RectTransform rect = badge.rectTransform;
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(-18f, -18f);
+        rect.sizeDelta = new Vector2(36f, 36f);
+        _messageBadge = badge.gameObject;
+        _messageBadgeText = CreateText("Text", badge.transform, 23, TextAnchor.MiddleCenter);
+        Stretch(_messageBadgeText.rectTransform);
+        _messageBadgeText.raycastTarget = false;
+        _messageBadge.SetActive(false);
     }
 
     void ApplySpeedCap(int cap)

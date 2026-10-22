@@ -57,6 +57,11 @@ public class ControllerProduction : MonoBehaviour
     ControllerBattlePartyClass ControllerBattleParty;
     ControllerBattleStageClass ControllerBattleStage;
     ControllerBattleClass ControllerBattle;
+    MessageDirector _messages;
+    bool _messageUnsaved;
+    bool _messageDirtyUi;
+    bool _messageRefreshing;
+    bool _saving;
     ControllerCatalogClass ControllerCatalog;
     ControllerFusionClass ControllerFusion;
     ControllerImportCharacterClass ControllerImport;
@@ -241,6 +246,7 @@ public class ControllerProduction : MonoBehaviour
     IEnumerator Start()
     {
         Debug.Log("==================== [LOG 1] Start 始まったよ！ ====================");
+        _messages = new MessageDirector(this);
 
 #if UNITY_EDITOR
         {
@@ -473,6 +479,10 @@ public class ControllerProduction : MonoBehaviour
         ApplyMainFeatureLocks();
         if (ControllerBattle != null)
             ControllerBattle.BringQuestForward();
+        RefreshMessages();
+        SaveMessagesIfNeeded();
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshMessageButton();
 
         PushButtonSelectSceneRGBProduction();
         if (ControllerBattle != null)
@@ -662,8 +672,13 @@ public class ControllerProduction : MonoBehaviour
 
     public bool SaveGame()
     {
+        if (_saving)
+            return true;
         if (SaveBlocked)
             return false;
+        _saving = true;
+        try
+        {
         EnsureQuestDefaults();
         LatchQuests();
         SaveClass SC = new SaveClass();
@@ -699,10 +714,12 @@ public class ControllerProduction : MonoBehaviour
             ItemCounts,
             CapturePeople(),
             Slots,
-            Quests
+            Quests,
+            _messages != null ? _messages.Save : null
             );
         if (saved)
         {
+            _messageUnsaved = false;
             SaveFailureNotified = false;
             HideSaveNotice();
             return true;
@@ -713,6 +730,17 @@ public class ControllerProduction : MonoBehaviour
             ShowSaveNotice("保存できませんでした。以前のセーブは残っています。");
         }
         return false;
+        }
+        finally
+        {
+            _saving = false;
+            if (_messageDirtyUi)
+            {
+                _messageDirtyUi = false;
+                if (ControllerBattle != null)
+                    ControllerBattle.OnMessagesChanged(true);
+            }
+        }
     }
 
     PersonSaveData CapturePeople()
@@ -893,6 +921,7 @@ public class ControllerProduction : MonoBehaviour
                     CapturePeople(),
                     Slots,
                     Quests,
+                    _messages != null ? _messages.Save : null,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -966,6 +995,8 @@ public class ControllerProduction : MonoBehaviour
         }
         if (ItemCounts != null)
             ItemCounts.Clear();
+        if (_messages != null)
+            _messages.Save.Clear();
 
         PersonClass[] freshPeople = PersonClass.CreateRoster();
         if (People != null && freshPeople != null)
@@ -3063,6 +3094,7 @@ public class ControllerProduction : MonoBehaviour
             NoteGalleryClear();
         if (floor > ClearedBattleFloor[stageIndex])
             ClearedBattleFloor[stageIndex] = floor;
+        RefreshMessages();
     }
 
     void NormalizeClearedBattleFloors()
@@ -3543,6 +3575,8 @@ public class ControllerProduction : MonoBehaviour
             if (unit.Spd < 1)
                 unit.Spd = 1;
         }
+        if (levels > 0)
+            RefreshMessages();
         return levels;
     }
 
@@ -3582,6 +3616,7 @@ public class ControllerProduction : MonoBehaviour
         int ownedAfterRecruit = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
         if (ownedAfterRecruit != ownedBeforeRecruit)
             ShowCharacterOwnedNum();
+        RefreshMessages();
         if (!alreadyOwned)
             return character.Name + " が仲間になった";
         return character.Name + " の残機が1増えた";
@@ -6794,6 +6829,8 @@ public class ControllerProduction : MonoBehaviour
             NoteCharacterCompletions(after - before);
         if (workerIsPerson && after > before)
             person.AddCharacterCompletion(author, PersonBalance);
+        if (after > before)
+            RefreshMessages();
     }
 
     public void GrantPersonBattleFloor()
@@ -7992,6 +8029,7 @@ public class ControllerProduction : MonoBehaviour
             QuestRecord record = Quests.GetOrCreate(all[i].Id);
             record.Cleared = true;
         }
+        RefreshMessages();
     }
 
     bool IsQuestListed(QuestDef def)
@@ -8933,6 +8971,646 @@ public class ControllerProduction : MonoBehaviour
             || name.Contains("ButtonCharacterProductionCharacter");
     }
 
+    public bool IsSaving
+    {
+        get { return _saving; }
+    }
+
+    public MessageDirector Messages
+    {
+        get { return _messages; }
+    }
+
+    public void RefreshMessages()
+    {
+        if (_messages == null || _messageRefreshing)
+            return;
+        bool added = false;
+        _messageRefreshing = true;
+        try
+        {
+            added = _messages.CatchUp();
+            if (added)
+            {
+                _messageUnsaved = true;
+                _messageDirtyUi = true;
+            }
+        }
+        finally
+        {
+            _messageRefreshing = false;
+        }
+        if (!_saving && ControllerBattle != null)
+            ControllerBattle.OnMessagesChanged(added);
+    }
+
+    public void SaveMessagesIfNeeded()
+    {
+        if (_messageUnsaved && !SaveBlocked && !_saving)
+            SaveGame();
+    }
+
+    public void NoteMessageRead()
+    {
+        _messageUnsaved = true;
+        SaveMessagesIfNeeded();
+    }
+
+    public void RefreshMessageButton()
+    {
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshMessageButton();
+    }
+
+    public void RefreshAfterMessage()
+    {
+        ImportedCharacters.SetImportCap(Quests.ImportCap);
+        FusionBonus.ExtraPercent = Quests.FusionEfficiency;
+        RebuildAllCharacterStats();
+        ApplyFusionButtonLock();
+        ApplyMainFeatureLocks();
+        RefreshUnlockedProductionSlots();
+        UpdateRGBProductionScene();
+        RefreshProductionFigures();
+        ShowCharacterOwnedNum();
+        RefreshMessageButton();
+    }
+
+    public int AffectionOfPerson(int personId)
+    {
+        PersonClass person = PersonAt(personId);
+        if (person == null || person.Affection < 0)
+            return 0;
+        return person.Affection;
+    }
+
+    public void AddAffectionPerson(int personId, int amount)
+    {
+        if (amount == 0)
+            return;
+        PersonClass person = PersonAt(personId);
+        if (person == null)
+            return;
+        long next = (long)person.Affection + amount;
+        if (next < 0)
+            next = 0;
+        if (next > int.MaxValue)
+            next = int.MaxValue;
+        person.Affection = (int)next;
+    }
+
+    public int AuthoredMaxLevel(int personId)
+    {
+        if (personId <= 0)
+            return 0;
+        int max = 0;
+        VisitCharacters(character =>
+        {
+            if (character.AuthorPersonId != personId)
+                return;
+            int level = character.Level > int.MaxValue ? int.MaxValue : (int)character.Level;
+            if (level > max)
+                max = level;
+        });
+        return max;
+    }
+
+    public int AuthoredCompanionCount(int personId)
+    {
+        if (personId <= 0)
+            return 0;
+        int count = 0;
+        VisitCharacters(character =>
+        {
+            if (character.AuthorPersonId == personId && character.OwnedNumMax > 0)
+                count++;
+        });
+        return count;
+    }
+
+    public int CharacterLevelOf(uint characterId)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null)
+            return 0;
+        if (character.Level > int.MaxValue)
+            return int.MaxValue;
+        return (int)character.Level;
+    }
+
+    public int CharacterAuthor(uint characterId)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        return character != null ? character.AuthorPersonId : 0;
+    }
+
+    public bool MessageCanPay(MessageCost[] costs)
+    {
+        long needR = 0;
+        long needG = 0;
+        long needB = 0;
+        if (costs == null)
+            return true;
+        for (int i = 0; i < costs.Length; i++)
+        {
+            MessageCost cost = costs[i];
+            if (cost == null)
+                continue;
+            if (cost.Kind == MessagePayKind.Rgb)
+            {
+                needR += cost.R > 0 ? cost.R : 0;
+                needG += cost.G > 0 ? cost.G : 0;
+                needB += cost.B > 0 ? cost.B : 0;
+            }
+            else if (cost.Kind == MessagePayKind.Pixel)
+            {
+                if (PixelStock((int)cost.R, (int)cost.G, (int)cost.B) < (ulong)(cost.Count > 0 ? cost.Count : 0))
+                    return false;
+            }
+            else if (cost.Kind == MessagePayKind.Owned)
+            {
+                CharacterClass character = GetCharacter(cost.CharacterId);
+                if (character == null)
+                    return false;
+                character.EnsureStock();
+                if (character.Stock.Total < cost.Count)
+                    return false;
+            }
+        }
+        if (needR > 0 && CurR < (ulong)needR)
+            return false;
+        if (needG > 0 && CurG < (ulong)needG)
+            return false;
+        if (needB > 0 && CurB < (ulong)needB)
+            return false;
+        return true;
+    }
+
+    public void MessagePay(MessageCost[] costs)
+    {
+        if (costs == null)
+            return;
+        long needR = 0;
+        long needG = 0;
+        long needB = 0;
+        for (int i = 0; i < costs.Length; i++)
+        {
+            MessageCost cost = costs[i];
+            if (cost == null || cost.Kind != MessagePayKind.Rgb)
+                continue;
+            if (cost.R > 0)
+                needR += cost.R;
+            if (cost.G > 0)
+                needG += cost.G;
+            if (cost.B > 0)
+                needB += cost.B;
+        }
+        SpendRgb(ref CurR, needR);
+        SpendRgb(ref CurG, needG);
+        SpendRgb(ref CurB, needB);
+        int cap = BattleBalance != null ? BattleBalance.MaxLives : BattleBalanceConfig.MaxOwnedCount;
+        for (int i = 0; i < costs.Length; i++)
+        {
+            MessageCost cost = costs[i];
+            if (cost == null)
+                continue;
+            if (cost.Kind == MessagePayKind.Pixel)
+                SpendPixel((int)cost.R, (int)cost.G, (int)cost.B, cost.Count);
+            else if (cost.Kind == MessagePayKind.Owned)
+            {
+                CharacterClass character = GetCharacter(cost.CharacterId);
+                int amount = cost.Count > int.MaxValue ? int.MaxValue : (int)cost.Count;
+                if (character == null || !character.ConsumeOwned(amount, true, cap))
+                    throw new System.InvalidOperationException("所持を減らせませんでした");
+                if (ControllerBattle != null)
+                    ControllerBattle.ApplyAllyFusion(character);
+            }
+        }
+    }
+
+    public void MessageApply(MessageGift[] gifts)
+    {
+        if (gifts == null)
+            return;
+        int cap = BattleBalance != null ? BattleBalance.MaxLives : BattleBalanceConfig.MaxOwnedCount;
+        for (int i = 0; i < gifts.Length; i++)
+            ApplyOneGift(gifts[i], cap);
+    }
+
+    public string MessageGiftWarning(MessageGift[] gifts)
+    {
+        if (gifts == null || gifts.Length == 0)
+            return "";
+        bool rgb = false;
+        bool slots = false;
+        bool importCap = false;
+        bool owned = false;
+        for (int i = 0; i < gifts.Length; i++)
+        {
+            MessageGift gift = gifts[i];
+            if (gift == null)
+                continue;
+            if (gift.Kind == MessageGiftKind.Rgb)
+                rgb |= RgbChannelClips(CurR, MaxR, (ulong)(gift.R > 0 ? gift.R : 0))
+                    || RgbChannelClips(CurG, MaxG, (ulong)(gift.G > 0 ? gift.G : 0))
+                    || RgbChannelClips(CurB, MaxB, (ulong)(gift.B > 0 ? gift.B : 0));
+            else if (gift.Kind == MessageGiftKind.Owned)
+                owned |= OwnedClips(gift.CharacterId, gift.Count);
+            else if (gift.Kind == MessageGiftKind.QuestReward)
+            {
+                if (gift.Reward == QuestRewardKind.RgbAll)
+                    rgb |= RgbRewardClips(gift.RewardAmount);
+                if (gift.Reward == QuestRewardKind.ChooseSlots || gift.Reward == QuestRewardKind.TapChooseSlot)
+                    slots |= SlotClips(gift.Choice, gift.RewardAmount);
+                if (gift.Reward == QuestRewardKind.BothSlots)
+                    slots |= SlotClips(0, gift.RewardAmount);
+                if (gift.Reward == QuestRewardKind.CharacterBundle)
+                    slots |= SlotClips(0, 1);
+                if (gift.Reward == QuestRewardKind.ImportCap)
+                    importCap |= Quests.ImportCap + (gift.RewardAmount > 0 ? gift.RewardAmount : 1) > ImportSizeRules.MaxCount;
+                if (gift.Reward == QuestRewardKind.CharacterBundle)
+                    importCap |= Quests.ImportCap >= ImportSizeRules.MaxCount;
+            }
+        }
+        string text = "";
+        if (rgb || owned)
+            text = "上限を超える分は破棄されます";
+        if (slots)
+            text = JoinWarning(text, "生産枠は255までです");
+        if (importCap)
+            text = JoinWarning(text, "読み込み上限は500までです");
+        return text;
+    }
+
+    public string MessageGiftDetail(MessageGift[] gifts)
+    {
+        if (gifts == null || gifts.Length == 0)
+            return "";
+        string text = "";
+        for (int i = 0; i < gifts.Length; i++)
+        {
+            string line = GiftLine(gifts[i]);
+            if (line.Length == 0)
+                continue;
+            if (text.Length > 0)
+                text += "\n";
+            text += line;
+        }
+        return text;
+    }
+
+    public string MessageCostDetail(MessageCost[] costs)
+    {
+        if (costs == null || costs.Length == 0)
+            return "";
+        string text = "";
+        for (int i = 0; i < costs.Length; i++)
+        {
+            string line = CostLine(costs[i]);
+            if (line.Length == 0)
+                continue;
+            if (text.Length > 0)
+                text += "\n";
+            text += line;
+        }
+        return text;
+    }
+
+    public MessageMoment CaptureMessageMoment(MessageGift[] gifts, MessageCost[] costs)
+    {
+        MessageMoment moment = new MessageMoment();
+        moment.R = CurR;
+        moment.G = CurG;
+        moment.B = CurB;
+        moment.TapR = IncreaseValueR;
+        moment.TapG = IncreaseValueG;
+        moment.TapB = IncreaseValueB;
+        moment.PixelSlots = Slots.PixelSlots;
+        moment.CharacterSlots = Slots.CharacterSlots;
+        moment.ImportCap = Quests.ImportCap;
+        moment.FusionUnlocked = Quests.FusionUnlocked;
+        moment.FusionEfficiency = Quests.FusionEfficiency;
+        moment.Affection = new int[People != null ? People.Length : 0];
+        if (People != null)
+        {
+            for (int i = 0; i < People.Length; i++)
+                moment.Affection[i] = People[i] != null ? People[i].Affection : 0;
+        }
+        List<MessageStockSnap> stocks = new List<MessageStockSnap>();
+        VisitCharacters(character =>
+        {
+            character.EnsureStock();
+            MessageStockSnap snap = new MessageStockSnap();
+            snap.Id = character.ID;
+            snap.Stock = character.Stock;
+            snap.OwnedMax = character.OwnedNumMax;
+            stocks.Add(snap);
+        });
+        moment.Stocks = stocks.ToArray();
+        moment.Pixels = CapturePixels(gifts, costs);
+        moment.Messages = _messages != null ? _messages.Save.Copy() : new MessageSave();
+        return moment;
+    }
+
+    public void RestoreMessageMoment(MessageMoment moment)
+    {
+        if (moment == null)
+            return;
+        CurR = moment.R;
+        CurG = moment.G;
+        CurB = moment.B;
+        IncreaseValueR = moment.TapR;
+        IncreaseValueG = moment.TapG;
+        IncreaseValueB = moment.TapB;
+        Slots.PixelSlots = moment.PixelSlots;
+        Slots.CharacterSlots = moment.CharacterSlots;
+        Quests.ImportCap = moment.ImportCap;
+        Quests.FusionUnlocked = moment.FusionUnlocked;
+        Quests.FusionEfficiency = moment.FusionEfficiency;
+        if (People != null && moment.Affection != null)
+        {
+            int count = People.Length < moment.Affection.Length ? People.Length : moment.Affection.Length;
+            for (int i = 0; i < count; i++)
+            {
+                if (People[i] != null)
+                    People[i].Affection = moment.Affection[i];
+            }
+        }
+        if (moment.Stocks != null)
+        {
+            for (int i = 0; i < moment.Stocks.Length; i++)
+            {
+                CharacterClass character = GetCharacter(moment.Stocks[i].Id);
+                if (character != null)
+                    character.RestoreStock(moment.Stocks[i].Stock, moment.Stocks[i].OwnedMax);
+            }
+        }
+        if (moment.Pixels != null && CurPixels != null)
+        {
+            for (int i = 0; i < moment.Pixels.Length; i++)
+            {
+                MessagePixelSnap pixel = moment.Pixels[i];
+                if (pixel.R < 0 || pixel.G < 0 || pixel.B < 0 || pixel.R > 255 || pixel.G > 255 || pixel.B > 255)
+                    continue;
+                CurPixels[pixel.R, pixel.G, pixel.B] = pixel.Count;
+            }
+        }
+        if (_messages != null && moment.Messages != null)
+            _messages.Save.Replace(moment.Messages);
+        RefreshAfterMessage();
+    }
+
+    void VisitCharacters(System.Action<CharacterClass> visit)
+    {
+        if (visit == null || CharactersAll == null)
+            return;
+        for (int i = 1; i < CharactersAll.Length; i++)
+        {
+            CharacterClass character = CharactersAll[i];
+            if (character != null && character.ID != 0)
+                visit(character);
+        }
+    }
+
+    void ApplyOneGift(MessageGift gift, int ownedCap)
+    {
+        if (gift == null)
+            return;
+        if (gift.Kind == MessageGiftKind.Rgb)
+        {
+            GainRgb(ref CurR, MaxR, (ulong)(gift.R > 0 ? gift.R : 0), 0);
+            GainRgb(ref CurG, MaxG, (ulong)(gift.G > 0 ? gift.G : 0), 1);
+            GainRgb(ref CurB, MaxB, (ulong)(gift.B > 0 ? gift.B : 0), 2);
+            return;
+        }
+        if (gift.Kind == MessageGiftKind.Pixel)
+        {
+            AddBattlePixels((int)gift.R, (int)gift.G, (int)gift.B, gift.Count);
+            return;
+        }
+        if (gift.Kind == MessageGiftKind.Owned)
+        {
+            CharacterClass character = GetCharacter(gift.CharacterId);
+            if (character == null || gift.Count <= 0)
+                return;
+            int amount = gift.Count > int.MaxValue ? int.MaxValue : (int)gift.Count;
+            character.GainOwned(amount, ownedCap);
+            if (ControllerBattle != null)
+                ControllerBattle.ApplyAllyFusion(character);
+            return;
+        }
+        if (gift.Kind == MessageGiftKind.Affection)
+        {
+            MessageFace face = MessageRoster.Find(gift.FaceId);
+            int amount = gift.Count > int.MaxValue ? int.MaxValue : (int)gift.Count;
+            if (face != null)
+                AddAffectionPerson(face.PersonId, amount);
+            return;
+        }
+        if (gift.Kind != MessageGiftKind.QuestReward)
+            return;
+        long rewardAmount = gift.RewardAmount;
+        int whole = rewardAmount > int.MaxValue ? int.MaxValue : (int)rewardAmount;
+        if (whole < 1 && gift.Reward != QuestRewardKind.RgbAll && gift.Reward != QuestRewardKind.GrantPalette)
+            whole = 1;
+        if (gift.Reward == QuestRewardKind.ChooseSlots || gift.Reward == QuestRewardKind.TapChooseSlot)
+        {
+            AddProductionSlots(whole, gift.Choice != 2, gift.Choice != 1);
+            if (gift.Reward == QuestRewardKind.TapChooseSlot)
+                BoostButtonTapAmounts();
+        }
+        else if (gift.Reward == QuestRewardKind.ImportCap)
+            RaiseImportCap(whole > 0 ? whole : 1);
+        else if (gift.Reward == QuestRewardKind.RgbAll)
+        {
+            ulong add = rewardAmount > 0 ? (ulong)rewardAmount : 0;
+            GainRgb(ref CurR, MaxR, add, 0);
+            GainRgb(ref CurG, MaxG, add, 1);
+            GainRgb(ref CurB, MaxB, add, 2);
+        }
+        else if (gift.Reward == QuestRewardKind.CharacterBundle)
+        {
+            RaiseImportCap(1);
+            AddProductionSlots(1, true, true);
+        }
+        else if (gift.Reward == QuestRewardKind.FusionUnlock)
+        {
+            Quests.FusionUnlocked = true;
+            ApplyFusionButtonLock();
+        }
+        else if (gift.Reward == QuestRewardKind.FusionEfficiency)
+        {
+            long next = (long)Quests.FusionEfficiency + (whole > 0 ? whole : 1);
+            if (next > int.MaxValue)
+                next = int.MaxValue;
+            Quests.FusionEfficiency = (int)next;
+            FusionBonus.ExtraPercent = Quests.FusionEfficiency;
+            RebuildAllCharacterStats();
+        }
+        else if (gift.Reward == QuestRewardKind.GrantPalette)
+            GrantProduciblePixels(rewardAmount > 0 ? (ulong)rewardAmount : 0);
+        else if (gift.Reward == QuestRewardKind.BothSlots)
+            AddProductionSlots(whole > 0 ? whole : 1, true, true);
+    }
+
+    MessagePixelSnap[] CapturePixels(MessageGift[] gifts, MessageCost[] costs)
+    {
+        List<MessagePixelSnap> pixels = new List<MessagePixelSnap>();
+        if (costs != null)
+        {
+            for (int i = 0; i < costs.Length; i++)
+            {
+                if (costs[i] != null && costs[i].Kind == MessagePayKind.Pixel)
+                    RememberPixel(pixels, (int)costs[i].R, (int)costs[i].G, (int)costs[i].B);
+            }
+        }
+        bool palette = false;
+        if (gifts != null)
+        {
+            for (int i = 0; i < gifts.Length; i++)
+            {
+                if (gifts[i] == null)
+                    continue;
+                if (gifts[i].Kind == MessageGiftKind.Pixel)
+                    RememberPixel(pixels, (int)gifts[i].R, (int)gifts[i].G, (int)gifts[i].B);
+                if (gifts[i].Kind == MessageGiftKind.QuestReward && gifts[i].Reward == QuestRewardKind.GrantPalette)
+                    palette = true;
+            }
+        }
+        if (palette)
+        {
+            for (int r = 0; r < ProducibleChannels.Length; r++)
+            {
+                for (int g = 0; g < ProducibleChannels.Length; g++)
+                {
+                    for (int b = 0; b < ProducibleChannels.Length; b++)
+                        RememberPixel(pixels, ProducibleChannels[r], ProducibleChannels[g], ProducibleChannels[b]);
+                }
+            }
+        }
+        return pixels.ToArray();
+    }
+
+    void RememberPixel(List<MessagePixelSnap> pixels, int r, int g, int b)
+    {
+        if (CurPixels == null || r < 0 || g < 0 || b < 0 || r > 255 || g > 255 || b > 255)
+            return;
+        for (int i = 0; i < pixels.Count; i++)
+        {
+            if (pixels[i].R == r && pixels[i].G == g && pixels[i].B == b)
+                return;
+        }
+        MessagePixelSnap snap = new MessagePixelSnap();
+        snap.R = r;
+        snap.G = g;
+        snap.B = b;
+        snap.Count = CurPixels[r, g, b];
+        pixels.Add(snap);
+    }
+
+    static void SpendRgb(ref ulong current, long amount)
+    {
+        if (amount <= 0)
+            return;
+        ulong spend = (ulong)amount;
+        if (current < spend)
+            throw new System.InvalidOperationException("RGBが足りません");
+        current -= spend;
+    }
+
+    void SpendPixel(int r, int g, int b, long count)
+    {
+        if (count <= 0 || CurPixels == null)
+            return;
+        if (r < 0 || g < 0 || b < 0 || r > 255 || g > 255 || b > 255)
+            throw new System.InvalidOperationException("ピクセルの色がありません");
+        ulong need = (ulong)count;
+        if (CurPixels[r, g, b] < need)
+            throw new System.InvalidOperationException("ピクセルが足りません");
+        CurPixels[r, g, b] -= need;
+    }
+
+    bool OwnedClips(uint characterId, long count)
+    {
+        if (count <= 0)
+            return false;
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null)
+            return false;
+        character.EnsureStock();
+        int cap = BattleBalance != null ? BattleBalance.MaxLives : BattleBalanceConfig.MaxOwnedCount;
+        return character.Stock.Total + count > cap;
+    }
+
+    bool SlotClips(int choice, long amount)
+    {
+        int add = amount > int.MaxValue ? int.MaxValue : (int)amount;
+        if (add < 1)
+            add = 1;
+        bool pixel = choice != 2;
+        bool character = choice != 1;
+        if (pixel && Slots.PixelSlots + add > Constants.PRODUCTION_SLOT_MAX)
+            return true;
+        if (character && Slots.CharacterSlots + add > Constants.PRODUCTION_SLOT_MAX)
+            return true;
+        return false;
+    }
+
+    static string JoinWarning(string text, string next)
+    {
+        if (string.IsNullOrEmpty(next))
+            return text;
+        if (string.IsNullOrEmpty(text))
+            return next;
+        return text + "\n" + next;
+    }
+
+    string GiftLine(MessageGift gift)
+    {
+        if (gift == null)
+            return "";
+        if (gift.Kind == MessageGiftKind.Rgb)
+            return "R " + gift.R.ToString() + "  G " + gift.G.ToString() + "  B " + gift.B.ToString();
+        if (gift.Kind == MessageGiftKind.Pixel)
+            return "ピクセル (" + gift.R.ToString() + "," + gift.G.ToString() + "," + gift.B.ToString() + ") x" + gift.Count.ToString();
+        if (gift.Kind == MessageGiftKind.Owned)
+            return CharacterLabel(gift.CharacterId) + " x" + gift.Count.ToString();
+        if (gift.Kind == MessageGiftKind.Affection)
+            return "好感度 +" + gift.Count.ToString();
+        if (gift.Kind == MessageGiftKind.QuestReward)
+            return gift.Reward.ToString() + " +" + gift.RewardAmount.ToString();
+        return "";
+    }
+
+    string CostLine(MessageCost cost)
+    {
+        if (cost == null)
+            return "";
+        if (cost.Kind == MessagePayKind.Rgb)
+            return "渡す R " + CurR.ToString() + "/" + cost.R.ToString() + "  G " + CurG.ToString() + "/" + cost.G.ToString() + "  B " + CurB.ToString() + "/" + cost.B.ToString();
+        if (cost.Kind == MessagePayKind.Pixel)
+            return "渡すピクセル " + PixelStock((int)cost.R, (int)cost.G, (int)cost.B).ToString() + "/" + cost.Count.ToString();
+        if (cost.Kind == MessagePayKind.Owned)
+        {
+            CharacterClass character = GetCharacter(cost.CharacterId);
+            long have = 0;
+            if (character != null)
+            {
+                character.EnsureStock();
+                have = character.Stock.Total;
+            }
+            return "渡す " + CharacterLabel(cost.CharacterId) + " " + have.ToString() + "/" + cost.Count.ToString();
+        }
+        return "";
+    }
+
+    string CharacterLabel(uint characterId)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null || string.IsNullOrEmpty(character.Name))
+            return "キャラ" + characterId.ToString();
+        return character.Name;
+    }
 }
 
 public class RgbButtonPressGlow : MonoBehaviour, IPointerDownHandler
