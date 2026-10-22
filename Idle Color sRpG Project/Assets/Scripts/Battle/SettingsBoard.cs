@@ -26,7 +26,8 @@ public sealed class SettingsBoard
         get { return _root != null && _root.activeSelf; }
     }
 
-    public void Build(Transform parent, Font font, Action<int> onCap, Action<bool> onAdConfirm, Action onSave, Action onDeleteSave)
+    // RELEASE_REMOVE_TEST_GRANTS: リリース用ビルドの前に、このテストボタンと呼び出しを消す。
+    public void Build(Transform parent, Font font, Action<int> onCap, Action<bool> onAdConfirm, Action onSave, Action onDeleteSave, Action onAddRgb, Action onAddPixels, Action onAddOwned)
     {
         _font = font;
         _onCap = onCap;
@@ -114,6 +115,15 @@ public sealed class SettingsBoard
         _saveStatus.text = "";
         _saveStatus.color = new Color(0.78f, 0.80f, 0.84f, 1f);
         StretchTop(_saveStatus.rectTransform, 24f, 24f, 812f, 48f);
+
+        // RELEASE_REMOVE_TEST_GRANTS: 設定画面下部のテストボタン。リリース用ビルドの前に消す。
+        Text testLabel = CreateText("TextSettingsTest", _root.transform, 22, TextAnchor.MiddleCenter);
+        testLabel.text = "テスト用";
+        testLabel.color = new Color(0.95f, 0.72f, 0.45f, 1f);
+        PlaceBottomLabel(testLabel.rectTransform, 132f);
+        PlaceTestButton("ButtonSettingsTestRgb", "RGB+10000", 0, onAddRgb);
+        PlaceTestButton("ButtonSettingsTestPixels", "全ピクセル+100", 1, onAddPixels);
+        PlaceTestButton("ButtonSettingsTestOwned", "所持数+10", 2, onAddOwned);
 
         Paint();
         PaintAdConfirm();
@@ -226,6 +236,37 @@ public sealed class SettingsBoard
         text.verticalOverflow = VerticalWrapMode.Truncate;
         text.raycastTarget = false;
         return text;
+    }
+
+    void PlaceTestButton(string name, string label, int index, Action onClick)
+    {
+        Button button = CreateButton(name, _root.transform, label, new Color(0.42f, 0.32f, 0.14f, 1f));
+        RectTransform rect = button.GetComponent<RectTransform>();
+        float slot = 1f / 3f;
+        rect.anchorMin = new Vector2(index * slot, 0f);
+        rect.anchorMax = new Vector2((index + 1f) * slot, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        float left = index == 0 ? 24f : 8f;
+        float right = index == 2 ? 24f : 8f;
+        rect.offsetMin = new Vector2(left, 28f);
+        rect.offsetMax = new Vector2(-right, 116f);
+        Text text = button.GetComponentInChildren<Text>();
+        if (text != null)
+            text.fontSize = 24;
+        button.onClick.AddListener(() =>
+        {
+            if (onClick != null)
+                onClick();
+        });
+    }
+
+    static void PlaceBottomLabel(RectTransform rect, float yFromBottom)
+    {
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.offsetMin = new Vector2(24f, yFromBottom);
+        rect.offsetMax = new Vector2(-24f, yFromBottom + 36f);
     }
 
     static void PlaceTop(RectTransform rect, float yFromTop, float x, float width, float height)

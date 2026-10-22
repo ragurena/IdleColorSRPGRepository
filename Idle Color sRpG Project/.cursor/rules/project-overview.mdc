@@ -35,6 +35,8 @@ RGB生産 → ピクセル生産 → キャラ生産 の流れでキャラを増
 
 Android の本番アプリ ID と報酬型ユニット ID はコードに入っている。iOS の ID は空のまま。
 
+リリース用ビルドを作る前に、設定画面下部のテストボタンを消す。対象は RGB+10000、全ピクセル+100、全モンスター所持数+10。印は `RELEASE_REMOVE_TEST_GRANTS`。`SettingsBoard` のボタン、`ControllerBattleClass` の呼び出し、`ControllerProduction` の `DebugGrantRgb` / `DebugGrantAllPixels` / `DebugGrantOwned` をまとめて削除する。「広告の確認」のときも、この削除が残っていないか見る。
+
 ## Git
 - ヒトハさんは Git に不慣れ。「コミットプッシュして」と言われたら `master` にコミット・プッシュしてよい
 - コミットするのは作業に関係するファイルだけ(スクリプト、`.meta`、変更したシーン等)。確認してから add する

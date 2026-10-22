@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -1573,7 +1574,7 @@ public class ControllerBattleClass : MonoBehaviour
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
         _settings = new SettingsBoard();
-        _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, PushSettingsSave, PushSettingsDeleteSave);
+        _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
         BringQuestForward();
     }
 
@@ -1753,6 +1754,31 @@ public class ControllerBattleClass : MonoBehaviour
             return;
         bool saved = _production.SaveGame();
         _settings.SetSaveStatus(saved ? "保存しました" : "保存できませんでした");
+    }
+
+    // RELEASE_REMOVE_TEST_GRANTS: 設定画面のテストボタン。リリース用ビルドの前に消す。
+    void PushSettingsTestRgb()
+    {
+        GrantFromSettings(() => _production.DebugGrantRgb(10000), "RGBを+10000しました");
+    }
+
+    void PushSettingsTestPixels()
+    {
+        GrantFromSettings(() => _production.DebugGrantAllPixels(100), "全ピクセルを+100しました");
+    }
+
+    void PushSettingsTestOwned()
+    {
+        GrantFromSettings(() => _production.DebugGrantOwned(10), "所持数を+10しました");
+    }
+
+    void GrantFromSettings(Action grant, string message)
+    {
+        if (_production == null || _settings == null || grant == null)
+            return;
+        grant();
+        bool saved = _production.SaveGame();
+        _settings.SetSaveStatus(saved ? message : "追加しましたが保存できませんでした");
     }
 
     void PushSettingsDeleteSave()

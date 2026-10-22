@@ -3374,6 +3374,95 @@ public class ControllerProduction : MonoBehaviour
             CurPixels[r, g, b] = current + add;
     }
 
+    // RELEASE_REMOVE_TEST_GRANTS: 設定画面のテストボタン。リリース用ビルドの前に消す。
+    public void DebugGrantRgb(ulong amount)
+    {
+        GrantDebugRgb(ref CurR, ref MaxR, amount);
+        GrantDebugRgb(ref CurG, ref MaxG, amount);
+        GrantDebugRgb(ref CurB, ref MaxB, amount);
+        UpdateRGBProductionScene();
+    }
+
+    // RELEASE_REMOVE_TEST_GRANTS: 階調の全色に足す。バイト全通りに足すとセーブが膨らむ。
+    public void DebugGrantAllPixels(ulong amount)
+    {
+        if (CurPixels == null || amount == 0 || GameConfig.GRADATION_LEVELS <= 0)
+            return;
+        if (amount > (ulong)long.MaxValue)
+            amount = (ulong)long.MaxValue;
+        int[] colors = GradationColors();
+        for (int r = 0; r < colors.Length; r++)
+        {
+            for (int g = 0; g < colors.Length; g++)
+            {
+                for (int b = 0; b < colors.Length; b++)
+                    AddBattlePixels(colors[r], colors[g], colors[b], (long)amount);
+            }
+        }
+        if (CharactersIDProductionPixel != null)
+        {
+            for (int i = 1; i < CharactersIDProductionPixel.Length; i++)
+                UpdateSliderPixelProduction(i);
+        }
+        RefreshPixelListCounts();
+    }
+
+    // RELEASE_REMOVE_TEST_GRANTS: 登録済みのモンスター全員に足す。上限は所持数の最大。
+    public void DebugGrantOwned(int amount)
+    {
+        if (CharactersAll == null || amount <= 0)
+            return;
+        int cap = BattleBalance != null ? BattleBalance.MaxLives : BattleBalanceConfig.MaxOwnedCount;
+        for (int i = 0; i < CharactersAll.Length; i++)
+        {
+            CharacterClass character = CharactersAll[i];
+            if (character == null || character.ID == 0)
+                continue;
+            character.GainOwned(amount, cap);
+        }
+        ShowCharacterOwnedNum();
+    }
+
+    static void GrantDebugRgb(ref ulong current, ref ulong max, ulong amount)
+    {
+        if (amount == 0)
+            return;
+        if (ulong.MaxValue - current < amount)
+            current = ulong.MaxValue;
+        else
+            current += amount;
+        if (current > max)
+            max = current;
+    }
+
+    static int[] GradationColors()
+    {
+        int colorStep = 256 / GameConfig.GRADATION_LEVELS;
+        if (colorStep < 1)
+            colorStep = 1;
+        int limit = 256 / colorStep;
+        int[] colors = new int[limit + 1];
+        int count = 0;
+        int previous = -1;
+        for (int index = 0; index <= limit; index++)
+        {
+            int color = index * colorStep;
+            if (color > 255)
+                color = 255;
+            if (color == previous)
+                continue;
+            colors[count] = color;
+            count++;
+            previous = color;
+        }
+        if (count == colors.Length)
+            return colors;
+        int[] trimmed = new int[count];
+        for (int i = 0; i < count; i++)
+            trimmed[i] = colors[i];
+        return trimmed;
+    }
+
     void AddRgbChannel(ref ulong current, ulong max, long amount, int channel)
     {
         if (amount <= 0)
@@ -5536,6 +5625,7 @@ public class ControllerProduction : MonoBehaviour
             chip.type = Image.Type.Sliced;
         }
         ShowPixelColorHalo(swatch);
+        ApplyPixelColorInkFrame(swatch, PixelColorInk(chip.color));
         StylePixelListNumber(FindPixelListText(card.transform, "TextPixelNumR"), 0);
         StylePixelListNumber(FindPixelListText(card.transform, "TextPixelNumG"), 1);
         StylePixelListNumber(FindPixelListText(card.transform, "TextPixelNumB"), 2);
@@ -5659,15 +5749,12 @@ public class ControllerProduction : MonoBehaviour
         colorButton.colors = colors;
         colorButton.interactable = targetsOpen;
 
-        if (((ColorProductionPixel[argIndex].r + ColorProductionPixel[argIndex].g + ColorProductionPixel[argIndex].b) / 3.0f) < 0.5f)
-        {
-            colorButton.image.GetComponentInChildren<Text>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-        }
-        else
-        {
-            colorButton.image.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-        }
+        Color ink = PixelColorInk(colorButton.image.color);
+        Text colorCode = colorButton.image.GetComponentInChildren<Text>();
+        if (colorCode != null)
+            colorCode.color = ink;
         ShowPixelColorHalo(colorButton.transform);
+        ApplyPixelColorInkFrame(colorButton.transform, ink);
 
         //RGB値の表示
         uint pixelCount = PixelYield(argIndex);
@@ -5817,6 +5904,12 @@ public class ControllerProduction : MonoBehaviour
         Image chip = image.GetComponent<Image>();
         if (chip == null)
             return;
+        if (imageName == "ImagePixelColorG")
+        {
+            Color green = new Color(0f, 0.82f, 0f, 1f);
+            if (chip.color != green)
+                chip.color = green;
+        }
         if (imageName == "ImagePixelColorB")
         {
             Color blue = new Color(0.12f, 0.16f, 1f, 1f);
@@ -5839,6 +5932,71 @@ public class ControllerProduction : MonoBehaviour
     }
 
     static Sprite _pixelColorFrame;
+    static Sprite _pixelInkFrame;
+
+    // 色コードの文字と同じ。平均が暗いときは白、明るいときは黒。
+    static Color PixelColorInk(Color color)
+    {
+        if ((color.r + color.g + color.b) / 3f < 0.5f)
+            return Color.white;
+        return Color.black;
+    }
+
+    static void ApplyPixelColorInkFrame(Transform host, Color ink)
+    {
+        if (host == null)
+            return;
+        Transform existing = host.Find("ColorInkFrame");
+        Image frame = existing != null ? existing.GetComponent<Image>() : null;
+        if (frame == null)
+        {
+            GameObject obj = new GameObject("ColorInkFrame", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(host, false);
+            frame = obj.GetComponent<Image>();
+            frame.raycastTarget = false;
+            frame.sprite = PixelInkFrameSprite();
+            frame.type = Image.Type.Sliced;
+            RectTransform rect = frame.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+        if (frame.color != ink)
+            frame.color = ink;
+        frame.transform.SetAsLastSibling();
+        Text label = host.GetComponentInChildren<Text>();
+        if (label != null)
+            label.transform.SetAsLastSibling();
+    }
+
+    static Sprite PixelInkFrameSprite()
+    {
+        if (_pixelInkFrame != null)
+            return _pixelInkFrame;
+        const int size = 16;
+        const int border = 3;
+        Color32[] pixels = new Color32[size * size];
+        Color32 line = new Color32(255, 255, 255, 255);
+        Color32 clear = new Color32(255, 255, 255, 0);
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                bool edge = x < border || y < border || x >= size - border || y >= size - border;
+                pixels[y * size + x] = edge ? line : clear;
+            }
+        }
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        texture.filterMode = FilterMode.Point;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.SetPixels32(pixels);
+        texture.Apply(false, true);
+        _pixelInkFrame = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(border, border, border, border));
+        _pixelInkFrame.hideFlags = HideFlags.HideAndDontSave;
+        return _pixelInkFrame;
+    }
 
     // 対象カラーのボタンと同じ枠。縁の黒い線は、このスプライトの枠。
     static Sprite PixelColorFrameSprite(Transform row)
