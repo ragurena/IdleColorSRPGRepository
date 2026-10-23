@@ -4158,6 +4158,7 @@ public class ControllerProduction : MonoBehaviour
         image.transform.SetAsFirstSibling();
         StyleChromeButtons(PanelRGBProduction);
         StyleChemSliders(PanelRGBProduction);
+        EnsureRgbBarTaps();
 
         Image panelImage = PanelRGBProduction.GetComponent<Image>();
         if (panelImage != null)
@@ -4180,6 +4181,115 @@ public class ControllerProduction : MonoBehaviour
                 continue;
             childImage.enabled = false;
         }
+    }
+
+    // バーの左半分は左のRGB+、右半分は右のRGB+と同じく押したことにする。
+    void EnsureRgbBarTaps()
+    {
+        EnsureRgbBarTap(SliderR, TextR);
+        EnsureRgbBarTap(SliderG, TextG);
+        EnsureRgbBarTap(SliderB, TextB);
+    }
+
+    void EnsureRgbBarTap(Slider slider, Text valueText)
+    {
+        if (slider == null)
+            return;
+        Button[] plus = RgbPlusButtons(slider);
+        if (plus.Length < 2)
+            return;
+        if (valueText != null)
+            valueText.raycastTarget = false;
+
+        EnsureRgbBarTapButton(slider.transform, "RgbBarTapLeft", 0f, 0.5f, plus[0]);
+        EnsureRgbBarTapButton(slider.transform, "RgbBarTapRight", 0.5f, 1f, plus[1]);
+    }
+
+    static Button[] RgbPlusButtons(Slider slider)
+    {
+        string buttonName = RgbPlusButtonName(slider);
+        Transform parent = slider.transform.parent;
+        if (buttonName == null || parent == null)
+            return new Button[0];
+
+        List<Button> found = new List<Button>();
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            Transform child = parent.GetChild(i);
+            if (child.name != buttonName)
+                continue;
+            Button button = child.GetComponent<Button>();
+            if (button != null)
+                found.Add(button);
+        }
+        found.Sort((a, b) => a.GetComponent<RectTransform>().anchoredPosition.x.CompareTo(b.GetComponent<RectTransform>().anchoredPosition.x));
+        return found.ToArray();
+    }
+
+    static string RgbPlusButtonName(Slider slider)
+    {
+        int channel = SliderChannel(slider.name);
+        if (channel == 0)
+            return "ButtonR";
+        if (channel == 1)
+            return "ButtonG";
+        if (channel == 2)
+            return "ButtonB";
+        return null;
+    }
+
+    static Sprite RgbBarTapSprite;
+
+    void EnsureRgbBarTapButton(Transform slider, string name, float anchorMinX, float anchorMaxX, Button source)
+    {
+        Transform existing = slider.Find(name);
+        GameObject obj;
+        if (existing == null)
+        {
+            obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(RgbBarTap));
+            obj.transform.SetParent(slider, false);
+        }
+        else
+            obj = existing.gameObject;
+
+        RectTransform rect = obj.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(anchorMinX, 0f);
+        rect.anchorMax = new Vector2(anchorMaxX, 1f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+
+        Image image = obj.GetComponent<Image>();
+        image.sprite = RgbBarTapFill();
+        image.type = Image.Type.Simple;
+        image.color = new Color(1f, 1f, 1f, 0f);
+        image.raycastTarget = true;
+
+        Button button = obj.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.None;
+        Navigation navigation = button.navigation;
+        navigation.mode = Navigation.Mode.None;
+        button.navigation = navigation;
+
+        RgbBarTap tap = obj.GetComponent<RgbBarTap>();
+        tap.Production = this;
+        tap.Source = source;
+        tap.Bind(button);
+        obj.transform.SetAsLastSibling();
+    }
+
+    static Sprite RgbBarTapFill()
+    {
+        if (RgbBarTapSprite != null)
+            return RgbBarTapSprite;
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.SetPixel(0, 0, Color.white);
+        texture.Apply();
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        RgbBarTapSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+        RgbBarTapSprite.hideFlags = HideFlags.HideAndDontSave;
+        return RgbBarTapSprite;
     }
 
     static int RgbBackgroundWidth;
@@ -9610,6 +9720,33 @@ public class ControllerProduction : MonoBehaviour
         if (character == null || string.IsNullOrEmpty(character.Name))
             return "キャラ" + characterId.ToString();
         return character.Name;
+    }
+}
+
+public class RgbBarTap : MonoBehaviour, IPointerDownHandler
+{
+    public ControllerProduction Production;
+    public Button Source;
+
+    public void Bind(Button button)
+    {
+        if (button == null)
+            return;
+        button.onClick.RemoveListener(Press);
+        button.onClick.AddListener(Press);
+    }
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        if (Production != null)
+            Production.PlayButtonPressGlow(Source);
+    }
+
+    public void Press()
+    {
+        if (Source == null || !Source.isActiveAndEnabled || !Source.interactable)
+            return;
+        Source.onClick.Invoke();
     }
 }
 
