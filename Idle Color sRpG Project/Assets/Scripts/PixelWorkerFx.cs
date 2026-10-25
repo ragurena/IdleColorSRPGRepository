@@ -57,6 +57,27 @@ public class PixelWorkerFx : MonoBehaviour
         RestoreBody();
         if (_aura != null)
             _aura.gameObject.SetActive(false);
+        Transform leftover = transform.Find("PixelWorkerAura");
+        if (leftover != null && leftover != _aura)
+            leftover.gameObject.SetActive(false);
+        enabled = false;
+    }
+
+    // 行を複製したとき、元の担当と光の実体を壊さないよう参照だけ外す。
+    public void DiscardSharedCopy()
+    {
+        _outlineSprite = null;
+        _outlineKey = 0;
+        _aura = null;
+        _silhouette = null;
+        _sparks = null;
+        _sparkRts = null;
+        _button = null;
+        _buttonRt = null;
+        _restReady = false;
+        _shaking = false;
+        _pulse = false;
+        _bursting = false;
         enabled = false;
     }
 

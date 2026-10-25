@@ -528,6 +528,7 @@ public class ControllerProduction : MonoBehaviour
         if (TimeElapsed >= TimeOut)
         {
             TimeElapsed = 0;
+            CharacterWorkerFx.NoteProgressTick();
             if (_onRgbSlot == null)
                 _onRgbSlot = NoteRgbSlot;
             _pendingRgbFx.Clear();
@@ -577,10 +578,12 @@ public class ControllerProduction : MonoBehaviour
             {
                 uint personId = PersonIdProductionCharacter[i];
                 CharacterClass productionWorker = personId == 0 ? CharacterOf(CharactersIDProductionCharacter[i]) : null;
-                if (CharactersIDProducedCharacter[i] == 0)
+                if (CharactersIDProducedCharacter[i] == 0
+                    || (personId == 0 && (CharactersIDProductionCharacter[i] == 0 || productionWorker == null)))
+                {
+                    SyncCharacterWorkerMotion(i, false, false);
                     continue;
-                if (personId == 0 && (CharactersIDProductionCharacter[i] == 0 || productionWorker == null))
-                    continue;
+                }
 
                 int paintRate;
                 if (personId != 0)
@@ -588,7 +591,10 @@ public class ControllerProduction : MonoBehaviour
                     PersonClass painter = PersonAt((int)personId);
                     CharacterClass producedNow = CharacterOf(CharactersIDProducedCharacter[i]);
                     if (painter == null || producedNow == null)
+                    {
+                        SyncCharacterWorkerMotion(i, false, false);
                         continue;
+                    }
                     bool author = producedNow.AuthorPersonId == painter.Id;
                     long amount = painter.CharacterAmount(author, PersonBalance);
                     if (amount < 1)
@@ -611,6 +617,7 @@ public class ControllerProduction : MonoBehaviour
                     ProductionCharacterFlag = true;
                 if (RC == false)
                     RepeatComplete = false;
+                SyncCharacterWorkerMotion(i, PCF, painted);
             }
             RefreshProductionFigures();
             if(ProductionCharacterFlag)
@@ -625,6 +632,7 @@ public class ControllerProduction : MonoBehaviour
             //絵を塗り直したあとで出す。跳ねる絵は今のスプライトを使う
             PlayPendingRgbFx();
         }
+        CharacterWorkerFx.SetProgressClock(TimeElapsed, TimeOut);
     }
 
     void NoteRgbSlot(int index, ulong amount, bool person)
@@ -2809,6 +2817,7 @@ public class ControllerProduction : MonoBehaviour
         bool RepeatComplete;
         bool paintedPixel;
         ProductionCharacter(Trigger.User, ProductionCharacterIndex, 1, out ProductionCharacterFlag, out RepeatComplete, out paintedPixel);
+        SyncCharacterWorkerMotion(ProductionCharacterIndex, ProductionCharacterFlag, paintedPixel);
         if (paintedPixel || ProductionCharacterFlag)
             UpdateProductionCharacterProgressImage(ProductionCharacterIndex);
         RefreshProductionFigures();
@@ -5276,6 +5285,73 @@ public class ControllerProduction : MonoBehaviour
             fx.Show(PixelWorkerAuraColor(index), advanced, moveBody);
     }
 
+    void SyncCharacterWorkerMotion(int index, bool completed, bool working)
+    {
+        Button button = CharacterWorkerButton(index);
+        if (button == null)
+            return;
+        CharacterWorkerFx fx = button.GetComponent<CharacterWorkerFx>();
+        bool person = index >= 1 && index < PersonIdProductionCharacter.Length && PersonIdProductionCharacter[index] != 0;
+        if (!button.gameObject.activeInHierarchy || !CharacterWorkerAssigned(index) || (!working && !completed))
+        {
+            if (fx != null)
+                fx.Hide();
+            return;
+        }
+        Color tint = CharacterWorkerTint(index);
+        if (person)
+        {
+            if (completed)
+                CharacterWorkerFx.Attach(button).Celebrate(tint, false);
+            else if (fx != null)
+                fx.Hide();
+            return;
+        }
+        fx = CharacterWorkerFx.Attach(button);
+        if (completed)
+            fx.Celebrate(tint, true);
+        else
+            fx.Work(tint);
+    }
+
+    bool CharacterWorkerAssigned(int index)
+    {
+        if (index < 1 || index >= PersonIdProductionCharacter.Length)
+            return false;
+        if (PersonIdProductionCharacter[index] != 0)
+            return PersonAt((int)PersonIdProductionCharacter[index]) != null;
+        uint id = CharactersIDProductionCharacter[index];
+        CharacterClass worker = id == 0 ? null : CharacterOf(id);
+        return worker != null && worker.ID == id;
+    }
+
+    Color CharacterWorkerTint(int index)
+    {
+        CharacterClass produced = index >= 0 && index < CharactersIDProducedCharacter.Length
+            ? CharacterOf(CharactersIDProducedCharacter[index])
+            : null;
+        Color color = RepresentativeColor(produced);
+        color.a = 1f;
+        return color;
+    }
+
+    Button CharacterWorkerButton(int index)
+    {
+        GameObject list = GameObject.Find("ContentCharacterProductionList");
+        if (list == null)
+            return null;
+        Transform row = list.transform.Find("PrefabOneCharacterProduction" + index.ToString("00"));
+        if (row == null)
+            return null;
+        Button[] buttons = row.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            if (buttons[i].name.Contains("ButtonCharacterProductionCharacter"))
+                return buttons[i];
+        }
+        return null;
+    }
+
     bool PixelWorkerBodyMoves(int index)
     {
         return PersonIdProductionPixel[index] == 0;
@@ -6635,6 +6711,9 @@ public class ControllerProduction : MonoBehaviour
             if (shownCharacter == null || shownCharacter.ImageTexture2D == null)
             {
                 ClearWorkerFace(button, "+");
+                CharacterWorkerFx idle = button.GetComponent<CharacterWorkerFx>();
+                if (idle != null)
+                    idle.Hide();
                 SyncPersonSkillBar(button);
                 return;
             }
@@ -6787,8 +6866,10 @@ public class ControllerProduction : MonoBehaviour
 
     void ApplyConsumePixelRow(GameObject row, ConsumePixelClass consumePixel)
     {
-        Image swatch = row.GetComponentsInChildren<Image>()[1];
-        if (swatch.color != consumePixel.PixelColor)
+        // 枠の光を足すと子の Image が増える。並びの2枚目は色マスではなくなるので、名前で取る。
+        Transform swatchTransform = row.transform.Find("ImagePixelColor");
+        Image swatch = swatchTransform != null ? swatchTransform.GetComponent<Image>() : null;
+        if (swatch != null && swatch.color != consumePixel.PixelColor)
             swatch.color = consumePixel.PixelColor;
         Text[] texts = row.GetComponentsInChildren<Text>();
         string rText = ColorByte(consumePixel.PixelColor.r).ToString();
@@ -9363,6 +9444,7 @@ public class ControllerProduction : MonoBehaviour
                 UpdateCharacterPixelProduction(i);
                 UpdatePixelColorPixelProduction(i);
                 UpdateSliderPixelProduction(i);
+                RefreshPixelWorkerLook(i);
             }
         }
         if (GameObject.Find("ContentCharacterProductionList") != null)
@@ -9419,6 +9501,66 @@ public class ControllerProduction : MonoBehaviour
             clone.name = rowPrefix + suffix;
             RenameSlotTree(clone.transform, "01", suffix);
             RetargetSlotButtons(clone.transform);
+            StripCopiedSlotRuntime(clone.transform);
+        }
+    }
+
+    // 1行目を複製すると、今ついている担当の絵とオーラまで付いてくる。新しい枠は空なので外す。
+    static void StripCopiedSlotRuntime(Transform root)
+    {
+        PixelWorkerFx[] fxs = root.GetComponentsInChildren<PixelWorkerFx>(true);
+        for (int i = 0; i < fxs.Length; i++)
+        {
+            PixelWorkerFx fx = fxs[i];
+            if (fx == null)
+                continue;
+            fx.DiscardSharedCopy();
+            UnityEngine.Object.Destroy(fx);
+        }
+
+        CharacterWorkerFx[] workers = root.GetComponentsInChildren<CharacterWorkerFx>(true);
+        for (int i = 0; i < workers.Length; i++)
+        {
+            CharacterWorkerFx workerFx = workers[i];
+            if (workerFx == null)
+                continue;
+            workerFx.DiscardSharedCopy();
+            UnityEngine.Object.Destroy(workerFx);
+        }
+
+        ShownProductionWorker[] shown = root.GetComponentsInChildren<ShownProductionWorker>(true);
+        for (int i = 0; i < shown.Length; i++)
+        {
+            ShownProductionWorker worker = shown[i];
+            if (worker == null)
+                continue;
+            Button button = worker.GetComponent<Button>();
+            if (button != null && button.image != null && worker.OwnedSprite != null && button.image.sprite == worker.OwnedSprite)
+                button.image.sprite = null;
+            worker.OwnedSprite = null;
+            worker.PersonId = 0;
+            worker.CharacterId = 0;
+        }
+
+        DisableNamedDescendants(root, "PixelWorkerAura");
+        DisableNamedDescendants(root, "CharacterWorkerSparks");
+        DisableNamedDescendants(root, "CharacterWorkerBack");
+        DisableNamedDescendants(root, "CharacterWorkerFront");
+        DisableNamedDescendants(root, "CharacterWorkerFigure");
+    }
+
+    static void DisableNamedDescendants(Transform root, string objectName)
+    {
+        for (int i = root.childCount - 1; i >= 0; i--)
+        {
+            Transform child = root.GetChild(i);
+            if (child.name == objectName)
+            {
+                child.gameObject.SetActive(false);
+                UnityEngine.Object.Destroy(child.gameObject);
+                continue;
+            }
+            DisableNamedDescendants(child, objectName);
         }
     }
 
