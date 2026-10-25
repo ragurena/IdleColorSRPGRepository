@@ -1001,8 +1001,12 @@ public class CharacterClass //: MonoBehaviour
         long level = (long)Level;
         if (level < 1)
             level = 1;
-        if (level > config.MaxLevel)
+        bool levelCapped = level > config.MaxLevel;
+        if (levelCapped)
+        {
             level = config.MaxLevel;
+            Level = (ulong)level;
+        }
 
         long baseHp = ToStatLong(Stats[1].HPMax);
         long baseAtk = ToStatLong(Stats[1].ATK);
@@ -1055,6 +1059,8 @@ public class CharacterClass //: MonoBehaviour
         if (need < 1)
             need = 1;
         ExpMax = (ulong)need;
+        if (levelCapped && Exp >= ExpMax)
+            Exp = ExpMax - 1;
         CalcTotalStats();
     }
 

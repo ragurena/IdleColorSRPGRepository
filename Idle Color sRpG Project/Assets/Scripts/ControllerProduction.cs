@@ -356,6 +356,8 @@ public class ControllerProduction : MonoBehaviour
         //ImportedCharacters.FindAny(CharactersAll, (uint)(1)).MakeCharacter(Application.dataPath + "/Resources/" + "Character/RedSlime8" + ".png", 1, "LittleRedSlime");
         string acceptedVersion;
         bool acceptedSave = TryRestoreSave(out acceptedVersion);
+        ApplyCharacterLevelCap();
+        ApplyFusionCountCap();
         bool rebuildImages = acceptedSave
             && !string.IsNullOrEmpty(acceptedVersion)
             && SaveClass.IsOlderThan(acceptedVersion, GameConfig.ImageDataVersion);
@@ -1057,6 +1059,8 @@ public class ControllerProduction : MonoBehaviour
         AdWatchConfirm = true;
         BattleRepeat = false;
         ClearedBattleStage = 0;
+        ApplyCharacterLevelCap();
+        ApplyFusionCountCap();
 
         if (ConsumePixelsProductionCharacter != null)
         {
@@ -3266,6 +3270,8 @@ public class ControllerProduction : MonoBehaviour
         if (ActiveBattleStage > ClearedBattleStage)
             ClearedBattleStage = ActiveBattleStage;
         MarkBattleFloorCleared(ActiveBattleStage, Constants.BATTLE_STAGE_FLOOR_MAX);
+        ApplyCharacterLevelCap();
+        ApplyFusionCountCap();
         ApplyFusionButtonLock();
         return true;
     }
@@ -6359,7 +6365,7 @@ public class ControllerProduction : MonoBehaviour
         StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpCharacterProductionRight"), color);
     }
 
-    static Color RepresentativeColor(CharacterClass character)
+    public static Color RepresentativeColor(CharacterClass character)
     {
         if (character == null)
             return Color.black;
@@ -6390,7 +6396,8 @@ public class ControllerProduction : MonoBehaviour
         if (button == null)
             return;
         RgbButtonPressGlow glow = button.GetComponent<RgbButtonPressGlow>();
-        if (glow != null && glow.UseTint && SameRgb(glow.Tint, color) && buttonTransform.Find("NeonFrame") != null)
+        Transform neonFrame = buttonTransform.Find("NeonFrame");
+        if (glow != null && glow.UseTint && SameRgb(glow.Tint, color) && neonFrame != null && neonFrame.gameObject.activeSelf)
             return;
 
         Image image = button.targetGraphic as Image;
@@ -6431,6 +6438,74 @@ public class ControllerProduction : MonoBehaviour
         glow.Channel = -1;
         glow.UseTint = true;
         glow.Tint = neon;
+    }
+
+    // 生産のスピードボタンと同じグラデ。色は Image に乗せる。押せないときは黒に戻す。
+    public void StyleRepresentativeButton(Button button, Color color, bool enabled)
+    {
+        if (button == null)
+            return;
+        if (!enabled)
+        {
+            ClearRepresentativeButton(button);
+            return;
+        }
+        button.interactable = true;
+        StylePixelSpeedButton(button.transform, color);
+    }
+
+    void ClearRepresentativeButton(Button button)
+    {
+        StopButtonPressGlow(button);
+        Transform neon = button.transform.Find("NeonFrame");
+        if (neon != null)
+            neon.gameObject.SetActive(false);
+        ColorBlock colors = button.colors;
+        colors.fadeDuration = 0f;
+        colors.normalColor = Color.black;
+        colors.highlightedColor = new Color(0.16f, 0.16f, 0.18f, 1f);
+        colors.pressedColor = new Color(0.28f, 0.28f, 0.3f, 1f);
+        colors.selectedColor = Color.black;
+        colors.disabledColor = Color.black;
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+        Image image = button.targetGraphic as Image;
+        if (image == null)
+            image = button.GetComponent<Image>();
+        if (image != null)
+        {
+            image.sprite = null;
+            image.type = Image.Type.Simple;
+            image.color = Color.white;
+            image.preserveAspect = false;
+        }
+        Text[] labels = button.GetComponentsInChildren<Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            GaugeTextGlow glow = labels[i].GetComponent<GaugeTextGlow>();
+            if (glow == null)
+                continue;
+            glow.Glow = new Color(0f, 0f, 0f, 0f);
+            glow.Spread = 0f;
+            labels[i].SetVerticesDirty();
+        }
+    }
+
+    void StopButtonPressGlow(Button button)
+    {
+        if (button == null)
+            return;
+        int id = button.GetInstanceID();
+        Coroutine running;
+        if (ButtonPressGlows.TryGetValue(id, out running) && running != null)
+            StopCoroutine(running);
+        ButtonPressGlows.Remove(id);
+        Transform wash = button.transform.Find("PressWash");
+        if (wash == null)
+            return;
+        Image image = wash.GetComponent<Image>();
+        if (image != null)
+            image.color = new Color(1f, 1f, 1f, 0f);
     }
 
     static bool SameRgb(Color a, Color b)
@@ -6846,26 +6921,56 @@ public class ControllerProduction : MonoBehaviour
 
     void ApplyConsumePixelList(Transform content, int productionIndex)
     {
-        List<ConsumePixelClass> pixels = ConsumePixelsProductionCharacter[productionIndex];
+        if (content == null)
+            return;
+        // 消費リストは Start の途中で作る。未作成の枠のまま描画すると childCount の比較で落ちる。
+        List<ConsumePixelClass> pixels = EnsureConsumePixelList(productionIndex);
+        if (pixels == null)
+            return;
         if (content.childCount != pixels.Count)
         {
-            foreach (Transform child in content)
-                Destroy(child.gameObject);
+            for (int i = content.childCount - 1; i >= 0; i--)
+            {
+                Transform child = content.GetChild(i);
+                if (child != null)
+                    Destroy(child.gameObject);
+            }
 
+            GameObject prefab = Resources.Load<GameObject>("PrefabShowPixelColorAndNum");
+            if (prefab == null)
+                return;
             for (int i = 0; i < pixels.Count; i++)
             {
-                GameObject row = Instantiate((GameObject)Resources.Load("PrefabShowPixelColorAndNum"), content) as GameObject;
+                GameObject row = Instantiate(prefab, content);
                 ApplyConsumePixelRow(row, pixels[i]);
             }
             return;
         }
 
         for (int i = 0; i < pixels.Count; i++)
-            ApplyConsumePixelRow(content.GetChild(i).gameObject, pixels[i]);
+        {
+            Transform child = content.GetChild(i);
+            if (child == null)
+                continue;
+            ApplyConsumePixelRow(child.gameObject, pixels[i]);
+        }
+    }
+
+    List<ConsumePixelClass> EnsureConsumePixelList(int productionIndex)
+    {
+        if (ConsumePixelsProductionCharacter == null
+            || productionIndex < 0
+            || productionIndex >= ConsumePixelsProductionCharacter.Length)
+            return null;
+        if (ConsumePixelsProductionCharacter[productionIndex] == null)
+            ConsumePixelsProductionCharacter[productionIndex] = new List<ConsumePixelClass>();
+        return ConsumePixelsProductionCharacter[productionIndex];
     }
 
     void ApplyConsumePixelRow(GameObject row, ConsumePixelClass consumePixel)
     {
+        if (row == null || consumePixel == null)
+            return;
         // 枠の光を足すと子の Image が増える。並びの2枚目は色マスではなくなるので、名前で取る。
         Transform swatchTransform = row.transform.Find("ImagePixelColor");
         Image swatch = swatchTransform != null ? swatchTransform.GetComponent<Image>() : null;
@@ -7060,7 +7165,7 @@ public class ControllerProduction : MonoBehaviour
 
     static readonly Dictionary<int, OwnedListGlow> OwnedListGlows = new Dictionary<int, OwnedListGlow>();
 
-    static void EnsureOwnedAttributeGlow(Transform button, CharacterClass character)
+    public static void EnsureOwnedAttributeGlow(Transform button, CharacterClass character)
     {
         if (button == null || character == null || character.ImageTexture2D == null)
             return;
@@ -7109,7 +7214,7 @@ public class ControllerProduction : MonoBehaviour
             glow.color = color;
     }
 
-    static void RemoveAttributeGlow(Transform host)
+    public static void RemoveAttributeGlow(Transform host)
     {
         if (host == null)
             return;
@@ -8654,6 +8759,115 @@ public class ControllerProduction : MonoBehaviour
                 amount = 1;
             AddProductionSlots(amount, true, true);
         }
+        else if (def.Reward == QuestRewardKind.LevelCap)
+            RaiseCharacterLevelCap(def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount);
+        if (def.LevelCap > 0)
+            RaiseCharacterLevelCap(def.LevelCap);
+        if (def.FusionCap > 0)
+            RaiseFusionCountCap(def.FusionCap);
+    }
+
+    // クエストからレベル上限を上げる。今より低い値では下がらない。
+    public void RaiseCharacterLevelCap(int level)
+    {
+        if (BattleBalance == null)
+            BattleBalance = BattleBalanceConfig.CreateDefault();
+        if (level < BattleBalanceConfig.InitialLevelCap)
+            return;
+        if (level > BattleBalanceConfig.LevelCapCeiling)
+            level = BattleBalanceConfig.LevelCapCeiling;
+        int current = Quests.HasLevelCap ? Quests.LevelCap : BattleBalanceConfig.InitialLevelCap;
+        if (current < BattleBalanceConfig.InitialLevelCap)
+            current = BattleBalanceConfig.InitialLevelCap;
+        if (current > BattleBalanceConfig.LevelCapCeiling)
+            current = BattleBalanceConfig.LevelCapCeiling;
+        if (level < current)
+            level = current;
+        Quests.LevelCap = level;
+        Quests.HasLevelCap = true;
+        BattleBalance.MaxLevel = level;
+    }
+
+    // クエストから合成回数の上限を上げる。今より低い値では下がらない。
+    public void RaiseFusionCountCap(int count)
+    {
+        if (count < FusionBonus.InitialCap)
+            return;
+        if (count > FusionBonus.CapCeiling)
+            count = FusionBonus.CapCeiling;
+        int current = Quests.HasFusionCap ? Quests.FusionCap : FusionBonus.InitialCap;
+        if (current < FusionBonus.InitialCap)
+            current = FusionBonus.InitialCap;
+        if (current > FusionBonus.CapCeiling)
+            current = FusionBonus.CapCeiling;
+        if (count < current)
+            count = current;
+        Quests.FusionCap = count;
+        Quests.HasFusionCap = true;
+        FusionBonus.MaxCount = count;
+    }
+
+    void ApplyFusionCountCap()
+    {
+        int cap = FusionBonus.InitialCap;
+        if (Quests.HasFusionCap && Quests.FusionCap > cap)
+            cap = Quests.FusionCap;
+        if (cap > FusionBonus.CapCeiling)
+            cap = FusionBonus.CapCeiling;
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            int offered = all[i] != null ? all[i].FusionCap : 0;
+            if (offered <= cap)
+                continue;
+            if (StageClearGrantsLevelCap(all[i]) || IsQuestClaimed(all[i]))
+                cap = offered;
+        }
+        Quests.FusionCap = cap;
+        Quests.HasFusionCap = true;
+        FusionBonus.MaxCount = cap;
+    }
+
+    void ApplyCharacterLevelCap()
+    {
+        if (BattleBalance == null)
+            BattleBalance = BattleBalanceConfig.CreateDefault();
+        int cap = BattleBalanceConfig.InitialLevelCap;
+        if (Quests.HasLevelCap && Quests.LevelCap > cap)
+            cap = Quests.LevelCap;
+        if (cap > BattleBalanceConfig.LevelCapCeiling)
+            cap = BattleBalanceConfig.LevelCapCeiling;
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            int offered = LevelCapOffer(all[i]);
+            if (offered <= cap)
+                continue;
+            if (StageClearGrantsLevelCap(all[i]) || IsQuestClaimed(all[i]))
+                cap = offered;
+        }
+        Quests.LevelCap = cap;
+        Quests.HasLevelCap = true;
+        BattleBalance.MaxLevel = cap;
+    }
+
+    static int LevelCapOffer(QuestDef def)
+    {
+        if (def == null)
+            return 0;
+        int cap = def.LevelCap;
+        if (def.Reward == QuestRewardKind.LevelCap && def.RewardAmount > cap)
+            cap = def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount;
+        return cap;
+    }
+
+    bool StageClearGrantsLevelCap(QuestDef def)
+    {
+        if (def == null || def.Metric != QuestMetric.StageFloor)
+            return false;
+        if (def.Target < Constants.BATTLE_STAGE_FLOOR_MAX)
+            return false;
+        return def.Arg >= 1 && def.Arg <= ClearedBattleStage;
     }
 
     void RaiseImportCap(int amount)
@@ -8670,6 +8884,8 @@ public class ControllerProduction : MonoBehaviour
 
     void EnsureQuestDefaults()
     {
+        ApplyCharacterLevelCap();
+        ApplyFusionCountCap();
         if (Quests.DefaultsApplied)
         {
             ImportedCharacters.SetImportCap(Quests.ImportCap);
@@ -10243,6 +10459,8 @@ public class ControllerProduction : MonoBehaviour
             GrantProduciblePixels(rewardAmount > 0 ? (ulong)rewardAmount : 0);
         else if (gift.Reward == QuestRewardKind.BothSlots)
             AddProductionSlots(whole > 0 ? whole : 1, true, true);
+        else if (gift.Reward == QuestRewardKind.LevelCap)
+            RaiseCharacterLevelCap(whole);
     }
 
     MessagePixelSnap[] CapturePixels(MessageGift[] gifts, MessageCost[] costs)

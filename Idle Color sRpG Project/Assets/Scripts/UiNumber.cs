@@ -22,4 +22,12 @@ public static class UiNumber
     {
         return Format((ulong)value);
     }
+
+    // レベル上限に達した表記だけ赤くする。前後の文字色はそのまま。
+    public static string LevelText(string body, long level, long cap)
+    {
+        if (cap > 0 && level >= cap)
+            return "<color=#ff2a2a>" + body + "</color>";
+        return body;
+    }
 }

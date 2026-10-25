@@ -179,19 +179,21 @@ public class ControllerCatalogClass : MonoBehaviour
 
         StatisticsClass stats = character.Stats[0];
         long expNeed = (long)character.ExpMax;
-        if (expNeed <= 0 && _production != null)
-        {
-            BattleBalanceConfig config = _production.GetBattleBalance();
-            if (config != null)
-                expNeed = config.ExpToNext((long)character.Level, character.OpaquePixelCount());
-        }
+        BattleBalanceConfig config = _production != null ? _production.GetBattleBalance() : null;
+        long level = character.Level > (ulong)long.MaxValue ? long.MaxValue : (long)character.Level;
+        long cap = config != null ? config.MaxLevel : 0;
+        if (expNeed <= 0 && config != null)
+            expNeed = config.ExpToNext(level, character.OpaquePixelCount());
         if (expNeed < 1)
             expNeed = 1;
         long fusionCount = character.FusionCount > (ulong)long.MaxValue ? long.MaxValue : (long)character.FusionCount;
+        long fusionCap = FusionBonus.MaxCount;
+        string fusionLabel = UiNumber.LevelText(UiNumber.Format(fusionCount) + "回", fusionCount, fusionCap);
+        _detail.supportRichText = true;
         _detail.text = character.Name + "\n"
-            + "Lv " + UiNumber.Format(character.Level) + "\n"
+            + UiNumber.LevelText("Lv " + UiNumber.Format(level), level, cap) + "\n"
             + "経験値 " + UiNumber.Format(character.Exp) + " / " + UiNumber.Format(expNeed) + "\n"
-            + "合成 " + UiNumber.Format(fusionCount) + "回（+" + FusionBonus.Percent(fusionCount).ToString() + "%）\n"
+            + "合成 " + fusionLabel + " / " + UiNumber.Format(fusionCap) + "回（+" + FusionBonus.Percent(fusionCount).ToString() + "%）\n"
             + TypeName(character.CharacterType) + "    弱点 " + TypeName(character.WeaknessType) + "\n"
             + "HP " + UiNumber.Format(stats.HPMax) + "\n"
             + "ATK " + UiNumber.Format(stats.ATK) + "    DEF " + UiNumber.Format(stats.DEF) + "\n"

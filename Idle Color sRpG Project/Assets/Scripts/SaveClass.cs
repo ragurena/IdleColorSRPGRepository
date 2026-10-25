@@ -1126,6 +1126,8 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("FusionUnlocked," + (quests.FusionUnlocked ? "true" : "false"));
         sw.WriteLine("FusionEfficiency," + quests.FusionEfficiency.ToString());
         sw.WriteLine("ImportCharacterCap," + quests.ImportCap.ToString());
+        sw.WriteLine("CharacterLevelCap," + quests.LevelCap.ToString());
+        sw.WriteLine("CharacterFusionCap," + quests.FusionCap.ToString());
         QuestDef[] all = QuestCatalog.All;
         for (int i = 0; i < all.Length; i++)
         {
@@ -1220,6 +1222,32 @@ public class SaveClass// : MonoBehaviour
                 throw new FormatException("ImportCharacterCap");
             quests.ImportCap = number;
             quests.HasImport = true;
+            return true;
+        }
+        if (key == "CharacterLevelCap")
+        {
+            int number;
+            if (!int.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+                throw new FormatException("CharacterLevelCap");
+            if (number < BattleBalanceConfig.InitialLevelCap)
+                number = BattleBalanceConfig.InitialLevelCap;
+            if (number > BattleBalanceConfig.LevelCapCeiling)
+                number = BattleBalanceConfig.LevelCapCeiling;
+            quests.LevelCap = number;
+            quests.HasLevelCap = true;
+            return true;
+        }
+        if (key == "CharacterFusionCap")
+        {
+            int number;
+            if (!int.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+                throw new FormatException("CharacterFusionCap");
+            if (number < FusionBonus.InitialCap)
+                number = FusionBonus.InitialCap;
+            if (number > FusionBonus.CapCeiling)
+                number = FusionBonus.CapCeiling;
+            quests.FusionCap = number;
+            quests.HasFusionCap = true;
             return true;
         }
         if (!key.StartsWith("QuestState[") || !key.EndsWith("]"))

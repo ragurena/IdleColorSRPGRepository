@@ -3,6 +3,10 @@
 public static class FusionBonus
 {
     public const long PercentPerFusion = 5;
+    // 1体あたりの合成回数。最初は10回で、クエストが RaiseFusionCountCap で上げる。
+    public const int InitialCap = 10;
+    public const int CapCeiling = 9999;
+    public static int MaxCount = InitialCap;
 
     // クエストで足す合成効率。合成1回あたりの5%とは別に、全体へ足す。
     public static int ExtraPercent;
@@ -19,6 +23,13 @@ public static class FusionBonus
     public static bool CanFuse(long lives, long fusionCount)
     {
         if (lives < 1)
+            return false;
+        long cap = MaxCount;
+        if (cap < InitialCap)
+            cap = InitialCap;
+        if (cap > CapCeiling)
+            cap = CapCeiling;
+        if (fusionCount >= cap)
             return false;
         long cost = NextCost(fusionCount);
         return lives > cost;

@@ -20,7 +20,10 @@ public class BattleBalanceConfig
 
     // 次のレベルまでに必要な経験値 = 切り上げ(非透過ピクセル数 * 今のレベルの1.5乗)。
     // レベル1は 1^1.5 なので、必要量は非透過ピクセル数そのもの。
-    public long MaxLevel = 9999;
+    // MaxLevel は今のレベル上限。最初は100で、クエストが RaiseCharacterLevelCap で上げる。
+    public const int InitialLevelCap = 100;
+    public const int LevelCapCeiling = 9999;
+    public long MaxLevel = InitialLevelCap;
     public int MaxLevelsPerExpGrant = 30;
 
     // 1レベルごとに、基礎ステータスのこの割合を足す。今の値へ掛けない。

@@ -29,7 +29,8 @@ public enum QuestRewardKind
     TapChooseSlot,
     UnlockFeature,
     GrantPalette,
-    BothSlots
+    BothSlots,
+    LevelCap
 }
 
 // サブクエストを受け取ったとき、広告で生産枠を増やせる回数をどちらに足すか。
@@ -63,8 +64,12 @@ public sealed class QuestDef
     public readonly QuestRewardKind Reward;
     public readonly long RewardAmount;
     public readonly bool Main;
+    // 0 はレベル上限を変えない。あるときは、その値まで上限を上げる。他の報酬と一緒に渡せる。
+    public readonly int LevelCap;
+    // 0 は合成回数の上限を変えない。あるときは、その値まで上げる。
+    public readonly int FusionCap;
 
-    public QuestDef(int id, string title, QuestMetric metric, int arg, long target, QuestRewardKind reward, long rewardAmount, bool shown, bool main = false)
+    public QuestDef(int id, string title, QuestMetric metric, int arg, long target, QuestRewardKind reward, long rewardAmount, bool shown, bool main = false, int levelCap = 0, int fusionCap = 0)
     {
         Id = id;
         Shown = shown;
@@ -75,6 +80,8 @@ public sealed class QuestDef
         Reward = reward;
         RewardAmount = rewardAmount;
         Main = main;
+        LevelCap = levelCap;
+        FusionCap = fusionCap;
     }
 }
 
@@ -109,6 +116,10 @@ public sealed class QuestSave
     public bool HasFusionUnlocked;
     public bool HasFusionEfficiency;
     public bool HasImport;
+    public int LevelCap = BattleBalanceConfig.InitialLevelCap;
+    public bool HasLevelCap;
+    public int FusionCap = FusionBonus.InitialCap;
+    public bool HasFusionCap;
     public readonly Dictionary<int, QuestRecord> Records = new Dictionary<int, QuestRecord>();
 
     public void Reset()
@@ -134,6 +145,10 @@ public sealed class QuestSave
         HasFusionUnlocked = false;
         HasFusionEfficiency = false;
         HasImport = false;
+        LevelCap = BattleBalanceConfig.InitialLevelCap;
+        HasLevelCap = false;
+        FusionCap = FusionBonus.InitialCap;
+        HasFusionCap = false;
         Records.Clear();
     }
 
@@ -170,7 +185,7 @@ public static class QuestCatalog
         // ステージクリア
         Stage(100, 1, 100),
         Stage(200, 2, 100),
-        Stage(300, 3, 100),
+        Stage(300, 3, 100, 200, 20),
         Stage(400, 4, 100),
         Stage(500, 5, 100),
 
@@ -450,8 +465,20 @@ public static class QuestCatalog
             body = "生産できるピクセルをすべて" + UiNumber.Format(def.RewardAmount) + "個";
         else if (def.Reward == QuestRewardKind.BothSlots)
             body = "ピクセル生成枠 +" + UiNumber.Format(def.RewardAmount) + "、キャラ生成枠 +" + UiNumber.Format(def.RewardAmount);
+        else if (def.Reward == QuestRewardKind.LevelCap)
+            body = "レベル上限 " + UiNumber.Format(def.RewardAmount);
         else
             body = "";
+        if (def.LevelCap > 0 && def.Reward != QuestRewardKind.LevelCap)
+        {
+            string capText = "レベル上限 " + def.LevelCap.ToString();
+            body = body.Length == 0 ? capText : body + "\n" + capText;
+        }
+        if (def.FusionCap > 0)
+        {
+            string capText = "合成上限 " + def.FusionCap.ToString() + "回";
+            body = body.Length == 0 ? capText : body + "\n" + capText;
+        }
         string unlock = StageUnlockText(def);
         if (unlock.Length > 0)
             body = unlock + "\n" + body;
@@ -498,10 +525,10 @@ public static class QuestCatalog
         return label;
     }
 
-    static QuestDef Stage(int id, int stage, long floor)
+    static QuestDef Stage(int id, int stage, long floor, int levelCap = 0, int fusionCap = 0)
     {
         string name = ControllerBattleStageClass.GetStageName(stage);
-        return new QuestDef(id, name + "を" + UiNumber.Format(floor) + "階クリア", QuestMetric.StageFloor, stage, floor, QuestRewardKind.BothSlots, 1, true);
+        return new QuestDef(id, name + "を" + UiNumber.Format(floor) + "階クリア", QuestMetric.StageFloor, stage, floor, QuestRewardKind.BothSlots, 1, true, false, levelCap, fusionCap);
     }
 
     static string StageUnlockText(QuestDef def)

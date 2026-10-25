@@ -1002,13 +1002,15 @@ public class ControllerBattleClass : MonoBehaviour
         }
         if (level < 1)
             level = 1;
+        long cap = _config != null ? _config.MaxLevel : 0;
+        string levelText = UiNumber.LevelText("Lv " + level.ToString("D3"), level, cap);
         if (!unit.IsAlly)
-            return "Lv " + level.ToString("D3");
+            return levelText;
 
         int lives = unit.Lives;
         if (lives < 0)
             lives = 0;
-        return "Lv " + level.ToString("D3") + " / " + lives.ToString("D2");
+        return levelText + " / " + lives.ToString("D2");
     }
 
     BattleUnit FindLiving(bool ally, int x, int y)
@@ -2016,6 +2018,7 @@ public class ControllerBattleClass : MonoBehaviour
 
                 Text lives = CreateText("TextBattleLives" + suffix, image.transform, 14, TextAnchor.MiddleCenter);
                 lives.color = Color.white;
+                lives.supportRichText = true;
                 lives.raycastTarget = false;
                 lives.resizeTextForBestFit = true;
                 lives.resizeTextMinSize = 8;
