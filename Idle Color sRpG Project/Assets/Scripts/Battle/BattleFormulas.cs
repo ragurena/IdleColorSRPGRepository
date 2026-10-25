@@ -114,6 +114,24 @@ public static class BattleRewardCalculator
         return BattleMath.CeilToLong(opaquePixels * (double)attributeValue * multiplier);
     }
 
+    // 一辺8はそのまま。2倍になるごとに3で割る。16は3、32は9、64は27、128は81。端数は切り上げ。
+    public static long ExpGainForSize(long baseExp, int size)
+    {
+        return BattleMath.CeilDivPositive(baseExp, ExpSizeDivisor(size));
+    }
+
+    public static long ExpSizeDivisor(int size)
+    {
+        long divisor = 1;
+        int span = 8;
+        while (size > span && span <= int.MaxValue / 2 && divisor <= long.MaxValue / 3)
+        {
+            span *= 2;
+            divisor *= 3;
+        }
+        return divisor;
+    }
+
     // 基礎経験値に、基礎経験値 ×（レベル－1）/ 100 を足す。レベル1以下は基礎のまま。端数は切り上げ。
     public static long ExpGainForLevel(long baseExp, int level)
     {

@@ -9,8 +9,8 @@ public enum CharacterAttribute
     Dark = 5
 }
 
-// 代表カラーの属性値。色そのものではなく、減色と同じ階調の番号を使う。
-// 8階調なら 0→1、32→2、64→3、…、224→8、255→9。光はその合計、闇は切り上げ平均。
+// 代表カラーの属性値。減色と同じ階調番号を、1〜3 の3段階にまとめる。
+// 番号 1〜3 は 1、4〜6 は 2、7〜9 は 3。光はその合計、闇は切り上げ平均。
 public static class AttributeColorValue
 {
     // GameConfig.GRADATION_LEVELS と同じ。255 はこれより 1 段多い番号になる。
@@ -37,29 +37,41 @@ public static class AttributeColorValue
 
     public static long GetRed(int r, int g, int b)
     {
-        return ChannelStep(r);
+        return AttributeBand(r);
     }
 
     public static long GetGreen(int r, int g, int b)
     {
-        return ChannelStep(g);
+        return AttributeBand(g);
     }
 
     public static long GetBlue(int r, int g, int b)
     {
-        return ChannelStep(b);
+        return AttributeBand(b);
     }
 
     public static long GetLight(int r, int g, int b)
     {
-        return ChannelStep(r) + ChannelStep(g) + ChannelStep(b);
+        return AttributeBand(r) + AttributeBand(g) + AttributeBand(b);
     }
 
-    // 3色の階調番号の平均。端数は切り上げ。
+    // 3色の段階の平均。端数は切り上げ。
     public static long GetDark(int r, int g, int b)
     {
-        long sum = ChannelStep(r) + ChannelStep(g) + ChannelStep(b);
+        long sum = AttributeBand(r) + AttributeBand(g) + AttributeBand(b);
         return BattleMath.CeilDivPositive(sum, 3);
+    }
+
+    // 階調番号 1〜3 は 1、4〜6 は 2、7〜9 は 3。
+    public static int AttributeBand(int channel)
+    {
+        int step = ChannelStep(channel);
+        if (step < 1)
+            step = 1;
+        int band = (step - 1) / 3 + 1;
+        if (band > 3)
+            band = 3;
+        return band;
     }
 
     // 0〜255 を、減色と同じいちばん近い階調の番号（1 始まり）にする。255 以上は最終段。

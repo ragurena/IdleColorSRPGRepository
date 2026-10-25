@@ -191,11 +191,17 @@ static class Program
         Check(AttributeColorValue.ChannelStep(64) == 3, "step 64");
         Check(AttributeColorValue.ChannelStep(224) == 8, "step 224");
         Check(AttributeColorValue.ChannelStep(255) == 9, "step 255");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Fire, 32, 64, 255) == 2, "red");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Grass, 32, 64, 255) == 3, "green");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Water, 32, 64, 255) == 9, "blue");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Light, 32, 64, 255) == 14, "light");
-        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Dark, 32, 64, 255) == 5, "dark");
+        Check(AttributeColorValue.AttributeBand(0) == 1, "band 0");
+        Check(AttributeColorValue.AttributeBand(64) == 1, "band 64");
+        Check(AttributeColorValue.AttributeBand(96) == 2, "band 96");
+        Check(AttributeColorValue.AttributeBand(160) == 2, "band 160");
+        Check(AttributeColorValue.AttributeBand(192) == 3, "band 192");
+        Check(AttributeColorValue.AttributeBand(255) == 3, "band 255");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Fire, 32, 64, 255) == 1, "red");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Grass, 32, 64, 255) == 1, "green");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Water, 32, 64, 255) == 3, "blue");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Light, 32, 64, 255) == 5, "light");
+        Check(AttributeColorValue.GetAttributeColorValue(CharacterAttribute.Dark, 32, 64, 255) == 2, "dark");
     }
 
     static void TestRewards(BattleBalanceConfig config)
@@ -205,6 +211,17 @@ static class Program
         Check(BattleRewardCalculator.ExpGain(10, 10, config) == 100, "exp");
         Check(BattleRewardCalculator.ExpGain(43, 0, config) == 43, "exp black");
         Check(BattleRewardCalculator.ExpGain(0, 0, config) == 0, "exp empty");
+        Check(BattleRewardCalculator.ExpSizeDivisor(8) == 1, "size 8");
+        Check(BattleRewardCalculator.ExpSizeDivisor(16) == 3, "size 16");
+        Check(BattleRewardCalculator.ExpSizeDivisor(32) == 9, "size 32");
+        Check(BattleRewardCalculator.ExpSizeDivisor(64) == 27, "size 64");
+        Check(BattleRewardCalculator.ExpSizeDivisor(128) == 81, "size 128");
+        Check(BattleRewardCalculator.ExpSizeDivisor(4) == 1, "size under 8");
+        Check(BattleRewardCalculator.ExpGainForSize(90, 8) == 90, "exp size 8");
+        Check(BattleRewardCalculator.ExpGainForSize(90, 16) == 30, "exp size 16");
+        Check(BattleRewardCalculator.ExpGainForSize(90, 32) == 10, "exp size 32");
+        Check(BattleRewardCalculator.ExpGainForSize(10, 16) == 4, "exp size ceil");
+        Check(BattleRewardCalculator.ExpGainForSize(0, 32) == 0, "exp size zero");
         Check(BattleRewardCalculator.ExpReward(20) == 10, "exp divided by 2");
         Check(BattleRewardCalculator.ExpReward(1) == 1, "exp divide keeps 1");
         Check(BattleRewardCalculator.ExpReward(0) == 0, "exp divide zero");

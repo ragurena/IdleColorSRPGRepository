@@ -15,7 +15,8 @@ public class BattleBalanceConfig
     // (OBS * 不透明ピクセル * 属性値) / RgbDivisor を切り上げ
     public double RgbDivisor = 10.0;
 
-    // 経験値 = 切り上げ(不透明ピクセル * 属性値 * ExpMultiplier)
+    // 経験値 = 切り上げ(不透明ピクセル * 属性値 * ExpMultiplier)。
+    // そのあと一辺8を1として、2倍ごとに3で割る。端数は切り上げ。
     public double ExpMultiplier = 1.0;
 
     // 次のレベルまでに必要な経験値 = 切り上げ(非透過ピクセル数 * 今のレベルの1.5乗)。
