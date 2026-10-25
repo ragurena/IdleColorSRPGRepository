@@ -104,6 +104,8 @@ public class ControllerCatalogClass : MonoBehaviour
     void Select(uint characterId)
     {
         _selectedId = characterId;
+        if (_production != null)
+            _production.ClearCatalogNew(characterId);
         for (int i = 0; i < _cells.Count; i++)
         {
             CellEntry cell = _cells[i];
@@ -141,6 +143,7 @@ public class ControllerCatalogClass : MonoBehaviour
         image.raycastTarget = false;
         image.sprite = SpriteOf(character);
         image.color = IsKnown(character) ? Color.white : Color.black;
+        CatalogNewMark.Apply(picture.transform, character);
         return new CellEntry { Id = character.ID, Background = background, Picture = image };
     }
 
@@ -155,7 +158,10 @@ public class ControllerCatalogClass : MonoBehaviour
         if (character == null || character.ID != _selectedId)
         {
             if (_detailImage != null)
+            {
                 _detailImage.sprite = null;
+                CatalogNewMark.Apply(_detailImage.transform, null);
+            }
             if (_detail != null)
                 _detail.text = "キャラを選んでください";
             return;
@@ -166,6 +172,7 @@ public class ControllerCatalogClass : MonoBehaviour
             _detailImage.sprite = SpriteOf(character);
             _detailImage.color = IsKnown(character) ? Color.white : Color.black;
             _detailImage.preserveAspect = true;
+            CatalogNewMark.Apply(_detailImage.transform, character);
         }
 
         if (_detail == null)
@@ -372,6 +379,7 @@ public class ControllerCatalogClass : MonoBehaviour
             _detailImage.color = portrait != null
                 ? Color.white
                 : (person != null ? ControllerProduction.PersonColor(person.Id) : Color.white);
+            CatalogNewMark.Apply(_detailImage.transform, null);
         }
         if (_detail == null)
             return;

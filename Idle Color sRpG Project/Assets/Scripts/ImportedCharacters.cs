@@ -36,6 +36,11 @@ public static class ImportSizeRules
 
     public static string Describe(int clearedStage)
     {
+        return Describe(stage => clearedStage >= stage);
+    }
+
+    public static string Describe(System.Func<int, bool> isStageCleared)
+    {
         StringBuilder text = new StringBuilder();
         text.Append("読めるのは、1辺が 8、16、32、64、128 の正方形 PNG だけです。");
         for (int i = 0; i < Unlocks.Length; i++)
@@ -43,12 +48,7 @@ public static class ImportSizeRules
             ImportSizeUnlock unlock = Unlocks[i];
             text.Append("\n");
             text.Append(unlock.Size.ToString());
-            if (unlock.ClearedStage <= 0)
-            {
-                text.Append(" … 開放");
-                continue;
-            }
-            if (clearedStage >= unlock.ClearedStage)
+            if (SizeOpened(unlock, isStageCleared))
                 text.Append(" … 開放");
             else
                 text.Append(" … 未開放（" + unlock.StageName + "をクリアすると開く）");
@@ -58,6 +58,11 @@ public static class ImportSizeRules
 
     public static string RejectSize(int width, int height, int clearedStage)
     {
+        return RejectSize(width, height, stage => clearedStage >= stage);
+    }
+
+    public static string RejectSize(int width, int height, System.Func<int, bool> isStageCleared)
+    {
         if (width != height)
             return "正方形ではありません。横 " + width.ToString() + "、縦 " + height.ToString() + " です。";
 
@@ -65,11 +70,18 @@ public static class ImportSizeRules
         {
             if (Unlocks[i].Size != width)
                 continue;
-            if (Unlocks[i].ClearedStage > 0 && clearedStage < Unlocks[i].ClearedStage)
+            if (!SizeOpened(Unlocks[i], isStageCleared))
                 return width.ToString() + " はまだ開けていません。" + Unlocks[i].StageName + "をクリアすると開きます。";
             return null;
         }
         return "一辺は 8、16、32、64、128 のいずれかにしてください。今は " + width.ToString() + " です。";
+    }
+
+    static bool SizeOpened(ImportSizeUnlock unlock, System.Func<int, bool> isStageCleared)
+    {
+        if (unlock.ClearedStage <= 0)
+            return true;
+        return isStageCleared != null && isStageCleared(unlock.ClearedStage);
     }
 }
 
@@ -124,6 +136,7 @@ public static class ImportedCharacters
     const int MaxPngBytes = 4 * 1024 * 1024;
 
     static readonly List<ImportedCharacterEntry> Entries = new List<ImportedCharacterEntry>();
+    static readonly Dictionary<string, string> RosterHashes = new Dictionary<string, string>();
     static readonly List<ImportedCharacterRecord> Pending = new List<ImportedCharacterRecord>();
     static uint HighestId;
 
@@ -220,10 +233,15 @@ public static class ImportedCharacters
             message = "名前を入れてください。";
             return false;
         }
-        name = name.Trim().Replace("\r", "").Replace("\n", "");
+        name = NormalizeName(name);
         if (name.Length == 0)
         {
             message = "名前を入れてください。";
+            return false;
+        }
+        if (NameTaken(name))
+        {
+            message = "同じ名前は使えません。";
             return false;
         }
         if (RejectImportCount(out message))
@@ -260,16 +278,8 @@ public static class ImportedCharacters
         }
 
         string hash = HashPosterizedPng(pngBytes);
-        if (string.IsNullOrEmpty(hash))
-        {
-            message = "画像をキャラにできませんでした。";
+        if (RejectKnownImage(hash, out message))
             return false;
-        }
-        if (ContainsHash(hash))
-        {
-            message = "同じ画像をすでに読み込んでいます。";
-            return false;
-        }
 
         uint id = NextId();
         string directory = Application.persistentDataPath + "/Character/Custom";
@@ -320,6 +330,11 @@ public static class ImportedCharacters
     // 大きさ・重複を見て画像を作り、ステータスまで計算する。所持にはまだ加えない。
     public static bool TryPrepare(byte[] pngBytes, int clearedStage, BattleBalanceConfig balance, out string message)
     {
+        return TryPrepare(pngBytes, stage => clearedStage >= stage, balance, out message);
+    }
+
+    public static bool TryPrepare(byte[] pngBytes, System.Func<int, bool> isStageCleared, BattleBalanceConfig balance, out string message)
+    {
         DiscardPrepared();
         message = null;
         if (RejectImportCount(out message))
@@ -347,7 +362,7 @@ public static class ImportedCharacters
             message = "PNGを読めませんでした。";
             return false;
         }
-        string sizeReason = ImportSizeRules.RejectSize(probe.width, probe.height, clearedStage);
+        string sizeReason = ImportSizeRules.RejectSize(probe.width, probe.height, isStageCleared);
         UnityEngine.Object.Destroy(probe);
         if (sizeReason != null)
         {
@@ -356,16 +371,8 @@ public static class ImportedCharacters
         }
 
         string hash = HashPosterizedPng(pngBytes);
-        if (string.IsNullOrEmpty(hash))
-        {
-            message = "画像をキャラにできませんでした。";
+        if (RejectKnownImage(hash, out message))
             return false;
-        }
-        if (ContainsHash(hash))
-        {
-            message = "同じ画像をすでに読み込んでいます。";
-            return false;
-        }
 
         uint id = NextId();
         string directory = Application.persistentDataPath + "/Character/Custom";
@@ -400,10 +407,15 @@ public static class ImportedCharacters
             message = "名前を入れてください。";
             return false;
         }
-        name = name.Trim().Replace("\r", "").Replace("\n", "");
+        name = NormalizeName(name);
         if (name.Length == 0)
         {
             message = "名前を入れてください。";
+            return false;
+        }
+        if (NameTaken(name))
+        {
+            message = "同じ名前は使えません。";
             return false;
         }
         if (RejectImportCount(out message))
@@ -811,6 +823,92 @@ public static class ImportedCharacters
                 return true;
         }
         return false;
+    }
+
+    static bool RejectKnownImage(string hash, out string message)
+    {
+        message = null;
+        if (string.IsNullOrEmpty(hash))
+        {
+            message = "画像をキャラにできませんでした。";
+            return true;
+        }
+        if (ContainsHash(hash))
+        {
+            message = "同じ画像をすでに読み込んでいます。";
+            return true;
+        }
+        if (MatchesRosterImage(hash))
+        {
+            message = "この絵はモンスターと同じです。";
+            return true;
+        }
+        return false;
+    }
+
+    public static bool NameTaken(string name)
+    {
+        string key = NormalizeName(name);
+        if (key.Length == 0)
+            return false;
+        for (int i = 0; i < Entries.Count; i++)
+        {
+            CharacterClass character = Entries[i].Character;
+            if (character != null && SameName(character.Name, key))
+                return true;
+        }
+        CharacterDefinition[] roster = CharacterRoster.All;
+        for (int i = 0; i < roster.Length; i++)
+        {
+            if (roster[i] != null && SameName(roster[i].DisplayName, key))
+                return true;
+        }
+        return false;
+    }
+
+    static string NormalizeName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "";
+        return name.Trim().Replace("\r", "").Replace("\n", "");
+    }
+
+    static bool SameName(string a, string b)
+    {
+        return string.Equals(NormalizeName(a), NormalizeName(b), StringComparison.OrdinalIgnoreCase);
+    }
+
+    static bool MatchesRosterImage(string hash)
+    {
+        CharacterDefinition[] roster = CharacterRoster.All;
+        for (int i = 0; i < roster.Length; i++)
+        {
+            CharacterDefinition definition = roster[i];
+            if (definition == null || string.IsNullOrEmpty(definition.FileName))
+                continue;
+            string known;
+            if (!RosterHashes.TryGetValue(definition.FileName, out known))
+            {
+                known = HashPosterizedFile(RosterImagePath(definition.FileName));
+                if (string.IsNullOrEmpty(known))
+                    continue;
+                RosterHashes[definition.FileName] = known;
+            }
+            if (known == hash)
+                return true;
+        }
+        return false;
+    }
+
+    static string RosterImagePath(string fileName)
+    {
+        string persistent = Application.persistentDataPath + "/Character/" + fileName;
+        if (File.Exists(persistent))
+            return persistent;
+        string streaming = Application.streamingAssetsPath + "/Character/" + fileName;
+        if (File.Exists(streaming))
+            return streaming;
+        return "";
     }
 
     static void DeleteImportFiles(uint id)

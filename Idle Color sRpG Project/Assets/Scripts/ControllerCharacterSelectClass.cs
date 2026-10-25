@@ -350,8 +350,25 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             CharactersIDProducedCharacter[ProductionCharacterIndex] = CharacterIDTmp;
         }
 
+        if (CharacterIDTmp != 0 && IsCatalogNoticeAssignment(ButtonTmp))
+        {
+            ControllerProduction production = GetComponent<ControllerProduction>();
+            if (production != null)
+                production.ClearCatalogNew(CharacterIDTmp);
+        }
 
         NotShowPanelSelectCharacter();
+    }
+
+    static bool IsCatalogNoticeAssignment(Button button)
+    {
+        if (button == null)
+            return false;
+        string name = button.name;
+        return name.Contains("ProductionHelpCharacter")
+            || name.Contains("ButtonPixelProductionCharacter")
+            || name.Contains("ButtonCharacterProductionCharacter")
+            || name.Contains("ButtonCharacterProducedCharacter");
     }
 
     void ReleaseWorker(uint characterId)
@@ -826,6 +843,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (IsLockedOutOfProduction((uint)argCharacterIndex, argButtonTmp))
         {
             GrayOutCharacterButton(GameObjectCharacterButton);
+            CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
             return;
         }
 
@@ -835,6 +853,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         //クリックイベントを追加
         uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
         GameObjectCharacterButton.GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
+        CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
     }
 
     static bool IsProductionAssignmentButton(Button button)
@@ -877,6 +896,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         Text[] labels = buttonObject.GetComponentsInChildren<Text>();
         for (int i = 0; i < labels.Length; i++)
         {
+            if (labels[i].gameObject.name == "CatalogNewMark")
+                continue;
             Color color = labels[i].color;
             labels[i].color = Color.Lerp(color, new Color(0.45f, 0.45f, 0.45f, color.a), 0.75f);
         }
@@ -1035,6 +1056,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             ImageSelectCharacter.sprite = null;
             ImageSelectCharacter.color = Color.white;
+            CatalogNewMark.Apply(ImageSelectCharacter.transform, null);
         }
     }
 
@@ -1085,7 +1107,6 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             FindOrCreateWorkerTabs(panel);
         if (!_workerTabsReady)
             return;
-        _showingCharacters = true;
         if (WorkerTabs != null)
             WorkerTabs.SetActive(true);
         SetWorkerToggleShown(true);
@@ -1098,13 +1119,18 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(() => ToggleWorkerKind(captured));
             });
-            return;
         }
-        _characterTab.onClick.RemoveAllListeners();
-        _personTab.onClick.RemoveAllListeners();
-        _characterTab.onClick.AddListener(() => ShowCharacterTab(captured));
-        _personTab.onClick.AddListener(() => ShowPersonTab(captured));
-        PaintWorkerTabs(true);
+        else
+        {
+            _characterTab.onClick.RemoveAllListeners();
+            _personTab.onClick.RemoveAllListeners();
+            _characterTab.onClick.AddListener(() => ShowCharacterTab(captured));
+            _personTab.onClick.AddListener(() => ShowPersonTab(captured));
+        }
+        if (_showingCharacters)
+            PaintWorkerTabs(true);
+        else
+            ShowPersonTab(captured);
     }
 
     void ToggleWorkerKind(Button source)
@@ -1377,6 +1403,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 ImageSelectCharacter.sprite = null;
                 ImageSelectCharacter.color = ControllerProduction.PersonColor(person.Id);
             }
+            CatalogNewMark.Apply(ImageSelectCharacter.transform, null);
         }
         TextSelectCharacter1.color = Color.black;
         TextSelectCharacter2.color = Color.black;
@@ -1485,6 +1512,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (character == null || character.ImageTexture2D == null)
         {
             ReleasePreviewSprite();
+            CatalogNewMark.Apply(ImageSelectCharacter.transform, null);
             return;
         }
         ReleasePreviewSprite();
@@ -1492,6 +1520,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         ControllerProduction.MarkRuntime(_previewSprite);
         ImageSelectCharacter.sprite = _previewSprite;
         ImageSelectCharacter.color = Color.white;
+        CatalogNewMark.Apply(ImageSelectCharacter.transform, character);
     }
 
     void ReleasePreviewSprite()

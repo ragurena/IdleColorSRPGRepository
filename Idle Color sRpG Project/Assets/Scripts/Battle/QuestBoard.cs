@@ -29,7 +29,7 @@ public sealed class QuestBoard
         background.color = new Color(0.05f, 0.06f, 0.09f, 0.96f);
         Stretch(_root.GetComponent<RectTransform>());
 
-        Text title = CreateText("TextQuestTitle", _root.transform, 32, TextAnchor.MiddleCenter);
+        Text title = CreateText("TextQuestTitle", _root.transform, 34, TextAnchor.MiddleCenter);
         title.text = "クエスト";
         title.color = Color.white;
         PlaceTop(title.rectTransform, 16f, 0f, 400f, 48f);
@@ -175,31 +175,31 @@ public sealed class QuestBoard
         Image background = rowObject.GetComponent<Image>();
         background.color = new Color(0.16f, 0.18f, 0.24f, 1f);
         LayoutElement element = rowObject.GetComponent<LayoutElement>();
-        element.minHeight = 196f;
-        element.preferredHeight = 196f;
+        element.minHeight = 204f;
+        element.preferredHeight = 204f;
 
         Row row = new Row();
         row.Id = def.Id;
-        row.Title = CreateText("Title", rowObject.transform, 26, TextAnchor.MiddleLeft);
+        row.Title = CreateText("Title", rowObject.transform, 28, TextAnchor.MiddleLeft);
         row.Title.color = Color.white;
-        StretchTop(row.Title.rectTransform, 16f, 240f, 10f, 32f);
-        row.Reward = CreateText("Reward", rowObject.transform, 20, TextAnchor.UpperLeft);
+        StretchTop(row.Title.rectTransform, 16f, 370f, 10f, 36f);
+        row.Reward = CreateText("Reward", rowObject.transform, 22, TextAnchor.UpperLeft);
         row.Reward.color = new Color(1f, 0.93f, 0.72f, 1f);
         row.Reward.horizontalOverflow = HorizontalWrapMode.Wrap;
-        StretchTop(row.Reward.rectTransform, 16f, 240f, 44f, 76f);
-        row.Fraction = CreateText("Fraction", rowObject.transform, 22, TextAnchor.MiddleLeft);
+        StretchTop(row.Reward.rectTransform, 16f, 370f, 48f, 76f);
+        row.Fraction = CreateText("Fraction", rowObject.transform, 24, TextAnchor.MiddleLeft);
         row.Fraction.color = Color.white;
-        StretchTop(row.Fraction.rectTransform, 16f, 240f, 128f, 28f);
+        StretchTop(row.Fraction.rectTransform, 16f, 370f, 126f, 32f);
         row.Bar = CreateBar(rowObject.transform);
-        StretchTop(row.Bar.GetComponent<RectTransform>(), 16f, 240f, 158f, 22f);
+        StretchTop(row.Bar.GetComponent<RectTransform>(), 16f, 370f, 160f, 22f);
 
         row.Claim = CreateButton("Claim", rowObject.transform, "受け取る", new Color(0.28f, 0.55f, 0.34f, 1f));
         RectTransform claimRect = row.Claim.GetComponent<RectTransform>();
         claimRect.anchorMin = new Vector2(1f, 1f);
         claimRect.anchorMax = new Vector2(1f, 1f);
         claimRect.pivot = new Vector2(1f, 1f);
-        claimRect.anchoredPosition = new Vector2(-12f, -78f);
-        claimRect.sizeDelta = new Vector2(210f, 100f);
+        claimRect.anchoredPosition = new Vector2(-12f, -10f);
+        claimRect.sizeDelta = new Vector2(210f, 168f);
         row.ClaimLabel = row.Claim.GetComponentInChildren<Text>();
         ColorBlock claimColors = row.Claim.colors;
         claimColors.disabledColor = Color.white;
@@ -212,7 +212,7 @@ public sealed class QuestBoard
         lockRect.anchorMin = new Vector2(1f, 1f);
         lockRect.anchorMax = new Vector2(1f, 1f);
         lockRect.pivot = new Vector2(1f, 1f);
-        lockRect.anchoredPosition = new Vector2(-12f, -10f);
+        lockRect.anchoredPosition = new Vector2(-234f, -10f);
         lockRect.sizeDelta = new Vector2(120f, 52f);
         row.LockLabel = row.Lock.GetComponentInChildren<Text>();
         int lockId = def.Id;
@@ -224,12 +224,12 @@ public sealed class QuestBoard
         choiceRect.anchorMin = new Vector2(1f, 1f);
         choiceRect.anchorMax = new Vector2(1f, 1f);
         choiceRect.pivot = new Vector2(1f, 1f);
-        choiceRect.anchoredPosition = new Vector2(-12f, -78f);
-        choiceRect.sizeDelta = new Vector2(210f, 100f);
+        choiceRect.anchoredPosition = new Vector2(-12f, -10f);
+        choiceRect.sizeDelta = new Vector2(210f, 168f);
         row.PixelChoice = CreateButton("Pixel", choices.transform, "ピクセル生成枠+3", new Color(0.25f, 0.48f, 0.72f, 1f));
-        PlaceChoice(row.PixelChoice.GetComponent<RectTransform>(), 0f);
+        PlaceChoice(row.PixelChoice.GetComponent<RectTransform>(), 0f, 82f);
         row.CharacterChoice = CreateButton("Character", choices.transform, "キャラ生成枠+3", new Color(0.72f, 0.42f, 0.22f, 1f));
-        PlaceChoice(row.CharacterChoice.GetComponent<RectTransform>(), 52f);
+        PlaceChoice(row.CharacterChoice.GetComponent<RectTransform>(), 86f, 82f);
         int choiceQuest = def.Id;
         row.PixelChoice.onClick.AddListener(() => ChooseReward(choiceQuest, 1));
         row.CharacterChoice.onClick.AddListener(() => ChooseReward(choiceQuest, 2));
@@ -345,7 +345,7 @@ public sealed class QuestBoard
         Image image = obj.GetComponent<Image>();
         image.color = color;
         Button button = obj.GetComponent<Button>();
-        Text text = CreateText("Text", obj.transform, 18, TextAnchor.MiddleCenter);
+        Text text = CreateText("Text", obj.transform, 20, TextAnchor.MiddleCenter);
         text.text = label;
         text.color = Color.white;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -369,13 +369,13 @@ public sealed class QuestBoard
         return text;
     }
 
-    static void PlaceChoice(RectTransform rect, float y)
+    static void PlaceChoice(RectTransform rect, float y, float height)
     {
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
         rect.anchoredPosition = new Vector2(0f, -y);
-        rect.sizeDelta = new Vector2(0f, 48f);
+        rect.sizeDelta = new Vector2(0f, height);
     }
 
     static void PlaceTop(RectTransform rect, float yFromTop, float x, float width, float height)

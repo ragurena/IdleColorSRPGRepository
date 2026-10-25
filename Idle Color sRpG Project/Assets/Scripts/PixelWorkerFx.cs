@@ -503,7 +503,9 @@ public class PixelWorkerFx : MonoBehaviour
         Texture2D source = sprite.texture;
         if (source == null || !source.isReadable)
             return null;
-        Rect texRect = sprite.textureRect;
+        // textureRect は透過を切り詰めた範囲。大きい絵は下に余白があることが多く、
+        // そこだけを枠いっぱいに伸ばすとオーラが上へずれる。作ったときの範囲を使う。
+        Rect texRect = sprite.rect;
         int rx = Mathf.RoundToInt(texRect.x);
         int ry = Mathf.RoundToInt(texRect.y);
         int rw = Mathf.RoundToInt(texRect.width);
@@ -680,7 +682,7 @@ public class PixelWorkerFx : MonoBehaviour
         texture.hideFlags = HideFlags.HideAndDontSave;
         texture.SetPixels32(outline);
         texture.Apply(false, false);
-        Sprite result = Sprite.Create(texture, new Rect(0f, 0f, ow, oh), new Vector2(0.5f, 0.5f), 100f);
+        Sprite result = Sprite.Create(texture, new Rect(0f, 0f, ow, oh), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
         result.hideFlags = HideFlags.HideAndDontSave;
         scaleX = ow / (float)sampleW;
         scaleY = oh / (float)sampleH;

@@ -308,7 +308,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             label.text = StageNames[stageIndex] + "\n推奨HP " + StageRecommendedHP[stageIndex];
             if (stageIndex == activeStage)
                 label.text += "\n出撃中";
-            else if (stageIndex <= clearedStage)
+            else if (ControllerProduction.IsBattleStageCleared(stageIndex))
                 label.text += "\nクリア";
         }
 
@@ -344,11 +344,13 @@ public class ControllerBattleStageClass : MonoBehaviour
                     {
                         CellImages[x, y].sprite = null;
                         CellImages[x, y].color = ColorCellEmpty;
+                        CatalogNewMark.Apply(CellImages[x, y].transform, null);
                     }
                     else
                     {
                         CellImages[x, y].sprite = CreateCharacterSprite(characterId);
                         CellImages[x, y].color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                        CatalogNewMark.Apply(CellImages[x, y].transform, ImportedCharacters.FindAny(CharactersAll, characterId));
                     }
                 }
 

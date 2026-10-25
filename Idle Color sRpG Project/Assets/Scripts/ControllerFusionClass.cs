@@ -190,6 +190,7 @@ public class ControllerFusionClass : MonoBehaviour
         image.color = Color.white;
         ControllerProduction.EnsureOwnedAttributeGlow(picture.transform, character);
         spriteObject.transform.SetAsLastSibling();
+        CatalogNewMark.Apply(picture.transform, character);
 
         Text label = CreateText("Label", cell.transform, 24, TextAnchor.UpperCenter);
         RectTransform labelRect = label.rectTransform;
@@ -213,8 +214,6 @@ public class ControllerFusionClass : MonoBehaviour
         long lives = ToLong(character.OwnedNumCur);
         long cost = FusionBonus.NextCost(ToLong(character.FusionCount));
         long after = lives - cost;
-        if (after < 0)
-            after = 0;
         lowAfter = after <= 1;
         return character.Name + "\n" + lives.ToString() + " → " + after.ToString();
     }
@@ -260,6 +259,7 @@ public class ControllerFusionClass : MonoBehaviour
                 _detailImage.sprite = null;
                 _detailImage.color = new Color(1f, 1f, 1f, 0f);
                 ControllerProduction.RemoveAttributeGlow(_detailImage.transform.parent);
+                CatalogNewMark.Apply(_detailImage.transform, null);
             }
             if (_detailName != null)
                 _detailName.text = "";
@@ -274,6 +274,7 @@ public class ControllerFusionClass : MonoBehaviour
             _detailImage.preserveAspect = true;
             ControllerProduction.EnsureOwnedAttributeGlow(_detailImage.transform.parent, character);
             _detailImage.transform.SetAsLastSibling();
+            CatalogNewMark.Apply(_detailImage.transform, character);
         }
         if (_detailName != null)
             _detailName.text = character.Name;
@@ -286,8 +287,6 @@ public class ControllerFusionClass : MonoBehaviour
         long lives = ToLong(character.OwnedNumCur);
         long cost = FusionBonus.NextCost(count);
         long nextLives = lives - cost;
-        if (nextLives < 0)
-            nextLives = 0;
         string countText = UiNumber.LevelText(UiNumber.Format(count) + "回", count, cap);
         _detail.supportRichText = true;
         _detail.text = "合成 " + countText + " / " + UiNumber.Format(cap) + "回（+" + FusionBonus.Percent(count).ToString() + "%）\n"
@@ -790,7 +789,7 @@ public class ControllerFusionClass : MonoBehaviour
 
         tex.filterMode = FilterMode.Point;
         int size = character.Size > 0 ? character.Size : tex.width;
-        Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
         _sprites[character.ID] = sprite;
         return sprite;
     }

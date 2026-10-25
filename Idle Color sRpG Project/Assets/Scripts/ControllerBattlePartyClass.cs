@@ -147,22 +147,26 @@ public class ControllerBattlePartyClass : MonoBehaviour
 
                 uint characterId = ControllerProduction.GetBattlePartyCharacter(CurrentSetIndex, x, y);
                 Button cellButton = ButtonCells[x, y];
-                Text cellText = cellButton.GetComponentInChildren<Text>();
+                Text cellText = CellLabel(cellButton);
                 cellButton.interactable = !isActiveSet;
 
                 if (characterId == 0)
                 {
                     cellButton.image.sprite = null;
                     cellButton.image.color = ColorCellEmpty;
-                    cellText.text = "+";
+                    if (cellText != null)
+                        cellText.text = "+";
+                    CatalogNewMark.Apply(cellButton.transform, null);
                     continue;
                 }
 
                 cellButton.image.sprite = CreateCharacterSprite(characterId);
                 cellButton.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-                cellText.text = "";
+                if (cellText != null)
+                    cellText.text = "";
 
                 CharacterClass member = ImportedCharacters.FindAny(CharactersAll, characterId);
+                CatalogNewMark.Apply(cellButton.transform, member);
                 if (member == null || member.Stats == null || member.Stats[0] == null)
                     continue;
                 memberNum++;
@@ -180,6 +184,19 @@ public class ControllerBattlePartyClass : MonoBehaviour
 
         ButtonClearBattleParty.interactable = !isActiveSet && (memberNum > 0 || personNum > 0);
         PlacePersonSlots();
+    }
+
+    static Text CellLabel(Button cellButton)
+    {
+        if (cellButton == null)
+            return null;
+        Text[] labels = cellButton.GetComponentsInChildren<Text>();
+        for (int i = 0; i < labels.Length; i++)
+        {
+            if (labels[i].gameObject.name != "CatalogNewMark")
+                return labels[i];
+        }
+        return null;
     }
 
     Sprite CreateCharacterSprite(uint argCharacterId)

@@ -73,6 +73,13 @@ public class ControllerProduction : MonoBehaviour
     int SelectScenePage;
     Button ButtonSelectScenePagePrev;
     Button ButtonSelectScenePageNext;
+    Image[] CharacterStopPixelFills;
+    GameObject CatalogSceneButton;
+    Image CatalogBadge;
+    Text CatalogBadgeText;
+    Image CatalogArrowBadge;
+    Text CatalogArrowBadgeText;
+    static Sprite CatalogBadgeCircle;
     GameObject ButtonImportCharacter;
     Button ButtonFusion;
     Color FusionButtonImageColor = Color.white;
@@ -490,6 +497,7 @@ public class ControllerProduction : MonoBehaviour
         if (ControllerBattle != null)
             ControllerBattle.Hide();
         ResumeSortie();
+        RefreshCharacterStopPixels();
 
         _autosaveElapsed = 0f;
         _autosaveReady = true;
@@ -624,10 +632,7 @@ public class ControllerProduction : MonoBehaviour
             RefreshProductionFigures();
             if(ProductionCharacterFlag)
                 ShowCharacterOwnedNum();
-            if(RepeatComplete == false)
-            {
-                //TODO:キャラクター生産停止中の警告表示
-            }
+            RefreshCharacterStopPixels();
             if (ControllerBattle != null)
                 ControllerBattle.RefreshQuestBoard();
 
@@ -1449,6 +1454,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        RefreshCatalogBadge();
     }
 
     void NotShowCatalogPanel()
@@ -1552,6 +1558,7 @@ public class ControllerProduction : MonoBehaviour
         {
             ButtonSelectScenePageNext.onClick.RemoveListener(ShowSelectScenePageNext);
             ButtonSelectScenePageNext.onClick.AddListener(ShowSelectScenePageNext);
+            EnsureCatalogBadge(ButtonSelectScenePageNext.transform, ref CatalogArrowBadge, ref CatalogArrowBadgeText);
         }
         if (importButton != null)
         {
@@ -1614,6 +1621,141 @@ public class ControllerProduction : MonoBehaviour
         }
         if (ButtonSelectScenePageNext != null)
             ButtonSelectScenePageNext.gameObject.SetActive(first);
+        RefreshCatalogBadge();
+    }
+
+    public void ClearCatalogNew(uint characterId)
+    {
+        if (characterId == 0)
+            return;
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null || character.ID != characterId || !character.CatalogNew)
+            return;
+        character.CatalogNew = false;
+        CatalogNewMark.Hide(characterId);
+        RefreshCatalogBadge();
+        SaveGame();
+    }
+
+    int CountCatalogNew()
+    {
+        int count = 0;
+        if (CharactersAll == null)
+            return 0;
+        int last = CharactersAll.Length - 1;
+        if (last > Constants.CHARACTERS_ALL_NUM)
+            last = Constants.CHARACTERS_ALL_NUM;
+        for (int i = 1; i <= last; i++)
+        {
+            CharacterClass character = CharactersAll[i];
+            if (character != null && character.ID == (uint)i && character.CatalogNew)
+                count++;
+        }
+        return count;
+    }
+
+    void RefreshCatalogBadge()
+    {
+        int count = CountCatalogNew();
+        bool catalogOpen = CatalogSceneButton != null && CatalogSceneButton.activeInHierarchy;
+        PaintCatalogBadge(CatalogBadge, CatalogBadgeText, catalogOpen ? count : 0);
+        bool arrowOpen = !catalogOpen
+            && ButtonSelectScenePageNext != null
+            && ButtonSelectScenePageNext.gameObject.activeInHierarchy;
+        PaintCatalogBadge(CatalogArrowBadge, CatalogArrowBadgeText, arrowOpen ? count : 0);
+    }
+
+    static void PaintCatalogBadge(Image badge, Text label, int count)
+    {
+        if (badge == null)
+            return;
+        if (count <= 0)
+        {
+            badge.gameObject.SetActive(false);
+            return;
+        }
+        badge.gameObject.SetActive(true);
+        badge.transform.SetAsLastSibling();
+        if (label != null)
+            label.text = count.ToString();
+    }
+
+    void EnsureCatalogBadge(Transform parent, ref Image badge, ref Text label)
+    {
+        if (parent == null)
+            return;
+        if (badge == null)
+        {
+            Transform existing = parent.Find("ImageCatalogBadge");
+            if (existing != null)
+                badge = existing.GetComponent<Image>();
+        }
+        if (badge == null)
+        {
+            GameObject obj = new GameObject("ImageCatalogBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(parent, false);
+            badge = obj.GetComponent<Image>();
+            badge.raycastTarget = false;
+            badge.sprite = CatalogCircleSprite();
+            badge.color = new Color(0.86f, 0.16f, 0.16f, 1f);
+            badge.type = Image.Type.Simple;
+            RectTransform rect = badge.rectTransform;
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(-18f, -18f);
+            rect.sizeDelta = new Vector2(36f, 36f);
+
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(obj.transform, false);
+            label = textObject.AddComponent<Text>();
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (label.font == null)
+                label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            label.fontSize = 22;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            label.raycastTarget = false;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 12;
+            label.resizeTextMaxSize = 22;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            RectTransform textRect = label.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+        }
+        else if (label == null)
+            label = badge.GetComponentInChildren<Text>();
+        badge.gameObject.SetActive(false);
+    }
+
+    static Sprite CatalogCircleSprite()
+    {
+        if (CatalogBadgeCircle != null)
+            return CatalogBadgeCircle;
+        const int size = 64;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.filterMode = FilterMode.Bilinear;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        float radius = (size - 1) * 0.5f;
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x - radius;
+                float dy = y - radius;
+                float alpha = Mathf.Clamp01(radius - Mathf.Sqrt(dx * dx + dy * dy) + 0.75f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        texture.SetPixels(pixels);
+        texture.Apply();
+        CatalogBadgeCircle = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+        return CatalogBadgeCircle;
     }
 
     Button FindSceneBarButton(Transform parent, string name)
@@ -1683,7 +1825,7 @@ public class ControllerProduction : MonoBehaviour
 
     public bool TryPrepareImport(byte[] pngBytes, out string message)
     {
-        return ImportedCharacters.TryPrepare(pngBytes, ClearedBattleStage, BattleBalance, out message);
+        return ImportedCharacters.TryPrepare(pngBytes, IsBattleStageCleared, BattleBalance, out message);
     }
 
     public CharacterClass PreparedImportCharacter()
@@ -1693,9 +1835,23 @@ public class ControllerProduction : MonoBehaviour
 
     public bool CommitPreparedImport(string name, out string message)
     {
+        CharacterClass character = PreparedImportCharacter();
+        bool named = character != null && !string.IsNullOrWhiteSpace(name);
+        if (named && ImportedCharacters.NameTaken(name))
+        {
+            message = "同じ名前は使えません。";
+            return false;
+        }
+        if (named && !TrySpendImportRgb(character, out message))
+            return false;
         bool added = ImportedCharacters.CommitPrepared(name, out message);
         if (!added)
+        {
+            if (named)
+                RefundImportRgb(character);
             return false;
+        }
+        UpdateRGBProductionScene();
         SaveGame();
         ShowCharacterOwnedNum();
         if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
@@ -1708,6 +1864,72 @@ public class ControllerProduction : MonoBehaviour
     public void DiscardPreparedImport()
     {
         ImportedCharacters.DiscardPrepared();
+    }
+
+    // 読み込みは、各ピクセルの R・G・B を足した分を所持から払う。
+    public string ImportRgbCostText(CharacterClass character, out bool affordable)
+    {
+        affordable = false;
+        ulong red;
+        ulong green;
+        ulong blue;
+        if (!ImportRgbCost(character, out red, out green, out blue))
+            return "このキャラのRGBを計算できません。";
+        affordable = CurR >= red && CurG >= green && CurB >= blue;
+        return "消費 R " + UiNumber.Format(red) + "  G " + UiNumber.Format(green) + "  B " + UiNumber.Format(blue);
+    }
+
+    public string ImportRgbShortageText()
+    {
+        return "RGBが足りません。所持 R " + UiNumber.Format(CurR) + "  G " + UiNumber.Format(CurG) + "  B " + UiNumber.Format(CurB);
+    }
+
+    bool TrySpendImportRgb(CharacterClass character, out string message)
+    {
+        message = null;
+        ulong red;
+        ulong green;
+        ulong blue;
+        if (!ImportRgbCost(character, out red, out green, out blue))
+        {
+            message = "このキャラのRGBを計算できません。";
+            return false;
+        }
+        if (CurR < red || CurG < green || CurB < blue)
+        {
+            message = ImportRgbShortageText();
+            return false;
+        }
+        CurR -= red;
+        CurG -= green;
+        CurB -= blue;
+        return true;
+    }
+
+    void RefundImportRgb(CharacterClass character)
+    {
+        ulong red;
+        ulong green;
+        ulong blue;
+        if (!ImportRgbCost(character, out red, out green, out blue))
+            return;
+        CurR += red;
+        CurG += green;
+        CurB += blue;
+        UpdateRGBProductionScene();
+    }
+
+    static bool ImportRgbCost(CharacterClass character, out ulong red, out ulong green, out ulong blue)
+    {
+        red = 0;
+        green = 0;
+        blue = 0;
+        if (character == null || character.ImageTexture2D == null)
+            return false;
+        red = character.SumPixelR;
+        green = character.SumPixelG;
+        blue = character.SumPixelB;
+        return true;
     }
 
     public bool DeleteImportedCharacter(uint id, out string message)
@@ -1951,6 +2173,8 @@ public class ControllerProduction : MonoBehaviour
         Text label = buttonObject.GetComponentInChildren<Text>();
         if (label != null)
             label.text = "図鑑";
+        CatalogSceneButton = buttonObject;
+        EnsureCatalogBadge(buttonObject.transform, ref CatalogBadge, ref CatalogBadgeText);
 
         Button button = buttonObject.GetComponent<Button>();
         if (button == null)
@@ -2827,9 +3051,209 @@ public class ControllerProduction : MonoBehaviour
         RefreshProductionFigures();
         if (ProductionCharacterFlag)
             ShowCharacterOwnedNum();
-        if (RepeatComplete == false)
+        RefreshCharacterStopPixels();
+    }
+
+    // 塗れずに止まった枠の、在庫0の色をピクセル生成ボタンの左上へ最大3つ出す。
+    void RefreshCharacterStopPixels()
+    {
+        int[] keys = new int[3];
+        int count = 0;
+        int slots = Slots != null ? Slots.CharacterSlots : 0;
+        for (int i = 1; i <= slots && count < 3; i++)
+            CollectStopPixels(i, keys, ref count);
+        ShowCharacterStopPixels(keys, count);
+    }
+
+    void CollectStopPixels(int index, int[] keys, ref int count)
+    {
+        if (count >= 3 || CurPixels == null || !CharacterProductionRunning(index))
+            return;
+        if (index < 0 || index >= ProgressTextureProductionCharacter.Count)
+            return;
+        bool[,] progress = ProgressTextureProductionCharacter[index];
+        CharacterClass produced = CharacterOf(CharactersIDProducedCharacter[index]);
+        Texture2D texture = produced != null ? produced.ImageTexture2D : null;
+        if (progress == null || texture == null)
+            return;
+
+        int paintRate = CharacterPaintRate(index);
+        if (paintRate < 1)
+            return;
+
+        int canPaint = 0;
+        int found = 0;
+        int[] local = new int[3];
+        int width = texture.width;
+        int height = texture.height;
+        int progressWidth = progress.GetLength(0);
+        int progressHeight = progress.GetLength(1);
+        for (int y = height - 1; y >= 0 && canPaint < paintRate; y--)
         {
-            //TODO:キャラクター生産停止中の警告表示
+            for (int x = 0; x < width && canPaint < paintRate; x++)
+            {
+                if (x >= progressWidth || y >= progressHeight || progress[x, y])
+                    continue;
+                Color color = texture.GetPixel(x, y);
+                if (color.a <= 0f)
+                    continue;
+                int r = ColorByte(color.r);
+                int g = ColorByte(color.g);
+                int b = ColorByte(color.b);
+                if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+                    continue;
+                if (CurPixels[r, g, b] > 0)
+                {
+                    canPaint++;
+                    continue;
+                }
+                int key = (r << 16) | (g << 8) | b;
+                bool seen = false;
+                for (int n = 0; n < found; n++)
+                {
+                    if (local[n] == key)
+                    {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (!seen && found < 3)
+                    local[found++] = key;
+            }
+        }
+        if (canPaint >= paintRate || found == 0)
+            return;
+        for (int n = 0; n < found && count < 3; n++)
+        {
+            bool seen = false;
+            for (int k = 0; k < count; k++)
+            {
+                if (keys[k] == local[n])
+                {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen)
+                keys[count++] = local[n];
+        }
+    }
+
+    bool CharacterProductionRunning(int index)
+    {
+        if (CharactersIDProducedCharacter == null || PersonIdProductionCharacter == null || CharactersIDProductionCharacter == null)
+            return false;
+        if (index < 1 || index >= CharactersIDProducedCharacter.Length || index >= PersonIdProductionCharacter.Length)
+            return false;
+        if (CharactersIDProducedCharacter[index] == 0)
+            return false;
+        if (PersonIdProductionCharacter[index] != 0)
+            return PersonAt((int)PersonIdProductionCharacter[index]) != null;
+        if (index >= CharactersIDProductionCharacter.Length || CharactersIDProductionCharacter[index] == 0)
+            return false;
+        CharacterClass worker = CharacterOf(CharactersIDProductionCharacter[index]);
+        return worker != null && worker.ID == CharactersIDProductionCharacter[index];
+    }
+
+    int CharacterPaintRate(int index)
+    {
+        uint personId = PersonIdProductionCharacter[index];
+        if (personId != 0)
+        {
+            PersonClass painter = PersonAt((int)personId);
+            CharacterClass producedNow = CharacterOf(CharactersIDProducedCharacter[index]);
+            if (painter == null || producedNow == null)
+                return 0;
+            long amount = painter.CharacterAmount(producedNow.AuthorPersonId == painter.Id, PersonBalance);
+            if (amount < 1)
+                amount = 1;
+            if (amount > int.MaxValue)
+                amount = int.MaxValue;
+            return (int)amount;
+        }
+        CharacterClass worker = CharacterOf(CharactersIDProductionCharacter[index]);
+        if (worker == null)
+            return 0;
+        return worker.PaintPixels > int.MaxValue ? int.MaxValue : (int)worker.PaintPixels;
+    }
+
+    void ShowCharacterStopPixels(int[] keys, int count)
+    {
+        GameObject buttonObject = GameObject.Find("ButtonSelectScenePixelProduction");
+        if (buttonObject == null)
+            return;
+        EnsureCharacterStopPixels(buttonObject.transform);
+        if (CharacterStopPixelFills == null)
+            return;
+        for (int i = 0; i < CharacterStopPixelFills.Length; i++)
+        {
+            Image chip = CharacterStopPixelFills[i];
+            if (chip == null)
+                continue;
+            bool show = i < count;
+            if (chip.gameObject.activeSelf != show)
+                chip.gameObject.SetActive(show);
+            if (!show)
+                continue;
+            int key = keys[i];
+            int r = (key >> 16) & 255;
+            int g = (key >> 8) & 255;
+            int b = key & 255;
+            Color color = new Color(r / 255f, g / 255f, b / 255f, 1f);
+            if (chip.color != color)
+                chip.color = color;
+            ShowPixelColorHalo(chip.transform);
+            ApplyPixelColorInkFrame(chip.transform, PixelColorInk(color));
+            chip.transform.SetAsLastSibling();
+        }
+    }
+
+    void EnsureCharacterStopPixels(Transform button)
+    {
+        if (CharacterStopPixelFills != null || button == null)
+            return;
+        for (int childIndex = button.childCount - 1; childIndex >= 0; childIndex--)
+        {
+            Transform child = button.GetChild(childIndex);
+            if (child.name.StartsWith("CharacterStopPixel"))
+                Destroy(child.gameObject);
+        }
+
+        RectTransform buttonRect = button as RectTransform;
+        float width = buttonRect != null ? buttonRect.rect.width : 0f;
+        if (width < 1f && buttonRect != null)
+            width = buttonRect.sizeDelta.x;
+        if (width < 1f)
+            width = 128f;
+        float inset = 3f;
+        float gap = 12f;
+        float chipSize = 30f;
+        float need = inset * 2f + chipSize * 3f + gap * 2f;
+        if (width < need)
+            chipSize = (width - inset * 2f - gap * 2f) / 3f;
+        if (chipSize < 14f)
+            chipSize = 14f;
+        if (chipSize > 34f)
+            chipSize = 34f;
+
+        Sprite frameSprite = PixelColorFrameSprite(null);
+        CharacterStopPixelFills = new Image[3];
+        for (int i = 0; i < 3; i++)
+        {
+            GameObject chipObject = new GameObject("CharacterStopPixel" + i.ToString(), typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            chipObject.transform.SetParent(button, false);
+            Image chip = chipObject.GetComponent<Image>();
+            chip.sprite = frameSprite;
+            chip.type = Image.Type.Sliced;
+            chip.raycastTarget = false;
+            RectTransform rect = chip.rectTransform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(inset + i * (chipSize + gap), -inset);
+            rect.sizeDelta = new Vector2(chipSize, chipSize);
+            CharacterStopPixelFills[i] = chip;
+            chipObject.SetActive(false);
         }
     }
 
@@ -2860,6 +3284,8 @@ public class ControllerProduction : MonoBehaviour
         }
 
         BattlePartyCharacterIds[setIndex, x, y] = characterId;
+        if (characterId != 0)
+            ClearCatalogNew(characterId);
         return true;
     }
 
@@ -3255,11 +3681,28 @@ public class ControllerProduction : MonoBehaviour
         }
     }
 
-    //ステージ1は最初から開放。以降は、1つ前をクリアしているときだけ開放
+    // そのステージの100階までクリアしている。
+    public bool IsBattleStageCleared(int stageIndex)
+    {
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
+            return false;
+        if (GetHighestClearedBattleFloor(stageIndex) >= Constants.BATTLE_STAGE_FLOOR_MAX)
+            return true;
+        return stageIndex <= ClearedBattleStage;
+    }
+
+    // ステージ1は最初から開放。
+    // チュートリアルをクリアすると、スライムの森とチグサとバトル１が開く。
+    // 4以降は、1つ前のステージをクリアしているときだけ開放。
     public bool IsBattleStageUnlocked(int stageIndex)
     {
-        return stageIndex >= 1 && stageIndex <= Constants.BATTLE_STAGE_NUM
-            && stageIndex <= ClearedBattleStage + 1;
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
+            return false;
+        if (stageIndex == 1)
+            return true;
+        if (stageIndex == 2 || stageIndex == 3)
+            return IsBattleStageCleared(1);
+        return IsBattleStageCleared(stageIndex - 1);
     }
 
     //出撃中のステージをクリアしたことにする。次のステージが開放される
@@ -3267,9 +3710,16 @@ public class ControllerProduction : MonoBehaviour
     {
         if (!IsBattleStageUnlocked(ActiveBattleStage))
             return false;
-        if (ActiveBattleStage > ClearedBattleStage)
-            ClearedBattleStage = ActiveBattleStage;
         MarkBattleFloorCleared(ActiveBattleStage, Constants.BATTLE_STAGE_FLOOR_MAX);
+        int prefix = 0;
+        for (int stage = 1; stage <= Constants.BATTLE_STAGE_NUM; stage++)
+        {
+            if (GetHighestClearedBattleFloor(stage) < Constants.BATTLE_STAGE_FLOOR_MAX)
+                break;
+            prefix = stage;
+        }
+        if (prefix > ClearedBattleStage)
+            ClearedBattleStage = prefix;
         ApplyCharacterLevelCap();
         ApplyFusionCountCap();
         ApplyFusionButtonLock();
@@ -3640,7 +4090,13 @@ public class ControllerProduction : MonoBehaviour
         if (lives < BattleBalance.MaxLives)
             lives++;
         int ownedBeforeRecruit = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+        bool firstCompanion = character.OwnedNumMax == 0;
         character.SetOwnedCur(lives, BattleBalance.MaxLives);
+        if (firstCompanion)
+        {
+            character.CatalogNew = true;
+            RefreshCatalogBadge();
+        }
         if (units != null)
         {
             for (int i = 0; i < units.Count; i++)
@@ -7051,6 +7507,7 @@ public class ControllerProduction : MonoBehaviour
                     FitOwnedStockLabel(label, "所持 " + character.StockText(true));
                 RemoveWhiteFrame(existing);
                 EnsureOwnedAttributeGlow(existing, character);
+                CatalogNewMark.Apply(existing, character);
                 existing.SetSiblingIndex(shown);
                 shown++;
                 return;
@@ -7059,10 +7516,11 @@ public class ControllerProduction : MonoBehaviour
             GameObject characterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), list) as GameObject;
             characterButton.name = buttonName;
             characterButton.transform.SetSiblingIndex(shown);
-            characterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f));
+            characterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             Text createdLabel = characterButton.GetComponentInChildren<Text>();
             FitOwnedStockLabel(createdLabel, "所持 " + character.StockText(true));
             EnsureOwnedAttributeGlow(characterButton.transform, character);
+            CatalogNewMark.Apply(characterButton.transform, character);
             if (character.Whereabouts == Place.CreateR ||
                 character.Whereabouts == Place.CreateG ||
                 character.Whereabouts == Place.CreateB ||
@@ -7115,7 +7573,7 @@ public class ControllerProduction : MonoBehaviour
             if (text == null)
                 continue;
             string name = text.gameObject.name;
-            if (name == "TextPixelNumR" || name == "TextPixelNumG" || name == "TextPixelNumB" || name == "TextPixelNum" || name == "ProductionWarning")
+            if (name == "TextPixelNumR" || name == "TextPixelNumG" || name == "TextPixelNumB" || name == "TextPixelNum" || name == "ProductionWarning" || name == "CatalogNewMark")
                 continue;
             Transform parent = text.transform.parent;
             if (parent != null && parent.name == "ButtonAdUnlockCharacterSlot")
@@ -7245,7 +7703,7 @@ public class ControllerProduction : MonoBehaviour
             return cached.Sprite;
         }
 
-        Sprite probe = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+        Sprite probe = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
         MarkRuntime(probe);
         Sprite glow = PixelWorkerFx.CreateOutline(probe, out scaleX, out scaleY);
         DestroyRuntime(probe);
@@ -7358,7 +7816,7 @@ public class ControllerProduction : MonoBehaviour
         Text[] labels = button.GetComponentsInChildren<Text>();
         for (int i = 0; i < labels.Length; i++)
         {
-            if (labels[i].gameObject.name != "ProductionWarning")
+            if (labels[i].gameObject.name != "ProductionWarning" && labels[i].gameObject.name != "CatalogNewMark")
                 return labels[i];
         }
         return null;
@@ -7793,7 +8251,7 @@ public class ControllerProduction : MonoBehaviour
         bool released = shown != null && previous != null && previous == shown.OwnedSprite;
         if (released)
             ReleaseOwnedWorkerSprite(button, shown);
-        Sprite sprite = Sprite.Create(character.ImageTexture2D, new Rect(0f, 0f, character.Size, character.Size), new Vector2(0.5f, 0.5f));
+        Sprite sprite = Sprite.Create(character.ImageTexture2D, new Rect(0f, 0f, character.Size, character.Size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
         MarkRuntime(sprite);
         button.image.sprite = sprite;
         button.image.type = Image.Type.Simple;
@@ -8867,7 +9325,7 @@ public class ControllerProduction : MonoBehaviour
             return false;
         if (def.Target < Constants.BATTLE_STAGE_FLOOR_MAX)
             return false;
-        return def.Arg >= 1 && def.Arg <= ClearedBattleStage;
+        return IsBattleStageCleared(def.Arg);
     }
 
     void RaiseImportCap(int amount)

@@ -96,6 +96,7 @@ public class SaveClass// : MonoBehaviour
 
             sw.WriteLine("CharactersAll[" + i.ToString() + "].Whereabouts," + CharactersAll[i].Whereabouts);
             sw.WriteLine("CharactersAll[" + i.ToString() + "].CatalogOpened," + (CharactersAll[i].CatalogOpened ? "true" : "false"));
+            sw.WriteLine("CharactersAll[" + i.ToString() + "].CatalogNew," + (CharactersAll[i].CatalogNew ? "true" : "false"));
             CharactersAll[i].EnsureStock();
             sw.WriteLine("CharactersAll[" + i.ToString() + "].AuthorPersonId," + CharactersAll[i].AuthorPersonId.ToString());
             sw.WriteLine("CharactersAll[" + i.ToString() + "].OwnedFull," + CharactersAll[i].Stock.Full.ToString());
@@ -1052,6 +1053,12 @@ public class SaveClass// : MonoBehaviour
                     if (values[0].Equals("CharactersAll[" + i.ToString() + "].CatalogOpened"))
                     {
                         CharactersAll[slot].CatalogOpened = values[1].Equals("true");
+                        break;
+                    }
+
+                    if (values[0].Equals("CharactersAll[" + i.ToString() + "].CatalogNew"))
+                    {
+                        CharactersAll[slot].CatalogNew = values[1].Equals("true");
                         break;
                     }
 

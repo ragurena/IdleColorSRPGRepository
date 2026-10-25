@@ -742,29 +742,29 @@ public class ImportRebirthPlayer : MonoBehaviour
     {
         if (_gauges == null)
             return;
-        int side = _width > 0 ? _width : 1;
-        if (_source == null && _character != null && _character.Size > 0)
-            side = _character.Size;
+        int side = _character != null && _character.Size > 0 ? _character.Size : (_width > 0 ? _width : 1);
         SizeStatCeiling ceiling = CharacterClass.CeilingForSize(side);
         StatisticsClass stats = null;
+        StatisticsClass born = null;
         if (_character != null && _character.Stats != null)
+        {
             stats = _character.Stats[0];
+            if (_character.Stats.Length > 1)
+                born = _character.Stats[1];
+        }
 
         ulong hp = stats != null ? stats.HPMax : 0;
         ulong atk = stats != null ? stats.ATK : 0;
         ulong def = stats != null ? stats.DEF : 0;
         ulong spd = stats != null ? (ulong)stats.SPD : 0;
         _lucAmount = stats != null ? stats.LUC : 0;
-        _bandRAmount = stats != null ? stats.RCreates : 0;
-        _bandGAmount = stats != null ? stats.GCreates : 0;
-        _bandBAmount = stats != null ? stats.BCreates : 0;
+        _bandRAmount = born != null ? born.RCreates : 0;
+        _bandGAmount = born != null ? born.GCreates : 0;
+        _bandBAmount = born != null ? born.BCreates : 0;
         ulong pixels = (ulong)side * (ulong)side;
         if (pixels < 1)
             pixels = 1;
         _bandCanvas = pixels;
-        ulong bandSum = _bandRAmount + _bandGAmount + _bandBAmount;
-        if (bandSum > _bandCanvas)
-            _bandCanvas = bandSum;
 
         ulong[] amounts = { hp, atk, def, spd };
         ulong[] ceilings = { ceiling.HP, ceiling.ATK, ceiling.DEF, ceiling.SPD };

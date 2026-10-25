@@ -1003,14 +1003,14 @@ public class ControllerBattleClass : MonoBehaviour
         if (level < 1)
             level = 1;
         long cap = _config != null ? _config.MaxLevel : 0;
-        string levelText = UiNumber.LevelText("Lv " + level.ToString("D3"), level, cap);
+        string levelText = UiNumber.LevelText("Lv " + UiNumber.Format(level), level, cap);
         if (!unit.IsAlly)
             return levelText;
 
         int lives = unit.Lives;
         if (lives < 0)
             lives = 0;
-        return levelText + " / " + lives.ToString("D2");
+        return levelText + " / " + UiNumber.Format(lives);
     }
 
     BattleUnit FindLiving(bool ally, int x, int y)
@@ -2016,13 +2016,13 @@ public class ControllerBattleClass : MonoBehaviour
                 Slider hp = CreateGauge("SliderBattleHp" + suffix, image.transform, new Color(0.28f, 0.05f, 0.05f, 1f), new Color(0.92f, 0.16f, 0.14f, 1f));
                 Slider exp = CreateGauge("SliderBattleExp" + suffix, image.transform, new Color(0.05f, 0.22f, 0.08f, 1f), new Color(0.25f, 0.82f, 0.28f, 1f));
 
-                Text lives = CreateText("TextBattleLives" + suffix, image.transform, 14, TextAnchor.MiddleCenter);
+                Text lives = CreateText("TextBattleLives" + suffix, image.transform, 16, TextAnchor.MiddleCenter);
                 lives.color = Color.white;
                 lives.supportRichText = true;
                 lives.raycastTarget = false;
                 lives.resizeTextForBestFit = true;
                 lives.resizeTextMinSize = 8;
-                lives.resizeTextMaxSize = 12;
+                lives.resizeTextMaxSize = 14;
                 lives.horizontalOverflow = HorizontalWrapMode.Overflow;
                 lives.verticalOverflow = VerticalWrapMode.Truncate;
                 Outline outline = lives.gameObject.AddComponent<Outline>();
@@ -2046,7 +2046,7 @@ public class ControllerBattleClass : MonoBehaviour
 
     const float MeterHeight = 7f;
     const float MeterGap = 1f;
-    const float LivesHeight = 16f;
+    const float LivesHeight = 18f;
 
     static void SetMetersVisible(CellView view, bool show, bool showExp)
     {

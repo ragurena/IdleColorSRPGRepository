@@ -535,6 +535,8 @@ public static class QuestCatalog
     {
         if (def == null || def.Main || def.Metric != QuestMetric.StageFloor)
             return "";
+        if (def.Arg == 1)
+            return "次のステージ「" + ControllerBattleStageClass.GetStageName(2) + "」「" + ControllerBattleStageClass.GetStageName(3) + "」の開放";
         int next = def.Arg + 1;
         if (next < 1 || next > Constants.BATTLE_STAGE_NUM)
             return "";

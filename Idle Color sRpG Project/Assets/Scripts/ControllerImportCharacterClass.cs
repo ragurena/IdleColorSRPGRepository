@@ -14,7 +14,10 @@ public class ControllerImportCharacterClass : MonoBehaviour
     InputField _name;
     GameObject _confirm;
     Image _confirmImage;
+    Text _confirmPrompt;
     Text _confirmMessage;
+    Button _confirmButton;
+    string _importStatus;
     GameObject _deleteConfirm;
     Text _deletePrompt;
     uint _deleteId;
@@ -57,7 +60,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
             _count.text = "自作 " + UiNumber.Format(_production.ImportedCharacterCount()) + " / " + UiNumber.Format(ImportedCharacters.ImportCap)
                 + "\nクエストクリアなどで上限が増えます";
         if (_sizes != null && _production != null)
-            _sizes.text = ImportSizeRules.Describe(_production.GetClearedBattleStage());
+            _sizes.text = ImportSizeRules.Describe(_production.IsBattleStageCleared);
         RebuildCells();
     }
 
@@ -175,12 +178,54 @@ public class ControllerImportCharacterClass : MonoBehaviour
             _confirmImage.sprite = _confirmSprite;
             _confirmImage.color = Color.white;
         }
-        SetConfirmMessage("", true);
+        _importStatus = null;
         _confirm.SetActive(true);
+        PaintImportCost();
+    }
+
+    void Update()
+    {
+        if (_confirm == null || !_confirm.activeSelf || _showingRebirth)
+            return;
+        PaintImportCost();
+    }
+
+    void PaintImportCost()
+    {
+        CharacterClass character = _production != null ? _production.PreparedImportCharacter() : null;
+        bool affordable = false;
+        string cost = _production != null
+            ? _production.ImportRgbCostText(character, out affordable)
+            : "このキャラのRGBを計算できません。";
+        bool priced = _production != null && !cost.StartsWith("このキャラのRGB");
+        if (!priced)
+            affordable = false;
+        string shortage = priced ? _production.ImportRgbShortageText() : cost;
+        string status = (affordable ? "1" : "0") + "\n" + cost + "\n" + shortage;
+        if (status == _importStatus)
+            return;
+        _importStatus = status;
+        if (_confirmPrompt != null)
+        {
+            _confirmPrompt.text = "名前を決めて読み込むと、この絵がキャラになります。\n違う名前も設定できます。\n" + cost;
+        }
+        if (_confirmButton != null)
+            _confirmButton.interactable = affordable;
+        string shown = _confirmMessage != null ? _confirmMessage.text : "";
+        bool statusMessage = shown.Length == 0
+            || shown.StartsWith("RGBが足りません")
+            || shown.StartsWith("このキャラのRGB");
+        if (!statusMessage)
+            return;
+        if (affordable)
+            SetConfirmMessage("", true);
+        else
+            SetConfirmMessage(shortage, false);
     }
 
     void HideConfirm()
     {
+        _importStatus = null;
         if (_confirm != null)
             _confirm.SetActive(false);
         if (_confirmImage != null)
@@ -478,10 +523,11 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _confirmImage.raycastTarget = false;
 
         Text prompt = CreateText("TextImportConfirmPrompt", _confirm.transform, 26, TextAnchor.MiddleCenter);
-        Place(prompt.rectTransform, 0f, -30f, 960f, 100f);
+        Place(prompt.rectTransform, 0f, -20f, 960f, 140f);
         prompt.horizontalOverflow = HorizontalWrapMode.Wrap;
         prompt.verticalOverflow = VerticalWrapMode.Overflow;
         prompt.text = "名前を決めて読み込むと、この絵がキャラになります。\n違う名前も設定できます。";
+        _confirmPrompt = prompt;
 
         BuildNameField(_confirm.transform);
 
@@ -491,7 +537,11 @@ public class ControllerImportCharacterClass : MonoBehaviour
         okObject.GetComponent<Image>().color = new Color(0.25f, 0.45f, 0.75f, 1f);
         Button ok = okObject.GetComponent<Button>();
         ok.targetGraphic = okObject.GetComponent<Image>();
+        ColorBlock colors = ok.colors;
+        colors.disabledColor = new Color(0.55f, 0.55f, 0.58f, 1f);
+        ok.colors = colors;
         ok.onClick.AddListener(PushConfirmName);
+        _confirmButton = ok;
         Text okLabel = CreateText("Text", okObject.transform, 28, TextAnchor.MiddleCenter);
         Stretch(okLabel.rectTransform);
         okLabel.text = "この名前で読み込む";

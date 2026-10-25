@@ -51,6 +51,8 @@ public class CharacterClass //: MonoBehaviour
     public uint KnownPixels;
     //図鑑で倒したことがある。倒すまではシルエット
     public bool CatalogOpened;
+    // 初めて仲間にしたあと、図鑑で見るか、生産・対象・編成に入れるまで赤丸に残す
+    public bool CatalogNew;
     //属性
     public CharacterType CharacterType;
     //代表カラーと弱点カラー。0〜255。起動時に画像から計算し、セーブしない
@@ -166,6 +168,10 @@ public class CharacterClass //: MonoBehaviour
 
     //ステータス　0:トータル　1:基本ステータス　2:レベルステータス　3:武器ステータス　4:装飾品ステータス
     public StatisticsClass[] Stats = new StatisticsClass[5];
+    // 絵の各ピクセルの R・G・B を全部足した値。読み込みの消費に使う。
+    public ulong SumPixelR;
+    public ulong SumPixelG;
+    public ulong SumPixelB;
 
     ////体力
     //ulong HPMax;
@@ -256,6 +262,7 @@ public class CharacterClass //: MonoBehaviour
         Size = 0;
         KnownPixels = 0;
         CatalogOpened = false;
+        CatalogNew = false;
         CharacterType = CharacterType.None;
         RepresentativeR = 0;
         RepresentativeG = 0;
@@ -708,6 +715,9 @@ public class CharacterClass //: MonoBehaviour
 
             }
         }
+        SumPixelR = RPixelValues;
+        SumPixelG = GPixelValues;
+        SumPixelB = BPixelValues;
         Debug.Log("PixelValues\n" +
                   "RPixelValues : " + RPixelValues + "\n" +
                   "GPixelValues : " + GPixelValues + "\n" +
