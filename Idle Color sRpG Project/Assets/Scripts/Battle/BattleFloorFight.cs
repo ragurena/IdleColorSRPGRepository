@@ -153,7 +153,7 @@ public sealed class BattleFloorFight
         else if (typeWeakness)
             weaknessMark = " タイプ";
         if (knockout == KnockoutResult.Revived)
-            result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " 。残機で復活";
+            result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " 。所持で復活";
         else if (knockout == KnockoutResult.Defeated)
             result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " 。戦闘不能";
         else

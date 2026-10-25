@@ -247,15 +247,23 @@ public class ControllerBattleClass : MonoBehaviour
                 AddLog(ItemIds.DisplayName(drops[i]) + " を入手");
             }
 
-            _production.MarkBattleFloorCleared(stageIndex, floor);
+            bool advanced = _production.MarkBattleFloorCleared(stageIndex, floor);
             _production.GrantPersonBattleFloor();
             _production.SetActiveBattleFloor(floor + 1);
             if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
+            {
                 clearedStage = true;
+                if (!announcedClear)
+                {
+                    _production.MarkBattleStageCleared();
+                    announcedClear = true;
+                }
+            }
             if (!HasLivingAlly())
                 partyGone = true;
             Refresh(stageName, floor, floorFrom, floorTo);
-            _production.SaveGame();
+            if (advanced)
+                _production.SaveGame();
             yield return new WaitForSeconds(Interval());
             if (partyGone)
                 break;

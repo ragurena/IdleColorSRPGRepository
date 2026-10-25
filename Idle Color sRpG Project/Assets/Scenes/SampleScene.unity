@@ -18960,8 +18960,8 @@ MonoBehaviour:
   m_StartAxis: 0
   m_CellSize: {x: 128, y: 128}
   m_Spacing: {x: 51, y: 80}
-  m_Constraint: 0
-  m_ConstraintCount: 4
+  m_Constraint: 1
+  m_ConstraintCount: 5
 --- !u!224 &1475845709 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 493148044978069483, guid: be4769f11726b6d43be51b0cdaedfebc,

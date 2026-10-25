@@ -164,7 +164,7 @@ public class ControllerFusionClass : MonoBehaviour
         long cost = FusionBonus.NextCost(ToLong(character.FusionCount));
         long need = cost >= long.MaxValue ? long.MaxValue : cost + 1;
         return character.Name + "\n"
-            + "残機 " + lives.ToString() + "\n"
+            + "所持 " + lives.ToString() + "\n"
             + "必要 " + need.ToString() + "\n"
             + "減算 " + cost.ToString();
     }
@@ -213,7 +213,7 @@ public class ControllerFusionClass : MonoBehaviour
         _detail.text = character.Name + "\n"
             + "合成 " + UiNumber.Format(count) + "回（+" + FusionBonus.Percent(count).ToString() + "%）\n"
             + "次は " + cost.ToString() + "体で +" + FusionBonus.PercentPerFusion.ToString() + "%（+" + FusionBonus.Percent(count + 1).ToString() + "%）\n"
-            + "残機 " + lives.ToString() + " → " + nextLives.ToString() + "\n"
+            + "所持 " + lives.ToString() + " → " + nextLives.ToString() + "\n"
             + "HP " + UiNumber.Format(hp) + " → " + UiNumber.Format(NextStat(hp, grownHp, count)) + "\n"
             + "ATK " + UiNumber.Format(atk) + " → " + UiNumber.Format(NextStat(atk, grownAtk, count)) + "\n"
             + "DEF " + UiNumber.Format(def) + " → " + UiNumber.Format(NextStat(def, grownDef, count)) + "\n"
@@ -221,7 +221,7 @@ public class ControllerFusionClass : MonoBehaviour
             + "G " + UiNumber.Format(createG) + " → " + UiNumber.Format(NextStat(createG, grownG, count)) + "\n"
             + "B " + UiNumber.Format(createB) + " → " + UiNumber.Format(NextStat(createB, grownB, count));
         if (!canFuse)
-            _detail.text += "\n残機が足りないため合成できません";
+            _detail.text += "\n所持が足りないため合成できません";
     }
 
     static long NextStat(long current, long grown, long fusionCount)

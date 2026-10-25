@@ -44,6 +44,18 @@ public static class PersonPortraits
         return sprite;
     }
 
+    public static bool Owns(Sprite sprite)
+    {
+        if (sprite == null)
+            return false;
+        foreach (Sprite cached in Cache.Values)
+        {
+            if (cached == sprite)
+                return true;
+        }
+        return false;
+    }
+
     public static void CopyFromFolder(string sourceDirectory)
     {
         if (string.IsNullOrEmpty(sourceDirectory) || !Directory.Exists(sourceDirectory))

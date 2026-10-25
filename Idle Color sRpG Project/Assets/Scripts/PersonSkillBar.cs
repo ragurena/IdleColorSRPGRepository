@@ -44,10 +44,14 @@ public static class PersonSkillBar
             need = 1;
 
         Transform root = Ensure(host);
-        Place(root.GetComponent<RectTransform>(), inside);
+        RectTransform rect = root.GetComponent<RectTransform>();
+        if (NeedsPlace(rect, inside))
+            Place(rect, inside);
         root.gameObject.SetActive(true);
         Text label = root.Find("Level").GetComponent<Text>();
-        label.text = "Lv" + level.ToString();
+        string levelText = "Lv" + level.ToString();
+        if (label.text != levelText)
+            label.text = levelText;
 
         float ratio = (float)exp / need;
         if (ratio < 0f)
@@ -55,9 +59,20 @@ public static class PersonSkillBar
         if (ratio > 1f)
             ratio = 1f;
         RectTransform fill = root.Find("Track/Fill").GetComponent<RectTransform>();
-        fill.anchorMax = new Vector2(ratio, 1f);
-        fill.offsetMin = Vector2.zero;
-        fill.offsetMax = Vector2.zero;
+        Vector2 fillAnchor = new Vector2(ratio, 1f);
+        if (fill.anchorMax != fillAnchor)
+        {
+            fill.anchorMax = fillAnchor;
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+        }
+    }
+
+    static bool NeedsPlace(RectTransform root, bool inside)
+    {
+        if (inside)
+            return root.pivot.y > 0.5f || root.anchoredPosition.y != 10f - 28f;
+        return root.pivot.y < 0.5f || root.anchoredPosition.y != 18f;
     }
 
     static void Place(RectTransform root, bool inside)

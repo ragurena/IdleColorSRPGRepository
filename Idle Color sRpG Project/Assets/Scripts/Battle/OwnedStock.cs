@@ -128,7 +128,7 @@ public struct OwnedStock
         total = AddCapped(total, eight);
         total = AddCapped(total, half);
         string detail = compact
-            ? "×1:" + full.ToString() + " ×0.8:" + eight.ToString() + " ×0.5:" + half.ToString()
+            ? "×1:" + full.ToString() + "\n×0.8:" + eight.ToString() + " ×0.5:" + half.ToString()
             : "×1: " + full.ToString() + " ×0.8: " + eight.ToString() + " ×0.5: " + half.ToString();
         return total.ToString() + "\n" + detail;
     }

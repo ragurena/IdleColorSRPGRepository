@@ -489,12 +489,17 @@ public class ControllerProduction : MonoBehaviour
             ControllerBattle.Hide();
         ResumeSortie();
 
+        _autosaveElapsed = 0f;
+        _autosaveReady = true;
         Debug.Log("ControllerProduction End");
     }
 
     // Update is called once per frame
     private float TimeOut = 1;
     private float TimeElapsed = 0;
+    const float AutosaveInterval = 180f;
+    float _autosaveElapsed;
+    bool _autosaveReady;
     struct PendingRgbFx
     {
         public string ButtonName;
@@ -508,6 +513,16 @@ public class ControllerProduction : MonoBehaviour
     Color _rgbFxTint;
     void Update()
     {
+        if (_autosaveReady)
+        {
+            _autosaveElapsed += Time.unscaledDeltaTime;
+            if (_autosaveElapsed >= AutosaveInterval)
+            {
+                _autosaveElapsed = 0f;
+                SaveGame();
+            }
+        }
+
         TimeElapsed += Time.deltaTime;
 
         if (TimeElapsed >= TimeOut)
@@ -719,6 +734,7 @@ public class ControllerProduction : MonoBehaviour
             );
         if (saved)
         {
+            _autosaveElapsed = 0f;
             _messageUnsaved = false;
             SaveFailureNotified = false;
             HideSaveNotice();
@@ -1212,21 +1228,24 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonIncreaseValueRUp()
     {
         Debug.Log("ButtonIncreaseValueRUpが押された");
-        ModelProduction.UpgradeValue(ref CurR, ref CostIncreaseValueRUp, ref IncreaseValueR, ModelProduction.TypeUpgrade.INCREASE);
+        if (ModelProduction.UpgradeValue(ref CurR, ref CostIncreaseValueRUp, ref IncreaseValueR, ModelProduction.TypeUpgrade.INCREASE))
+            SaveGame();
         UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
     }
     //ButtonIncreaseValueGUpが押されたら
     public void PushButtonIncreaseValueGUp()
     {
         Debug.Log("ButtonIncreaseValueGUpが押された");
-        ModelProduction.UpgradeValue(ref CurG, ref CostIncreaseValueGUp, ref IncreaseValueG, ModelProduction.TypeUpgrade.INCREASE);
+        if (ModelProduction.UpgradeValue(ref CurG, ref CostIncreaseValueGUp, ref IncreaseValueG, ModelProduction.TypeUpgrade.INCREASE))
+            SaveGame();
         UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
     }
     //ButtonIncreaseValueBUpが押されたら
     public void PushButtonIncreaseValueBUp()
     {
         Debug.Log("ButtonIncreaseValueBUpが押された");
-        ModelProduction.UpgradeValue(ref CurB, ref CostIncreaseValueBUp, ref IncreaseValueB, ModelProduction.TypeUpgrade.INCREASE);
+        if (ModelProduction.UpgradeValue(ref CurB, ref CostIncreaseValueBUp, ref IncreaseValueB, ModelProduction.TypeUpgrade.INCREASE))
+            SaveGame();
         UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
     }
 
@@ -1234,21 +1253,24 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonMaxRUp()
     {
         Debug.Log("ButtonMaxRUpが押された");
-        ModelProduction.UpgradeValue(ref CurR, ref CostMaxRUp, ref MaxR, ModelProduction.TypeUpgrade.MAX);
+        if (ModelProduction.UpgradeValue(ref CurR, ref CostMaxRUp, ref MaxR, ModelProduction.TypeUpgrade.MAX))
+            SaveGame();
         UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
     }
     //ButtonMaxGUpが押されたら
     public void PushButtonMaxGUp()
     {
         Debug.Log("ButtonMaxRUpが押された");
-        ModelProduction.UpgradeValue(ref CurG, ref CostMaxGUp, ref MaxG, ModelProduction.TypeUpgrade.MAX);
+        if (ModelProduction.UpgradeValue(ref CurG, ref CostMaxGUp, ref MaxG, ModelProduction.TypeUpgrade.MAX))
+            SaveGame();
         UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
     }
     //ButtonMaxBUpが押されたら
     public void PushButtonMaxBUp()
     {
         Debug.Log("ButtonMaxRUpが押された");
-        ModelProduction.UpgradeValue(ref CurB, ref CostMaxBUp, ref MaxB, ModelProduction.TypeUpgrade.MAX);
+        if (ModelProduction.UpgradeValue(ref CurB, ref CostMaxBUp, ref MaxB, ModelProduction.TypeUpgrade.MAX))
+            SaveGame();
         UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
     }
 
@@ -1329,6 +1351,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowImportPanel();
         UpdateProductionCharacterConsumeViews();
         UpdateCharacterProductionStockLabels();
+        PaintCharacterProductionBlack();
     }
 
     //バトル編成シーンボタンが押されたら
@@ -2433,11 +2456,7 @@ public class ControllerProduction : MonoBehaviour
         {
             if (gameObject.name.Equals("ButtonCharacterColor"))
             {
-                gameObject.GetComponent<Image>().sprite = null;
-                gameObject.GetComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f);
-                gameObject.GetComponentInChildren<Text>().text = "+";
-                gameObject.GetComponentInChildren<RawImage>().texture = new Texture2D(0, 0);
-                gameObject.GetComponentInChildren<RawImage>().color = new Color(0.0f, 0.0f, 0.0f, 0.0f);
+                ResetColorCharacterButton(gameObject);
             }
         }
 
@@ -2458,11 +2477,7 @@ public class ControllerProduction : MonoBehaviour
         {
             if (gameObject.name.Equals("ButtonCharacterColor"))
             {
-                gameObject.GetComponent<Image>().sprite = null;
-                gameObject.GetComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f);
-                gameObject.GetComponentInChildren<Text>().text = "+";
-                gameObject.GetComponentInChildren<RawImage>().texture = new Texture2D(0, 0);
-                gameObject.GetComponentInChildren<RawImage>().color = new Color(0.0f, 0.0f, 0.0f, 0.0f);
+                ResetColorCharacterButton(gameObject);
             }
         }
 
@@ -2507,8 +2522,11 @@ public class ControllerProduction : MonoBehaviour
 
 
                 //クリックされたピクセルカラーではない部分のマスク作成
-                tmpButtonCharacter.GetComponentInChildren<RawImage>().color = new Color(0.5f, 0.5f, 0.5f, 1.0f);
+                RawImage maskImage = tmpButtonCharacter.GetComponentInChildren<RawImage>();
+                if (maskImage != null)
+                    maskImage.color = new Color(0.5f, 0.5f, 0.5f, 1.0f);
                 Texture2D Mask = new Texture2D(buttonImage.width, buttonImage.height, TextureFormat.ARGB32, false);
+                MarkRuntime(Mask);
                 for (int y = 0; y < buttonImage.height; y++)
                 {
                     for (int x = 0; x < buttonImage.width; x++)
@@ -2523,7 +2541,7 @@ public class ControllerProduction : MonoBehaviour
                     }
                 }
                 Mask.Apply();
-                tmpButtonCharacter.GetComponentInChildren<RawImage>().texture = Mask;
+                ReplaceRawTexture(maskImage, Mask);
             }
         }
     }
@@ -2576,9 +2594,7 @@ public class ControllerProduction : MonoBehaviour
         {
             if (gameObject.name.Equals("ButtonCharacterColor"))
             {
-                gameObject.GetComponent<Image>().sprite = null;
-                gameObject.GetComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f);
-                gameObject.GetComponentInChildren<Text>().text = "+";
+                ResetColorCharacterButton(gameObject);
             }
         }
 
@@ -3082,19 +3098,24 @@ public class ControllerProduction : MonoBehaviour
         return ((next - 1) / step) * step + 1;
     }
 
-    public void MarkBattleFloorCleared(int stageIndex, int floor)
+    public bool MarkBattleFloorCleared(int stageIndex, int floor)
     {
         if (ClearedBattleFloor == null || stageIndex < 1 || stageIndex >= ClearedBattleFloor.Length)
-            return;
+            return false;
         if (floor < 1)
-            return;
+            return false;
         if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor > Constants.BATTLE_STAGE_FLOOR_MAX)
-            return;
+            return false;
         if (stageIndex == Constants.BATTLE_STAGE_GALLERY)
             NoteGalleryClear();
+        bool advanced = false;
         if (floor > ClearedBattleFloor[stageIndex])
+        {
             ClearedBattleFloor[stageIndex] = floor;
+            advanced = true;
+        }
         RefreshMessages();
+        return advanced;
     }
 
     void NormalizeClearedBattleFloors()
@@ -3619,7 +3640,7 @@ public class ControllerProduction : MonoBehaviour
         RefreshMessages();
         if (!alreadyOwned)
             return character.Name + " が仲間になった";
-        return character.Name + " の残機が1増えた";
+        return character.Name + " の所持が1増えた";
     }
 
     public void SyncAllyLivesFromBattle(List<BattleUnit> units)
@@ -4390,6 +4411,13 @@ public class ControllerProduction : MonoBehaviour
             return;
 
         bool upgrade = button.name.Contains("Max") || button.name.Contains("Increase");
+        RgbButtonPressGlow ready = button.GetComponent<RgbButtonPressGlow>();
+        if (ready != null && ready.StyleReady && !ready.UseTint && ready.Production == this
+            && ready.Channel == channel && ready.StyledUpgrade == upgrade
+            && ready.StyledInteractable == button.interactable
+            && button.transform.Find("NeonFrame") != null)
+            return;
+
         image.sprite = RgbButtonFill(channel, upgrade);
         image.type = Image.Type.Simple;
         image.color = Color.white;
@@ -4414,6 +4442,9 @@ public class ControllerProduction : MonoBehaviour
         press.Production = this;
         press.Channel = channel;
         press.UseTint = false;
+        press.StyleReady = true;
+        press.StyledUpgrade = upgrade;
+        press.StyledInteractable = button.interactable;
     }
 
     static void StyleProductionButtonText(Button button, int channel)
@@ -5134,7 +5165,9 @@ public class ControllerProduction : MonoBehaviour
     public void UpdateRGBProductionSliderOneColor(Text TextColorValue, ulong ColorValue, ulong MaxValue, Slider SliderColorValue, Slider SliderCostIncrease, Slider SliderCostMaxValueUp)
     {
         TextColorValue.text = UiNumber.Format(ColorValue) + " / " + UiNumber.Format(MaxValue);
-        TextColorValue.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+        Color ink = new Color(0.93f, 0.94f, 0.96f, 1f);
+        if (TextColorValue.color != ink)
+            TextColorValue.color = ink;
         StyleGaugeTextGlow(TextColorValue, SliderColorValue != null ? SliderChannel(SliderColorValue.name) : -1);
         SliderColorValue.maxValue = MaxValue;
         SliderColorValue.minValue = 0;
@@ -5181,17 +5214,8 @@ public class ControllerProduction : MonoBehaviour
 
     void PaintHelpCharacter(Button button, uint id)
     {
-        if (button == null || button.image == null || id == 0)
-            return;
-        HidePersonPortrait(button);
         CharacterClass character = CharacterOf(id);
-        if (character == null || character.ID != id || character.ImageTexture2D == null)
-            return;
-        button.image.sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f));
-        button.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-        Text label = button.GetComponentInChildren<Text>();
-        if (label != null)
-            label.text = "";
+        ShowOwnedCharacter(button, character);
     }
 
     //ピクセル生産
@@ -5477,7 +5501,9 @@ public class ControllerProduction : MonoBehaviour
                 continue;
             if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
                 continue;
-            texts[5].text = CurPixels[r, g, b].ToString();
+            string count = CurPixels[r, g, b].ToString();
+            if (texts[5].text != count)
+                texts[5].text = count;
         }
     }
 
@@ -5848,31 +5874,11 @@ public class ControllerProduction : MonoBehaviour
         Button pixelButton = buttons[0];
         CharacterClass pixelCharacter = PersonIdProductionPixel[argIndex] != 0 ? null : ImportedCharacters.FindAny(CharactersAll, CharactersIDProductionPixel[argIndex]);
         if (PersonIdProductionPixel[argIndex] != 0)
-            PaintPerson(pixelButton, PersonAt((int)PersonIdProductionPixel[argIndex]));
+            ShowWorkerPerson(pixelButton, PersonAt((int)PersonIdProductionPixel[argIndex]));
+        else if (pixelCharacter == null || pixelCharacter.ImagePath == null)
+            ClearWorkerFace(pixelButton, "+");
         else
-        if (pixelCharacter == null || pixelCharacter.ImagePath == null)
-        {
-            pixelButton.image.sprite = null;
-            pixelButton.image.color = new Color(1f, 1f, 1f, 0f);
-            HidePersonPortrait(pixelButton);
-            Text label = pixelButton.GetComponentInChildren<Text>();
-            if (label != null)
-            {
-                label.text = "+";
-                label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
-            }
-        }
-        else
-        {
-            pixelButton.image.sprite = Sprite.Create(pixelCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, pixelCharacter.Size, pixelCharacter.Size), new Vector2(0.5f, 0.5f));
-            pixelButton.image.type = Image.Type.Simple;
-            pixelButton.image.preserveAspect = false;
-            pixelButton.image.color = Color.white;
-            HidePersonPortrait(pixelButton);
-            Text label = pixelButton.GetComponentInChildren<Text>();
-            if (label != null)
-                label.text = "";
-        }
+            ShowOwnedCharacter(pixelButton, pixelCharacter);
         SyncPersonSkillBar(pixelButton);
     }
     public void UpdatePixelColorPixelProduction(int argIndex)
@@ -5937,7 +5943,9 @@ public class ControllerProduction : MonoBehaviour
         uint add = PixelYield(argIndex);
         ulong after = stock > ulong.MaxValue - add ? ulong.MaxValue : stock + add;
         label.text = "在庫 " + stock.ToString() + " → " + after.ToString();
-        label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+        Color ink = new Color(0.93f, 0.94f, 0.96f, 1f);
+        if (label.color != ink)
+            label.color = ink;
     }
 
     // ピクセル生産の下地を黒にする。行の半透明の白も、黒の上だと灰色に残る。
@@ -6268,6 +6276,20 @@ public class ControllerProduction : MonoBehaviour
         StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpPixelProductionRight"), color);
     }
 
+    void StyleCharacterSpeedButtons(Transform row, Color color)
+    {
+        color.a = 1f;
+        StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpCharacterProductionLeft"), color);
+        StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpCharacterProductionRight"), color);
+    }
+
+    static Color RepresentativeColor(CharacterClass character)
+    {
+        if (character == null)
+            return Color.black;
+        return new Color(character.RepresentativeR / 255f, character.RepresentativeG / 255f, character.RepresentativeB / 255f, 1f);
+    }
+
     static Transform FindPixelSpeedButton(Transform row, string prefix)
     {
         if (row == null)
@@ -6477,6 +6499,7 @@ public class ControllerProduction : MonoBehaviour
         UpdateAllProductionCharacterProgressImages();
         UpdateProductionCharacterConsumeViews();
         ShowCharacterOwnedNum();
+        PaintCharacterProductionBlack();
     }
 
     //作成担当キャラと作成するキャラのボタンを、保存されている割り当てに合わせる
@@ -6496,7 +6519,7 @@ public class ControllerProduction : MonoBehaviour
             SetCharacterStockLabel(i);
     }
 
-    //作る対象ボタンの下に、今の所持数と、1体できたあとの所持数を出す
+    //所持の合計は対象画像の上、内訳は下に出す
     void SetCharacterStockLabel(int argIndex)
     {
         if (argIndex < 1 || argIndex > Slots.CharacterSlots)
@@ -6506,26 +6529,95 @@ public class ControllerProduction : MonoBehaviour
             return;
 
         Transform row = buttonObject.transform.parent;
+        RectTransform buttonRect = buttonObject.transform as RectTransform;
         Transform labelTransform = row.Find("TextCharacterStock");
         Text label = labelTransform != null ? labelTransform.GetComponent<Text>() : CreateUnderButtonLabel(row, buttonObject.transform, "TextCharacterStock");
         if (label == null)
             return;
+        Transform detailTransform = row.Find("TextCharacterStockDetail");
+        Text detail = detailTransform != null ? detailTransform.GetComponent<Text>() : null;
 
         uint characterId = CharactersIDProducedCharacter[argIndex];
         CharacterClass stockCharacter = CharacterOf(characterId);
-        if (characterId == 0 || stockCharacter == null || stockCharacter.ID != characterId)
+        bool hasTarget = characterId != 0 && stockCharacter != null && stockCharacter.ID == characterId;
+        StyleCharacterSpeedButtons(row, hasTarget ? RepresentativeColor(stockCharacter) : Color.black);
+        if (!hasTarget)
         {
-            label.text = "";
-            label.gameObject.SetActive(false);
+            HideCharacterStockLabel(label);
+            HideCharacterStockLabel(detail);
             return;
         }
+        if (detail == null)
+            detail = CreateUnderButtonLabel(row, buttonObject.transform, "TextCharacterStockDetail");
 
+        stockCharacter.EnsureStock();
+        OwnedStock stock = stockCharacter.Stock;
+        StyleCharacterStockText(label, TextAnchor.LowerCenter);
+        label.text = "所持 " + stock.Total.ToString();
+        PlaceCharacterStockLabelAbove(label, buttonRect);
+
+        if (detail == null)
+            return;
+        StyleCharacterStockText(detail, TextAnchor.UpperCenter);
+        detail.text = "×1: " + stock.Full.ToString()
+            + "\n×0.8: " + stock.Eight.ToString()
+            + "\n×0.5: " + stock.Half.ToString();
+        PlaceCharacterStockLabelBelow(detail, buttonRect);
+    }
+
+    static void HideCharacterStockLabel(Text label)
+    {
+        if (label == null)
+            return;
+        label.text = "";
+        label.gameObject.SetActive(false);
+    }
+
+    static void StyleCharacterStockText(Text label, TextAnchor alignment)
+    {
         label.gameObject.SetActive(true);
-        label.text = "在庫 " + stockCharacter.StockText();
+        label.color = Color.white;
+        label.fontSize = 22;
+        label.fontStyle = FontStyle.Bold;
+        label.alignment = alignment;
+        label.alignByGeometry = false;
+        label.lineSpacing = 0.9f;
+        label.resizeTextForBestFit = false;
+        label.horizontalOverflow = HorizontalWrapMode.Overflow;
         label.verticalOverflow = VerticalWrapMode.Overflow;
-        RectTransform labelRect = label.rectTransform;
-        if (labelRect.sizeDelta.y < 52f)
-            labelRect.sizeDelta = new Vector2(labelRect.sizeDelta.x, 52f);
+        label.raycastTarget = false;
+    }
+
+    static void PlaceCharacterStockLabelAbove(Text label, RectTransform buttonRect)
+    {
+        if (label == null || buttonRect == null)
+            return;
+        float height = buttonRect.rect.height;
+        if (height <= 0f)
+            height = buttonRect.sizeDelta.y;
+        float top = buttonRect.anchoredPosition.y + height * (1f - buttonRect.pivot.y);
+        RectTransform rect = label.rectTransform;
+        rect.anchorMin = buttonRect.anchorMin;
+        rect.anchorMax = buttonRect.anchorMax;
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(buttonRect.anchoredPosition.x, top + 2f);
+        rect.sizeDelta = new Vector2(260f, 30f);
+    }
+
+    static void PlaceCharacterStockLabelBelow(Text label, RectTransform buttonRect)
+    {
+        if (label == null || buttonRect == null)
+            return;
+        float height = buttonRect.rect.height;
+        if (height <= 0f)
+            height = buttonRect.sizeDelta.y;
+        float bottom = buttonRect.anchoredPosition.y - height * buttonRect.pivot.y;
+        RectTransform rect = label.rectTransform;
+        rect.anchorMin = buttonRect.anchorMin;
+        rect.anchorMax = buttonRect.anchorMax;
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(buttonRect.anchoredPosition.x, bottom - 2f);
+        rect.sizeDelta = new Vector2(260f, 80f);
     }
 
     void UpdateProductionCharacterButton(string argButtonName, uint argCharacterID, uint argPersonId)
@@ -6534,32 +6626,20 @@ public class ControllerProduction : MonoBehaviour
         {
             if (argPersonId != 0)
             {
-                PaintPerson(button, PersonAt((int)argPersonId));
+                ShowWorkerPerson(button, PersonAt((int)argPersonId));
                 SyncPersonSkillBar(button);
                 return;
             }
 
             CharacterClass shownCharacter = argCharacterID == 0 ? null : ImportedCharacters.FindAny(CharactersAll, argCharacterID);
-            Text label = button.GetComponentInChildren<Text>();
             if (shownCharacter == null || shownCharacter.ImageTexture2D == null)
             {
-                button.image.sprite = null;
-                button.image.color = new Color(1f, 1f, 1f, 0f);
-                HidePersonPortrait(button);
-                if (label != null)
-                {
-                    label.text = "+";
-                    label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
-                }
+                ClearWorkerFace(button, "+");
                 SyncPersonSkillBar(button);
                 return;
             }
 
-            button.image.sprite = Sprite.Create(shownCharacter.ImageTexture2D, new UnityEngine.Rect(0, 0, shownCharacter.Size, shownCharacter.Size), new Vector2(0.5f, 0.5f));
-            button.image.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-            HidePersonPortrait(button);
-            if (label != null)
-                label.text = "";
+            ShowOwnedCharacter(button, shownCharacter);
             SyncPersonSkillBar(button);
         });
     }
@@ -6650,23 +6730,27 @@ public class ControllerProduction : MonoBehaviour
             progressImage.texture = null;
             if (oldView != null)
                 Destroy(oldView);
+            RemoveAttributeGlow(progressImage.transform);
             return;
         }
 
         CharacterClass sourceCharacter = ImportedCharacters.FindAny(CharactersAll, characterId);
-        if (sourceCharacter == null)
+        if (sourceCharacter == null || sourceCharacter.ImageTexture2D == null)
+        {
+            RemoveAttributeGlow(progressImage.transform);
             return;
+        }
         Texture2D sourceTexture = sourceCharacter.ImageTexture2D;
-        if (sourceTexture == null)
-            return;
 
         Texture view = ImagegUtility.BoolArrayTOTexture(ProgressTextureProductionCharacter[productionIndex],
             sourceTexture, new Color(1f, 1f, 1f, 1f), new Color(0.45f, 0.45f, 0.45f, 1f));
+        MarkRuntime(view);
         Texture previous = ProductionCharacterViewTexture[productionIndex];
         ProductionCharacterViewTexture[productionIndex] = view;
         progressImage.texture = view;
         if (previous != null)
-            Destroy(previous);
+            DestroyRuntime(previous);
+        EnsureOwnedAttributeGlow(progressImage.transform, sourceCharacter);
     }
 
     void UpdateProductionCharacterConsumeViews()
@@ -6703,17 +6787,37 @@ public class ControllerProduction : MonoBehaviour
 
     void ApplyConsumePixelRow(GameObject row, ConsumePixelClass consumePixel)
     {
-        row.GetComponentsInChildren<Image>()[1].color = consumePixel.PixelColor;
+        Image swatch = row.GetComponentsInChildren<Image>()[1];
+        if (swatch.color != consumePixel.PixelColor)
+            swatch.color = consumePixel.PixelColor;
         Text[] texts = row.GetComponentsInChildren<Text>();
-        texts[0].text = ColorByte(consumePixel.PixelColor.r).ToString();
-        texts[2].text = ColorByte(consumePixel.PixelColor.g).ToString();
-        texts[4].text = ColorByte(consumePixel.PixelColor.b).ToString();
+        string rText = ColorByte(consumePixel.PixelColor.r).ToString();
+        string gText = ColorByte(consumePixel.PixelColor.g).ToString();
+        string bText = ColorByte(consumePixel.PixelColor.b).ToString();
+        if (texts[0].text != rText)
+            texts[0].text = rText;
+        if (texts[2].text != gText)
+            texts[2].text = gText;
+        if (texts[4].text != bText)
+            texts[4].text = bText;
         int r = ColorByte(consumePixel.PixelColor.r);
         int g = ColorByte(consumePixel.PixelColor.g);
         int b = ColorByte(consumePixel.PixelColor.b);
-        texts[5].text = consumePixel.CurConsumePixelsNum.ToString() + " / " + consumePixel.ToBeCurConsumePixelsNum.ToString() + " / " + CurPixels[r, g, b].ToString();
+        string progress = consumePixel.CurConsumePixelsNum.ToString() + " / " + consumePixel.ToBeCurConsumePixelsNum.ToString() + " / " + CurPixels[r, g, b].ToString();
+        if (texts[5].text != progress)
+            texts[5].text = progress;
         uint remaining = consumePixel.ToBeCurConsumePixelsNum - consumePixel.CurConsumePixelsNum;
-        texts[5].color = CurPixels[r, g, b] < remaining ? new Color(1, 0, 0, 1) : new Color(0, 0, 0, 1);
+        bool shortPixels = CurPixels[r, g, b] < remaining;
+        RemoveWhiteFrame(row.transform);
+        StylePixelListCard(row);
+        Text progressText = texts.Length > 5 ? texts[5] : null;
+        if (shortPixels && progressText != null)
+        {
+            progressText.color = new Color(1f, 0.35f, 0.28f, 1f);
+            StyleGaugeTextGlow(progressText, new Color(1f, 0.2f, 0.14f, 1f));
+        }
+        else
+            StylePixelListNumber(progressText, -1);
     }
 
     //TODO:TODO!
@@ -6759,6 +6863,8 @@ public class ControllerProduction : MonoBehaviour
                 Text label = OwnedCountLabel(existing);
                 if (label != null)
                     FitOwnedStockLabel(label, "所持 " + character.StockText(true));
+                RemoveWhiteFrame(existing);
+                EnsureOwnedAttributeGlow(existing, character);
                 existing.SetSiblingIndex(shown);
                 shown++;
                 return;
@@ -6770,7 +6876,7 @@ public class ControllerProduction : MonoBehaviour
             characterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f));
             Text createdLabel = characterButton.GetComponentInChildren<Text>();
             FitOwnedStockLabel(createdLabel, "所持 " + character.StockText(true));
-            createdLabel.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            EnsureOwnedAttributeGlow(characterButton.transform, character);
             if (character.Whereabouts == Place.CreateR ||
                 character.Whereabouts == Place.CreateG ||
                 character.Whereabouts == Place.CreateB ||
@@ -6786,6 +6892,258 @@ public class ControllerProduction : MonoBehaviour
 
         if (added)
             LayoutRebuilder.ForceRebuildLayoutImmediate(list as RectTransform);
+        PaintCharacterProductionBlack();
+    }
+
+    void PaintCharacterProductionBlack()
+    {
+        if (PanelCharacterProduction == null)
+            return;
+        Image[] images = PanelCharacterProduction.GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++)
+        {
+            Image image = images[i];
+            if (!IsCharacterProductionBackdrop(image))
+                continue;
+            if (image.color != Color.black)
+                image.color = Color.black;
+        }
+        EnsureWhiteFrame(PanelCharacterProduction.transform.Find("PanelCharacterList"));
+        Transform[] nodes = PanelCharacterProduction.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < nodes.Length; i++)
+        {
+            if (nodes[i].name.Contains("ScrollViewConsumePixel"))
+                EnsureWhiteFrame(nodes[i]);
+        }
+        PaintCharacterProductionTexts();
+    }
+
+    void PaintCharacterProductionTexts()
+    {
+        if (PanelCharacterProduction == null)
+            return;
+        Text[] texts = PanelCharacterProduction.GetComponentsInChildren<Text>(true);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            Text text = texts[i];
+            if (text == null)
+                continue;
+            string name = text.gameObject.name;
+            if (name == "TextPixelNumR" || name == "TextPixelNumG" || name == "TextPixelNumB" || name == "TextPixelNum" || name == "ProductionWarning")
+                continue;
+            Transform parent = text.transform.parent;
+            if (parent != null && parent.name == "ButtonAdUnlockCharacterSlot")
+            {
+                if (text.color != Color.black)
+                    text.color = Color.black;
+                continue;
+            }
+            if (text.color != Color.white)
+                text.color = Color.white;
+        }
+    }
+
+    static bool IsCharacterProductionBackdrop(Image image)
+    {
+        if (image == null || image.GetComponentInParent<Button>() != null)
+            return false;
+        string name = image.gameObject.name;
+        if (name == "ImagePixelColor" || name == "Handle" || name == "WhiteFrame" || name == "AttributeGlow")
+            return false;
+        if (IsPixelListChrome(image.transform))
+            return false;
+        Transform parent = image.transform.parent;
+        return parent == null || parent.name != "WhiteFrame";
+    }
+
+    static bool IsPixelListChrome(Transform node)
+    {
+        while (node != null)
+        {
+            string name = node.name;
+            if (name == "NeonFrame" || name == "ChemGlow" || name == "ColorInkFrame")
+                return true;
+            node = node.parent;
+        }
+        return false;
+    }
+
+    static Sprite _whiteFrameSprite;
+
+    struct OwnedListGlow
+    {
+        public Sprite Sprite;
+        public float ScaleX;
+        public float ScaleY;
+    }
+
+    static readonly Dictionary<int, OwnedListGlow> OwnedListGlows = new Dictionary<int, OwnedListGlow>();
+
+    static void EnsureOwnedAttributeGlow(Transform button, CharacterClass character)
+    {
+        if (button == null || character == null || character.ImageTexture2D == null)
+            return;
+        float scaleX;
+        float scaleY;
+        Sprite glowSprite = OwnedListGlowSprite(character.ImageTexture2D, character.Size, out scaleX, out scaleY);
+        if (glowSprite == null)
+            return;
+
+        Transform existing = button.Find("AttributeGlow");
+        Image glow = existing != null ? existing.GetComponent<Image>() : null;
+        Color color = OwnedAttributeGlowColor(character.CharacterType);
+        if (glow != null && glow.sprite == glowSprite && glow.color == color)
+            return;
+        if (existing == null)
+        {
+            GameObject obj = new GameObject("AttributeGlow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(button, false);
+            glow = obj.GetComponent<Image>();
+            glow.raycastTarget = false;
+            glow.type = Image.Type.Simple;
+            glow.preserveAspect = false;
+            existing = obj.transform;
+        }
+        else
+            glow = existing.GetComponent<Image>();
+        if (glow == null)
+            return;
+
+        existing.SetAsFirstSibling();
+        RectTransform rect = glow.rectTransform;
+        float extraX = (scaleX - 1f) * 0.5f;
+        float extraY = (scaleY - 1f) * 0.5f;
+        if (extraX < 0f)
+            extraX = 0f;
+        if (extraY < 0f)
+            extraY = 0f;
+        rect.anchorMin = new Vector2(-extraX, -extraY);
+        rect.anchorMax = new Vector2(1f + extraX, 1f + extraY);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        if (glow.sprite != glowSprite)
+            glow.sprite = glowSprite;
+        if (glow.color != color)
+            glow.color = color;
+    }
+
+    static void RemoveAttributeGlow(Transform host)
+    {
+        if (host == null)
+            return;
+        Transform glow = host.Find("AttributeGlow");
+        if (glow != null)
+            UnityEngine.Object.Destroy(glow.gameObject);
+    }
+
+    static Sprite OwnedListGlowSprite(Texture2D texture, int size, out float scaleX, out float scaleY)
+    {
+        scaleX = 1f;
+        scaleY = 1f;
+        if (texture == null || size < 1)
+            return null;
+        if (size > texture.width)
+            size = texture.width;
+        if (size > texture.height)
+            size = texture.height;
+        if (size < 1)
+            return null;
+
+        int key = texture.GetInstanceID();
+        OwnedListGlow cached;
+        if (OwnedListGlows.TryGetValue(key, out cached))
+        {
+            scaleX = cached.ScaleX;
+            scaleY = cached.ScaleY;
+            return cached.Sprite;
+        }
+
+        Sprite probe = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+        MarkRuntime(probe);
+        Sprite glow = PixelWorkerFx.CreateOutline(probe, out scaleX, out scaleY);
+        DestroyRuntime(probe);
+        if (glow != null)
+        {
+            MarkRuntime(glow);
+            if (glow.texture != null)
+                MarkRuntime(glow.texture);
+        }
+        OwnedListGlows[key] = new OwnedListGlow { Sprite = glow, ScaleX = scaleX, ScaleY = scaleY };
+        return glow;
+    }
+
+    static Color OwnedAttributeGlowColor(CharacterType type)
+    {
+        switch (type)
+        {
+            case CharacterType.Fire:
+                return new Color(1f, 0.22f, 0.14f, 0.95f);
+            case CharacterType.Grass:
+                return new Color(0.2f, 1f, 0.28f, 0.95f);
+            case CharacterType.Water:
+                return new Color(0.25f, 0.5f, 1f, 0.95f);
+            case CharacterType.Light:
+                return new Color(1f, 0.92f, 0.2f, 0.95f);
+            case CharacterType.Dark:
+                return new Color(0.72f, 0.28f, 1f, 0.95f);
+            default:
+                return new Color(0.86f, 0.86f, 0.9f, 0.8f);
+        }
+    }
+
+    static void RemoveWhiteFrame(Transform target)
+    {
+        if (target == null)
+            return;
+        Transform frame = target.Find("WhiteFrame");
+        if (frame != null)
+            UnityEngine.Object.Destroy(frame.gameObject);
+    }
+
+    static void EnsureWhiteFrame(Transform target)
+    {
+        if (target == null || target.Find("WhiteFrame") != null)
+            return;
+        GameObject root = new GameObject("WhiteFrame", typeof(RectTransform));
+        root.transform.SetParent(target, false);
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        const float thickness = 3f;
+        AddWhiteEdge(root.transform, "Top", true, true, thickness);
+        AddWhiteEdge(root.transform, "Bottom", true, false, thickness);
+        AddWhiteEdge(root.transform, "Left", false, false, thickness);
+        AddWhiteEdge(root.transform, "Right", false, true, thickness);
+        root.transform.SetAsLastSibling();
+    }
+
+    static void AddWhiteEdge(Transform parent, string name, bool horizontal, bool end, float thickness)
+    {
+        GameObject edgeObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        edgeObject.transform.SetParent(parent, false);
+        Image image = edgeObject.GetComponent<Image>();
+        image.sprite = WhiteFrameSprite();
+        image.color = Color.white;
+        image.raycastTarget = false;
+        LayoutButtonNeonEdge(parent, name, horizontal, end, thickness, 0f);
+    }
+
+    static Sprite WhiteFrameSprite()
+    {
+        if (_whiteFrameSprite != null)
+            return _whiteFrameSprite;
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Point;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        texture.SetPixel(0, 0, Color.white);
+        texture.Apply();
+        _whiteFrameSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+        _whiteFrameSprite.hideFlags = HideFlags.HideAndDontSave;
+        return _whiteFrameSprite;
     }
 
     static void FitOwnedStockLabel(Text label, string text)
@@ -6797,17 +7155,16 @@ public class ControllerProduction : MonoBehaviour
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 1f);
         rect.anchoredPosition = new Vector2(0f, -64f);
-        rect.sizeDelta = new Vector2(120f, 40f);
+        rect.sizeDelta = new Vector2(150f, 72f);
         label.alignment = TextAnchor.UpperCenter;
         label.alignByGeometry = false;
-        label.lineSpacing = 0.8f;
-        label.horizontalOverflow = HorizontalWrapMode.Wrap;
-        label.verticalOverflow = VerticalWrapMode.Truncate;
-        label.resizeTextForBestFit = true;
-        label.resizeTextMinSize = 8;
-        label.resizeTextMaxSize = 13;
+        label.lineSpacing = 0.9f;
+        label.horizontalOverflow = HorizontalWrapMode.Overflow;
+        label.verticalOverflow = VerticalWrapMode.Overflow;
+        label.resizeTextForBestFit = false;
+        label.fontSize = 18;
         label.text = text;
-        label.color = new Color(0f, 0f, 0f, 1f);
+        label.color = Color.white;
     }
 
     static Text OwnedCountLabel(Transform button)
@@ -7187,17 +7544,188 @@ public class ControllerProduction : MonoBehaviour
     {
         ForEachNamedButton(buttonName, button =>
         {
+            SyncPersonSkillBar(button);
             if (personId != 0)
             {
-                PaintPerson(button, PersonAt((int)personId));
-                SyncPersonSkillBar(button);
+                ShowWorkerPerson(button, PersonAt((int)personId));
                 return;
             }
-            SyncPersonSkillBar(button);
             if (characterId == 0)
                 return;
             PaintHelpCharacter(button, characterId);
         });
+    }
+
+    static void RememberShownWorker(Button button, uint personId, uint characterId, Sprite ownedSprite)
+    {
+        ShownProductionWorker shown = button.GetComponent<ShownProductionWorker>();
+        if (shown == null)
+            shown = button.gameObject.AddComponent<ShownProductionWorker>();
+        shown.PersonId = personId;
+        shown.CharacterId = characterId;
+        shown.OwnedSprite = ownedSprite;
+    }
+
+    static readonly HashSet<int> RuntimeObjectIds = new HashSet<int>();
+
+    public static void MarkRuntime(UnityEngine.Object obj)
+    {
+        if (obj != null)
+            RuntimeObjectIds.Add(obj.GetInstanceID());
+    }
+
+    public static void DestroyRuntime(UnityEngine.Object obj)
+    {
+        if (obj == null)
+            return;
+        if (!RuntimeObjectIds.Remove(obj.GetInstanceID()))
+            return;
+        Destroy(obj);
+    }
+
+    static void ReleaseOwnedWorkerSprite(Button button, ShownProductionWorker shown)
+    {
+        if (shown == null || shown.OwnedSprite == null)
+            return;
+        if (button != null && button.image != null && button.image.sprite == shown.OwnedSprite)
+            button.image.sprite = null;
+        DestroyRuntime(shown.OwnedSprite);
+        shown.OwnedSprite = null;
+    }
+
+    static void ShowOwnedCharacter(Button button, CharacterClass character)
+    {
+        if (button == null || button.image == null || character == null || character.ImageTexture2D == null)
+            return;
+        ShownProductionWorker shown = button.GetComponent<ShownProductionWorker>();
+        if (shown != null && shown.PersonId == 0 && shown.CharacterId == character.ID
+            && shown.OwnedSprite != null && button.image.sprite == shown.OwnedSprite)
+            return;
+
+        HidePersonPortrait(button);
+        Sprite previous = button.image.sprite;
+        bool released = shown != null && previous != null && previous == shown.OwnedSprite;
+        if (released)
+            ReleaseOwnedWorkerSprite(button, shown);
+        Sprite sprite = Sprite.Create(character.ImageTexture2D, new Rect(0f, 0f, character.Size, character.Size), new Vector2(0.5f, 0.5f));
+        MarkRuntime(sprite);
+        button.image.sprite = sprite;
+        button.image.type = Image.Type.Simple;
+        button.image.preserveAspect = false;
+        button.image.color = Color.white;
+        if (!released && previous != null && previous != sprite)
+            DestroyRuntime(previous);
+        Text label = button.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = "";
+        RememberShownWorker(button, 0, character.ID, sprite);
+    }
+
+    static void ShowWorkerPerson(Button button, PersonClass person)
+    {
+        if (button == null || person == null)
+            return;
+        ShownProductionWorker shown = button.GetComponent<ShownProductionWorker>();
+        if (shown != null && shown.PersonId == (uint)person.Id && shown.CharacterId == 0 && shown.OwnedSprite == null)
+            return;
+        ReleaseOwnedWorkerSprite(button, shown);
+        PaintPerson(button, person);
+        RememberShownWorker(button, (uint)person.Id, 0, null);
+    }
+
+    static void ClearWorkerFace(Button button, string emptyLabel)
+    {
+        if (button == null || button.image == null)
+            return;
+        ShownProductionWorker shown = button.GetComponent<ShownProductionWorker>();
+        Sprite previous = button.image.sprite;
+        bool released = shown != null && previous != null && previous == shown.OwnedSprite;
+        ReleaseOwnedWorkerSprite(button, shown);
+        HidePersonPortrait(button);
+        button.image.sprite = null;
+        button.image.color = new Color(1f, 1f, 1f, 0f);
+        if (!released && previous != null)
+            DestroyRuntime(previous);
+        Text label = button.GetComponentInChildren<Text>();
+        if (label != null)
+        {
+            label.text = emptyLabel;
+            label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+        }
+        if (shown != null)
+        {
+            shown.PersonId = 0;
+            shown.CharacterId = 0;
+            shown.OwnedSprite = null;
+        }
+    }
+
+    public static void TakeButtonSprite(Button button, uint characterId, Sprite sprite)
+    {
+        if (button == null || button.image == null || sprite == null || characterId == 0)
+            return;
+        ShownProductionWorker shown = button.GetComponent<ShownProductionWorker>();
+        Sprite previous = button.image.sprite;
+        bool released = shown != null && previous != null && previous == shown.OwnedSprite;
+        if (released)
+            ReleaseOwnedWorkerSprite(button, shown);
+        HidePersonPortrait(button);
+        button.image.sprite = sprite;
+        button.image.color = Color.white;
+        if (!released && previous != null && previous != sprite)
+            DestroyRuntime(previous);
+        RememberShownWorker(button, 0, characterId, sprite);
+    }
+
+    public static void ReleaseButtonCharacterSprite(Button button)
+    {
+        ClearWorkerFace(button, "+");
+    }
+
+    static void ReplaceRawTexture(RawImage image, Texture next)
+    {
+        if (image == null)
+        {
+            if (next != null)
+                DestroyRuntime(next);
+            return;
+        }
+        Texture previous = image.texture;
+        image.texture = next;
+        if (previous != null && previous != next)
+            DestroyRuntime(previous);
+    }
+
+    void ResetColorCharacterButton(GameObject buttonObject)
+    {
+        if (buttonObject == null)
+            return;
+        Button button = buttonObject.GetComponent<Button>();
+        if (button != null)
+            ReleaseButtonCharacterSprite(button);
+        else
+        {
+            Image image = buttonObject.GetComponent<Image>();
+            if (image != null)
+            {
+                Sprite previous = image.sprite;
+                image.sprite = null;
+                if (previous != null)
+                    DestroyRuntime(previous);
+                image.color = new Color(0.75f, 0.75f, 0.75f);
+            }
+        }
+        if (button != null && button.image != null)
+            button.image.color = new Color(0.75f, 0.75f, 0.75f);
+        Text label = buttonObject.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = "+";
+        RawImage raw = buttonObject.GetComponentInChildren<RawImage>();
+        if (raw != null)
+        {
+            ReplaceRawTexture(raw, null);
+            raw.color = new Color(0f, 0f, 0f, 0f);
+        }
     }
 
     public static void ForEachNamedButton(string buttonName, System.Action<Button> action)
@@ -8990,6 +9518,9 @@ public class ControllerProduction : MonoBehaviour
             existing = buttonObject.transform;
         }
         existing.gameObject.SetActive(true);
+        Image plate = existing.GetComponent<Image>();
+        if (plate != null && !pixel)
+            plate.color = new Color(0.85f, 0.85f, 0.85f, 1f);
         LayoutElement buttonLayout = existing.GetComponent<LayoutElement>();
         if (buttonLayout == null)
             buttonLayout = existing.gameObject.AddComponent<LayoutElement>();
@@ -9009,6 +9540,7 @@ public class ControllerProduction : MonoBehaviour
         {
             label.text = "+";
             label.fontSize = 96;
+            label.color = Color.black;
             label.alignment = TextAnchor.MiddleCenter;
             label.horizontalOverflow = HorizontalWrapMode.Overflow;
             label.verticalOverflow = VerticalWrapMode.Overflow;
@@ -9028,6 +9560,14 @@ public class ControllerProduction : MonoBehaviour
         {
             count.gameObject.SetActive(true);
             count.text = "広告視聴可能回数：" + FormatAdTenths(leftTenths) + "回　クエスト達成により増加します";
+            count.fontSize = 36;
+            count.color = Color.white;
+            LayoutElement countLayout = count.GetComponent<LayoutElement>();
+            if (countLayout != null)
+            {
+                countLayout.minHeight = 120f;
+                countLayout.preferredHeight = 120f;
+            }
             count.transform.SetAsLastSibling();
         }
     }
@@ -9055,7 +9595,7 @@ public class ControllerProduction : MonoBehaviour
         }
         text.fontSize = 28;
         text.alignment = TextAnchor.MiddleCenter;
-        text.color = Color.black;
+        text.color = Color.white;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.lineSpacing = 1.05f;
@@ -9750,12 +10290,22 @@ public class RgbBarTap : MonoBehaviour, IPointerDownHandler
     }
 }
 
+public class ShownProductionWorker : MonoBehaviour
+{
+    public uint PersonId;
+    public uint CharacterId;
+    public Sprite OwnedSprite;
+}
+
 public class RgbButtonPressGlow : MonoBehaviour, IPointerDownHandler
 {
     public ControllerProduction Production;
     public int Channel = -1;
     public bool UseTint;
     public Color Tint;
+    public bool StyleReady;
+    public bool StyledInteractable;
+    public bool StyledUpgrade;
 
     public void OnPointerDown(PointerEventData eventData)
     {

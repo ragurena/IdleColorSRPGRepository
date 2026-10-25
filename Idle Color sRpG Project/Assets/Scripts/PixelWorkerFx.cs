@@ -469,6 +469,12 @@ public class PixelWorkerFx : MonoBehaviour
         return any ? ink : null;
     }
 
+    // リスト表示用。真ん中は抜けた白い光で、色は呼び出し側が乗せる。
+    public static Sprite CreateOutline(Sprite sprite, out float scaleX, out float scaleY)
+    {
+        return BuildOutline(sprite, false, out scaleX, out scaleY);
+    }
+
     static Sprite BuildOutline(Sprite sprite, bool dropEdgeBlack, out float scaleX, out float scaleY)
     {
         scaleX = 1f;
