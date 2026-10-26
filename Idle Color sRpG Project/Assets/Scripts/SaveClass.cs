@@ -53,7 +53,8 @@ public class SaveClass// : MonoBehaviour
         PersonSaveData people,
         ProductionSlotState slots,
         QuestSave quests,
-        MessageSave messages
+        MessageSave messages,
+        int rgbRowOrder
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -124,6 +125,7 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("CostIncreaseValueRUp," + CostIncreaseValueRUp);
         sw.WriteLine("CostIncreaseValueGUp," + CostIncreaseValueGUp);
         sw.WriteLine("CostIncreaseValueBUp," + CostIncreaseValueBUp);
+        sw.WriteLine("RgbRowOrder," + rgbRowOrder.ToString());
         
 
         for (int i = 1; i <= 3; i++)
@@ -441,6 +443,7 @@ public class SaveClass// : MonoBehaviour
         ProductionSlotState slots,
         QuestSave quests,
         MessageSave messages,
+        ref int rgbRowOrder,
         string sourcePath
         )
     {
@@ -585,6 +588,13 @@ public class SaveClass// : MonoBehaviour
             if (values[0].Equals("CostIncreaseValueBUp"))
             {
                 CostIncreaseValueBUp = ReadUlong(values);
+            }
+            else
+            if (values[0].Equals("RgbRowOrder"))
+            {
+                int order;
+                if (int.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out order) && order >= 0 && order <= 2)
+                    rgbRowOrder = order;
             }
 
 

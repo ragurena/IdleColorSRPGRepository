@@ -74,23 +74,37 @@ public sealed class PersonClass
         r = PersonFormulas.ClampChannel(r);
         g = PersonFormulas.ClampChannel(g);
         b = PersonFormulas.ClampChannel(b);
+        long gain = PersonFormulas.PixelCompletionExp(r, g, b);
         bool specialty = PersonFormulas.HasSpecialty(SpecialtyArray(), PersonFormulas.ColorAttribute(r, g, b));
-        long gain = PersonFormulas.ExpMultiplier(specialty, config);
+        int specialtyMultiplier = config != null ? config.PixelExpSpecialtyMultiplier : 2;
+        if (specialty && specialtyMultiplier > 1)
+        {
+            if (gain > long.MaxValue / specialtyMultiplier)
+                gain = long.MaxValue;
+            else
+                gain *= specialtyMultiplier;
+        }
         int level = PixelLevel < 1 ? 1 : PixelLevel;
         long exp = PixelExp < 0 ? 0 : PixelExp;
         double exponent = config != null ? config.PixelExpExponent : 1.6;
-        PersonFormulas.AddSkillExp(ref level, ref exp, gain, exponent, config);
+        int expBaseMultiplier = config != null ? config.PixelExpBaseMultiplier : 3;
+        PersonFormulas.AddSkillExp(ref level, ref exp, gain, exponent, config, expBaseMultiplier);
         PixelLevel = level;
         PixelExp = exp;
     }
 
-    public void AddCharacterCompletion(bool isAuthor, PersonBalanceConfig config)
+    public void AddCharacterCompletion(int opaquePixels, PersonBalanceConfig config)
     {
-        long gain = PersonFormulas.ExpMultiplier(isAuthor, config);
+        long gain = opaquePixels;
+        if (gain < 0)
+            gain = 0;
+        int divisor = config != null ? config.CharacterExpOpaqueDivisor : 8;
+        gain = BattleMath.CeilDivPositive(gain, divisor);
         int level = CharacterLevel;
         long exp = CharacterExp;
         double exponent = config != null ? config.CharacterExpExponent : 1.5;
-        PersonFormulas.AddSkillExp(ref level, ref exp, gain, exponent, config);
+        int expBaseMultiplier = config != null ? config.CharacterExpBaseMultiplier : 8;
+        PersonFormulas.AddSkillExp(ref level, ref exp, gain, exponent, config, expBaseMultiplier);
         CharacterLevel = level;
         CharacterExp = exp;
     }
@@ -151,13 +165,13 @@ public sealed class PersonClass
         text += SkillLine("B", 2, RgbAmount(2, config), RgbLevel[2], RgbExp[2], config.RgbExpExponent, config) + "\n";
         long plain = CharacterAmount(false, config);
         long authored = CharacterAmount(true, config);
-        long characterNeed = PersonFormulas.ExpToNext(CharacterLevel, config.CharacterExpExponent, config);
+        long characterNeed = PersonFormulas.ExpToNext(CharacterLevel, config.CharacterExpExponent, config, config.CharacterExpBaseMultiplier);
         text += "キャラ作成 Lv" + CharacterLevel.ToString() + "  " + plain.ToString() + "/秒"
             + "（作者 " + authored.ToString() + "/秒）  経験値 " + CharacterExp.ToString() + " / " + characterNeed.ToString() + "\n";
         long battleNeed = PersonFormulas.ExpToNext(BattleLevel, config.BattleExpExponent, config);
         text += "バトル Lv" + BattleLevel.ToString() + "  経験値 " + BattleExp.ToString() + " / " + battleNeed.ToString() + "\n";
         int pixelLevel = PixelLevel < 1 ? 1 : PixelLevel;
-        long pixelNeed = PersonFormulas.ExpToNext(pixelLevel, config.PixelExpExponent, config);
+        long pixelNeed = PersonFormulas.ExpToNext(pixelLevel, config.PixelExpExponent, config, config.PixelExpBaseMultiplier);
         text += "ピクセル Lv" + pixelLevel.ToString() + "  経験値 " + (PixelExp < 0 ? 0 : PixelExp).ToString() + " / " + pixelNeed.ToString();
         return text;
     }

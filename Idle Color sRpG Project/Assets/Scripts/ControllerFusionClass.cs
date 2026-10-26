@@ -200,22 +200,25 @@ public class ControllerFusionClass : MonoBehaviour
         labelRect.offsetMax = new Vector2(-10f, -2f);
         label.horizontalOverflow = HorizontalWrapMode.Wrap;
         label.verticalOverflow = VerticalWrapMode.Overflow;
-        bool lowAfter;
-        label.text = CellText(character, out lowAfter);
-        if (lowAfter)
-            label.color = new Color(1f, 0.16f, 0.16f, 1f);
+        label.supportRichText = true;
+        label.text = CellText(character);
 
         EnsureWhiteFrame(cell.transform, character.ID == _selectedId ? FrameSelected : FrameThin);
         return new CellEntry { Id = character.ID, Background = background, Picture = image, Label = label };
     }
 
-    static string CellText(CharacterClass character, out bool lowAfter)
+    static string CellText(CharacterClass character)
     {
         long lives = ToLong(character.OwnedNumCur);
-        long cost = FusionBonus.NextCost(ToLong(character.FusionCount));
+        long count = ToLong(character.FusionCount);
+        long cap = FusionBonus.MaxCount;
+        long cost = FusionBonus.NextCost(count);
         long after = lives - cost;
-        lowAfter = after <= 1;
-        return character.Name + "\n" + lives.ToString() + " → " + after.ToString();
+        string fusion = UiNumber.LevelText("合成 " + UiNumber.Format(count) + "回", count, cap);
+        string change = lives.ToString() + " → " + after.ToString();
+        if (after <= 1)
+            change = "<color=#ff2a2a>" + change + "</color>";
+        return character.Name + "\n" + fusion + "\n" + change;
     }
 
     void ShowDetail()

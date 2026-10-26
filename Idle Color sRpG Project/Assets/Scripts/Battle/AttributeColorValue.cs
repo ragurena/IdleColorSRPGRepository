@@ -62,10 +62,14 @@ public static class AttributeColorValue
         return BattleMath.CeilDivPositive(sum, 3);
     }
 
-    // 階調番号 1〜3 は 1、4〜6 は 2、7〜9 は 3。
+    // 階調番号 1〜3 は 1、4〜6 は 2、7〜9 は 3。10 以降も 3。
     public static int AttributeBand(int channel)
     {
-        int step = ChannelStep(channel);
+        return BandOfStep(ChannelStep(channel));
+    }
+
+    public static int BandOfStep(int step)
+    {
         if (step < 1)
             step = 1;
         int band = (step - 1) / 3 + 1;

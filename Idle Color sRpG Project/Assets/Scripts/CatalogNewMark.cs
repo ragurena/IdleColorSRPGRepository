@@ -38,7 +38,7 @@ public class CatalogNewMark : MonoBehaviour
             text.fontStyle = FontStyle.Bold;
             text.fontSize = 31;
             text.alignment = TextAnchor.UpperLeft;
-            text.color = new Color(1f, 0.88f, 0.05f, 1f);
+            text.color = new Color(1f, 0.16f, 0.16f, 1f);
             text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
             text.verticalOverflow = VerticalWrapMode.Overflow;
@@ -60,7 +60,7 @@ public class CatalogNewMark : MonoBehaviour
         {
             label.text = "New!";
             label.fontSize = 31;
-            label.color = new Color(1f, 0.88f, 0.05f, 1f);
+            label.color = new Color(1f, 0.16f, 0.16f, 1f);
         }
         Outline existingOutline = existing.GetComponent<Outline>();
         if (existingOutline != null)

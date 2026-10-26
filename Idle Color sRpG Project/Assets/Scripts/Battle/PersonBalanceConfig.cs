@@ -9,9 +9,17 @@ public class PersonBalanceConfig
     public int CharacterBase = 1;
     public int AuthorCharacterMultiplier = 2;
     public int ExpSpecialtyMultiplier = 3;
+    // ピクセル生産の完成経験値。作った色が得意属性なら、この倍にする。
+    public int PixelExpSpecialtyMultiplier = 2;
     public int RgbExpBatch = 255;
     public int LevelGrowthDivisor = 10;
     public int ExpBase = 100;
+    // ピクセル生産の必要経験値は、初期値 ExpBase をこの倍にしてからレベルで増やす。
+    public int PixelExpBaseMultiplier = 3;
+    // キャラ作成の必要経験値は、初期値 ExpBase をこの倍にしてからレベルで増やす。
+    public int CharacterExpBaseMultiplier = 8;
+    // キャラ作成の完成経験値は、不透明ピクセル数をこの数で割る。端数は切り上げ。
+    public int CharacterExpOpaqueDivisor = 8;
     public double RgbExpExponent = 1.7;
     public double PixelExpExponent = 1.6;
     public double CharacterExpExponent = 1.5;

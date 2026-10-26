@@ -12,6 +12,15 @@ static class PersonTests
         failures += Check(PersonFormulas.AmountAtLevel(50, 3, config) == 75, "fire lv3");
         failures += Check(PersonFormulas.ExpToNext(1, 1.7, config) == 100, "exp lv1");
         failures += Check(PersonFormulas.ExpToNext(2, 1.7, config) == 325, "exp rgb 2");
+        failures += Check(PersonFormulas.ExpToNext(1, 1.6, config, 3) == 300, "pixel exp base lv1");
+        failures += Check(PersonFormulas.ExpToNext(2, 1.6, config, 3) == 910, "pixel exp base lv2");
+        failures += Check(PersonFormulas.ExpToNext(1, 1.5, config, 8) == 800, "character exp base lv1");
+        failures += Check(PersonFormulas.ExpToNext(2, 1.5, config, 8) == 2263, "character exp base lv2");
+        failures += Check(PersonFormulas.PixelCompletionExp(0, 0, 0) == 3, "pixel exp black");
+        failures += Check(PersonFormulas.PixelCompletionExp(32, 0, 0) == 3, "pixel exp 32");
+        failures += Check(PersonFormulas.PixelCompletionExp(64, 64, 0) == 3, "pixel exp 64");
+        failures += Check(PersonFormulas.PixelCompletionExp(96, 0, 0) == 4, "pixel exp 96");
+        failures += Check(PersonFormulas.PixelCompletionExp(255, 255, 255) == 9, "pixel exp 255");
         failures += Check(PersonFormulas.CharacterInitial(false, config) == 1, "char base");
         failures += Check(PersonFormulas.CharacterInitial(true, config) == 2, "char author");
         failures += Check(PersonFormulas.AmountAtLevel(2, 3, config) == 4, "author lv3");
@@ -82,11 +91,26 @@ static class PersonTests
         roster[PersonIds.ClassmateRed].AddRgbProduced(0, 255, config);
         failures += Check(roster[PersonIds.ClassmateRed].RgbExp[0] == 3, "red exp");
         roster[PersonIds.ClassmateRed].AddPixelCompletion(32, 0, 0, config);
-        failures += Check(roster[PersonIds.ClassmateRed].PixelLevel == 1 && roster[PersonIds.ClassmateRed].PixelExp == 3, "red pixel exp");
+        failures += Check(roster[PersonIds.ClassmateRed].PixelLevel == 1 && roster[PersonIds.ClassmateRed].PixelExp == 6, "red pixel exp");
         roster[PersonIds.ClassmateRed].AddPixelCompletion(0, 32, 0, config);
-        failures += Check(roster[PersonIds.ClassmateRed].PixelExp == 4, "shared pixel exp");
+        failures += Check(roster[PersonIds.ClassmateRed].PixelExp == 9, "shared pixel exp");
+        PersonClass pixelGrow = roster[PersonIds.ClassmateRed];
+        int pixelGuards = 0;
+        while (pixelGrow.PixelLevel < 2 && pixelGuards < 200)
+        {
+            pixelGrow.AddPixelCompletion(32, 0, 0, config);
+            pixelGuards++;
+        }
+        failures += Check(pixelGrow.PixelLevel == 2 && pixelGrow.PixelExp == 3 && pixelGuards == 49, "pixel lv2 costs 300");
         roster[PersonIds.Protagonist].AddPixelCompletion(1, 2, 3, config);
         failures += Check(roster[PersonIds.Protagonist].PixelExp == 0, "skip raw color");
+        roster[PersonIds.Protagonist].AddCharacterCompletion(43, config);
+        failures += Check(roster[PersonIds.Protagonist].CharacterLevel == 1 && roster[PersonIds.Protagonist].CharacterExp == 6, "character opaque exp");
+        roster[PersonIds.ClassmateGreen].AddCharacterCompletion(1, config);
+        failures += Check(roster[PersonIds.ClassmateGreen].CharacterExp == 1, "character exp ceil one");
+        roster[PersonIds.ClassmateGreen].CharacterExp = 0;
+        roster[PersonIds.ClassmateGreen].AddCharacterCompletion(9, config);
+        failures += Check(roster[PersonIds.ClassmateGreen].CharacterExp == 2, "character exp ceil nine");
 
         PersonSaveData data = new PersonSaveData();
         data.People = PersonClass.CreateRoster();

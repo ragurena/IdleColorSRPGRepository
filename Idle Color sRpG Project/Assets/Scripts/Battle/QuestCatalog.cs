@@ -66,7 +66,7 @@ public sealed class QuestDef
     public readonly bool Main;
     // 0 はレベル上限を変えない。あるときは、その値まで上限を上げる。他の報酬と一緒に渡せる。
     public readonly int LevelCap;
-    // 0 は合成回数の上限を変えない。あるときは、その値まで上げる。
+    // 0 は合成回数の上限を変えない。あるときは、その回数だけ上限を足す。クリアした分は重なる。
     public readonly int FusionCap;
 
     public QuestDef(int id, string title, QuestMetric metric, int arg, long target, QuestRewardKind reward, long rewardAmount, bool shown, bool main = false, int levelCap = 0, int fusionCap = 0)
@@ -184,8 +184,8 @@ public static class QuestCatalog
 
         // ステージクリア
         Stage(100, 1, 100),
-        Stage(200, 2, 100),
-        Stage(300, 3, 100, 200, 20),
+        Stage(200, 2, 100, 0, 5),
+        Stage(300, 3, 100, 60, 5),
         Stage(400, 4, 100),
         Stage(500, 5, 100),
 
@@ -476,7 +476,7 @@ public static class QuestCatalog
         }
         if (def.FusionCap > 0)
         {
-            string capText = "合成上限 " + def.FusionCap.ToString() + "回";
+            string capText = "合成上限 +" + def.FusionCap.ToString() + "回";
             body = body.Length == 0 ? capText : body + "\n" + capText;
         }
         string unlock = StageUnlockText(def);

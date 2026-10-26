@@ -74,6 +74,8 @@ public class ControllerProduction : MonoBehaviour
     Button ButtonSelectScenePagePrev;
     Button ButtonSelectScenePageNext;
     Image[] CharacterStopPixelFills;
+    readonly int[] PixelAlertKeys = new int[3];
+    int PixelAlertCount;
     GameObject CatalogSceneButton;
     Image CatalogBadge;
     Text CatalogBadgeText;
@@ -200,6 +202,11 @@ public class ControllerProduction : MonoBehaviour
     [SerializeField] Button ButtonIncreaseValueRUp;
     [SerializeField] Button ButtonIncreaseValueGUp;
     [SerializeField] Button ButtonIncreaseValueBUp;
+
+    // 0=RGB 1=GBR 2=BRG。左上のボタンには、次に切り替わる3文字を出す。
+    static readonly string[] RgbRowOrderNames = { "RGB", "GBR", "BRG" };
+    int RgbRowOrder;
+    Text RgbOrderButtonLabel;
 
 
     //ピクセル生産のクリック時の進捗数
@@ -745,7 +752,8 @@ public class ControllerProduction : MonoBehaviour
             CapturePeople(),
             Slots,
             Quests,
-            _messages != null ? _messages.Save : null
+            _messages != null ? _messages.Save : null,
+            RgbRowOrder
             );
         if (saved)
         {
@@ -953,6 +961,7 @@ public class ControllerProduction : MonoBehaviour
                     Slots,
                     Quests,
                     _messages != null ? _messages.Save : null,
+                    ref RgbRowOrder,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -1054,6 +1063,7 @@ public class ControllerProduction : MonoBehaviour
         CostIncreaseValueRUp = 16;
         CostIncreaseValueGUp = 16;
         CostIncreaseValueBUp = 16;
+        RgbRowOrder = 0;
         ActiveBattlePartySet = 0;
         ActiveBattleStage = 0;
         ActiveBattleFloorFrom = 0;
@@ -1289,6 +1299,18 @@ public class ControllerProduction : MonoBehaviour
         if (ModelProduction.UpgradeValue(ref CurB, ref CostMaxBUp, ref MaxB, ModelProduction.TypeUpgrade.MAX))
             SaveGame();
         UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
+    }
+
+    // 左上のボタン。RGB → GBR → BRG と段を入れ替える。
+    public void PushButtonRgbOrder()
+    {
+        RgbRowOrder++;
+        if (RgbRowOrder >= RgbRowOrderNames.Length)
+            RgbRowOrder = 0;
+        ApplyRgbRowOrder();
+        RefreshRgbOrderBackground();
+        RefreshRgbOrderButton();
+        SaveGame();
     }
 
 
@@ -3054,89 +3076,63 @@ public class ControllerProduction : MonoBehaviour
         RefreshCharacterStopPixels();
     }
 
-    // 塗れずに止まった枠の、在庫0の色をピクセル生成ボタンの左上へ最大3つ出す。
+    // 1体を作り切るのに足りず赤くなっている色を、ピクセル生成ボタンの左上へ最大3つ出す。
     void RefreshCharacterStopPixels()
     {
-        int[] keys = new int[3];
-        int count = 0;
+        PixelAlertCount = 0;
         int slots = Slots != null ? Slots.CharacterSlots : 0;
-        for (int i = 1; i <= slots && count < 3; i++)
-            CollectStopPixels(i, keys, ref count);
-        ShowCharacterStopPixels(keys, count);
+        for (int i = 1; i <= slots && PixelAlertCount < 3; i++)
+            CollectStopPixels(i, PixelAlertKeys, ref PixelAlertCount);
+        ShowCharacterStopPixels(PixelAlertKeys, PixelAlertCount);
+        ApplyPixelAlertTones();
     }
 
     void CollectStopPixels(int index, int[] keys, ref int count)
     {
         if (count >= 3 || CurPixels == null || !CharacterProductionRunning(index))
             return;
-        if (index < 0 || index >= ProgressTextureProductionCharacter.Count)
+        if (ConsumePixelsProductionCharacter == null || index < 0 || index >= ConsumePixelsProductionCharacter.Length)
             return;
-        bool[,] progress = ProgressTextureProductionCharacter[index];
-        CharacterClass produced = CharacterOf(CharactersIDProducedCharacter[index]);
-        Texture2D texture = produced != null ? produced.ImageTexture2D : null;
-        if (progress == null || texture == null)
+        List<ConsumePixelClass> pixels = ConsumePixelsProductionCharacter[index];
+        if (pixels == null)
             return;
-
-        int paintRate = CharacterPaintRate(index);
-        if (paintRate < 1)
-            return;
-
-        int canPaint = 0;
-        int found = 0;
-        int[] local = new int[3];
-        int width = texture.width;
-        int height = texture.height;
-        int progressWidth = progress.GetLength(0);
-        int progressHeight = progress.GetLength(1);
-        for (int y = height - 1; y >= 0 && canPaint < paintRate; y--)
+        for (int i = 0; i < pixels.Count && count < 3; i++)
         {
-            for (int x = 0; x < width && canPaint < paintRate; x++)
-            {
-                if (x >= progressWidth || y >= progressHeight || progress[x, y])
-                    continue;
-                Color color = texture.GetPixel(x, y);
-                if (color.a <= 0f)
-                    continue;
-                int r = ColorByte(color.r);
-                int g = ColorByte(color.g);
-                int b = ColorByte(color.b);
-                if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
-                    continue;
-                if (CurPixels[r, g, b] > 0)
-                {
-                    canPaint++;
-                    continue;
-                }
-                int key = (r << 16) | (g << 8) | b;
-                bool seen = false;
-                for (int n = 0; n < found; n++)
-                {
-                    if (local[n] == key)
-                    {
-                        seen = true;
-                        break;
-                    }
-                }
-                if (!seen && found < 3)
-                    local[found++] = key;
-            }
-        }
-        if (canPaint >= paintRate || found == 0)
-            return;
-        for (int n = 0; n < found && count < 3; n++)
-        {
+            ConsumePixelClass pixel = pixels[i];
+            if (!CharacterPixelShort(pixel))
+                continue;
+            int r = ColorByte(pixel.PixelColor.r);
+            int g = ColorByte(pixel.PixelColor.g);
+            int b = ColorByte(pixel.PixelColor.b);
+            int key = (r << 16) | (g << 8) | b;
             bool seen = false;
             for (int k = 0; k < count; k++)
             {
-                if (keys[k] == local[n])
+                if (keys[k] == key)
                 {
                     seen = true;
                     break;
                 }
             }
             if (!seen)
-                keys[count++] = local[n];
+                keys[count++] = key;
         }
+    }
+
+    // キャラ生成の消費リストで、その色の残りが所持より多く、数字が赤くなるとき。
+    bool CharacterPixelShort(ConsumePixelClass consumePixel)
+    {
+        if (consumePixel == null || CurPixels == null)
+            return false;
+        if (consumePixel.CurConsumePixelsNum >= consumePixel.ToBeCurConsumePixelsNum)
+            return false;
+        int r = ColorByte(consumePixel.PixelColor.r);
+        int g = ColorByte(consumePixel.PixelColor.g);
+        int b = ColorByte(consumePixel.PixelColor.b);
+        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+            return false;
+        uint remaining = consumePixel.ToBeCurConsumePixelsNum - consumePixel.CurConsumePixelsNum;
+        return CurPixels[r, g, b] < remaining;
     }
 
     bool CharacterProductionRunning(int index)
@@ -3153,28 +3149,6 @@ public class ControllerProduction : MonoBehaviour
             return false;
         CharacterClass worker = CharacterOf(CharactersIDProductionCharacter[index]);
         return worker != null && worker.ID == CharactersIDProductionCharacter[index];
-    }
-
-    int CharacterPaintRate(int index)
-    {
-        uint personId = PersonIdProductionCharacter[index];
-        if (personId != 0)
-        {
-            PersonClass painter = PersonAt((int)personId);
-            CharacterClass producedNow = CharacterOf(CharactersIDProducedCharacter[index]);
-            if (painter == null || producedNow == null)
-                return 0;
-            long amount = painter.CharacterAmount(producedNow.AuthorPersonId == painter.Id, PersonBalance);
-            if (amount < 1)
-                amount = 1;
-            if (amount > int.MaxValue)
-                amount = int.MaxValue;
-            return (int)amount;
-        }
-        CharacterClass worker = CharacterOf(CharactersIDProductionCharacter[index]);
-        if (worker == null)
-            return 0;
-        return worker.PaintPixels > int.MaxValue ? int.MaxValue : (int)worker.PaintPixels;
     }
 
     void ShowCharacterStopPixels(int[] keys, int count)
@@ -3255,6 +3229,113 @@ public class ControllerProduction : MonoBehaviour
             CharacterStopPixelFills[i] = chip;
             chipObject.SetActive(false);
         }
+    }
+
+    // アラート中の色を作っている枠だけ、左3分の1は黒、そこから右端へ赤いトーンにする。
+    void ApplyPixelAlertTones()
+    {
+        int slots = Slots != null ? Slots.PixelSlots : 0;
+        for (int i = 1; i <= slots; i++)
+            ApplyPixelAlertTone(i);
+    }
+
+    void ApplyPixelAlertTone(int index)
+    {
+        GameObject row = PixelProductionRow(index);
+        if (row == null)
+            return;
+        bool alert = PixelProductionMatchesAlert(index);
+        Transform tone = row.transform.Find("PixelAlertTone");
+        if (!alert)
+        {
+            if (tone != null && tone.gameObject.activeSelf)
+                tone.gameObject.SetActive(false);
+            return;
+        }
+        if (tone == null)
+        {
+            GameObject obj = new GameObject("PixelAlertTone", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+            obj.transform.SetParent(row.transform, false);
+            LayoutElement layout = obj.GetComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+            RectTransform rect = obj.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            Image created = obj.GetComponent<Image>();
+            created.sprite = PixelAlertToneSprite();
+            created.type = Image.Type.Simple;
+            created.color = Color.white;
+            created.raycastTarget = false;
+            tone = obj.transform;
+        }
+        if (!tone.gameObject.activeSelf)
+            tone.gameObject.SetActive(true);
+        tone.SetAsFirstSibling();
+        Image fill = tone.GetComponent<Image>();
+        if (fill == null)
+            return;
+        Sprite sprite = PixelAlertToneSprite();
+        if (fill.sprite != sprite)
+            fill.sprite = sprite;
+        if (fill.color != Color.white)
+            fill.color = Color.white;
+    }
+
+    bool PixelProductionMatchesAlert(int index)
+    {
+        if (PixelAlertCount <= 0 || ColorProductionPixel == null || index < 0 || index >= ColorProductionPixel.Length)
+            return false;
+        int r = ColorByte(ColorProductionPixel[index].r);
+        int g = ColorByte(ColorProductionPixel[index].g);
+        int b = ColorByte(ColorProductionPixel[index].b);
+        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+            return false;
+        int key = (r << 16) | (g << 8) | b;
+        for (int i = 0; i < PixelAlertCount; i++)
+        {
+            if (PixelAlertKeys[i] == key)
+                return true;
+        }
+        return false;
+    }
+
+    static Sprite PixelAlertToneSpriteCache;
+
+    static Sprite PixelAlertToneSprite()
+    {
+        if (PixelAlertToneSpriteCache != null)
+            return PixelAlertToneSpriteCache;
+        const int cols = 192;
+        const int rows = 32;
+        Texture2D texture = new Texture2D(cols, rows, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Point;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        Color red = new Color(0.5f, 0.09f, 0.07f, 1f);
+        Color[] pixels = new Color[cols * rows];
+        const float blackUntil = 1f / 3f;
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                float xNorm = (x + 0.5f) / cols;
+                if (xNorm <= blackUntil)
+                {
+                    pixels[y * cols + x] = Color.black;
+                    continue;
+                }
+                float mix = (xNorm - blackUntil) / (1f - blackUntil);
+                int threshold = MeshBayer4[(x & 3) + ((y & 3) * 4)];
+                pixels[y * cols + x] = mix * 16f > threshold ? red : Color.black;
+            }
+        }
+        texture.SetPixels(pixels);
+        texture.Apply();
+        PixelAlertToneSpriteCache = Sprite.Create(texture, new Rect(0f, 0f, cols, rows), new Vector2(0.5f, 0.5f), 100f);
+        PixelAlertToneSpriteCache.hideFlags = HideFlags.HideAndDontSave;
+        return PixelAlertToneSpriteCache;
     }
 
     //バトル編成。1セットは3x3。同じセット内の同じキャラは移動扱いにする
@@ -4643,7 +4724,7 @@ public class ControllerProduction : MonoBehaviour
         }
         int meshWidth = Mathf.Max(16, Mathf.RoundToInt(panelRect.width));
         int meshHeight = Mathf.Max(16, Mathf.RoundToInt(panelRect.height));
-        image.sprite = RgbBackgroundMesh(meshWidth, meshHeight);
+        image.sprite = RgbBackgroundMesh(meshWidth, meshHeight, RgbRowOrder);
         image.type = Image.Type.Simple;
         image.color = Color.white;
         image.preserveAspect = false;
@@ -4673,6 +4754,208 @@ public class ControllerProduction : MonoBehaviour
                 continue;
             childImage.enabled = false;
         }
+
+        ApplyRgbRowOrder();
+        EnsureRgbOrderButton();
+    }
+
+    void ApplyRgbRowOrder()
+    {
+        if (PanelRGBProduction == null)
+            return;
+        RectTransform rowR = PanelRGBProduction.transform.Find("R") as RectTransform;
+        RectTransform rowG = PanelRGBProduction.transform.Find("G") as RectTransform;
+        RectTransform rowB = PanelRGBProduction.transform.Find("B") as RectTransform;
+        if (rowR == null || rowG == null || rowB == null)
+            return;
+
+        float[] slots = { rowR.anchoredPosition.y, rowG.anchoredPosition.y, rowB.anchoredPosition.y };
+        Array.Sort(slots);
+        string layout = RgbRowOrderName(RgbRowOrder);
+        PlaceRgbRow(rowR, slots[2 - layout.IndexOf('R')]);
+        PlaceRgbRow(rowG, slots[2 - layout.IndexOf('G')]);
+        PlaceRgbRow(rowB, slots[2 - layout.IndexOf('B')]);
+    }
+
+    static void PlaceRgbRow(RectTransform row, float y)
+    {
+        Vector2 position = row.anchoredPosition;
+        position.y = y;
+        row.anchoredPosition = position;
+    }
+
+    static string RgbRowOrderName(int order)
+    {
+        if (order < 0 || order >= RgbRowOrderNames.Length)
+            return RgbRowOrderNames[0];
+        return RgbRowOrderNames[order];
+    }
+
+    void RefreshRgbOrderBackground()
+    {
+        if (PanelRGBProduction == null)
+            return;
+        Transform existing = PanelRGBProduction.transform.Find("RgbPanelBackground");
+        if (existing == null)
+        {
+            EnsureRgbPanelBackground();
+            return;
+        }
+        Image image = existing.GetComponent<Image>();
+        if (image == null)
+            return;
+        Rect panelRect = PanelRGBProduction.GetComponent<RectTransform>().rect;
+        int meshWidth = Mathf.Max(16, Mathf.RoundToInt(panelRect.width));
+        int meshHeight = Mathf.Max(16, Mathf.RoundToInt(panelRect.height));
+        image.sprite = RgbBackgroundMesh(meshWidth, meshHeight, RgbRowOrder);
+    }
+
+    void EnsureRgbOrderButton()
+    {
+        if (PanelRGBProduction == null)
+            return;
+
+        Transform existing = PanelRGBProduction.transform.Find("RgbOrderButton");
+        if (existing == null)
+        {
+            GameObject obj = new GameObject("RgbOrderButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            obj.transform.SetParent(PanelRGBProduction.transform, false);
+            Image image = obj.GetComponent<Image>();
+            image.sprite = RgbBarTapFill();
+            image.type = Image.Type.Simple;
+            image.color = Color.white;
+            image.raycastTarget = true;
+
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(12f, -6f);
+            rect.sizeDelta = new Vector2(156f, 76f);
+
+            Button button = obj.GetComponent<Button>();
+            button.targetGraphic = image;
+            ColorBlock colors = button.colors;
+            colors.normalColor = new Color(0.86f, 0.86f, 0.9f, 1f);
+            colors.highlightedColor = Color.white;
+            colors.pressedColor = new Color(0.62f, 0.62f, 0.66f, 1f);
+            colors.selectedColor = colors.normalColor;
+            colors.disabledColor = new Color(0.4f, 0.4f, 0.42f, 0.85f);
+            colors.fadeDuration = 0.05f;
+            button.colors = colors;
+            Navigation navigation = button.navigation;
+            navigation.mode = Navigation.Mode.None;
+            button.navigation = navigation;
+            button.onClick.AddListener(PushButtonRgbOrder);
+
+            GameObject fillObject = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            fillObject.transform.SetParent(obj.transform, false);
+            Image fill = fillObject.GetComponent<Image>();
+            fill.sprite = RgbBarTapFill();
+            fill.type = Image.Type.Simple;
+            fill.color = new Color(0.07f, 0.06f, 0.08f, 1f);
+            fill.raycastTarget = false;
+            RectTransform fillRect = fill.rectTransform;
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = new Vector2(4f, 4f);
+            fillRect.offsetMax = new Vector2(-4f, -4f);
+
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(obj.transform, false);
+            RectTransform textRect = textObject.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            RgbOrderButtonLabel = textObject.AddComponent<Text>();
+            RgbOrderButtonLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (RgbOrderButtonLabel.font == null)
+                RgbOrderButtonLabel.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            RgbOrderButtonLabel.fontSize = 36;
+            RgbOrderButtonLabel.fontStyle = FontStyle.Bold;
+            RgbOrderButtonLabel.alignment = TextAnchor.MiddleCenter;
+            RgbOrderButtonLabel.color = new Color(0.96f, 0.96f, 0.97f, 1f);
+            RgbOrderButtonLabel.raycastTarget = false;
+            Outline outline = textObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.02f, 0.02f, 0.03f, 0.92f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            existing = obj.transform;
+        }
+        else if (RgbOrderButtonLabel == null)
+            RgbOrderButtonLabel = existing.GetComponentInChildren<Text>(true);
+
+        existing.SetAsLastSibling();
+        RefreshRgbOrderButton();
+    }
+
+    void RefreshRgbOrderButton()
+    {
+        int next = RgbRowOrder + 1;
+        if (next >= RgbRowOrderNames.Length)
+            next = 0;
+        if (RgbOrderButtonLabel != null)
+            RgbOrderButtonLabel.text = RgbRowOrderName(next);
+
+        Transform button = RgbOrderButtonLabel != null ? RgbOrderButtonLabel.transform.parent : null;
+        if (button == null && PanelRGBProduction != null)
+            button = PanelRGBProduction.transform.Find("RgbOrderButton");
+        if (button == null)
+            return;
+        Transform fillTransform = button.Find("Fill");
+        if (fillTransform == null)
+            return;
+        Image fill = fillTransform.GetComponent<Image>();
+        if (fill == null)
+            return;
+        fill.sprite = RgbOrderGradient(next);
+        fill.type = Image.Type.Simple;
+        fill.color = Color.white;
+        fill.preserveAspect = false;
+    }
+
+    static readonly Sprite[] RgbOrderGradientSprites = new Sprite[3];
+
+    static Sprite RgbOrderGradient(int order)
+    {
+        if (order < 0 || order >= RgbRowOrderNames.Length)
+            order = 0;
+        if (RgbOrderGradientSprites[order] != null)
+            return RgbOrderGradientSprites[order];
+
+        const int width = 8;
+        const int height = 48;
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        string layout = RgbRowOrderNames[order];
+        Color top = RgbOrderSwatch(layout[0]);
+        Color middle = RgbOrderSwatch(layout[1]);
+        Color bottom = RgbOrderSwatch(layout[2]);
+        for (int y = 0; y < height; y++)
+        {
+            float t = (y + 0.5f) / height;
+            Color color = t < 0.5f
+                ? Color.Lerp(bottom, middle, t / 0.5f)
+                : Color.Lerp(middle, top, (t - 0.5f) / 0.5f);
+            for (int x = 0; x < width; x++)
+                texture.SetPixel(x, y, color);
+        }
+        texture.Apply();
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 100f);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        RgbOrderGradientSprites[order] = sprite;
+        return sprite;
+    }
+
+    static Color RgbOrderSwatch(char channel)
+    {
+        if (channel == 'G')
+            return new Color(0.08f, 0.62f, 0.14f, 1f);
+        if (channel == 'B')
+            return new Color(0.1f, 0.24f, 0.78f, 1f);
+        return new Color(0.78f, 0.1f, 0.08f, 1f);
     }
 
     // バーの左半分は左のRGB+、右半分は右のRGB+と同じく押したことにする。
@@ -4688,6 +4971,8 @@ public class ControllerProduction : MonoBehaviour
         if (slider == null)
             return;
         Button[] plus = RgbPlusButtons(slider);
+        for (int i = 0; i < plus.Length; i++)
+            EnsureRgbHoldRepeat(plus[i], plus[i]);
         if (plus.Length < 2)
             return;
         if (valueText != null)
@@ -4716,6 +5001,16 @@ public class ControllerProduction : MonoBehaviour
         }
         found.Sort((a, b) => a.GetComponent<RectTransform>().anchoredPosition.x.CompareTo(b.GetComponent<RectTransform>().anchoredPosition.x));
         return found.ToArray();
+    }
+
+    static void EnsureRgbHoldRepeat(Button button, Button target)
+    {
+        if (button == null || target == null)
+            return;
+        RgbHoldRepeat hold = button.GetComponent<RgbHoldRepeat>();
+        if (hold == null)
+            hold = button.gameObject.AddComponent<RgbHoldRepeat>();
+        hold.Target = target;
     }
 
     static string RgbPlusButtonName(Slider slider)
@@ -4768,6 +5063,7 @@ public class ControllerProduction : MonoBehaviour
         tap.Production = this;
         tap.Source = source;
         tap.Bind(button);
+        EnsureRgbHoldRepeat(button, source);
         obj.transform.SetAsLastSibling();
     }
 
@@ -4786,6 +5082,7 @@ public class ControllerProduction : MonoBehaviour
 
     static int RgbBackgroundWidth;
     static int RgbBackgroundHeight;
+    static int RgbBackgroundOrder = -1;
     static readonly int[] MeshBayer4 =
     {
         0, 8, 2, 10,
@@ -4794,12 +5091,14 @@ public class ControllerProduction : MonoBehaviour
         15, 7, 13, 5
     };
 
-    static Sprite RgbBackgroundMesh(int width, int height)
+    static Sprite RgbBackgroundMesh(int width, int height, int order)
     {
+        if (order < 0 || order >= RgbRowOrderNames.Length)
+            order = 0;
         const int cell = 4;
         int cols = Mathf.Max(4, width / cell);
         int rows = Mathf.Max(4, height / cell);
-        if (RgbPanelBackgroundSprite != null && RgbBackgroundWidth == cols && RgbBackgroundHeight == rows)
+        if (RgbPanelBackgroundSprite != null && RgbBackgroundWidth == cols && RgbBackgroundHeight == rows && RgbBackgroundOrder == order)
             return RgbPanelBackgroundSprite;
         if (RgbPanelBackgroundSprite != null)
         {
@@ -4813,9 +5112,10 @@ public class ControllerProduction : MonoBehaviour
         texture.wrapMode = TextureWrapMode.Clamp;
         texture.filterMode = FilterMode.Point;
         texture.hideFlags = HideFlags.HideAndDontSave;
-        Color top = new Color(0.11f, 0.028f, 0.026f, 1f);
-        Color middle = new Color(0.022f, 0.09f, 0.028f, 1f);
-        Color bottom = new Color(0.022f, 0.036f, 0.12f, 1f);
+        string layout = RgbRowOrderNames[order];
+        Color top = RgbBandColor(layout[0]);
+        Color middle = RgbBandColor(layout[1]);
+        Color bottom = RgbBandColor(layout[2]);
         Color[] pixels = new Color[cols * rows];
         for (int y = 0; y < rows; y++)
         {
@@ -4847,7 +5147,17 @@ public class ControllerProduction : MonoBehaviour
         RgbPanelBackgroundSprite.hideFlags = HideFlags.HideAndDontSave;
         RgbBackgroundWidth = cols;
         RgbBackgroundHeight = rows;
+        RgbBackgroundOrder = order;
         return RgbPanelBackgroundSprite;
+    }
+
+    static Color RgbBandColor(char channel)
+    {
+        if (channel == 'G')
+            return new Color(0.022f, 0.09f, 0.028f, 1f);
+        if (channel == 'B')
+            return new Color(0.022f, 0.036f, 0.12f, 1f);
+        return new Color(0.11f, 0.028f, 0.026f, 1f);
     }
 
     static readonly Sprite[] RgbButtonFillSprites = new Sprite[3];
@@ -5705,6 +6015,7 @@ public class ControllerProduction : MonoBehaviour
             UpdateSliderPixelProduction(i);
             RefreshPixelWorkerLook(i);
         }
+        ApplyPixelAlertTones();
     }
 
     void RefreshPixelWorkerLook(int index)
@@ -5932,6 +6243,8 @@ public class ControllerProduction : MonoBehaviour
         int level = 1;
         long exp = 0;
         double exponent = PersonBalance != null ? PersonBalance.RgbExpExponent : 1.7;
+        bool pixelSkill = false;
+        bool characterSkill = false;
 
         if (name.Contains("RProductionHelpCharacter") || name.Contains("GProductionHelpCharacter") || name.Contains("BProductionHelpCharacter"))
         {
@@ -5961,6 +6274,7 @@ public class ControllerProduction : MonoBehaviour
                 level = person.PixelLevel;
                 exp = person.PixelExp;
                 exponent = PersonBalance != null ? PersonBalance.PixelExpExponent : 1.6;
+                pixelSkill = true;
             }
         }
         else if (name.Contains("ButtonCharacterProductionCharacter"))
@@ -5977,6 +6291,7 @@ public class ControllerProduction : MonoBehaviour
                 level = person.CharacterLevel;
                 exp = person.CharacterExp;
                 exponent = PersonBalance != null ? PersonBalance.CharacterExpExponent : 1.5;
+                characterSkill = true;
             }
         }
         else
@@ -5989,7 +6304,12 @@ public class ControllerProduction : MonoBehaviour
         }
         if (level < 1)
             level = 1;
-        long need = PersonFormulas.ExpToNext(level, exponent, PersonBalance);
+        int expBaseMultiplier = 1;
+        if (pixelSkill)
+            expBaseMultiplier = PersonBalance != null ? PersonBalance.PixelExpBaseMultiplier : 3;
+        else if (characterSkill)
+            expBaseMultiplier = PersonBalance != null ? PersonBalance.CharacterExpBaseMultiplier : 8;
+        long need = PersonFormulas.ExpToNext(level, exponent, PersonBalance, expBaseMultiplier);
         PersonSkillBar.Show(button, level, exp, need);
     }
 
@@ -6453,6 +6773,7 @@ public class ControllerProduction : MonoBehaviour
         SetPixelChannelLine(colorPanel, "ImagePixelColorG", "G", ColorProductionPixel[argIndex].g, pixelCount);
         SetPixelChannelLine(colorPanel, "ImagePixelColorB", "B", ColorProductionPixel[argIndex].b, pixelCount);
         SetPixelStockLabel(Content, argIndex);
+        ApplyPixelAlertTone(argIndex);
     }
 
     //色ボタンの下に、今の在庫と、この生産が1回終わったあとの在庫を出す
@@ -7448,8 +7769,7 @@ public class ControllerProduction : MonoBehaviour
         string progress = consumePixel.CurConsumePixelsNum.ToString() + " / " + consumePixel.ToBeCurConsumePixelsNum.ToString() + " / " + CurPixels[r, g, b].ToString();
         if (texts[5].text != progress)
             texts[5].text = progress;
-        uint remaining = consumePixel.ToBeCurConsumePixelsNum - consumePixel.CurConsumePixelsNum;
-        bool shortPixels = CurPixels[r, g, b] < remaining;
+        bool shortPixels = CharacterPixelShort(consumePixel);
         RemoveWhiteFrame(row.transform);
         StylePixelListCard(row);
         Text progressText = texts.Length > 5 ? texts[5] : null;
@@ -7939,7 +8259,7 @@ public class ControllerProduction : MonoBehaviour
         if (after > before)
             NoteCharacterCompletions(after - before);
         if (workerIsPerson && after > before)
-            person.AddCharacterCompletion(author, PersonBalance);
+            person.AddCharacterCompletion(produced.OpaquePixelCount(), PersonBalance);
         if (after > before)
             RefreshMessages();
     }
@@ -9222,7 +9542,7 @@ public class ControllerProduction : MonoBehaviour
         if (def.LevelCap > 0)
             RaiseCharacterLevelCap(def.LevelCap);
         if (def.FusionCap > 0)
-            RaiseFusionCountCap(def.FusionCap);
+            ApplyFusionCountCap();
     }
 
     // クエストからレベル上限を上げる。今より低い値では下がらない。
@@ -9268,19 +9588,25 @@ public class ControllerProduction : MonoBehaviour
     void ApplyFusionCountCap()
     {
         int cap = FusionBonus.InitialCap;
-        if (Quests.HasFusionCap && Quests.FusionCap > cap)
-            cap = Quests.FusionCap;
-        if (cap > FusionBonus.CapCeiling)
-            cap = FusionBonus.CapCeiling;
         QuestDef[] all = QuestCatalog.All;
         for (int i = 0; i < all.Length; i++)
         {
-            int offered = all[i] != null ? all[i].FusionCap : 0;
-            if (offered <= cap)
+            QuestDef def = all[i];
+            if (def == null || def.FusionCap <= 0)
                 continue;
-            if (StageClearGrantsLevelCap(all[i]) || IsQuestClaimed(all[i]))
-                cap = offered;
+            if (!StageClearGrantsLevelCap(def) && !IsQuestClaimed(def))
+                continue;
+            long next = (long)cap + def.FusionCap;
+            if (next > FusionBonus.CapCeiling)
+                next = FusionBonus.CapCeiling;
+            if (next > int.MaxValue)
+                next = int.MaxValue;
+            cap = (int)next;
         }
+        if (cap < FusionBonus.InitialCap)
+            cap = FusionBonus.InitialCap;
+        if (cap > FusionBonus.CapCeiling)
+            cap = FusionBonus.CapCeiling;
         Quests.FusionCap = cap;
         Quests.HasFusionCap = true;
         FusionBonus.MaxCount = cap;
@@ -9291,8 +9617,6 @@ public class ControllerProduction : MonoBehaviour
         if (BattleBalance == null)
             BattleBalance = BattleBalanceConfig.CreateDefault();
         int cap = BattleBalanceConfig.InitialLevelCap;
-        if (Quests.HasLevelCap && Quests.LevelCap > cap)
-            cap = Quests.LevelCap;
         if (cap > BattleBalanceConfig.LevelCapCeiling)
             cap = BattleBalanceConfig.LevelCapCeiling;
         QuestDef[] all = QuestCatalog.All;
@@ -9307,6 +9631,7 @@ public class ControllerProduction : MonoBehaviour
         Quests.LevelCap = cap;
         Quests.HasLevelCap = true;
         BattleBalance.MaxLevel = cap;
+        RebuildAllCharacterStats();
     }
 
     static int LevelCapOffer(QuestDef def)
@@ -11105,6 +11430,93 @@ public class RgbBarTap : MonoBehaviour, IPointerDownHandler
         if (Source == null || !Source.isActiveAndEnabled || !Source.interactable)
             return;
         Source.onClick.Invoke();
+    }
+}
+
+// RGBの＋ボタンを押し続けると、2秒後から1秒ごとに押したことになる。短いタップは今までどおり離したとき。
+public class RgbHoldRepeat : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
+{
+    public Button Target;
+    const float HoldDelay = 2f;
+    const float RepeatInterval = 1f;
+
+    bool _held;
+    bool _repeating;
+    float _elapsed;
+    int _fired;
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        if (eventData == null || eventData.button != PointerEventData.InputButton.Left)
+            return;
+        _held = true;
+        _repeating = false;
+        _elapsed = 0f;
+        _fired = 0;
+    }
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        if (_fired > 0 && eventData != null)
+            eventData.eligibleForClick = false;
+        StopHold();
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (eventData != null && eventData.pointerCurrentRaycast.gameObject != null)
+        {
+            Transform current = eventData.pointerCurrentRaycast.gameObject.transform;
+            if (current == transform || current.IsChildOf(transform))
+                return;
+        }
+        StopHold();
+    }
+
+    void OnDisable()
+    {
+        StopHold();
+    }
+
+    void StopHold()
+    {
+        _held = false;
+        _repeating = false;
+        _elapsed = 0f;
+    }
+
+    void Update()
+    {
+        if (!_held)
+            return;
+        if (Target == null || !Target.isActiveAndEnabled || !Target.interactable)
+        {
+            StopHold();
+            return;
+        }
+
+        _elapsed += Time.deltaTime;
+        if (!_repeating)
+        {
+            if (_elapsed < HoldDelay)
+                return;
+            _elapsed -= HoldDelay;
+            _repeating = true;
+            Fire();
+        }
+        while (_repeating && _elapsed >= RepeatInterval)
+        {
+            _elapsed -= RepeatInterval;
+            Fire();
+        }
+    }
+
+    void Fire()
+    {
+        if (Target == null || !Target.isActiveAndEnabled || !Target.interactable)
+            return;
+        _fired++;
+        Target.onClick.Invoke();
     }
 }
 

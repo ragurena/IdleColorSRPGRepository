@@ -158,15 +158,21 @@ public static class PersonFormulas
         return amount;
     }
 
-    public static long ExpToNext(int level, double exponent, PersonBalanceConfig config)
+    public static long ExpToNext(int level, double exponent, PersonBalanceConfig config, int expBaseMultiplier = 1)
     {
         if (config == null)
             config = PersonBalanceConfig.CreateDefault();
         if (level < 1)
             level = 1;
-        int expBase = config.ExpBase;
+        long expBase = config.ExpBase;
         if (expBase < 1)
             expBase = 1;
+        if (expBaseMultiplier < 1)
+            expBaseMultiplier = 1;
+        if (expBase > long.MaxValue / expBaseMultiplier)
+            expBase = long.MaxValue;
+        else
+            expBase *= expBaseMultiplier;
         double need = expBase * Math.Pow(level, exponent);
         long result = BattleMath.CeilToLong(need);
         if (result < 1)
@@ -174,7 +180,15 @@ public static class PersonFormulas
         return result;
     }
 
-    public static void AddSkillExp(ref int level, ref long exp, long gain, double exponent, PersonBalanceConfig config)
+    // 各色をまとめ階調（1〜3 は 1、4〜6 は 2、7〜9 は 3）にしてから足す。
+    public static long PixelCompletionExp(int r, int g, int b)
+    {
+        return AttributeColorValue.AttributeBand(r)
+            + AttributeColorValue.AttributeBand(g)
+            + AttributeColorValue.AttributeBand(b);
+    }
+
+    public static void AddSkillExp(ref int level, ref long exp, long gain, double exponent, PersonBalanceConfig config, int expBaseMultiplier = 1)
     {
         if (config == null)
             config = PersonBalanceConfig.CreateDefault();
@@ -198,7 +212,7 @@ public static class PersonFormulas
         int guard = 0;
         while (level < maxLevel && guard < guardMax)
         {
-            long need = ExpToNext(level, exponent, config);
+            long need = ExpToNext(level, exponent, config, expBaseMultiplier);
             if (exp < need)
                 break;
             exp -= need;

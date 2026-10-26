@@ -37,6 +37,16 @@ Android の本番アプリ ID と報酬型ユニット ID はコードに入っ�
 
 リリース用ビルドを作る前に、設定画面下部のテストボタンを消す。対象は RGB+10000、全ピクセル+100、全モンスター所持数+10。印は `RELEASE_REMOVE_TEST_GRANTS`。`SettingsBoard` のボタン、`ControllerBattleClass` の呼び出し、`ControllerProduction` の `DebugGrantRgb` / `DebugGrantAllPixels` / `DebugGrantOwned` をまとめて削除する。「広告の確認」のときも、この削除が残っていないか見る。
 
+## ステージを作るとき
+チュートリアル以外のステージを新しく作る、または中身を埋めるときは、頼まれる前に伝える。100階クリアで合成上限を +5 する。
+チュートリアル（ステージ1）は付けない。
+
+付け場所は `QuestCatalog` の `Stage(...)`。最後の引数 `fusionCap` を 5 にする。例: `Stage(400, 4, 100, 0, 5)`。
+合成上限の初期値は10。クリアしたステージの +5 は足し算で重なる（`ApplyFusionCountCap`）。絶対値で上書きしない。
+ステージ名は `ControllerBattleStageClass` の `StageNames`、敵の並びは `BattleStageCatalog`。
+
+ステージ4と5は、名前が「？？？」のままなので、まだ +5 は付いていない。中身を作るときに付ける。
+
 ## Git
 - ヒトハさんは Git に不慣れ。「コミットプッシュして」と言われたら `master` にコミット・プッシュしてよい
 - コミットするのは作業に関係するファイルだけ(スクリプト、`.meta`、変更したシーン等)。確認してから add する
