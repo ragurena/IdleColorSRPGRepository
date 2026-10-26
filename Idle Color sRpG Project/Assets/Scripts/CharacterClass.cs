@@ -811,9 +811,8 @@ public class CharacterClass //: MonoBehaviour
 
         //素早さの算出
         //SPD = APixels;
-        Stats[1].SPD = (byte)(((float)APixels / (ImageTexture2D.width * ImageTexture2D.height)) * 100);
-        if (Stats[1].SPD < 1)
-            Stats[1].SPD = 1;
+        int opaqueRatio = (int)(((float)APixels / (ImageTexture2D.width * ImageTexture2D.height)) * 100f);
+        Stats[1].SPD = (byte)ClampSpd(opaqueRatio);
 
         //諧調数の算出
         {
@@ -957,7 +956,7 @@ public class CharacterClass //: MonoBehaviour
         ceiling.HP = (ulong)hp;
         ceiling.ATK = (ulong)BattleMath.CeilDivPositive(stepSum * pixels, side);
         ceiling.DEF = (ulong)BattleMath.CeilDivPositive(pixels, side);
-        ceiling.SPD = 100;
+        ceiling.SPD = SpdMax;
         ceiling.LUC = LucMax;
         ulong count = (ulong)pixels;
         ceiling.R = count;
@@ -1039,8 +1038,10 @@ public class CharacterClass //: MonoBehaviour
             defBonus = 0;
         if (spdBonus < 0)
             spdBonus = 0;
-        if (spdBonus > byte.MaxValue)
-            spdBonus = byte.MaxValue;
+        if (Stats[1].SPD + spdBonus > SpdMax)
+            spdBonus = SpdMax - Stats[1].SPD;
+        if (spdBonus < 0)
+            spdBonus = 0;
 
         Stats[2].HPMax = (ulong)hpBonus;
         Stats[2].HPCur = (ulong)hpBonus;
@@ -1084,10 +1085,7 @@ public class CharacterClass //: MonoBehaviour
         Stats[0].ATK = SumCapped(Stats[1].ATK, Stats[2].ATK, Stats[3].ATK, Stats[4].ATK, fusionAtk);
         Stats[0].DEF = SumCapped(Stats[1].DEF, Stats[2].DEF, Stats[3].DEF, Stats[4].DEF, fusionDef);
         int totalSpd = Stats[1].SPD + Stats[2].SPD + Stats[3].SPD + Stats[4].SPD;
-        if (totalSpd < 1)
-            totalSpd = 1;
-        if (totalSpd > byte.MaxValue)
-            totalSpd = byte.MaxValue;
+        totalSpd = (int)ClampSpd(totalSpd);
         Stats[0].SPD = (byte)totalSpd;
         Stats[0].LUC = ClampLuc(Stats[1].LUC + Stats[2].LUC + Stats[3].LUC + Stats[4].LUC);
         Stats[0].OBS = Stats[1].OBS + Stats[2].OBS + Stats[3].OBS + Stats[4].OBS;
@@ -1112,8 +1110,18 @@ public class CharacterClass //: MonoBehaviour
         return (ulong)bonus;
     }
 
+    public const int SpdMax = 100;
     public const ulong LucMin = 1;
     public const ulong LucMax = 10;
+
+    public static long ClampSpd(long value)
+    {
+        if (value < 1)
+            return 1;
+        if (value > SpdMax)
+            return SpdMax;
+        return value;
+    }
 
     public static ulong ClampLuc(ulong value)
     {
@@ -1164,8 +1172,11 @@ public class CharacterClass //: MonoBehaviour
         Stats[2].DEF += (ulong)defDelta;
 
         long spd = Stats[2].SPD + spdDelta;
-        if (spd > byte.MaxValue)
-            spd = byte.MaxValue;
+        long spdOthers = Stats[1].SPD + Stats[3].SPD + Stats[4].SPD;
+        if (spdOthers + spd > SpdMax)
+            spd = SpdMax - spdOthers;
+        if (spd < 0)
+            spd = 0;
         Stats[2].SPD = (byte)spd;
         CalcTotalStats();
     }

@@ -3307,13 +3307,13 @@ public class ControllerProduction : MonoBehaviour
     {
         if (PixelAlertToneSpriteCache != null)
             return PixelAlertToneSpriteCache;
-        const int cols = 192;
-        const int rows = 32;
+        const int cols = 384;
+        const int rows = 64;
         Texture2D texture = new Texture2D(cols, rows, TextureFormat.RGBA32, false);
         texture.wrapMode = TextureWrapMode.Clamp;
         texture.filterMode = FilterMode.Point;
         texture.hideFlags = HideFlags.HideAndDontSave;
-        Color red = new Color(0.5f, 0.09f, 0.07f, 1f);
+        Color red = new Color(0.26f, 0.045f, 0.04f, 1f);
         Color[] pixels = new Color[cols * rows];
         const float blackUntil = 1f / 3f;
         for (int y = 0; y < rows; y++)
@@ -4138,9 +4138,7 @@ public class ControllerProduction : MonoBehaviour
                 unit.Hp = unit.HpMax;
             if (unit.HpMax < 1)
                 unit.HpMax = 1;
-            unit.Spd = character.Stats[0].SPD;
-            if (unit.Spd < 1)
-                unit.Spd = 1;
+            unit.Spd = CharacterClass.ClampSpd(character.Stats[0].SPD);
         }
         if (levels > 0)
             RefreshMessages();
@@ -6636,6 +6634,20 @@ public class ControllerProduction : MonoBehaviour
             fill.color = ChemGlowColor(channel);
     }
 
+    public static void StyleColorChip(Image chip)
+    {
+        if (chip == null)
+            return;
+        Sprite frame = PixelColorFrameSprite(null);
+        if (frame != null && (chip.sprite != frame || chip.type != Image.Type.Sliced))
+        {
+            chip.sprite = frame;
+            chip.type = Image.Type.Sliced;
+        }
+        ShowPixelColorHalo(chip.transform);
+        ApplyPixelColorInkFrame(chip.transform, PixelColorInk(chip.color));
+    }
+
     void StylePixelListCard(GameObject card)
     {
         if (card == null)
@@ -8793,6 +8805,27 @@ public class ControllerProduction : MonoBehaviour
         image.gameObject.SetActive(true);
         image.transform.SetAsFirstSibling();
         EnsurePersonFrame(image.transform, frameColors);
+    }
+
+    public static void ApplyPersonAttributeFrame(Transform portrait, PersonClass person)
+    {
+        if (portrait == null)
+            return;
+        if (person == null)
+        {
+            RemovePersonAttributeFrame(portrait);
+            return;
+        }
+        EnsurePersonFrame(portrait, PersonFrameColors(person));
+    }
+
+    public static void RemovePersonAttributeFrame(Transform portrait)
+    {
+        if (portrait == null)
+            return;
+        Transform frame = portrait.Find("PersonFrame");
+        if (frame != null)
+            UnityEngine.Object.Destroy(frame.gameObject);
     }
 
     // 属性なしは灰色。複数は赤・緑・青・闇・光の順に、枠を一周するグラデーション。

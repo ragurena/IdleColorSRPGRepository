@@ -238,8 +238,10 @@ public static class BattleLevelGrowth
         growth.NewHpMax = AddGrowth(hpMax, config.HpGrowthRate, 1);
         growth.NewAtk = AddGrowth(atk, config.AtkGrowthRate, 1);
         growth.NewDef = AddGrowth(def, config.DefGrowthRate, 1);
-        long currentSpd = spd < 0 ? 0 : spd;
-        growth.NewSpd = currentSpd >= long.MaxValue ? long.MaxValue : currentSpd + 1;
+        long currentSpd = spd < 1 ? 1 : spd;
+        if (currentSpd > CharacterClass.SpdMax)
+            currentSpd = CharacterClass.SpdMax;
+        growth.NewSpd = currentSpd >= CharacterClass.SpdMax ? CharacterClass.SpdMax : currentSpd + 1;
         if (growth.NewHpMax < 1)
             growth.NewHpMax = 1;
         growth.HpDelta = growth.NewHpMax - (hpMax < 0 ? 0 : hpMax);
@@ -282,17 +284,27 @@ public static class BattleLevelGrowth
         if (level < 1)
             level = 1;
         if (config == null)
+        {
+            grownSpd = CharacterClass.ClampSpd(grownSpd);
             return;
+        }
         if (level > config.MaxLevel)
             level = config.MaxLevel;
         long steps = GrowthSteps(level);
         if (steps <= 0)
+        {
+            grownSpd = CharacterClass.ClampSpd(grownSpd);
             return;
+        }
 
         grownHp = AddGrowth(hp, config.HpGrowthRate, steps);
         grownAtk = AddGrowth(atk, config.AtkGrowthRate, steps);
         grownDef = AddGrowth(def, config.DefGrowthRate, steps);
         grownSpd = spd > long.MaxValue - steps ? long.MaxValue : spd + steps;
+        if (grownSpd > CharacterClass.SpdMax)
+            grownSpd = CharacterClass.SpdMax;
+        if (grownSpd < 1)
+            grownSpd = 1;
         if (grownHp < 1)
             grownHp = 1;
     }

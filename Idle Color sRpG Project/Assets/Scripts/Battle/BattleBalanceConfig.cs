@@ -31,7 +31,7 @@ public class BattleBalanceConfig
     public double HpGrowthRate = 0.05;
     public double AtkGrowthRate = 0.04;
     public double DefGrowthRate = 0.05;
-    // SPD は割合を掛けず、1レベルにつき +1 する。
+    // SPD は割合を掛けず、1レベルにつき +1 する。合計は 100 を超えない。
     public double SpdGrowthRate = 0.0;
     public double RgbGrowthRate = 0.01;
 
