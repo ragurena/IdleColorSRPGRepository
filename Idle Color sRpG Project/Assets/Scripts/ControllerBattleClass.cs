@@ -543,6 +543,7 @@ public class ControllerBattleClass : MonoBehaviour
             walker.preserveAspect = true;
             walker.raycastTarget = false;
             PlaceRect(walker.rectTransform, origin.x, origin.y, 70f, 70f);
+            walker.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
             walker.transform.SetAsLastSibling();
             SetPortrait(cell, null);
             SetMetersVisible(cell, false, false);
@@ -2044,6 +2045,8 @@ public class ControllerBattleClass : MonoBehaviour
                 portrait.preserveAspect = true;
                 portrait.raycastTarget = false;
                 portrait.gameObject.SetActive(false);
+                if (cells != _allies)
+                    portrait.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
 
                 Image infoBack = CreateImage("ImageBattleInfo" + suffix, image.transform, new Color(0f, 0f, 0f, 0.62f));
                 infoBack.raycastTarget = false;

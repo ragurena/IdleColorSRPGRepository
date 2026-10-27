@@ -1228,9 +1228,10 @@ public class ControllerBattleStageClass : MonoBehaviour
                 RectTransform rect = obj.GetComponent<RectTransform>();
                 rect.anchorMin = new Vector2(1f, 0f);
                 rect.anchorMax = new Vector2(1f, 0f);
-                rect.pivot = Vector2.zero;
+                rect.pivot = new Vector2(0.5f, 0.5f);
                 rect.sizeDelta = new Vector2(size, size);
-                rect.anchoredPosition = new Vector2(x, pad);
+                rect.anchoredPosition = new Vector2(x + size * 0.5f, pad + size * 0.5f);
+                rect.localScale = new Vector3(-1f, 1f, 1f);
                 Image image = obj.GetComponent<Image>();
                 image.preserveAspect = true;
                 image.raycastTarget = false;

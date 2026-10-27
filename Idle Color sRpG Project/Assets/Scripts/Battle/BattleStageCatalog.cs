@@ -143,7 +143,7 @@ public static class BattleStageCatalog
     {   
         //E の並びは キャラID、レベル、重み、最少、最多
         var stage = Stage(1);
-        stage.Background = "nekohatakouen";
+        stage.Background = "kougisitu";
         stage.Bands[0] = Band(E(6,1,50,1,1),E(7,1,10,0,1),E(8,1,10,0,1),E(9,1,0,0,1));
         stage.Bands[1] = Band(E(6,2,10,0,1),E(7,2,50,1,1),E(8,2,10,0,1),E(9,2,0,0,1));
         stage.Bands[2] = Band(E(6,3,33,0,1),E(7,3,10,0,1),E(8,3,50,1,1),E(9,3,0,0,1));
@@ -175,7 +175,7 @@ public static class BattleStageCatalog
     {
         //E の並びは キャラID、レベル、重み、最少、最多
         var stage = Stage(2);
-        stage.Background = "";
+        stage.Background = "nekohatakouen";
         stage.Bands[0] = Band(E(1,2,33,1,2),E(2,2,33,0,1),E(3,2,33,0,1),E(4,2,1,0,1));
         stage.Bands[1] = Band(E(1,4,33,1,2),E(2,4,33,0,1),E(3,4,33,0,1),E(4,4,2,0,1));
         stage.Bands[2] = Band(E(1,6,33,1,2),E(2,6,33,0,1),E(3,6,33,0,1),E(4,6,3,0,1));
@@ -199,7 +199,7 @@ public static class BattleStageCatalog
     {
         //E の並びは キャラID、レベル、重み、最少、最多
         var stage = Stage(3);
-        stage.Background = "";
+        stage.Background = "chigusa_room";
         stage.Bands[0] = Band(E(16, 13, 33, 0, 1), E(17, 13, 33, 0, 1), E(18, 13, 33, 0, 1), E(19, 10, 1, 0, 1));
         stage.Bands[1] = Band(E(16, 16, 33, 1, 2), E(17, 16, 33, 0, 1), E(18, 16, 33, 0, 1), E(20, 10, 1, 0, 1));
         stage.Bands[2] = Band(E(16, 19, 33, 1, 2), E(17, 19, 33, 0, 1), E(18, 19, 33, 0, 1), E(19, 10, 2, 0, 1));

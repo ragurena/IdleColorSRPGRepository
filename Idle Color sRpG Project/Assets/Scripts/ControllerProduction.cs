@@ -4400,6 +4400,83 @@ public class ControllerProduction : MonoBehaviour
     ////////////////////////////////////
     //Model?
 
+    // 黒ネコ系。StreamingAssets を書き換えても、一度コピーした画像と減色は残る。
+    static readonly string[] KuronekoSeriesFiles =
+    {
+        "RBlackCat8.png",
+        "GBlackCat8.png",
+        "BBlackCat8.png",
+        "GrayCat8.png",
+        "WhiteCat8.png",
+    };
+
+    static bool IsKuronekoSeries(string fileName)
+    {
+        for (int i = 0; i < KuronekoSeriesFiles.Length; i++)
+        {
+            if (KuronekoSeriesFiles[i] == fileName)
+                return true;
+        }
+        return false;
+    }
+
+    static void DeleteNormalizedCharacterImage(string fileName)
+    {
+        string normalized = Application.persistentDataPath + "/Character/Nomalization/Nomalization_" + fileName;
+        if (File.Exists(normalized))
+            File.Delete(normalized);
+    }
+
+    static bool SameFileBytes(string path, byte[] data)
+    {
+        if (data == null || !File.Exists(path))
+            return false;
+        byte[] current;
+        try
+        {
+            current = File.ReadAllBytes(path);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        if (current.Length != data.Length)
+            return false;
+        for (int i = 0; i < data.Length; i++)
+        {
+            if (current[i] != data[i])
+                return false;
+        }
+        return true;
+    }
+
+    // 未コピー、または黒ネコ系で元画像の方が新しいときだけ上書きする。減色を消すと、次の生成で色とステータスを作り直す。
+    static bool ShouldCopyCharacterImage(string sourcePath, string fileName)
+    {
+        string dest = Application.persistentDataPath + "/Character/" + fileName;
+        if (!File.Exists(dest))
+            return true;
+        if (!IsKuronekoSeries(fileName))
+            return false;
+        try
+        {
+            return File.GetLastWriteTimeUtc(sourcePath) > File.GetLastWriteTimeUtc(dest);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    static void CopyCharacterImage(string sourcePath, string fileName)
+    {
+        string dest = Application.persistentDataPath + "/Character/" + fileName;
+        File.Copy(sourcePath, dest, true);
+        if (IsKuronekoSeries(fileName))
+            DeleteNormalizedCharacterImage(fileName);
+        Debug.Log("コピー " + sourcePath + "->" + dest);
+    }
+
     IEnumerator MakeFile()
     {
         Debug.Log("==================== [LOG 2] MakeFile 始まったよ！ ====================");
@@ -4421,11 +4498,9 @@ public class ControllerProduction : MonoBehaviour
 
         foreach (string file in files)
         {
-            if (!(File.Exists(Application.persistentDataPath + "/Character/" + Path.GetFileName(file))))
-            {
-                Debug.Log("コピー " + file + "->" + Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
-                File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
-            }
+            string fileName = Path.GetFileName(file);
+            if (ShouldCopyCharacterImage(file, fileName))
+                CopyCharacterImage(file, fileName);
         }
         PersonPortraits.CopyFromFolder(Application.streamingAssetsPath + "/human");
 
@@ -4435,11 +4510,9 @@ public class ControllerProduction : MonoBehaviour
 
     foreach (string file in files)
     {
-        if (!(File.Exists(Application.persistentDataPath + "/Character/" + Path.GetFileName(file))))
-        {
-            Debug.Log("コピー " + file + "->" + Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
-            File.Copy(file, Application.persistentDataPath + "/Character/" + Path.GetFileName(file));
-        }
+        string fileName = Path.GetFileName(file);
+        if (ShouldCopyCharacterImage(file, fileName))
+            CopyCharacterImage(file, fileName);
     }
     PersonPortraits.CopyFromFolder(Application.dataPath + "/Raw" + "/human");
 
@@ -4452,8 +4525,9 @@ public class ControllerProduction : MonoBehaviour
         string curCharacterName = roster[rosterIndex].FileName;
         string toPath = Application.persistentDataPath + "/Character/" + curCharacterName;
 
-        // すでにファイルが存在すればスキップ（毎回コピーする無駄を省く）
-        if (File.Exists(toPath)) continue;
+        // すでにファイルが存在すればスキップ（毎回コピーする無駄を省く）。黒ネコ系は中身が変わっていたら入れ替える。
+        bool refreshCat = IsKuronekoSeries(curCharacterName);
+        if (File.Exists(toPath) && !refreshCat) continue;
 
         string path = Application.streamingAssetsPath + "/Character/" + curCharacterName;
 
@@ -4464,7 +4538,12 @@ public class ControllerProduction : MonoBehaviour
 
             if (www.result == UnityWebRequest.Result.Success)
             {
-                File.WriteAllBytes(toPath, www.downloadHandler.data);
+                byte[] data = www.downloadHandler.data;
+                if (refreshCat && SameFileBytes(toPath, data))
+                    continue;
+                File.WriteAllBytes(toPath, data);
+                if (refreshCat)
+                    DeleteNormalizedCharacterImage(curCharacterName);
                 Debug.Log("コピー成功: " + curCharacterName);
             }
             else
