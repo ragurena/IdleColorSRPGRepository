@@ -21,7 +21,7 @@ public sealed class CharacterDefinition
 
 public static class CharacterRoster
 {
-    // ID は 1〜CHARACTERS_ALL_NUM。空きは 15, 16, 17, 18, 22, 32。
+    // ID は 1〜CHARACTERS_ALL_NUM。空きは 15。
     public static readonly CharacterDefinition[] All =
     {
         new CharacterDefinition(1, "RedSlime8.png", "LittleRedSlime", true),
@@ -38,18 +38,23 @@ public static class CharacterRoster
         new CharacterDefinition(12, "GreenSlime16.png", "SmallGreenSlime", false),
         new CharacterDefinition(13, "BlueSlime16.png", "SmallBlueSlime", false),
         new CharacterDefinition(14, "WhiteSlime16.png", "SmallWhiteSlime", false),
-        new CharacterDefinition(19, "0032_slime_R.png", "RedSlime", false),
-        new CharacterDefinition(20, "0032_slime_G.png", "GreenSlime", false),
-        new CharacterDefinition(21, "0032_slime_B.png", "BlueSlime", false),
-        new CharacterDefinition(23, "0032_rabbit.png", "WhiteRabbit", false),
-        new CharacterDefinition(24, "0064_slimeking_R.png", "RedSlimeKing", false),
-        new CharacterDefinition(25, "0064_slimeking_G.png", "GreenSlimeKing", false),
-        new CharacterDefinition(26, "0064_slimeking_B.png", "BlueSlimeKing", false),
-        new CharacterDefinition(27, "0016_akaneko.png", "赤ネコ", false),
-        new CharacterDefinition(28, "0016_midorineko.png", "緑ネコ", false),
-        new CharacterDefinition(29, "0016_aoneko.png", "青ネコ", false),
-        new CharacterDefinition(30, "0016_kuroneko.png", "黒ネコ", false),
-        new CharacterDefinition(31, "0016_shironeko.png", "白ネコ", false),
+        new CharacterDefinition(16, "ペンカド_32.png", "ペンカド", false),
+        new CharacterDefinition(17, "モッシー_32.png", "モッシー", false),
+        new CharacterDefinition(18, "ネギュシ_32.png", "ネギュシ", false),
+        new CharacterDefinition(19, "ズンラゲ_64.png", "ズンラゲ", false),
+        new CharacterDefinition(20, "ネギュシ_64.png", "オオネギュシ", false),
+        new CharacterDefinition(21, "0032_slime_R.png", "RedSlime", false),
+        new CharacterDefinition(22, "0032_slime_G.png", "GreenSlime", false),
+        new CharacterDefinition(23, "0032_slime_B.png", "BlueSlime", false),
+        new CharacterDefinition(24, "0032_rabbit.png", "WhiteRabbit", false),
+        new CharacterDefinition(25, "0064_slimeking_R.png", "RedSlimeKing", false),
+        new CharacterDefinition(26, "0064_slimeking_G.png", "GreenSlimeKing", false),
+        new CharacterDefinition(27, "0064_slimeking_B.png", "BlueSlimeKing", false),
+        new CharacterDefinition(28, "0016_akaneko.png", "赤ネコ", false),
+        new CharacterDefinition(29, "0016_midorineko.png", "緑ネコ", false),
+        new CharacterDefinition(30, "0016_aoneko.png", "青ネコ", false),
+        new CharacterDefinition(31, "0016_kuroneko.png", "黒ネコ", false),
+        new CharacterDefinition(32, "0016_shironeko.png", "白ネコ", false),
     };
 
     public static void RegisterAll(CharacterClass[] characters)

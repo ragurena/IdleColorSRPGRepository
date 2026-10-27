@@ -39,6 +39,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     struct StageEnemyPortrait
     {
+        public int StageIndex;
         public uint CharacterId;
         public Image Image;
     }
@@ -64,8 +65,19 @@ public class ControllerBattleStageClass : MonoBehaviour
     Color ColorButtonSelected = new Color(1.0f, 0.85f, 0.4f, 1.0f);
     Color ColorStageLocked = new Color(0.55f, 0.55f, 0.55f, 1.0f);
     Color ColorCellEmpty = new Color(0.2f, 0.2f, 0.2f, 1.0f);
-    Color ColorSortie = new Color(0.55f, 0.85f, 0.55f, 1.0f);
-    Color ColorWithdraw = new Color(0.95f, 0.55f, 0.45f, 1.0f);
+    Color ColorSortie = new Color(0.12f, 0.72f, 0.22f, 1f);
+    Color ColorWithdraw = new Color(0.86f, 0.16f, 0.12f, 1f);
+    static readonly Color[] SetColors =
+    {
+        new Color(0.86f, 0.16f, 0.12f, 1f),
+        new Color(0.12f, 0.72f, 0.22f, 1f),
+        new Color(0.16f, 0.38f, 0.92f, 1f),
+        new Color(0.62f, 0.28f, 0.92f, 1f),
+        new Color(0.95f, 0.78f, 0.16f, 1f),
+    };
+    Button _partyButton;
+    bool _partyBlink;
+    CanvasGroup _partyBlinkGroup;
 
     public void Initialize(ref CharacterClass[] argCharactersAll, ControllerProduction argControllerProduction)
     {
@@ -135,7 +147,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     const float FrameThin = 3f;
 
-    // 下地は黒。セット、編成、階、ステージ一覧、下の操作を、それぞれ白い枠で区切る。
+    // 下地は黒。白い枠はステージ一覧だけ。
     void ApplyStageChrome()
     {
         GameObject panelObject = GameObject.Find("PanelBattleStage");
@@ -169,16 +181,11 @@ public class ControllerBattleStageClass : MonoBehaviour
             EnsureWhiteFrame(scroll);
         }
 
-        EnsureWhiteFrame(panel.Find("SetTabs"));
-        EnsureZoneFrame(panel, "StageZoneParty", new Vector2(0f, 468f), new Vector2(1080f, 120f));
         LayoutStageFormation(panel);
         ThickenFloorSliders(panel);
         ArrangeFloorHeader(panel);
-        // 開始・終了の枠は、一覧が下がった分だけ下へ伸ばす。上端は動かさない。
-        EnsureZoneFrame(panel, "StageZoneFloor", new Vector2(0f, 196.5f), new Vector2(1080f, 399f));
-        // 下のカードは編成ボタン（160）に余白を足した高さ。パネル下端に置く。
-        EnsureZoneFrame(panel, "StageZoneFooter", new Vector2(0f, -587f), new Vector2(1080f, 176f));
         PlaceFooterControls(panel, 88f);
+        PaintPartyButton(panel);
 
         PaintLooseLabel(TextBattleStagePartyTotal);
         PaintLooseLabel(TextBattleFloorRange);
@@ -345,26 +352,125 @@ public class ControllerBattleStageClass : MonoBehaviour
             text.color = Color.white;
     }
 
-    void EnsureZoneFrame(Transform panel, string name, Vector2 center, Vector2 size)
+    void PaintPartyButton(Transform panel)
     {
-        Transform existing = panel.Find(name);
-        RectTransform rect;
+        if (_partyButton == null)
+        {
+            Transform found = panel != null ? panel.Find("ButtonSelectSceneBattleParty") : null;
+            if (found == null)
+            {
+                GameObject bar = GameObject.Find("PanelSelectScene");
+                if (bar != null)
+                    found = bar.transform.Find("ButtonSelectSceneBattleParty");
+            }
+            if (found != null)
+                _partyButton = found.GetComponent<Button>();
+        }
+        PaintUsualButton(_partyButton, Color.white, true);
+    }
+
+    // 選んでいるセットに誰もいないあいだ、編成ボタンを点滅させて誘導する。
+    void SetPartyBlink(bool on)
+    {
+        if (_partyButton == null)
+        {
+            GameObject stagePanel = GameObject.Find("PanelBattleStage");
+            PaintPartyButton(stagePanel != null ? stagePanel.transform : null);
+        }
+        _partyBlink = on && _partyButton != null;
+        if (_partyButton == null)
+            return;
+        _partyBlinkGroup = _partyButton.GetComponent<CanvasGroup>();
+        if (_partyBlinkGroup == null)
+            _partyBlinkGroup = _partyButton.gameObject.AddComponent<CanvasGroup>();
+        if (!_partyBlink)
+            _partyBlinkGroup.alpha = 1f;
+    }
+
+    void Update()
+    {
+        if (!_partyBlink || _partyBlinkGroup == null)
+            return;
+        float wave = Mathf.Sin(Time.unscaledTime * Mathf.PI * 1.5f) * 0.5f + 0.5f;
+        _partyBlinkGroup.alpha = Mathf.Lerp(0.15f, 1f, wave);
+    }
+
+    void LateUpdate()
+    {
+        if (ButtonSortieBattleStage == null)
+            return;
+        bool withdrawMode = false;
+        if (ControllerProduction != null)
+        {
+            int activeSet = ControllerProduction.GetActiveBattlePartySet();
+            int activeStage = ControllerProduction.GetActiveBattleStage();
+            withdrawMode = activeSet != 0 && (activeStage == 0 || activeStage == CurrentStageIndex);
+        }
+        PaintSortieFrame(withdrawMode ? ColorWithdraw : ColorSortie);
+    }
+
+    void PaintSortieFrame(Color color)
+    {
+        Transform frame = ButtonSortieBattleStage.transform.Find("NeonFrame");
+        if (frame == null)
+            return;
+        color.a = 1f;
+        Image[] images = frame.GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++)
+        {
+            if (images[i] != null)
+                images[i].color = color;
+        }
+    }
+
+    void PaintUsualButton(Button button, Color color, bool enabled)
+    {
+        if (button == null || ControllerProduction == null)
+            return;
+        ControllerProduction.StyleRepresentativeButton(button, color, enabled);
+        if (enabled)
+            return;
+        button.interactable = false;
+        Text label = button.GetComponentInChildren<Text>();
+        if (label != null)
+            label.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+    }
+
+    // 選んでいるセットは色を置き換えず、白いスクリーンを上に乗せて明るくする。
+    static void SetSelectScreen(Button button, bool on)
+    {
+        if (button == null)
+            return;
+        Transform existing = button.transform.Find("SelectScreen");
+        if (!on)
+        {
+            if (existing != null)
+                existing.gameObject.SetActive(false);
+            return;
+        }
+
+        Image image;
         if (existing == null)
         {
-            GameObject obj = new GameObject(name, typeof(RectTransform));
-            obj.transform.SetParent(panel, false);
-            rect = obj.GetComponent<RectTransform>();
+            GameObject obj = new GameObject("SelectScreen", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(button.transform, false);
+            image = obj.GetComponent<Image>();
+            image.raycastTarget = false;
+            image.sprite = FloorSliderSquare();
+            image.type = Image.Type.Simple;
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            existing = obj.transform;
         }
         else
-            rect = existing.GetComponent<RectTransform>();
+            image = existing.GetComponent<Image>();
 
-        rect.anchorMin = new Vector2(0.5f, 0.5f);
-        rect.anchorMax = new Vector2(0.5f, 0.5f);
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = center;
-        rect.sizeDelta = size;
-        EnsureWhiteFrame(rect);
-        rect.SetAsLastSibling();
+        image.color = new Color(1f, 1f, 1f, 0.5f);
+        existing.SetSiblingIndex(0);
+        existing.gameObject.SetActive(true);
     }
 
     static void EnsureWhiteFrame(Transform target)
@@ -430,8 +536,61 @@ public class ControllerBattleStageClass : MonoBehaviour
         slider.minValue = 1;
         slider.maxValue = Constants.BATTLE_STAGE_FLOOR_MAX / Constants.BATTLE_STAGE_FLOOR_STEP;
         slider.onValueChanged.AddListener(_ => OnFloorSliderChanged(fromSlider));
+        StyleFloorSlider(slider);
         if (fromSlider)
             RememberFloorFromSliderSize();
+    }
+
+    static Sprite _floorSliderSquare;
+
+    static Sprite FloorSliderSquare()
+    {
+        if (_floorSliderSquare != null)
+            return _floorSliderSquare;
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Point;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        texture.SetPixel(0, 0, Color.white);
+        texture.Apply();
+        _floorSliderSquare = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+        _floorSliderSquare.hideFlags = HideFlags.HideAndDontSave;
+        return _floorSliderSquare;
+    }
+
+    static void StyleFloorSlider(Slider slider)
+    {
+        Sprite square = FloorSliderSquare();
+        PaintSliderPart(slider.transform.Find("Background"), square, new Color(0.16f, 0.16f, 0.18f, 1f));
+        Transform fill = slider.fillRect;
+        if (fill == null)
+            fill = slider.transform.Find("Fill Area/Fill");
+        PaintSliderPart(fill, square, Color.white);
+        Transform handle = slider.handleRect;
+        if (handle == null)
+            handle = slider.transform.Find("Handle Slide Area/Handle");
+        PaintSliderPart(handle, square, Color.white);
+        RectTransform rect = handle as RectTransform;
+        if (rect == null)
+            return;
+        float xMin = rect.anchorMin.x;
+        float xMax = rect.anchorMax.x;
+        rect.anchorMin = new Vector2(xMin, 0.5f);
+        rect.anchorMax = new Vector2(xMax, 0.5f);
+        rect.sizeDelta = new Vector2(40f, 40f);
+    }
+
+    static void PaintSliderPart(Transform part, Sprite sprite, Color color)
+    {
+        if (part == null)
+            return;
+        Image image = part.GetComponent<Image>();
+        if (image == null)
+            return;
+        image.sprite = sprite;
+        image.type = Image.Type.Simple;
+        image.color = color;
+        image.preserveAspect = false;
     }
 
     void RememberFloorFromSliderSize()
@@ -537,14 +696,21 @@ public class ControllerBattleStageClass : MonoBehaviour
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //表示
 
-    public void Open()
+    public int GetSelectedSetIndex()
+    {
+        return CurrentSetIndex;
+    }
+
+    public void Open(int keepSetIndex = 0)
     {
         int activeStage = ControllerProduction.GetActiveBattleStage();
         if (activeStage != 0)
             CurrentStageIndex = activeStage;
 
         int activeSet = ControllerProduction.GetActiveBattlePartySet();
-        if (activeSet != 0)
+        if (keepSetIndex >= 1 && keepSetIndex <= Constants.BATTLE_PARTY_SET_NUM)
+            CurrentSetIndex = keepSetIndex;
+        else if (activeSet != 0)
             CurrentSetIndex = activeSet;
 
         int activeFloorFrom = ControllerProduction.GetActiveBattleFloorFrom();
@@ -599,24 +765,27 @@ public class ControllerBattleStageClass : MonoBehaviour
 
             bool lockedLook = !unlocked && stageIndex != activeStage;
             if (lockedLook)
-            {
                 ButtonBattleStages[i].image.color = ColorStageLocked;
-                if (label != null)
-                    label.text = StageNames[stageIndex] + "\n未開放";
+            else
+                ButtonBattleStages[i].image.color = (stageIndex == CurrentStageIndex) ? ColorButtonSelected : ColorButtonNormal;
+            ApplyStageButtonBackground(ButtonBattleStages[i], stageIndex, label);
+            if (label == null)
+                continue;
+            if (lockedLook)
+            {
+                label.text = "？？？";
+                label.color = Color.white;
+                MatchStageTitleSize(label);
+                label.transform.SetAsLastSibling();
             }
             else
             {
-                ButtonBattleStages[i].image.color = (stageIndex == CurrentStageIndex) ? ColorButtonSelected : ColorButtonNormal;
-                if (label != null)
-                {
-                    label.text = StageNames[stageIndex];
-                    if (stageIndex == activeStage)
-                        label.text += "\n出撃中";
-                    else if (ControllerProduction.IsBattleStageCleared(stageIndex))
-                        label.text += "\nクリア";
-                }
+                label.text = StageNames[stageIndex];
+                if (stageIndex == activeStage)
+                    label.text += "\n出撃中";
+                else if (ControllerProduction.IsBattleStageCleared(stageIndex))
+                    label.text += "\nクリア";
             }
-            ApplyStageButtonBackground(ButtonBattleStages[i], stageIndex, label);
         }
 
         if (ControllerProduction.IsBattleRunning() && activeStage != 0)
@@ -631,15 +800,19 @@ public class ControllerBattleStageClass : MonoBehaviour
                 continue;
 
             int setIndex = i + 1;
-            ButtonBattleStageSets[i].image.color = (setIndex == CurrentSetIndex) ? ColorButtonSelected : ColorButtonNormal;
             Text label = ButtonBattleStageSets[i].GetComponentInChildren<Text>();
-            if (label == null)
-                continue;
-
-            label.text = "セット" + setIndex.ToString() + (setIndex == activeSet ? "\n出撃中" : "");
+            if (label != null)
+                label.text = "セット" + setIndex.ToString() + (setIndex == activeSet ? "\n出撃中" : "");
+            Color setColor = SetColors[Mathf.Clamp(i, 0, SetColors.Length - 1)];
+            PaintUsualButton(ButtonBattleStageSets[i], setColor, true);
+            SetSelectScreen(ButtonBattleStageSets[i], setIndex == CurrentSetIndex);
         }
 
+        GameObject stagePanel = GameObject.Find("PanelBattleStage");
+        PaintPartyButton(stagePanel != null ? stagePanel.transform : null);
+
         int memberNum = 0;
+        bool setEmpty = true;
         ulong totalHP = 0;
         ulong totalATK = 0;
         ulong totalDEF = 0;
@@ -649,6 +822,8 @@ public class ControllerBattleStageClass : MonoBehaviour
             for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
             {
                 uint characterId = ControllerProduction.GetBattlePartyCharacter(CurrentSetIndex, x, y);
+                if (characterId != 0)
+                    setEmpty = false;
                 if (CellImages[x, y] != null)
                 {
                     if (characterId == 0)
@@ -656,12 +831,18 @@ public class ControllerBattleStageClass : MonoBehaviour
                         CellImages[x, y].sprite = null;
                         CellImages[x, y].color = ColorCellEmpty;
                         CatalogNewMark.Apply(CellImages[x, y].transform, null);
+                        ControllerProduction.RemoveAttributeGlow(CellImages[x, y].transform);
                     }
                     else
                     {
                         CellImages[x, y].sprite = CreateCharacterSprite(characterId);
                         CellImages[x, y].color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-                        CatalogNewMark.Apply(CellImages[x, y].transform, ImportedCharacters.FindAny(CharactersAll, characterId));
+                        CharacterClass shown = ImportedCharacters.FindAny(CharactersAll, characterId);
+                        CatalogNewMark.Apply(CellImages[x, y].transform, shown);
+                        if (shown != null)
+                            ControllerProduction.EnsureOwnedAttributeGlow(CellImages[x, y].transform, shown);
+                        else
+                            ControllerProduction.RemoveAttributeGlow(CellImages[x, y].transform);
                     }
                 }
 
@@ -688,14 +869,17 @@ public class ControllerBattleStageClass : MonoBehaviour
             TextBattleStagePartyTotal.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
+        SetPartyBlink(setEmpty);
+
         bool withdrawMode = activeSet != 0 && (activeStage == 0 || activeStage == CurrentStageIndex);
         if (ButtonSortieBattleStage != null)
         {
-            ButtonSortieBattleStage.interactable = withdrawMode || (ControllerProduction.CanEnterStage(CurrentStageIndex) && memberNum > 0);
-            ButtonSortieBattleStage.image.color = withdrawMode ? ColorWithdraw : ColorSortie;
+            bool canPress = withdrawMode || (ControllerProduction.CanEnterStage(CurrentStageIndex) && memberNum > 0);
             Text label = ButtonSortieBattleStage.GetComponentInChildren<Text>();
             if (label != null)
                 label.text = withdrawMode ? "撤退" : "出撃";
+            PaintUsualButton(ButtonSortieBattleStage, withdrawMode ? ColorWithdraw : ColorSortie, canPress);
+            ButtonSortieBattleStage.interactable = canPress;
         }
 
         if (ButtonBattleRepeat != null)
@@ -898,7 +1082,9 @@ public class ControllerBattleStageClass : MonoBehaviour
             ButtonGalleryStage.image.color = ColorStageLocked;
             if (label == null)
                 return;
-            label.text = "ギャラリー\nキャラ読込のクエストをクリアすると開く";
+            label.text = "？？？";
+            label.color = Color.white;
+            MatchStageTitleSize(label);
             return;
         }
 
@@ -917,6 +1103,23 @@ public class ControllerBattleStageClass : MonoBehaviour
     {
         return ControllerProduction.CanEnterStage(stageIndex)
             || stageIndex == ControllerProduction.GetActiveBattleStage();
+    }
+
+    void MatchStageTitleSize(Text label)
+    {
+        if (label == null)
+            return;
+        Text sample = null;
+        if (ButtonBattleStages.Length > 0 && ButtonBattleStages[0] != null)
+            sample = ButtonBattleStages[0].GetComponentInChildren<Text>();
+        label.alignment = TextAnchor.MiddleCenter;
+        label.resizeTextForBestFit = true;
+        label.resizeTextMinSize = sample != null && sample.resizeTextMinSize > 0 ? sample.resizeTextMinSize : 10;
+        int max = sample != null && sample.resizeTextMaxSize > 0 ? sample.resizeTextMaxSize : 48;
+        label.resizeTextMaxSize = max;
+        label.fontSize = max;
+        label.horizontalOverflow = HorizontalWrapMode.Wrap;
+        label.verticalOverflow = VerticalWrapMode.Truncate;
     }
 
     // 各ステージカードの右下に、出る敵を並べる。大きさはカードの高さの3分の2から、さらに3割小さい。
@@ -987,7 +1190,8 @@ public class ControllerBattleStageClass : MonoBehaviour
                 continue;
 
             CharacterClass character = ImportedCharacters.FindAny(CharactersAll, portrait.CharacterId);
-            bool companion = character != null && character.OwnedNumMax != 0;
+            bool opened = ControllerProduction.IsBattleStageUnlocked(portrait.StageIndex);
+            bool companion = opened && character != null && character.OwnedNumMax != 0;
             portrait.Image.sprite = companion ? StageEnemySprite(character) : StageEnemySilhouette(character);
             portrait.Image.color = companion ? Color.white : Color.black;
             portrait.Image.enabled = portrait.Image.sprite != null;
@@ -1030,7 +1234,7 @@ public class ControllerBattleStageClass : MonoBehaviour
                 Image image = obj.GetComponent<Image>();
                 image.preserveAspect = true;
                 image.raycastTarget = false;
-                StageEnemyPortraits.Add(new StageEnemyPortrait { CharacterId = id, Image = image });
+                StageEnemyPortraits.Add(new StageEnemyPortrait { StageIndex = stageIndex, CharacterId = id, Image = image });
                 x += size + gap;
             }
 

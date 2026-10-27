@@ -25,9 +25,16 @@ public class ControllerBattlePartyClass : MonoBehaviour
     Button[] ButtonPeople = new Button[Constants.BATTLE_PERSON_SLOT_NUM + 1];
     bool PersonColumnShifted;
 
-    Color ColorSetTabNormal = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-    Color ColorSetTabSelected = new Color(1.0f, 0.85f, 0.4f, 1.0f);
     Color ColorCellEmpty = new Color(0.2f, 0.2f, 0.2f, 1.0f);
+    Color ColorClear = new Color(0.86f, 0.16f, 0.12f, 1f);
+    static readonly Color[] SetColors =
+    {
+        new Color(0.86f, 0.16f, 0.12f, 1f),
+        new Color(0.12f, 0.72f, 0.22f, 1f),
+        new Color(0.16f, 0.38f, 0.92f, 1f),
+        new Color(0.62f, 0.28f, 0.92f, 1f),
+        new Color(0.95f, 0.78f, 0.16f, 1f),
+    };
 
     public void Initialize(ref CharacterClass[] argCharactersAll, ControllerProduction argControllerProduction)
     {
@@ -59,6 +66,68 @@ public class ControllerBattlePartyClass : MonoBehaviour
         CreatePersonSlots();
 
         ButtonClearBattleParty.onClick.AddListener(PushButtonClearBattleParty);
+        ApplyPartyChrome();
+    }
+
+    void ApplyPartyChrome()
+    {
+        GameObject panelObject = GameObject.Find("PanelBattleParty");
+        if (panelObject == null)
+            return;
+        Image panelImage = panelObject.GetComponent<Image>();
+        if (panelImage != null)
+        {
+            panelImage.color = Color.black;
+            panelImage.raycastTarget = true;
+        }
+        if (TextBattlePartyTotal != null)
+            TextBattlePartyTotal.gameObject.SetActive(false);
+        EnsureStageButton(panelObject.transform);
+    }
+
+    void EnsureStageButton(Transform panel)
+    {
+        Transform found = panel.Find("ButtonBattlePartyToStage");
+        if (found == null)
+        {
+            GameObject buttonObject = new GameObject("ButtonBattlePartyToStage", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(panel, false);
+            Image image = buttonObject.GetComponent<Image>();
+            image.color = Color.white;
+            Button button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = image;
+
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(buttonObject.transform, false);
+            Text text = textObject.AddComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.text = "ステージ";
+            text.fontSize = 40;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+            text.raycastTarget = false;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = 10;
+            text.resizeTextMaxSize = 40;
+            RectTransform textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            button.onClick.AddListener(ControllerProduction.PushButtonSelectSceneBattleStage);
+            found = buttonObject.transform;
+        }
+
+        RectTransform rect = found.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(90f, 88f);
+        rect.sizeDelta = new Vector2(160f, 160f);
+        found.SetAsLastSibling();
+        PaintUsualButton(found.GetComponent<Button>(), Color.white, true);
     }
 
     public int GetCurrentSetIndex()
@@ -110,12 +179,11 @@ public class ControllerBattlePartyClass : MonoBehaviour
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //表示
 
-    //パネルを表示するときに呼ぶ。出撃中のセットがあればそのセットを開く
-    public void Open()
+    // ステージ画面で選んでいるセットを開く。
+    public void Open(int setIndex)
     {
-        int activeSet = ControllerProduction.GetActiveBattlePartySet();
-        if (activeSet != 0)
-            CurrentSetIndex = activeSet;
+        if (setIndex >= 1 && setIndex <= Constants.BATTLE_PARTY_SET_NUM)
+            CurrentSetIndex = setIndex;
         Refresh();
     }
 
@@ -127,16 +195,18 @@ public class ControllerBattlePartyClass : MonoBehaviour
 
         for (int i = 0; i < ButtonBattlePartySets.Length; i++)
         {
+            if (ButtonBattlePartySets[i] == null)
+                continue;
             int setIndex = i + 1;
-            ButtonBattlePartySets[i].image.color = (setIndex == CurrentSetIndex) ? ColorSetTabSelected : ColorSetTabNormal;
-            ButtonBattlePartySets[i].GetComponentInChildren<Text>().text =
-                "セット" + setIndex.ToString() + (setIndex == activeSet ? "\n出撃中" : "");
+            Text label = ButtonBattlePartySets[i].GetComponentInChildren<Text>();
+            if (label != null)
+                label.text = "セット" + setIndex.ToString() + (setIndex == activeSet ? "\n出撃中" : "");
+            Color setColor = SetColors[Mathf.Clamp(i, 0, SetColors.Length - 1)];
+            PaintUsualButton(ButtonBattlePartySets[i], setColor, true);
+            SetSelectScreen(ButtonBattlePartySets[i], setIndex == CurrentSetIndex);
         }
 
         int memberNum = 0;
-        ulong totalHP = 0;
-        ulong totalATK = 0;
-        ulong totalDEF = 0;
 
         for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
         {
@@ -157,6 +227,7 @@ public class ControllerBattlePartyClass : MonoBehaviour
                     if (cellText != null)
                         cellText.text = "+";
                     CatalogNewMark.Apply(cellButton.transform, null);
+                    ControllerProduction.RemoveAttributeGlow(cellButton.transform);
                     continue;
                 }
 
@@ -167,23 +238,89 @@ public class ControllerBattlePartyClass : MonoBehaviour
 
                 CharacterClass member = ImportedCharacters.FindAny(CharactersAll, characterId);
                 CatalogNewMark.Apply(cellButton.transform, member);
+                if (member != null)
+                    ControllerProduction.EnsureOwnedAttributeGlow(cellButton.transform, member);
+                else
+                    ControllerProduction.RemoveAttributeGlow(cellButton.transform);
                 if (member == null || member.Stats == null || member.Stats[0] == null)
                     continue;
                 memberNum++;
-                totalHP += (ulong)ControllerProduction.PreviewStat(member, CurrentSetIndex, (long)member.Stats[0].HPMax, BattleCharacterFactory.ToAttribute(member.CharacterType));
-                totalATK += (ulong)ControllerProduction.PreviewStat(member, CurrentSetIndex, (long)member.Stats[0].ATK, BattleCharacterFactory.ToAttribute(member.CharacterType));
-                totalDEF += (ulong)ControllerProduction.PreviewStat(member, CurrentSetIndex, (long)member.Stats[0].DEF, BattleCharacterFactory.ToAttribute(member.CharacterType));
             }
         }
 
         int personNum = RefreshPeople(isActiveSet);
 
-        TextBattlePartyTotal.text = memberNum.ToString() + "/" + (Constants.BATTLE_FORMATION_SIZE * Constants.BATTLE_FORMATION_SIZE).ToString()
-                                    + "   人 " + personNum.ToString() + "/" + Constants.BATTLE_PERSON_SLOT_NUM.ToString()
-                                    + "   HP " + UiNumber.Format(totalHP) + "   ATK " + UiNumber.Format(totalATK) + "   DEF " + UiNumber.Format(totalDEF);
-
-        ButtonClearBattleParty.interactable = !isActiveSet && (memberNum > 0 || personNum > 0);
+        bool canClear = !isActiveSet && (memberNum > 0 || personNum > 0);
+        PaintUsualButton(ButtonClearBattleParty, ColorClear, canClear);
+        if (ButtonClearBattleParty != null)
+            ButtonClearBattleParty.interactable = canClear;
         PlacePersonSlots();
+    }
+
+    void PaintUsualButton(Button button, Color color, bool enabled)
+    {
+        if (button == null || ControllerProduction == null)
+            return;
+        ControllerProduction.StyleRepresentativeButton(button, color, enabled);
+        if (enabled)
+            return;
+        button.interactable = false;
+        Text label = button.GetComponentInChildren<Text>();
+        if (label != null)
+            label.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+    }
+
+    static void SetSelectScreen(Button button, bool on)
+    {
+        if (button == null)
+            return;
+        Transform existing = button.transform.Find("SelectScreen");
+        if (!on)
+        {
+            if (existing != null)
+                existing.gameObject.SetActive(false);
+            return;
+        }
+
+        Image image;
+        if (existing == null)
+        {
+            GameObject obj = new GameObject("SelectScreen", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(button.transform, false);
+            image = obj.GetComponent<Image>();
+            image.raycastTarget = false;
+            image.sprite = WhitePoint();
+            image.type = Image.Type.Simple;
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            existing = obj.transform;
+        }
+        else
+            image = existing.GetComponent<Image>();
+
+        image.color = new Color(1f, 1f, 1f, 0.5f);
+        existing.SetSiblingIndex(0);
+        existing.gameObject.SetActive(true);
+    }
+
+    static Sprite _whitePoint;
+
+    static Sprite WhitePoint()
+    {
+        if (_whitePoint != null)
+            return _whitePoint;
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Point;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        texture.SetPixel(0, 0, Color.white);
+        texture.Apply();
+        _whitePoint = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+        _whitePoint.hideFlags = HideFlags.HideAndDontSave;
+        return _whitePoint;
     }
 
     static Text CellLabel(Button cellButton)

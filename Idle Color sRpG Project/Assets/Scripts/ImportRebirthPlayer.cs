@@ -18,6 +18,7 @@ public class ImportRebirthPlayer : MonoBehaviour
     const float FlashSeconds = 0.33f;
     const float SparkSeconds = 0.88f;
     const float BarSeconds = 0.42f;
+    const float FrameThin = 3f;
 
     Font _font;
     Action<string> _onClosed;
@@ -976,7 +977,7 @@ public class ImportRebirthPlayer : MonoBehaviour
         Image backdrop = gameObject.GetComponent<Image>();
         if (backdrop == null)
             backdrop = gameObject.AddComponent<Image>();
-        backdrop.color = new Color(0.93f, 0.93f, 0.96f, 1f);
+        backdrop.color = Color.black;
         backdrop.raycastTarget = true;
 
         GameObject skipObject = new GameObject("ButtonRebirthSkip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
@@ -1011,6 +1012,11 @@ public class ImportRebirthPlayer : MonoBehaviour
         _bodyRest = new Vector2(0f, _bodyBottom);
         _body.anchoredPosition = _bodyRest;
 
+        GameObject portraitFrame = new GameObject("RebirthPortraitFrame", typeof(RectTransform));
+        portraitFrame.transform.SetParent(transform, false);
+        Place(portraitFrame.GetComponent<RectTransform>(), 0f, MaskCenterY, MaskWidth, MaskHeight);
+        EnsureWhiteFrame(portraitFrame.transform);
+
         GameObject pictureObject = new GameObject("ImageRebirth", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
         pictureObject.transform.SetParent(_body, false);
         Stretch(pictureObject.GetComponent<RectTransform>());
@@ -1038,13 +1044,13 @@ public class ImportRebirthPlayer : MonoBehaviour
         _hint = CreateText("TextRebirthHint", transform, 22, TextAnchor.MiddleCenter);
         Place(_hint.rectTransform, 0f, -400f, 700f, 40f);
         _hint.text = "タップで見るのを飛ばす";
-        _hint.color = new Color(0.45f, 0.45f, 0.5f, 1f);
+        _hint.color = new Color(0.75f, 0.75f, 0.78f, 1f);
 
         GameObject backObject = new GameObject("ButtonRebirthBack", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         backObject.transform.SetParent(transform, false);
         Place(backObject.GetComponent<RectTransform>(), 0f, -400f, 360f, 84f);
         Image backImage = backObject.GetComponent<Image>();
-        backImage.color = new Color(0.25f, 0.45f, 0.75f, 1f);
+        backImage.color = Color.white;
         _backButton = backObject.GetComponent<Button>();
         _backButton.targetGraphic = backImage;
         _backButton.onClick.AddListener(PushBack);
@@ -1052,6 +1058,7 @@ public class ImportRebirthPlayer : MonoBehaviour
         Stretch(backLabel.rectTransform);
         backLabel.text = "一覧へ戻る";
         backLabel.color = Color.white;
+        StyleChromeButton(_backButton);
         backObject.SetActive(false);
     }
 
@@ -1231,12 +1238,12 @@ public class ImportRebirthPlayer : MonoBehaviour
     {
         switch (type)
         {
-            case CharacterType.Fire: return new Color(0.72f, 0.28f, 0.08f, 1f);
-            case CharacterType.Grass: return new Color(0.12f, 0.42f, 0.16f, 1f);
-            case CharacterType.Water: return new Color(0.1f, 0.28f, 0.68f, 1f);
-            case CharacterType.Light: return new Color(0.45f, 0.36f, 0.05f, 1f);
-            case CharacterType.Dark: return new Color(0.26f, 0.06f, 0.4f, 1f);
-            default: return new Color(0.2f, 0.2f, 0.22f, 1f);
+            case CharacterType.Fire: return new Color(1f, 0.42f, 0.22f, 1f);
+            case CharacterType.Grass: return new Color(0.4f, 0.95f, 0.48f, 1f);
+            case CharacterType.Water: return new Color(0.4f, 0.72f, 1f, 1f);
+            case CharacterType.Light: return new Color(1f, 0.92f, 0.4f, 1f);
+            case CharacterType.Dark: return new Color(0.78f, 0.52f, 1f, 1f);
+            default: return new Color(0.86f, 0.86f, 0.88f, 1f);
         }
     }
 
@@ -1261,7 +1268,7 @@ public class ImportRebirthPlayer : MonoBehaviour
         text.font = _font;
         text.fontSize = fontSize;
         text.alignment = alignment;
-        text.color = new Color(0.12f, 0.12f, 0.14f, 1f);
+        text.color = Color.white;
         text.raycastTarget = false;
         text.horizontalOverflow = HorizontalWrapMode.Overflow;
         text.verticalOverflow = VerticalWrapMode.Overflow;
@@ -1283,5 +1290,65 @@ public class ImportRebirthPlayer : MonoBehaviour
         rect.anchorMax = Vector2.one;
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
+    }
+
+    static void StyleChromeButton(Button button)
+    {
+        if (button == null)
+            return;
+        Image image = button.targetGraphic as Image;
+        if (image == null)
+            image = button.GetComponent<Image>();
+        if (image != null)
+            image.color = Color.white;
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.black;
+        colors.highlightedColor = new Color(0.16f, 0.16f, 0.18f, 1f);
+        colors.pressedColor = new Color(0.28f, 0.28f, 0.3f, 1f);
+        colors.selectedColor = Color.black;
+        colors.disabledColor = Color.black;
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+        EnsureWhiteFrame(button.transform);
+    }
+
+    static void EnsureWhiteFrame(Transform target)
+    {
+        if (target == null || target.Find("WhiteFrame") != null)
+            return;
+        GameObject root = new GameObject("WhiteFrame", typeof(RectTransform));
+        root.transform.SetParent(target, false);
+        Stretch(root.GetComponent<RectTransform>());
+        AddWhiteEdge(root.transform, "Top", true, true);
+        AddWhiteEdge(root.transform, "Bottom", true, false);
+        AddWhiteEdge(root.transform, "Left", false, false);
+        AddWhiteEdge(root.transform, "Right", false, true);
+        root.transform.SetAsLastSibling();
+    }
+
+    static void AddWhiteEdge(Transform parent, string name, bool horizontal, bool end)
+    {
+        GameObject edgeObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        edgeObject.transform.SetParent(parent, false);
+        Image image = edgeObject.GetComponent<Image>();
+        image.color = Color.white;
+        image.raycastTarget = false;
+        RectTransform rect = edgeObject.GetComponent<RectTransform>();
+        if (horizontal)
+        {
+            rect.anchorMin = new Vector2(0f, end ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, end ? 1f : 0f);
+            rect.pivot = new Vector2(0.5f, end ? 1f : 0f);
+            rect.sizeDelta = new Vector2(0f, FrameThin);
+            rect.anchoredPosition = Vector2.zero;
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(end ? 1f : 0f, 0f);
+            rect.anchorMax = new Vector2(end ? 1f : 0f, 1f);
+            rect.pivot = new Vector2(end ? 1f : 0f, 0.5f);
+            rect.sizeDelta = new Vector2(FrameThin, 0f);
+            rect.anchoredPosition = Vector2.zero;
+        }
     }
 }

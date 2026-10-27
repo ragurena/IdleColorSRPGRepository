@@ -1378,6 +1378,16 @@ public class SaveClass// : MonoBehaviour
             index++;
         if (CompareVersions(savedVersion, "0.0.3") < 0 && index >= 9)
             index++;
+        // 0.0.7 は 16〜20 を新しいキャラにした。空きだった 22 は捨て、19〜21 は +2、23 以降は +1。
+        if (CompareVersions(savedVersion, "0.0.7") < 0)
+        {
+            if (index == 22)
+                return 0;
+            if (index >= 23)
+                index++;
+            else if (index >= 19)
+                index += 2;
+        }
         return index;
     }
 
@@ -1399,6 +1409,8 @@ public class SaveClass// : MonoBehaviour
         if (CompareVersions(savedVersion, "0.0.2") < 0 && slot == 4)
             return true;
         if (CompareVersions(savedVersion, "0.0.3") < 0 && (slot == 7 || slot == 8 || slot == 9))
+            return true;
+        if (CompareVersions(savedVersion, "0.0.7") < 0 && slot >= 16 && slot <= 20)
             return true;
         return false;
     }

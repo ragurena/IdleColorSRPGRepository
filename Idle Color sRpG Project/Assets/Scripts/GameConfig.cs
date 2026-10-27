@@ -10,7 +10,8 @@ public static class GameConfig
     // 0.0.4 は初期所持を ID 1〜3 だけにした版。これより古いセーブは、それ以外の初期所持を外す。
     // 0.0.5 は 255 以上の色を 255 のまま残す減色。これより古いセーブは減色画像を作り直す。
     // 0.0.6 はキャラのレベルを 1 始まりにした。これより古いセーブはレベルを 1 足す。
-    public const string DataVersion = "0.0.6";
+    // 0.0.7 は ID 16〜20 に新しいキャラを入れた版。これより古いセーブは ID 19 以降を今の並びにずらす。
+    public const string DataVersion = "0.0.7";
     public const string ImageDataVersion = "0.0.5";
 
     // ファイルの手順。DataVersion とは別。2 はチェックサムと SaveEnd がある。

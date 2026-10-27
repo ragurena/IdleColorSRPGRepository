@@ -9,6 +9,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
     ControllerProduction _production;
     Font _font;
     Text _count;
+    Text _capNote;
     Text _sizes;
     Text _message;
     InputField _name;
@@ -17,6 +18,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
     Text _confirmPrompt;
     Text _confirmMessage;
     Button _confirmButton;
+    Button _pickButton;
     string _importStatus;
     GameObject _deleteConfirm;
     Text _deletePrompt;
@@ -27,6 +29,9 @@ public class ControllerImportCharacterClass : MonoBehaviour
     bool _showingRebirth;
     ImportRebirthPlayer _rebirth;
     readonly List<GameObject> _cells = new List<GameObject>();
+
+    const float FrameThin = 3f;
+    static readonly Color DeleteFill = new Color(0.78f, 0.18f, 0.16f, 1f);
 
     public GameObject Panel { get; private set; }
 
@@ -57,10 +62,19 @@ public class ControllerImportCharacterClass : MonoBehaviour
     public void Refresh()
     {
         if (_count != null && _production != null)
-            _count.text = "自作 " + UiNumber.Format(_production.ImportedCharacterCount()) + " / " + UiNumber.Format(ImportedCharacters.ImportCap)
-                + "\nクエストクリアなどで上限が増えます";
+        {
+            int count = _production.ImportedCharacterCount();
+            int cap = ImportedCharacters.ImportCap;
+            bool full = count >= cap;
+            Color ink = full ? new Color(1f, 0.38f, 0.34f, 1f) : Color.white;
+            _count.text = "読み込み " + UiNumber.Format(count) + " / " + UiNumber.Format(cap);
+            _count.color = ink;
+            if (_capNote != null)
+                _capNote.color = ink;
+        }
         if (_sizes != null && _production != null)
             _sizes.text = ImportSizeRules.Describe(_production.IsBattleStageCleared);
+        PaintPickButton();
         RebuildCells();
     }
 
@@ -209,8 +223,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         {
             _confirmPrompt.text = "名前を決めて読み込むと、この絵がキャラになります。\n違う名前も設定できます。\n" + cost;
         }
-        if (_confirmButton != null)
-            _confirmButton.interactable = affordable;
+        PaintConfirmAfford(affordable);
         string shown = _confirmMessage != null ? _confirmMessage.text : "";
         bool statusMessage = shown.Length == 0
             || shown.StartsWith("RGBが足りません")
@@ -270,7 +283,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         if (label == null)
             return;
         label.text = message ?? "";
-        label.color = ok ? new Color(0.1f, 0.35f, 0.15f, 1f) : new Color(0.7f, 0.12f, 0.12f, 1f);
+        label.color = ok ? new Color(0.45f, 0.95f, 0.55f, 1f) : new Color(1f, 0.38f, 0.34f, 1f);
     }
 
     void RebuildCells()
@@ -297,7 +310,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
     {
         GameObject cell = new GameObject("ImportCell" + character.ID, typeof(RectTransform), typeof(Image));
         cell.transform.SetParent(_content, false);
-        cell.GetComponent<Image>().color = new Color(0.9f, 0.9f, 0.93f, 1f);
+        cell.GetComponent<Image>().color = Color.black;
 
         GameObject picture = new GameObject("Picture", typeof(RectTransform));
         picture.transform.SetParent(cell.transform, false);
@@ -330,7 +343,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         deleteRect.anchorMax = new Vector2(0.92f, 0.2f);
         deleteRect.offsetMin = Vector2.zero;
         deleteRect.offsetMax = Vector2.zero;
-        deleteObject.GetComponent<Image>().color = new Color(0.72f, 0.28f, 0.28f, 1f);
+        deleteObject.GetComponent<Image>().color = Color.white;
         Button delete = deleteObject.GetComponent<Button>();
         delete.targetGraphic = deleteObject.GetComponent<Image>();
         delete.onClick.AddListener(() => AskDelete(id, name));
@@ -338,6 +351,9 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Stretch(deleteLabel.rectTransform);
         deleteLabel.text = "消す";
         deleteLabel.color = Color.white;
+        StyleChromeButton(delete);
+        PaintDeleteFill(delete);
+        EnsureWhiteFrame(cell.transform, FrameThin);
         return cell;
     }
 
@@ -405,7 +421,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         panelRect.anchoredPosition = sourceRect.anchoredPosition;
         panelRect.sizeDelta = sourceRect.sizeDelta;
         panelRect.localScale = Vector3.one;
-        Panel.GetComponent<Image>().color = new Color(0.93f, 0.93f, 0.96f, 1f);
+        Panel.GetComponent<Image>().color = Color.black;
         Panel.GetComponent<Image>().raycastTarget = true;
         CanvasGroup group = Panel.GetComponent<CanvasGroup>();
         group.alpha = 0f;
@@ -416,30 +432,38 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Place(title.rectTransform, 0f, 640f, 1000f, 56f);
         title.text = "キャラを読み込む";
 
-        _count = CreateText("TextImportCount", Panel.transform, 24, TextAnchor.MiddleCenter);
-        Place(_count.rectTransform, 0f, 568f, 1000f, 64f);
-        _count.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _count = CreateText("TextImportCount", Panel.transform, 48, TextAnchor.MiddleCenter);
+        Place(_count.rectTransform, 0f, 586f, 1000f, 56f);
+        _count.horizontalOverflow = HorizontalWrapMode.Overflow;
         _count.verticalOverflow = VerticalWrapMode.Overflow;
 
+        _capNote = CreateText("TextImportCapNote", Panel.transform, 24, TextAnchor.MiddleCenter);
+        Place(_capNote.rectTransform, 0f, 534f, 1000f, 32f);
+        _capNote.text = "クエストクリアなどで上限が増えます";
+        _capNote.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _capNote.verticalOverflow = VerticalWrapMode.Overflow;
+
         _sizes = CreateText("TextImportSizes", Panel.transform, 22, TextAnchor.UpperLeft);
-        Place(_sizes.rectTransform, 0f, 432f, 980f, 160f);
+        Place(_sizes.rectTransform, 0f, 384f, 980f, 160f);
         _sizes.horizontalOverflow = HorizontalWrapMode.Wrap;
         _sizes.verticalOverflow = VerticalWrapMode.Overflow;
 
         GameObject pickObject = new GameObject("ButtonPickPng", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         pickObject.transform.SetParent(Panel.transform, false);
-        Place(pickObject.GetComponent<RectTransform>(), 0f, 286f, 420f, 90f);
-        pickObject.GetComponent<Image>().color = new Color(0.25f, 0.45f, 0.75f, 1f);
+        Place(pickObject.GetComponent<RectTransform>(), 0f, 238f, 520f, 90f);
+        pickObject.GetComponent<Image>().color = Color.white;
         Button pick = pickObject.GetComponent<Button>();
         pick.targetGraphic = pickObject.GetComponent<Image>();
         pick.onClick.AddListener(PushPick);
         Text pickLabel = CreateText("Text", pickObject.transform, 32, TextAnchor.MiddleCenter);
         Stretch(pickLabel.rectTransform);
-        pickLabel.text = "PNGを選ぶ";
+        pickLabel.text = "ドット絵を読み込む";
         pickLabel.color = Color.white;
+        _pickButton = pick;
+        PaintPickButton();
 
         _message = CreateText("TextImportMessage", Panel.transform, 26, TextAnchor.MiddleCenter);
-        Place(_message.rectTransform, 0f, 165f, 980f, 80f);
+        Place(_message.rectTransform, 0f, 117f, 980f, 80f);
         _message.horizontalOverflow = HorizontalWrapMode.Wrap;
         _message.verticalOverflow = VerticalWrapMode.Overflow;
 
@@ -454,13 +478,14 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _deleteConfirm = new GameObject("PanelImportDelete", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         _deleteConfirm.transform.SetParent(Panel.transform, false);
         Stretch(_deleteConfirm.GetComponent<RectTransform>());
-        _deleteConfirm.GetComponent<Image>().color = new Color(0.12f, 0.12f, 0.14f, 0.45f);
+        _deleteConfirm.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.72f);
         _deleteConfirm.GetComponent<Image>().raycastTarget = true;
 
         GameObject card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         card.transform.SetParent(_deleteConfirm.transform, false);
         Place(card.GetComponent<RectTransform>(), 0f, 40f, 820f, 460f);
-        card.GetComponent<Image>().color = new Color(0.96f, 0.96f, 0.97f, 1f);
+        card.GetComponent<Image>().color = Color.black;
+        EnsureWhiteFrame(card.transform, FrameThin);
 
         _deletePrompt = CreateText("TextImportDeletePrompt", card.transform, 28, TextAnchor.MiddleCenter);
         Place(_deletePrompt.rectTransform, 0f, 70f, 740f, 220f);
@@ -470,7 +495,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         GameObject okObject = new GameObject("ButtonImportDelete", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         okObject.transform.SetParent(card.transform, false);
         Place(okObject.GetComponent<RectTransform>(), -170f, -140f, 280f, 80f);
-        okObject.GetComponent<Image>().color = new Color(0.72f, 0.28f, 0.28f, 1f);
+        okObject.GetComponent<Image>().color = Color.white;
         Button ok = okObject.GetComponent<Button>();
         ok.targetGraphic = okObject.GetComponent<Image>();
         ok.onClick.AddListener(PushDelete);
@@ -478,11 +503,13 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Stretch(okLabel.rectTransform);
         okLabel.text = "消す";
         okLabel.color = Color.white;
+        StyleChromeButton(ok);
+        PaintDeleteFill(ok);
 
         GameObject cancelObject = new GameObject("ButtonImportDeleteCancel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         cancelObject.transform.SetParent(card.transform, false);
         Place(cancelObject.GetComponent<RectTransform>(), 170f, -140f, 280f, 80f);
-        cancelObject.GetComponent<Image>().color = new Color(0.55f, 0.55f, 0.58f, 1f);
+        cancelObject.GetComponent<Image>().color = Color.white;
         Button cancel = cancelObject.GetComponent<Button>();
         cancel.targetGraphic = cancelObject.GetComponent<Image>();
         cancel.onClick.AddListener(PushCancelDelete);
@@ -490,6 +517,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Stretch(cancelLabel.rectTransform);
         cancelLabel.text = "やめる";
         cancelLabel.color = Color.white;
+        StyleChromeButton(cancel);
+        EnsureWhiteFrame(card.transform, FrameThin);
 
         _deleteConfirm.SetActive(false);
     }
@@ -508,7 +537,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _confirm = new GameObject("PanelImportConfirm", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         _confirm.transform.SetParent(Panel.transform, false);
         Stretch(_confirm.GetComponent<RectTransform>());
-        _confirm.GetComponent<Image>().color = new Color(0.93f, 0.93f, 0.96f, 1f);
+        _confirm.GetComponent<Image>().color = Color.black;
         _confirm.GetComponent<Image>().raycastTarget = true;
 
         Text title = CreateText("TextImportConfirmTitle", _confirm.transform, 36, TextAnchor.MiddleCenter);
@@ -521,6 +550,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _confirmImage = picture.GetComponent<Image>();
         _confirmImage.preserveAspect = true;
         _confirmImage.raycastTarget = false;
+        EnsureWhiteFrame(picture.transform, FrameThin);
 
         Text prompt = CreateText("TextImportConfirmPrompt", _confirm.transform, 26, TextAnchor.MiddleCenter);
         Place(prompt.rectTransform, 0f, -20f, 960f, 140f);
@@ -534,23 +564,21 @@ public class ControllerImportCharacterClass : MonoBehaviour
         GameObject okObject = new GameObject("ButtonImportConfirm", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         okObject.transform.SetParent(_confirm.transform, false);
         Place(okObject.GetComponent<RectTransform>(), -200f, -260f, 360f, 84f);
-        okObject.GetComponent<Image>().color = new Color(0.25f, 0.45f, 0.75f, 1f);
+        okObject.GetComponent<Image>().color = Color.white;
         Button ok = okObject.GetComponent<Button>();
         ok.targetGraphic = okObject.GetComponent<Image>();
-        ColorBlock colors = ok.colors;
-        colors.disabledColor = new Color(0.55f, 0.55f, 0.58f, 1f);
-        ok.colors = colors;
         ok.onClick.AddListener(PushConfirmName);
         _confirmButton = ok;
         Text okLabel = CreateText("Text", okObject.transform, 28, TextAnchor.MiddleCenter);
         Stretch(okLabel.rectTransform);
         okLabel.text = "この名前で読み込む";
         okLabel.color = Color.white;
+        StyleChromeButton(ok);
 
         GameObject cancelObject = new GameObject("ButtonImportCancel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         cancelObject.transform.SetParent(_confirm.transform, false);
         Place(cancelObject.GetComponent<RectTransform>(), 200f, -260f, 280f, 84f);
-        cancelObject.GetComponent<Image>().color = new Color(0.55f, 0.55f, 0.58f, 1f);
+        cancelObject.GetComponent<Image>().color = Color.white;
         Button cancel = cancelObject.GetComponent<Button>();
         cancel.targetGraphic = cancelObject.GetComponent<Image>();
         cancel.onClick.AddListener(PushCancelImport);
@@ -558,6 +586,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Stretch(cancelLabel.rectTransform);
         cancelLabel.text = "やめる";
         cancelLabel.color = Color.white;
+        StyleChromeButton(cancel);
 
         _confirmMessage = CreateText("TextImportConfirmMessage", _confirm.transform, 24, TextAnchor.MiddleCenter);
         Place(_confirmMessage.rectTransform, 0f, -360f, 960f, 70f);
@@ -572,11 +601,11 @@ public class ControllerImportCharacterClass : MonoBehaviour
         fieldObject.transform.SetParent(parent, false);
         Place(fieldObject.GetComponent<RectTransform>(), 0f, -140f, 760f, 80f);
         Image background = fieldObject.GetComponent<Image>();
-        background.color = Color.white;
+        background.color = Color.black;
 
         Text text = CreateText("Text", fieldObject.transform, 32, TextAnchor.MiddleLeft);
         Place(text.rectTransform, 8f, 0f, 720f, 70f);
-        text.color = new Color(0.1f, 0.1f, 0.12f, 1f);
+        text.color = Color.white;
         text.supportRichText = false;
 
         Text placeholder = CreateText("Placeholder", fieldObject.transform, 28, TextAnchor.MiddleLeft);
@@ -591,6 +620,9 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _name.lineType = InputField.LineType.SingleLine;
         _name.characterLimit = 24;
         _name.targetGraphic = background;
+        _name.customCaretColor = true;
+        _name.caretColor = Color.white;
+        EnsureWhiteFrame(fieldObject.transform, FrameThin);
     }
 
     void BuildScroll()
@@ -598,7 +630,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         GameObject scrollObject = new GameObject("ImportScroll", typeof(RectTransform), typeof(ScrollRect));
         scrollObject.transform.SetParent(Panel.transform, false);
         RectTransform scrollRect = scrollObject.GetComponent<RectTransform>();
-        Place(scrollRect, 0f, -220f, 1040f, 680f);
+        PlaceCharacterList(scrollRect);
 
         GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
         viewport.transform.SetParent(scrollObject.transform, false);
@@ -618,12 +650,14 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _content.sizeDelta = new Vector2(0f, 0f);
 
         GridLayoutGroup grid = content.AddComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(220f, 280f);
+        grid.cellSize = new Vector2(188f, 280f);
         grid.spacing = new Vector2(16f, 16f);
         grid.padding = new RectOffset(16, 16, 16, 16);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = 4;
-        grid.childAlignment = TextAnchor.UpperCenter;
+        grid.constraintCount = 5;
+        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+        grid.childAlignment = TextAnchor.UpperLeft;
 
         ContentSizeFitter fitter = content.AddComponent<ContentSizeFitter>();
         fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
@@ -636,6 +670,37 @@ public class ControllerImportCharacterClass : MonoBehaviour
         scroll.vertical = true;
         scroll.movementType = ScrollRect.MovementType.Clamped;
         scroll.scrollSensitivity = 40f;
+        EnsureWhiteFrame(scrollObject.transform, FrameThin);
+    }
+
+    // 上端は説明の下のまま。下端はパネルの下、メニューに重なるときはその直前まで伸ばす。
+    void PlaceCharacterList(RectTransform scrollRect)
+    {
+        const float top = 72f;
+        const float gap = 8f;
+        const float fallbackHeight = 680f;
+        RectTransform panelRect = Panel.GetComponent<RectTransform>();
+        float panelHeight = panelRect.rect.height;
+        if (panelHeight < 8f)
+        {
+            Place(scrollRect, 0f, -220f, 1040f, fallbackHeight);
+            return;
+        }
+
+        float bottom = -panelHeight * 0.5f + gap;
+        GameObject bar = GameObject.Find("PanelSelectScene");
+        RectTransform barRect = bar != null ? bar.GetComponent<RectTransform>() : null;
+        if (barRect != null && barRect.rect.height > 8f)
+        {
+            Vector3[] corners = new Vector3[4];
+            barRect.GetWorldCorners(corners);
+            float aboveBar = panelRect.InverseTransformPoint(corners[1]).y - gap;
+            if (aboveBar > bottom && aboveBar < top - 240f)
+                bottom = aboveBar;
+        }
+
+        float height = top - bottom;
+        Place(scrollRect, 0f, (top + bottom) * 0.5f, 1040f, height);
     }
 
     Text CreateText(string name, Transform parent, int fontSize, TextAnchor alignment)
@@ -646,9 +711,149 @@ public class ControllerImportCharacterClass : MonoBehaviour
         text.font = _font;
         text.fontSize = fontSize;
         text.alignment = alignment;
-        text.color = new Color(0.12f, 0.12f, 0.14f, 1f);
+        text.color = Color.white;
         text.raycastTarget = false;
         return text;
+    }
+
+    void PaintPickButton()
+    {
+        if (_pickButton == null || _production == null)
+            return;
+        string unused;
+        bool open = !ImportedCharacters.RejectImportCount(out unused);
+        _production.StyleRepresentativeButton(_pickButton, Color.white, open);
+        _pickButton.interactable = open;
+        Text label = _pickButton.GetComponentInChildren<Text>();
+        if (!open && label != null)
+            label.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+        Transform frame = _pickButton.transform.Find("WhiteFrame");
+        if (open)
+        {
+            if (frame != null)
+                frame.gameObject.SetActive(false);
+            return;
+        }
+        EnsureWhiteFrame(_pickButton.transform, FrameThin);
+        frame = _pickButton.transform.Find("WhiteFrame");
+        if (frame != null)
+            frame.gameObject.SetActive(true);
+        SetFrameColor(_pickButton.transform, new Color(0.45f, 0.45f, 0.45f, 1f));
+    }
+
+    void PaintConfirmAfford(bool affordable)
+    {
+        if (_confirmButton == null)
+            return;
+        _confirmButton.interactable = affordable;
+        Text label = _confirmButton.GetComponentInChildren<Text>();
+        Color ink = affordable ? Color.white : new Color(0.45f, 0.45f, 0.45f, 1f);
+        if (label != null)
+            label.color = ink;
+        SetFrameColor(_confirmButton.transform, ink);
+    }
+
+    static void PaintDeleteFill(Button button)
+    {
+        if (button == null)
+            return;
+        ColorBlock colors = button.colors;
+        colors.normalColor = DeleteFill;
+        colors.highlightedColor = new Color(0.9f, 0.28f, 0.24f, 1f);
+        colors.pressedColor = new Color(0.55f, 0.1f, 0.1f, 1f);
+        colors.selectedColor = DeleteFill;
+        colors.disabledColor = DeleteFill;
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+    }
+
+    static void StyleChromeButton(Button button)
+    {
+        if (button == null)
+            return;
+        Image image = button.targetGraphic as Image;
+        if (image == null)
+            image = button.GetComponent<Image>();
+        if (image != null)
+            image.color = Color.white;
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.black;
+        colors.highlightedColor = new Color(0.16f, 0.16f, 0.18f, 1f);
+        colors.pressedColor = new Color(0.28f, 0.28f, 0.3f, 1f);
+        colors.selectedColor = Color.black;
+        colors.disabledColor = Color.black;
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+        EnsureWhiteFrame(button.transform, FrameThin);
+    }
+
+    static void EnsureWhiteFrame(Transform target, float thickness)
+    {
+        if (target == null)
+            return;
+        Transform frame = target.Find("WhiteFrame");
+        if (frame == null)
+        {
+            GameObject root = new GameObject("WhiteFrame", typeof(RectTransform));
+            root.transform.SetParent(target, false);
+            Stretch(root.GetComponent<RectTransform>());
+            AddWhiteEdge(root.transform, "Top", true, true);
+            AddWhiteEdge(root.transform, "Bottom", true, false);
+            AddWhiteEdge(root.transform, "Left", false, false);
+            AddWhiteEdge(root.transform, "Right", false, true);
+            frame = root.transform;
+        }
+        LayoutWhiteEdge(frame, "Top", true, true, thickness);
+        LayoutWhiteEdge(frame, "Bottom", true, false, thickness);
+        LayoutWhiteEdge(frame, "Left", false, false, thickness);
+        LayoutWhiteEdge(frame, "Right", false, true, thickness);
+        frame.SetAsLastSibling();
+    }
+
+    static void AddWhiteEdge(Transform parent, string name, bool horizontal, bool end)
+    {
+        GameObject edgeObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        edgeObject.transform.SetParent(parent, false);
+        Image image = edgeObject.GetComponent<Image>();
+        image.color = Color.white;
+        image.raycastTarget = false;
+        LayoutWhiteEdge(parent, name, horizontal, end, FrameThin);
+    }
+
+    static void LayoutWhiteEdge(Transform frame, string name, bool horizontal, bool end, float thickness)
+    {
+        Transform edge = frame.Find(name);
+        if (edge == null)
+            return;
+        RectTransform rect = edge.GetComponent<RectTransform>();
+        if (horizontal)
+        {
+            rect.anchorMin = new Vector2(0f, end ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, end ? 1f : 0f);
+            rect.pivot = new Vector2(0.5f, end ? 1f : 0f);
+            rect.sizeDelta = new Vector2(0f, thickness);
+            rect.anchoredPosition = Vector2.zero;
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(end ? 1f : 0f, 0f);
+            rect.anchorMax = new Vector2(end ? 1f : 0f, 1f);
+            rect.pivot = new Vector2(end ? 1f : 0f, 0.5f);
+            rect.sizeDelta = new Vector2(thickness, 0f);
+            rect.anchoredPosition = Vector2.zero;
+        }
+    }
+
+    static void SetFrameColor(Transform target, Color color)
+    {
+        if (target == null)
+            return;
+        Transform frame = target.Find("WhiteFrame");
+        if (frame == null)
+            return;
+        Image[] images = frame.GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++)
+            images[i].color = color;
     }
 
     static void Place(RectTransform rect, float x, float y, float width, float height)

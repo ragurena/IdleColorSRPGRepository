@@ -591,7 +591,6 @@ public class ControllerProduction : MonoBehaviour
 
             //キャラクター生産
             bool ProductionCharacterFlag = false;
-            bool RepeatComplete = true;
             for (int i = 1; i <= Slots.CharacterSlots; i++)
             {
                 uint personId = PersonIdProductionCharacter[i];
@@ -625,16 +624,13 @@ public class ControllerProduction : MonoBehaviour
                     paintRate = productionWorker.PaintPixels > int.MaxValue ? int.MaxValue : (int)productionWorker.PaintPixels;
 
                 bool PCF = false;
-                bool RC = true;
                 bool painted = false;
                 ProductionCharacter(Trigger.Update, i,
-                    (uint)paintRate, out PCF, out RC, out painted);
+                    (uint)paintRate, out PCF, out _, out painted);
                 if (painted || PCF)
                     UpdateProductionCharacterProgressImage(i);
                 if (PCF)
                     ProductionCharacterFlag = true;
-                if (RC == false)
-                    RepeatComplete = false;
                 SyncCharacterWorkerMotion(i, PCF, painted);
             }
             RefreshProductionFigures();
@@ -1402,8 +1398,8 @@ public class ControllerProduction : MonoBehaviour
 
         //PanelBattlePartyの表示
         ShowPanel(PanelBattleParty);
-        //UIの更新
-        ControllerBattleParty.Open();
+        int setIndex = ControllerBattleStage != null ? ControllerBattleStage.GetSelectedSetIndex() : 0;
+        ControllerBattleParty.Open(setIndex);
 
         //他のシーンを非表示
         //PanelRGBProductionの非表示
@@ -1429,7 +1425,13 @@ public class ControllerProduction : MonoBehaviour
 
         ShowPanel(PanelBattleStage);
         if (ControllerBattleStage != null)
-            ControllerBattleStage.Open();
+        {
+            int keepSet = 0;
+            CanvasGroup party = PanelBattleParty != null ? PanelBattleParty.GetComponent<CanvasGroup>() : null;
+            if (party != null && party.alpha > 0f && ControllerBattleParty != null)
+                keepSet = ControllerBattleParty.GetCurrentSetIndex();
+            ControllerBattleStage.Open(keepSet);
+        }
 
         NotShowPanel(PanelRGBProduction);
         NotShowPanel(PanelPixelProduction);
@@ -1590,6 +1592,10 @@ public class ControllerProduction : MonoBehaviour
             detailRect.anchoredPosition = new Vector2(190f, 88f);
             detailRect.sizeDelta = new Vector2(700f, 160f);
         }
+
+        Button styled = button.GetComponent<Button>();
+        if (styled != null)
+            StyleRepresentativeButton(styled, Color.white, true);
     }
 
     Transform CreateStagePartyButton()
@@ -3160,9 +3166,8 @@ public class ControllerProduction : MonoBehaviour
             return;
 
         bool ProductionCharacterFlag;
-        bool RepeatComplete;
         bool paintedPixel;
-        ProductionCharacter(Trigger.User, ProductionCharacterIndex, 1, out ProductionCharacterFlag, out RepeatComplete, out paintedPixel);
+        ProductionCharacter(Trigger.User, ProductionCharacterIndex, 1, out ProductionCharacterFlag, out _, out paintedPixel);
         SyncCharacterWorkerMotion(ProductionCharacterIndex, ProductionCharacterFlag, paintedPixel);
         if (paintedPixel || ProductionCharacterFlag)
             UpdateProductionCharacterProgressImage(ProductionCharacterIndex);
@@ -3813,7 +3818,7 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
-    // 0.0.4 より前は ID 4 以降も初期所持だった。仲間化で持ったネコ（ID 27 以降）はそのまま残す。
+    // 0.0.4 より前は ID 4 以降も初期所持だった。仲間化で持ったネコ（ID 28 以降）はそのまま残す。
     // 版が空のときは所持を外さない。
     void DropFormerStarterOwnership(string savedVersion)
     {
@@ -3824,7 +3829,7 @@ public class ControllerProduction : MonoBehaviour
         for (int i = 0; i < roster.Length; i++)
         {
             CharacterDefinition def = roster[i];
-            if (def.StartsOwned || def.Id >= 27)
+            if (def.StartsOwned || def.Id >= 28)
                 continue;
             if (def.Id < 1 || def.Id > Constants.CHARACTERS_ALL_NUM)
                 continue;
@@ -7288,7 +7293,7 @@ public class ControllerProduction : MonoBehaviour
             return;
         RgbButtonPressGlow glow = button.GetComponent<RgbButtonPressGlow>();
         Transform neonFrame = buttonTransform.Find("NeonFrame");
-        if (glow != null && glow.UseTint && SameRgb(glow.Tint, color) && neonFrame != null && neonFrame.gameObject.activeSelf)
+        if (glow != null && glow.UseTint && SameRgb(glow.Tint, color) && NeonFrameMatches(neonFrame, color))
             return;
 
         Image image = button.targetGraphic as Image;
@@ -7314,6 +7319,13 @@ public class ControllerProduction : MonoBehaviour
         Color neon = color;
         neon.a = 0.9f;
         EnsureButtonNeon(button.transform, neon, button.interactable, false);
+        Color frameColor = color;
+        frameColor.a = 0.95f;
+        Transform frame = button.transform.Find("NeonFrame");
+        PaintButtonNeon(frame, "CoreTop", null, frameColor);
+        PaintButtonNeon(frame, "CoreRight", null, frameColor);
+        PaintButtonNeon(frame, "CoreBottom", null, frameColor);
+        PaintButtonNeon(frame, "CoreLeft", null, frameColor);
 
         Text[] labels = button.GetComponentsInChildren<Text>(true);
         Color ink = new Color(0.93f, 0.94f, 0.96f, 1f);
@@ -7397,6 +7409,17 @@ public class ControllerProduction : MonoBehaviour
         Image image = wash.GetComponent<Image>();
         if (image != null)
             image.color = new Color(1f, 1f, 1f, 0f);
+    }
+
+    static bool NeonFrameMatches(Transform frame, Color color)
+    {
+        if (frame == null || !frame.gameObject.activeSelf)
+            return false;
+        Transform edge = frame.Find("CoreTop");
+        if (edge == null)
+            return false;
+        Image image = edge.GetComponent<Image>();
+        return image != null && SameRgb(image.color, color);
     }
 
     static bool SameRgb(Color a, Color b)
@@ -9507,6 +9530,11 @@ public class ControllerProduction : MonoBehaviour
 
     public string QuestFraction(QuestDef def)
     {
+        ulong red;
+        ulong green;
+        ulong blue;
+        if (TryThreeWayAmounts(def, out red, out green, out blue))
+            return ThreeWayFraction(red, green, blue, QuestTarget(def));
         ulong current = QuestRaw(def);
         ulong target = QuestTarget(def);
         if (target > 0 && current > target)
@@ -9519,6 +9547,11 @@ public class ControllerProduction : MonoBehaviour
 
     public float QuestBar(QuestDef def)
     {
+        ulong red;
+        ulong green;
+        ulong blue;
+        if (TryThreeWayAmounts(def, out red, out green, out blue))
+            return ThreeWayShare(red, green, blue, QuestTarget(def));
         ulong target = QuestTarget(def);
         if (target == 0)
             return 1f;
@@ -9526,6 +9559,69 @@ public class ControllerProduction : MonoBehaviour
         if (current >= target)
             return 1f;
         return (float)((double)current / target);
+    }
+
+    // 所持RGB、赤緑青の調色、R・G・Bミニスライム。100%を3等分し、3つとも基準以上のときだけ100%にする。
+    bool TryThreeWayAmounts(QuestDef def, out ulong red, out ulong green, out ulong blue)
+    {
+        red = 0;
+        green = 0;
+        blue = 0;
+        if (def == null)
+            return false;
+        if (def.Metric == QuestMetric.RgbHeld)
+        {
+            red = CurR;
+            green = CurG;
+            blue = CurB;
+            return true;
+        }
+        if (def.Metric == QuestMetric.PrimaryPixels)
+        {
+            red = PixelStock(255, 0, 0);
+            green = PixelStock(0, 255, 0);
+            blue = PixelStock(0, 0, 255);
+            return true;
+        }
+        if (def.Metric == QuestMetric.MiniSlimes)
+        {
+            red = OwnedCount(1);
+            green = OwnedCount(2);
+            blue = OwnedCount(3);
+            return true;
+        }
+        return false;
+    }
+
+    static string ThreeWayFraction(ulong red, ulong green, ulong blue, ulong each)
+    {
+        ulong sum = HeldToward(red, each) + HeldToward(green, each) + HeldToward(blue, each);
+        ulong whole = each > ulong.MaxValue / 3 ? ulong.MaxValue : each * 3;
+        return UiNumber.Format(sum) + "/" + UiNumber.Format(whole);
+    }
+
+    static float ThreeWayShare(ulong red, ulong green, ulong blue, ulong each)
+    {
+        if (each == 0)
+            return 1f;
+        if (red >= each && green >= each && blue >= each)
+            return 1f;
+        double share = ChannelShare(red, each) + ChannelShare(green, each) + ChannelShare(blue, each);
+        return (float)(share / 3.0);
+    }
+
+    static double ChannelShare(ulong current, ulong target)
+    {
+        if (target == 0 || current >= target)
+            return 1.0;
+        return (double)current / target;
+    }
+
+    static ulong HeldToward(ulong current, ulong target)
+    {
+        if (current > target)
+            return target;
+        return current;
     }
 
     public string QuestWarning(QuestDef def, int choice)

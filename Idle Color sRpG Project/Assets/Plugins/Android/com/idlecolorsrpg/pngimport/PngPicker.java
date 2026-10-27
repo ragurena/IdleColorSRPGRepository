@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.Fragment;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import com.unity3d.player.UnityPlayer;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -27,14 +29,45 @@ public class PngPicker {
 
     public static class PngPickerFragment extends Fragment {
         private String receiverName = "PngFilePickerReceiver";
+        private boolean pendingOpen;
         private static final int REQUEST = 61008;
 
         public void open(String name) {
             receiverName = name;
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.setType("image/png");
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            startActivityForResult(intent, REQUEST);
+            pendingOpen = true;
+            if (isResumed())
+                scheduleLaunch();
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            if (pendingOpen)
+                scheduleLaunch();
+        }
+
+        // 断片を足した直後に startActivityForResult すると、Android は選択画面を出さず
+        // すぐにキャンセルとして返す。1回目のタップが「ファイルを選びませんでした」になる。
+        // 再開後、次の周回で開く。
+        private void scheduleLaunch() {
+            pendingOpen = false;
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    if (!isAdded()) {
+                        pendingOpen = true;
+                        return;
+                    }
+                    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.setType("image/png");
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    try {
+                        startActivityForResult(intent, REQUEST);
+                    } catch (Exception exception) {
+                        UnityPlayer.UnitySendMessage(receiverName, "OnPickedPath", "");
+                    }
+                }
+            });
         }
 
         @Override

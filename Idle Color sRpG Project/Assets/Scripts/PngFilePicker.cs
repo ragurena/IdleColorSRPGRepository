@@ -3,7 +3,8 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 
 // エディタではファイル選択ウィンドウ、スマホでは端末のファイル選択を開く。
-// スマホ側は実機でまだ確認していない。
+// Android は、選択用の断片を足した直後に開くとキャンセル扱いで戻る。
+// 開くタイミングは PngPicker.java で次の周回まで遅らせている。
 public class PngFilePicker : MonoBehaviour
 {
     public const string ReceiverName = "PngFilePickerReceiver";
