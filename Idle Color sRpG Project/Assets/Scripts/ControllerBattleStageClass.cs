@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,7 +11,6 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     //ステージ番号は 1～BATTLE_STAGE_NUM。0 は未出撃
     static readonly string[] StageNames = { "", "チュートリアル", "スライムの森", "チグサとバトル１", "？？？", "？？？", "ギャラリー" };
-    static readonly ulong[] StageRecommendedHP = { 0, 100, 300, 800, 2000, 5000 };
 
     public static string GetStageName(int stageIndex)
     {
@@ -35,8 +35,23 @@ public class ControllerBattleStageClass : MonoBehaviour
     [SerializeField] Button ButtonSortieBattleStage;
     [SerializeField] Button ButtonBattleRepeat;
     Button ButtonGalleryStage;
+    Text TextBattleStageDetail;
+
+    struct StageEnemyPortrait
+    {
+        public uint CharacterId;
+        public Image Image;
+    }
+
+    readonly List<StageEnemyPortrait> StageEnemyPortraits = new List<StageEnemyPortrait>();
+    readonly List<uint> StageEnemyIds = new List<uint>();
+    readonly Dictionary<uint, Sprite> StageEnemySprites = new Dictionary<uint, Sprite>();
+    readonly Dictionary<uint, Sprite> StageEnemySilhouettes = new Dictionary<uint, Sprite>();
+    bool StageEnemyPortraitsReady;
 
 
+    Color StageButtonLabelColor = new Color(0.19607843f, 0.19607843f, 0.19607843f, 1f);
+    bool StageButtonLabelColorStored;
     Color RepeatLabelColor = Color.black;
     bool RepeatLabelColorStored;
     bool FloorFromSliderMeasured;
@@ -115,6 +130,292 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         SetupFloorSlider(SliderBattleFloorFrom, true);
         SetupFloorSlider(SliderBattleFloorTo, false);
+        ApplyStageChrome();
+    }
+
+    const float FrameThin = 3f;
+
+    // 下地は黒。セット、編成、階、ステージ一覧、下の操作を、それぞれ白い枠で区切る。
+    void ApplyStageChrome()
+    {
+        GameObject panelObject = GameObject.Find("PanelBattleStage");
+        if (panelObject == null)
+            return;
+        Transform panel = panelObject.transform;
+
+        Image panelImage = panelObject.GetComponent<Image>();
+        if (panelImage != null)
+        {
+            panelImage.color = Color.black;
+            panelImage.raycastTarget = true;
+        }
+
+        Transform scroll = panel.Find("StageScroll");
+        if (scroll != null)
+        {
+            Image scrollImage = scroll.GetComponent<Image>();
+            if (scrollImage != null)
+                scrollImage.color = Color.black;
+            Transform viewport = scroll.Find("Viewport");
+            if (viewport != null)
+            {
+                Image viewImage = viewport.GetComponent<Image>();
+                if (viewImage != null)
+                    viewImage.color = Color.black;
+            }
+            // 一覧の大きさはそのまま。下のカードを縮めた分だけ下へずらす。
+            RectTransform scrollRect = scroll as RectTransform;
+            scrollRect.anchoredPosition = new Vector2(scrollRect.anchoredPosition.x, -253f);
+            EnsureWhiteFrame(scroll);
+        }
+
+        EnsureWhiteFrame(panel.Find("SetTabs"));
+        EnsureZoneFrame(panel, "StageZoneParty", new Vector2(0f, 468f), new Vector2(1080f, 120f));
+        LayoutStageFormation(panel);
+        ThickenFloorSliders(panel);
+        ArrangeFloorHeader(panel);
+        // 開始・終了の枠は、一覧が下がった分だけ下へ伸ばす。上端は動かさない。
+        EnsureZoneFrame(panel, "StageZoneFloor", new Vector2(0f, 196.5f), new Vector2(1080f, 399f));
+        // 下のカードは編成ボタン（160）に余白を足した高さ。パネル下端に置く。
+        EnsureZoneFrame(panel, "StageZoneFooter", new Vector2(0f, -587f), new Vector2(1080f, 176f));
+        PlaceFooterControls(panel, 88f);
+
+        PaintLooseLabel(TextBattleStagePartyTotal);
+        PaintLooseLabel(TextBattleFloorRange);
+        PaintLooseLabel(FindLabel(panel, "TextSliderBattleFloorFrom"));
+        PaintLooseLabel(FindLabel(panel, "TextSliderBattleFloorTo"));
+        TextBattleStageDetail = FindLabel(panel, "TextBattleStageDetail");
+        PaintLooseLabel(TextBattleStageDetail);
+    }
+
+    // バー本体を太くし、階数表示・開始・終了のあいだを同じだけ空ける。
+    void ThickenFloorSliders(Transform panel)
+    {
+        const float height = 90f;
+        PlaceFloorSlider(SliderBattleFloorFrom, 174f, height);
+        PlaceFloorSlider(SliderBattleFloorTo, 62f, height);
+        PlaceFloorLabel(panel, "TextSliderBattleFloorFrom", 174f, height, "Start");
+        PlaceFloorLabel(panel, "TextSliderBattleFloorTo", 62f, height, "End");
+    }
+
+    void ArrangeFloorHeader(Transform panel)
+    {
+        const float rowY = 312f;
+        const float repeatHeight = 128f;
+        const float gap = 16f;
+        float textRight = 250f;
+        if (ButtonBattleRepeat != null)
+        {
+            RectTransform rect = ButtonBattleRepeat.GetComponent<RectTransform>();
+            float width = rect.sizeDelta.x - 30f;
+            float right = rect.anchoredPosition.x + rect.sizeDelta.x * (1f - rect.pivot.x);
+            float x = right - width * (1f - rect.pivot.x);
+            rect.sizeDelta = new Vector2(width, repeatHeight);
+            rect.anchoredPosition = new Vector2(x, rowY);
+            textRight = rect.anchoredPosition.x - rect.sizeDelta.x * rect.pivot.x - gap;
+        }
+        if (TextBattleFloorRange != null)
+        {
+            RectTransform rect = TextBattleFloorRange.rectTransform;
+            float half = Mathf.Min(Mathf.Abs(textRight), 516f);
+            rect.anchoredPosition = new Vector2(0f, rowY);
+            rect.sizeDelta = new Vector2(half * 2f, 110f);
+            TextBattleFloorRange.alignment = TextAnchor.MiddleCenter;
+            TextBattleFloorRange.fontSize = 48;
+            TextBattleFloorRange.resizeTextForBestFit = true;
+            TextBattleFloorRange.resizeTextMinSize = 18;
+            TextBattleFloorRange.resizeTextMaxSize = 48;
+            TextBattleFloorRange.horizontalOverflow = HorizontalWrapMode.Wrap;
+            TextBattleFloorRange.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+    }
+
+    static void PlaceFloorSlider(Slider slider, float y, float height)
+    {
+        if (slider == null)
+            return;
+        RectTransform rect = slider.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
+        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, y);
+        StretchSliderTrack(slider.transform.Find("Background"));
+        StretchSliderTrack(slider.transform.Find("Fill Area"));
+    }
+
+    static void StretchSliderTrack(Transform track)
+    {
+        if (track == null)
+            return;
+        RectTransform rect = track.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(rect.anchorMin.x, 0.08f);
+        rect.anchorMax = new Vector2(rect.anchorMax.x, 0.92f);
+        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, 0f);
+        rect.sizeDelta = new Vector2(rect.sizeDelta.x, 0f);
+    }
+
+    static void PlaceFloorLabel(Transform panel, string name, float y, float height, string word)
+    {
+        Transform label = panel.Find(name);
+        if (label == null)
+            return;
+        RectTransform rect = label.GetComponent<RectTransform>();
+        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, y);
+        rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
+        Text text = label.GetComponent<Text>();
+        if (text == null)
+            return;
+        text.text = word;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.fontSize = 40;
+        text.resizeTextForBestFit = false;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+    }
+
+    // 人数とステータスは出さない。キャラは3人ずつ、組のあいだを空けて横に並べる。
+    void LayoutStageFormation(Transform panel)
+    {
+        if (TextBattleStagePartyTotal != null)
+            TextBattleStagePartyTotal.gameObject.SetActive(false);
+
+        Transform formation = panel.Find("StageFormation");
+        if (formation == null)
+            return;
+        GridLayoutGroup grid = formation.GetComponent<GridLayoutGroup>();
+        if (grid != null)
+            grid.enabled = false;
+
+        const float cell = 85f;
+        const float innerGap = 8f;
+        const float groupGap = 40f;
+        int columns = Constants.BATTLE_FORMATION_SIZE;
+        float width = 0f;
+        for (int y = columns; y >= 1; y--)
+        {
+            for (int x = 1; x <= columns; x++)
+            {
+                Image image = CellImages[x, y];
+                if (image == null)
+                    continue;
+                RectTransform rect = image.rectTransform;
+                rect.anchorMin = new Vector2(0f, 0.5f);
+                rect.anchorMax = new Vector2(0f, 0.5f);
+                rect.pivot = new Vector2(0f, 0.5f);
+                rect.sizeDelta = new Vector2(cell, cell);
+                rect.anchoredPosition = new Vector2(width, 0f);
+                width += cell;
+                bool last = y == 1 && x == columns;
+                if (last)
+                    continue;
+                width += x == columns ? groupGap : innerGap;
+            }
+        }
+
+        RectTransform formationRect = formation as RectTransform;
+        formationRect.anchorMin = new Vector2(0.5f, 1f);
+        formationRect.anchorMax = new Vector2(0.5f, 1f);
+        formationRect.pivot = new Vector2(0.5f, 0.5f);
+        formationRect.sizeDelta = new Vector2(width, cell);
+        formationRect.anchoredPosition = new Vector2(0f, -210f);
+    }
+
+    static void PlaceFooterControls(Transform panel, float yFromBottom)
+    {
+        PlaceAnchoredY(panel.Find("ButtonSortieBattleStage"), yFromBottom);
+        PlaceAnchoredY(panel.Find("ButtonSelectSceneBattleParty"), yFromBottom);
+        PlaceAnchoredY(panel.Find("TextBattleStageDetail"), yFromBottom);
+    }
+
+    static void PlaceAnchoredY(Transform target, float y)
+    {
+        if (target == null)
+            return;
+        RectTransform rect = target as RectTransform;
+        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, y);
+    }
+
+    static Text FindLabel(Transform panel, string name)
+    {
+        Transform found = panel.Find(name);
+        return found != null ? found.GetComponent<Text>() : null;
+    }
+
+    static void PaintLooseLabel(Text text)
+    {
+        if (text != null && text.color != Color.white)
+            text.color = Color.white;
+    }
+
+    void EnsureZoneFrame(Transform panel, string name, Vector2 center, Vector2 size)
+    {
+        Transform existing = panel.Find(name);
+        RectTransform rect;
+        if (existing == null)
+        {
+            GameObject obj = new GameObject(name, typeof(RectTransform));
+            obj.transform.SetParent(panel, false);
+            rect = obj.GetComponent<RectTransform>();
+        }
+        else
+            rect = existing.GetComponent<RectTransform>();
+
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = center;
+        rect.sizeDelta = size;
+        EnsureWhiteFrame(rect);
+        rect.SetAsLastSibling();
+    }
+
+    static void EnsureWhiteFrame(Transform target)
+    {
+        if (target == null)
+            return;
+        Transform frame = target.Find("WhiteFrame");
+        if (frame == null)
+        {
+            GameObject root = new GameObject("WhiteFrame", typeof(RectTransform));
+            root.transform.SetParent(target, false);
+            RectTransform rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            LayoutElement element = root.AddComponent<LayoutElement>();
+            element.ignoreLayout = true;
+            AddWhiteEdge(root.transform, "Top", true, true);
+            AddWhiteEdge(root.transform, "Bottom", true, false);
+            AddWhiteEdge(root.transform, "Left", false, false);
+            AddWhiteEdge(root.transform, "Right", false, true);
+            frame = root.transform;
+        }
+        frame.SetAsLastSibling();
+    }
+
+    static void AddWhiteEdge(Transform parent, string name, bool horizontal, bool end)
+    {
+        GameObject edgeObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        edgeObject.transform.SetParent(parent, false);
+        Image image = edgeObject.GetComponent<Image>();
+        image.color = Color.white;
+        image.raycastTarget = false;
+        RectTransform rect = image.rectTransform;
+        if (horizontal)
+        {
+            rect.anchorMin = new Vector2(0f, end ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, end ? 1f : 0f);
+            rect.pivot = new Vector2(0.5f, end ? 1f : 0f);
+            rect.sizeDelta = new Vector2(0f, FrameThin);
+            rect.anchoredPosition = Vector2.zero;
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(end ? 1f : 0f, 0f);
+            rect.anchorMax = new Vector2(end ? 1f : 0f, 1f);
+            rect.pivot = new Vector2(end ? 1f : 0f, 0.5f);
+            rect.sizeDelta = new Vector2(FrameThin, 0f);
+            rect.anchoredPosition = Vector2.zero;
+        }
     }
 
     void SetupFloorSlider(Slider slider, bool fromSlider)
@@ -271,6 +572,9 @@ public class ControllerBattleStageClass : MonoBehaviour
             CurrentStageIndex = openedStage;
         }
 
+        if (TextBattleStageDetail != null)
+            TextBattleStageDetail.text = GetStageName(CurrentStageIndex);
+
         ApplyFloorFromLimit();
 
         for (int i = 0; i < ButtonBattleStages.Length; i++)
@@ -293,25 +597,32 @@ public class ControllerBattleStageClass : MonoBehaviour
             ButtonBattleStages[i].interactable = unlocked || stageIndex == activeStage;
             Text label = ButtonBattleStages[i].GetComponentInChildren<Text>();
 
-            if (!unlocked && stageIndex != activeStage)
+            bool lockedLook = !unlocked && stageIndex != activeStage;
+            if (lockedLook)
             {
                 ButtonBattleStages[i].image.color = ColorStageLocked;
                 if (label != null)
                     label.text = StageNames[stageIndex] + "\n未開放";
-                continue;
             }
-
-            ButtonBattleStages[i].image.color = (stageIndex == CurrentStageIndex) ? ColorButtonSelected : ColorButtonNormal;
-            if (label == null)
-                continue;
-
-            label.text = StageNames[stageIndex] + "\n推奨HP " + StageRecommendedHP[stageIndex];
-            if (stageIndex == activeStage)
-                label.text += "\n出撃中";
-            else if (ControllerProduction.IsBattleStageCleared(stageIndex))
-                label.text += "\nクリア";
+            else
+            {
+                ButtonBattleStages[i].image.color = (stageIndex == CurrentStageIndex) ? ColorButtonSelected : ColorButtonNormal;
+                if (label != null)
+                {
+                    label.text = StageNames[stageIndex];
+                    if (stageIndex == activeStage)
+                        label.text += "\n出撃中";
+                    else if (ControllerProduction.IsBattleStageCleared(stageIndex))
+                        label.text += "\nクリア";
+                }
+            }
+            ApplyStageButtonBackground(ButtonBattleStages[i], stageIndex, label);
         }
 
+        if (ControllerProduction.IsBattleRunning() && activeStage != 0)
+            ControllerProduction.ShowBattleStageBackground(activeStage);
+
+        RefreshStageEnemyPortraits();
         PaintGalleryButton(activeStage);
 
         for (int i = 0; i < ButtonBattleStageSets.Length; i++)
@@ -435,9 +746,6 @@ public class ControllerBattleStageClass : MonoBehaviour
                 else
                     TextBattleFloorRange.text += "\n（" + highest.ToString() + "階クリア、開始は" + maxFrom.ToString() + "階まで）";
             }
-
-            TextBattleFloorRange.horizontalOverflow = HorizontalWrapMode.Overflow;
-            TextBattleFloorRange.verticalOverflow = VerticalWrapMode.Overflow;
 
             int activeFloorFrom = ControllerProduction.GetActiveBattleFloorFrom();
             int activeFloorTo = ControllerProduction.GetActiveBattleFloorTo();
@@ -609,6 +917,219 @@ public class ControllerBattleStageClass : MonoBehaviour
     {
         return ControllerProduction.CanEnterStage(stageIndex)
             || stageIndex == ControllerProduction.GetActiveBattleStage();
+    }
+
+    // 各ステージカードの右下に、出る敵を並べる。大きさはカードの高さの3分の2から、さらに3割小さい。
+    void ApplyStageButtonBackground(Button button, int stageIndex, Text label)
+    {
+        if (button == null)
+            return;
+        Sprite sprite = BattleStageCatalog.BackgroundSprite(stageIndex);
+        Image face = EnsureStageFace(button);
+        bool show = sprite != null;
+        face.gameObject.SetActive(show);
+        face.sprite = sprite;
+        face.color = new Color(0.38f, 0.38f, 0.38f, 1f);
+        if (label == null)
+            return;
+        if (!StageButtonLabelColorStored)
+        {
+            StageButtonLabelColor = label.color;
+            StageButtonLabelColorStored = true;
+        }
+        Outline outline = label.GetComponent<Outline>();
+        if (!show)
+        {
+            label.color = StageButtonLabelColor;
+            if (outline != null)
+                outline.enabled = false;
+            return;
+        }
+        label.color = Color.white;
+        if (outline == null)
+            outline = label.gameObject.AddComponent<Outline>();
+        outline.enabled = true;
+        outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
+    }
+
+    static Image EnsureStageFace(Button button)
+    {
+        Transform existing = button.transform.Find("StageBackground");
+        Image image;
+        if (existing != null)
+            image = existing.GetComponent<Image>();
+        else
+        {
+            GameObject obj = new GameObject("StageBackground", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(button.transform, false);
+            image = obj.GetComponent<Image>();
+            image.raycastTarget = false;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(8f, 8f);
+            rect.offsetMax = new Vector2(-8f, -8f);
+        }
+        image.transform.SetAsFirstSibling();
+        return image;
+    }
+
+    void RefreshStageEnemyPortraits()
+    {
+        EnsureStageEnemyPortraits();
+        for (int i = 0; i < StageEnemyPortraits.Count; i++)
+        {
+            StageEnemyPortrait portrait = StageEnemyPortraits[i];
+            if (portrait.Image == null)
+                continue;
+
+            CharacterClass character = ImportedCharacters.FindAny(CharactersAll, portrait.CharacterId);
+            bool companion = character != null && character.OwnedNumMax != 0;
+            portrait.Image.sprite = companion ? StageEnemySprite(character) : StageEnemySilhouette(character);
+            portrait.Image.color = companion ? Color.white : Color.black;
+            portrait.Image.enabled = portrait.Image.sprite != null;
+        }
+    }
+
+    void EnsureStageEnemyPortraits()
+    {
+        if (StageEnemyPortraitsReady)
+            return;
+        StageEnemyPortraitsReady = true;
+
+        const float pad = 8f;
+        const float gap = 4f;
+        for (int i = 0; i < ButtonBattleStages.Length; i++)
+        {
+            Button button = ButtonBattleStages[i];
+            if (button == null)
+                continue;
+
+            int stageIndex = i + 1;
+            if (stageIndex > Constants.BATTLE_STAGE_NUM)
+                break;
+
+            BattleStageCatalog.CollectEnemyIds(stageIndex, StageEnemyIds);
+            float size = StageCardHeight(button) * 2f / 3f * 0.7f;
+            float rowWidth = StageEnemyIds.Count * size + Mathf.Max(0, StageEnemyIds.Count - 1) * gap;
+            float x = -(pad + rowWidth);
+            for (int n = 0; n < StageEnemyIds.Count; n++)
+            {
+                uint id = StageEnemyIds[n];
+                GameObject obj = new GameObject("StageEnemy" + id.ToString(), typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                obj.transform.SetParent(button.transform, false);
+                RectTransform rect = obj.GetComponent<RectTransform>();
+                rect.anchorMin = new Vector2(1f, 0f);
+                rect.anchorMax = new Vector2(1f, 0f);
+                rect.pivot = Vector2.zero;
+                rect.sizeDelta = new Vector2(size, size);
+                rect.anchoredPosition = new Vector2(x, pad);
+                Image image = obj.GetComponent<Image>();
+                image.preserveAspect = true;
+                image.raycastTarget = false;
+                StageEnemyPortraits.Add(new StageEnemyPortrait { CharacterId = id, Image = image });
+                x += size + gap;
+            }
+
+            Text label = button.GetComponentInChildren<Text>();
+            if (label == null)
+                continue;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.rectTransform.offsetMin = new Vector2(0f, label.rectTransform.offsetMin.y);
+            label.rectTransform.offsetMax = new Vector2(0f, label.rectTransform.offsetMax.y);
+        }
+    }
+
+    static float StageCardHeight(Button button)
+    {
+        LayoutElement element = button.GetComponent<LayoutElement>();
+        if (element != null && element.preferredHeight > 1f)
+            return element.preferredHeight;
+        RectTransform rect = button.GetComponent<RectTransform>();
+        if (rect != null && rect.rect.height > 1f)
+            return rect.rect.height;
+        return 140f;
+    }
+
+    Sprite StageEnemySprite(CharacterClass character)
+    {
+        if (character == null)
+            return null;
+
+        Sprite cached;
+        if (StageEnemySprites.TryGetValue(character.ID, out cached) && cached != null)
+            return cached;
+
+        Texture2D tex = character.ImageTexture2D;
+        if (tex == null)
+            return Resources.Load<Sprite>("NoImageSprite");
+
+        tex.filterMode = FilterMode.Point;
+        int size = CharacterImageSize(character, tex);
+        Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        StageEnemySprites[character.ID] = sprite;
+        return sprite;
+    }
+
+    Sprite StageEnemySilhouette(CharacterClass character)
+    {
+        if (character == null)
+            return null;
+
+        Sprite cached;
+        if (StageEnemySilhouettes.TryGetValue(character.ID, out cached) && cached != null)
+            return cached;
+
+        Texture2D tex = character.ImageTexture2D;
+        if (tex == null)
+            return null;
+
+        int size = CharacterImageSize(character, tex);
+        Color[] pixels = tex.GetPixels(0, 0, size, size);
+        for (int i = 0; i < pixels.Length; i++)
+            pixels[i] = new Color(1f, 1f, 1f, pixels[i].a);
+        Texture2D white = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        white.filterMode = FilterMode.Point;
+        white.SetPixels(pixels);
+        white.Apply();
+        Sprite sprite = Sprite.Create(white, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        StageEnemySilhouettes[character.ID] = sprite;
+        return sprite;
+    }
+
+    static int CharacterImageSize(CharacterClass character, Texture2D tex)
+    {
+        int size = character.Size > 0 ? character.Size : tex.width;
+        if (size > tex.width)
+            size = tex.width;
+        if (size > tex.height)
+            size = tex.height;
+        if (size < 1)
+            size = 1;
+        return size;
+    }
+
+    void OnDestroy()
+    {
+        foreach (KeyValuePair<uint, Sprite> pair in StageEnemySprites)
+        {
+            if (pair.Value != null)
+                Destroy(pair.Value);
+        }
+        StageEnemySprites.Clear();
+
+        foreach (KeyValuePair<uint, Sprite> pair in StageEnemySilhouettes)
+        {
+            if (pair.Value == null)
+                continue;
+            if (pair.Value.texture != null)
+                Destroy(pair.Value.texture);
+            Destroy(pair.Value);
+        }
+        StageEnemySilhouettes.Clear();
     }
 
     Sprite CreateCharacterSprite(uint argCharacterId)

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 // ステージごとの敵。10階ごとに1帯。
 // 帯0が1〜10階、帯1が11〜20階、…、帯9が91〜100階。
@@ -10,6 +11,8 @@ using System.Collections.Generic;
 public class StageBattleContent
 {
     public int StageIndex;
+    // Assets/Resources の画像名。拡張子は書かない。空なら背景なし。
+    public string Background;
     public FloorBandSpawn[] Bands = new FloorBandSpawn[10];
     public List<BossFloorSpawn> Bosses = new List<BossFloorSpawn>();
     public List<FloorItemDrop> Drops = new List<FloorItemDrop>();
@@ -53,11 +56,94 @@ public static class BattleStageCatalog
         }
     }
 
+    // そのステージに一度でも出る敵。帯の並び順で、同じキャラは1回だけ。
+    public static void CollectEnemyIds(int stageIndex, List<uint> ids)
+    {
+        if (ids == null)
+            return;
+        ids.Clear();
+        if (stageIndex < 1 || stageIndex > 5)
+            return;
+
+        StageBattleContent content = Get(stageIndex);
+        if (content == null || content.StageIndex != stageIndex)
+            return;
+
+        for (int band = 0; band < content.Bands.Length; band++)
+        {
+            FloorBandSpawn spawn = content.Bands[band];
+            if (spawn == null || spawn.Entries == null)
+                continue;
+            for (int i = 0; i < spawn.Entries.Count; i++)
+                AddEnemyId(ids, spawn.Entries[i]);
+        }
+
+        for (int i = 0; i < content.Bosses.Count; i++)
+        {
+            BossFloorSpawn boss = content.Bosses[i];
+            if (boss == null || boss.CharacterId == 0 || boss.MaxCount < 1)
+                continue;
+            if (!ids.Contains(boss.CharacterId))
+                ids.Add(boss.CharacterId);
+        }
+    }
+
+    static void AddEnemyId(List<uint> ids, EnemySpawnEntry entry)
+    {
+        if (entry == null || entry.CharacterId == 0)
+            return;
+        bool appears = entry.MinCount > 0 || (entry.Weight > 0 && entry.MaxCount > 0);
+        if (!appears || ids.Contains(entry.CharacterId))
+            return;
+        ids.Add(entry.CharacterId);
+    }
+
+    static readonly Dictionary<string, Sprite> BackgroundSprites = new Dictionary<string, Sprite>();
+    static readonly HashSet<string> MissingBackgrounds = new HashSet<string>();
+
+    public static Sprite BackgroundSprite(int stageIndex)
+    {
+        if (stageIndex < 1 || stageIndex > 5)
+            return null;
+        StageBattleContent content = Get(stageIndex);
+        if (content == null || content.StageIndex != stageIndex)
+            return null;
+        return LoadBackground(content.Background);
+    }
+
+    static Sprite LoadBackground(string resourceName)
+    {
+        if (string.IsNullOrEmpty(resourceName))
+            return null;
+        Sprite cached;
+        if (BackgroundSprites.TryGetValue(resourceName, out cached))
+            return cached;
+        if (MissingBackgrounds.Contains(resourceName))
+            return null;
+
+        Sprite sprite = Resources.Load<Sprite>(resourceName);
+        if (sprite == null)
+        {
+            Texture2D tex = Resources.Load<Texture2D>(resourceName);
+            if (tex != null)
+                sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+        if (sprite == null)
+        {
+            MissingBackgrounds.Add(resourceName);
+            Debug.LogWarning("ステージ背景が見つかりません: Resources/" + resourceName);
+            return null;
+        }
+        BackgroundSprites[resourceName] = sprite;
+        return sprite;
+    }
+
     // チュートリアル
     static StageBattleContent Prairie()
     {   
         //E の並びは キャラID、レベル、重み、最少、最多
         var stage = Stage(1);
+        stage.Background = "nekohatakouen";
         stage.Bands[0] = Band(E(6,1,50,1,1),E(7,1,10,0,1),E(8,1,10,0,1),E(9,1,0,0,1));
         stage.Bands[1] = Band(E(6,2,10,0,1),E(7,2,50,1,1),E(8,2,10,0,1),E(9,2,0,0,1));
         stage.Bands[2] = Band(E(6,3,33,0,1),E(7,3,10,0,1),E(8,3,50,1,1),E(9,3,0,0,1));
@@ -89,6 +175,7 @@ public static class BattleStageCatalog
     {
         //E の並びは キャラID、レベル、重み、最少、最多
         var stage = Stage(2);
+        stage.Background = "";
         stage.Bands[0] = Band(E(1,2,33,1,2),E(2,2,33,0,1),E(3,2,33,0,1),E(4,2,1,0,1));
         stage.Bands[1] = Band(E(1,4,33,1,2),E(2,4,33,0,1),E(3,4,33,0,1),E(4,4,2,0,1));
         stage.Bands[2] = Band(E(1,6,33,1,2),E(2,6,33,0,1),E(3,6,33,0,1),E(4,6,3,0,1));
@@ -112,6 +199,7 @@ public static class BattleStageCatalog
     {
         //E の並びは キャラID、レベル、重み、最少、最多
         var stage = Stage(3);
+        stage.Background = "";
         stage.Bands[0] = Band(E(27, 13, 33, 0, 1), E(28, 13, 33, 0, 1), E(29, 13, 33, 0, 1), E(30, 13, 1, 0, 1));
         stage.Bands[1] = Band(E(27, 16, 33, 1, 2), E(28, 16, 33, 0, 1), E(29, 16, 33, 0, 1), E(30, 16, 2, 0, 1));
         stage.Bands[2] = Band(E(27, 19, 33, 1, 2), E(28, 19, 33, 0, 1), E(29, 19, 33, 0, 1), E(30, 19, 3, 0, 1));
@@ -134,6 +222,7 @@ public static class BattleStageCatalog
     static StageBattleContent Ruins()
     {
         var stage = Stage(4);
+        stage.Background = "";
         stage.Bands[0] = Band(E(11, 1000, 50, 1, 3), E(19, 1000, 30, 0, 2), E(23, 1000, 20, 0, 2));
         stage.Bands[1] = Band(E(19, 1200, 50, 1, 3), E(23, 1200, 30, 0, 2), E(14, 1200, 20, 0, 2));
         stage.Bands[2] = Band(E(23, 1400, 50, 1, 3), E(14, 1400, 30, 0, 2), E(11, 1400, 20, 0, 2));
@@ -162,6 +251,7 @@ public static class BattleStageCatalog
     static StageBattleContent Castle()
     {
         var stage = Stage(5);
+        stage.Background = "";
         stage.Bands[0] = Band(E(19, 1600, 50, 1, 3), E(20, 1600, 30, 0, 2), E(21, 1600, 20, 0, 2));
         stage.Bands[1] = Band(E(20, 1800, 50, 1, 3), E(21, 1800, 30, 0, 2), E(24, 1800, 20, 0, 2));
         stage.Bands[2] = Band(E(21, 2000, 50, 1, 3), E(24, 2000, 30, 0, 2), E(19, 2000, 20, 0, 2));

@@ -491,6 +491,7 @@ public class ControllerProduction : MonoBehaviour
             if (PanelImport != null)
                 NotShowPanel(PanelImport);
         }
+        MoveBattlePartyButtonIntoStage();
         WireSelectScenePages();
         ApplyMainFeatureLocks();
         if (ControllerBattle != null)
@@ -1537,6 +1538,101 @@ public class ControllerProduction : MonoBehaviour
             ControllerImport.Close();
         if (PanelImport != null)
             NotShowPanel(PanelImport);
+    }
+
+    // 編成は下のメニューから外し、ステージ画面の左下へ置く。出撃ボタンと左右で対になる。
+    // 下のメニューの並びはシーン側で決める。ここでは位置を上書きしない。
+    void MoveBattlePartyButtonIntoStage()
+    {
+        if (PanelBattleStage == null)
+            return;
+
+        GameObject barObject = GameObject.Find("PanelSelectScene");
+        Transform bar = barObject != null ? barObject.transform : null;
+        Transform button = bar != null ? bar.Find("ButtonSelectSceneBattleParty") : null;
+        bool created = false;
+        if (button == null)
+            button = PanelBattleStage.transform.Find("ButtonSelectSceneBattleParty");
+        if (button == null)
+        {
+            button = CreateStagePartyButton();
+            created = button != null;
+        }
+        if (button == null)
+            return;
+
+        button.SetParent(PanelBattleStage.transform, false);
+        button.SetAsLastSibling();
+        RectTransform rect = button.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(90f, 88f);
+        rect.sizeDelta = new Vector2(160f, 160f);
+
+        if (created)
+        {
+            Button partyButton = button.GetComponent<Button>();
+            if (partyButton != null)
+            {
+                partyButton.onClick.RemoveListener(PushButtonSelectSceneBattleParty);
+                partyButton.onClick.AddListener(PushButtonSelectSceneBattleParty);
+            }
+        }
+
+        Transform detail = PanelBattleStage.transform.Find("TextBattleStageDetail");
+        if (detail != null)
+        {
+            RectTransform detailRect = detail.GetComponent<RectTransform>();
+            detailRect.anchorMin = new Vector2(0f, 0f);
+            detailRect.anchorMax = new Vector2(0f, 0f);
+            detailRect.pivot = new Vector2(0f, 0.5f);
+            detailRect.anchoredPosition = new Vector2(190f, 88f);
+            detailRect.sizeDelta = new Vector2(700f, 160f);
+        }
+    }
+
+    Transform CreateStagePartyButton()
+    {
+        GameObject buttonObject = new GameObject("ButtonSelectSceneBattleParty", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        buttonObject.transform.SetParent(PanelBattleStage.transform, false);
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = Color.white;
+        image.type = Image.Type.Sliced;
+        Transform sortie = PanelBattleStage.transform.Find("ButtonSortieBattleStage");
+        if (sortie != null)
+        {
+            Image sortieImage = sortie.GetComponent<Image>();
+            if (sortieImage != null && sortieImage.sprite != null)
+            {
+                image.sprite = sortieImage.sprite;
+                image.type = sortieImage.type;
+            }
+        }
+
+        Button button = buttonObject.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        GameObject textObject = new GameObject("Text", typeof(RectTransform));
+        textObject.transform.SetParent(buttonObject.transform, false);
+        Text text = textObject.AddComponent<Text>();
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (text.font == null)
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        text.text = "編成";
+        text.fontSize = 40;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = new Color(0.19607843f, 0.19607843f, 0.19607843f, 1f);
+        text.raycastTarget = false;
+        text.resizeTextForBestFit = true;
+        text.resizeTextMinSize = 10;
+        text.resizeTextMaxSize = 40;
+        RectTransform textRect = text.rectTransform;
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+        return buttonObject.transform;
     }
 
     void WireSelectScenePages()
@@ -3831,6 +3927,12 @@ public class ControllerProduction : MonoBehaviour
     public bool IsBattleRunning()
     {
         return ControllerBattle != null && ControllerBattle.IsRunning();
+    }
+
+    public void ShowBattleStageBackground(int stageIndex)
+    {
+        if (ControllerBattle != null)
+            ControllerBattle.ApplyStageBackground(stageIndex);
     }
 
     public void EndRunningBattle()
@@ -9910,7 +10012,6 @@ public class ControllerProduction : MonoBehaviour
     {
         SetFeatureButton("ButtonSelectScenePixelProduction", IsMainFeatureOpen(MainFeature.PixelScreen));
         SetFeatureButton("ButtonSelectSceneCharacterProduction", IsMainFeatureOpen(MainFeature.CharacterScreen));
-        SetFeatureButton("ButtonSelectSceneBattleParty", IsMainFeatureOpen(MainFeature.Battle));
         SetFeatureButton("ButtonSelectSceneBattleStage", IsMainFeatureOpen(MainFeature.Battle));
         if (ControllerBattle != null)
             ControllerBattle.RefreshFeatureLocks();

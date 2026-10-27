@@ -11,6 +11,9 @@ public class ControllerBattleClass : MonoBehaviour
     BattleBalanceConfig _config;
     Font _font;
     GameObject _root;
+    Sprite _fieldSprite;
+    Image.Type _fieldType;
+    bool _fieldStored;
     Text _header;
     Image _headerFill;
     Image _headerRecord;
@@ -161,6 +164,7 @@ public class ControllerBattleClass : MonoBehaviour
         }
 
         Show();
+        ApplyStageBackground(stageIndex);
         StartCoroutine(Run(stageIndex, floorFrom, floorTo));
     }
 
@@ -1046,6 +1050,37 @@ public class ControllerBattleClass : MonoBehaviour
     {
         if (_root != null)
             _root.SetActive(true);
+    }
+
+    public void ApplyStageBackground(int stageIndex)
+    {
+        if (_root == null)
+            _root = GameObject.Find("PanelBattle");
+        if (_root == null)
+            return;
+        Image image = _root.GetComponent<Image>();
+        if (image == null)
+            return;
+        if (!_fieldStored)
+        {
+            _fieldSprite = image.sprite;
+            _fieldType = image.type;
+            _fieldStored = true;
+        }
+
+        Sprite sprite = BattleStageCatalog.BackgroundSprite(stageIndex);
+        if (sprite != null)
+        {
+            image.sprite = sprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.color = Color.white;
+            return;
+        }
+
+        image.sprite = _fieldSprite;
+        image.type = _fieldType;
+        image.color = Color.white;
     }
 
     public void Hide()
