@@ -1388,6 +1388,14 @@ public class SaveClass// : MonoBehaviour
             else if (index >= 19)
                 index += 2;
         }
+        // 0.0.8 は ID 14 に灰の16スライムを入れ、白の16スライムを 15 へ移した。空きだった 15 は捨てる。
+        if (CompareVersions(savedVersion, "0.0.8") < 0)
+        {
+            if (index == 15)
+                return 0;
+            if (index == 14)
+                index = 15;
+        }
         return index;
     }
 
@@ -1411,6 +1419,8 @@ public class SaveClass// : MonoBehaviour
         if (CompareVersions(savedVersion, "0.0.3") < 0 && (slot == 7 || slot == 8 || slot == 9))
             return true;
         if (CompareVersions(savedVersion, "0.0.7") < 0 && slot >= 16 && slot <= 20)
+            return true;
+        if (CompareVersions(savedVersion, "0.0.8") < 0 && slot == 14)
             return true;
         return false;
     }

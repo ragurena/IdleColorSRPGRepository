@@ -37,8 +37,14 @@ extern UIViewController *UnityGetGLViewController();
         return;
     }
     BOOL scoped = [url startAccessingSecurityScopedResource];
-    NSString *dest = [NSTemporaryDirectory() stringByAppendingPathComponent:@"picked.png"];
-    [[NSFileManager defaultManager] removeItemAtPath:dest error:nil];
+    NSFileManager *files = [NSFileManager defaultManager];
+    NSArray *temp = [files contentsOfDirectoryAtPath:NSTemporaryDirectory() error:nil];
+    for (NSString *item in temp)
+    {
+        if ([item hasPrefix:@"picked"] && [item hasSuffix:@".png"])
+            [files removeItemAtPath:[NSTemporaryDirectory() stringByAppendingPathComponent:item] error:nil];
+    }
+    NSString *dest = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"picked-%@.png", [[NSUUID UUID] UUIDString]]];
     NSError *error = nil;
     BOOL copied = [[NSFileManager defaultManager] copyItemAtURL:url toURL:[NSURL fileURLWithPath:dest] error:&error];
     if (scoped)

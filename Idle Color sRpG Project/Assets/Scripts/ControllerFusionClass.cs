@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 残機合成。残機が1以上のキャラはどれも選べる。合成ボタンは、選んだキャラが合成できるときだけ押せる。
+// 残機合成。一度所持したキャラは、今の所持が0でも一覧に出す。合成ボタンは、選んだキャラが合成できるときだけ押せる。
 public class ControllerFusionClass : MonoBehaviour
 {
     ControllerProduction _production;
@@ -62,7 +62,7 @@ public class ControllerFusionClass : MonoBehaviour
             CharacterClass character = _production.GetCharacter(roster[i].Id);
             if (character == null || character.ID != roster[i].Id)
                 continue;
-            if (character.OwnedNumCur < 1)
+            if (character.OwnedNumMax < 1)
                 continue;
             _cells.Add(CreateCell(character));
             if (character.ID == _selectedId)
@@ -71,7 +71,7 @@ public class ControllerFusionClass : MonoBehaviour
 
         ImportedCharacters.ForEach(character =>
         {
-            if (character == null || character.ID < ImportedCharacters.FirstId || character.OwnedNumCur < 1)
+            if (character == null || character.ID < ImportedCharacters.FirstId || character.OwnedNumMax < 1)
                 return;
             _cells.Add(CreateCell(character));
             if (character.ID == _selectedId)

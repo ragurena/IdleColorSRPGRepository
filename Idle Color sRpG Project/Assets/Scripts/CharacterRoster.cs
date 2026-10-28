@@ -21,7 +21,7 @@ public sealed class CharacterDefinition
 
 public static class CharacterRoster
 {
-    // ID は 1〜CHARACTERS_ALL_NUM。空きは 15。
+    // ID は 1〜CHARACTERS_ALL_NUM。
     public static readonly CharacterDefinition[] All =
     {
         new CharacterDefinition(1, "RedSlime8.png", "LittleRedSlime", true),
@@ -37,7 +37,8 @@ public static class CharacterRoster
         new CharacterDefinition(11, "RedSlime16.png", "SmallRedSlime", false),
         new CharacterDefinition(12, "GreenSlime16.png", "SmallGreenSlime", false),
         new CharacterDefinition(13, "BlueSlime16.png", "SmallBlueSlime", false),
-        new CharacterDefinition(14, "WhiteSlime16.png", "SmallWhiteSlime", false),
+        new CharacterDefinition(14, "GraySlime16.png", "SmallGraySlime", false),
+        new CharacterDefinition(15, "WhiteSlime16.png", "SmallWhiteSlime", false),
         new CharacterDefinition(16, "ペンカド_32.png", "ペンカド", false),
         new CharacterDefinition(17, "モッシー_32.png", "モッシー", false),
         new CharacterDefinition(18, "ネギュシ_32.png", "ネギュシ", false),

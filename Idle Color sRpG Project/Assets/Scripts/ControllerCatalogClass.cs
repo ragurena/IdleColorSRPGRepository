@@ -193,7 +193,17 @@ public class ControllerCatalogClass : MonoBehaviour
         label.supportRichText = true;
         label.horizontalOverflow = HorizontalWrapMode.Overflow;
         label.verticalOverflow = VerticalWrapMode.Overflow;
-        label.text = known ? CellStatusText(character) : "？？？\n？？？";
+        label.text = CellStatusLabel(character, known);
+    }
+
+    // 出会っているだけで仲間にしたことがないキャラは、レベルと合成回数を出さない。
+    string CellStatusLabel(CharacterClass character, bool known)
+    {
+        if (!known)
+            return "？？？\n？？？";
+        if (character.OwnedNumMax == 0)
+            return "未所持";
+        return CellStatusText(character);
     }
 
     string CellStatusText(CharacterClass character)
@@ -303,7 +313,7 @@ public class ControllerCatalogClass : MonoBehaviour
     void UseCharacterLayout()
     {
         if (_detailPictureRect != null)
-            Place(_detailPictureRect, -346f, 144f, 220f, 220f);
+            Place(_detailPictureRect, -341f, 144f, 220f, 220f);
         if (_detailName != null)
             _detailName.gameObject.SetActive(true);
         if (_detailStatus != null)
@@ -318,10 +328,10 @@ public class ControllerCatalogClass : MonoBehaviour
     {
         GameObject row = new GameObject(name, typeof(RectTransform));
         row.transform.SetParent(parent, false);
-        Place(row.GetComponent<RectTransform>(), -346f, y, 290f, 34f);
+        Place(row.GetComponent<RectTransform>(), -341f, y, 290f, 34f);
 
         Text captionText = CreateText("Caption", row.transform, 18, TextAnchor.MiddleRight);
-        Place(captionText.rectTransform, -86f, 0f, 52f, 34f);
+        Place(captionText.rectTransform, -98f, 0f, 52f, 34f);
         captionText.text = caption;
 
         GameObject chipObject = new GameObject("Chip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -538,13 +548,13 @@ public class ControllerCatalogClass : MonoBehaviour
         GameObject detailPicture = new GameObject("CatalogDetailPicture", typeof(RectTransform));
         detailPicture.transform.SetParent(detailRoot.transform, false);
         _detailPictureRect = detailPicture.GetComponent<RectTransform>();
-        Place(_detailPictureRect, -346f, 144f, 220f, 220f);
+        Place(_detailPictureRect, -341f, 144f, 220f, 220f);
         _detailImage = detailPicture.AddComponent<Image>();
         _detailImage.preserveAspect = true;
         _detailImage.raycastTarget = false;
 
         _detailName = CreateText("TextCatalogDetailName", detailRoot.transform, 26, TextAnchor.MiddleCenter);
-        Place(_detailName.rectTransform, -346f, -17f, 290f, 36f);
+        Place(_detailName.rectTransform, -341f, -17f, 290f, 36f);
         _detailName.supportRichText = true;
         _detailName.horizontalOverflow = HorizontalWrapMode.Overflow;
         _detailName.verticalOverflow = VerticalWrapMode.Overflow;
@@ -554,7 +564,7 @@ public class ControllerCatalogClass : MonoBehaviour
         ShowColorRows(false);
 
         _detailStatus = CreateText("TextCatalogDetailStatus", detailRoot.transform, 36, TextAnchor.UpperCenter);
-        Place(_detailStatus.rectTransform, -346f, -217f, 290f, 80f);
+        Place(_detailStatus.rectTransform, -341f, -217f, 290f, 80f);
         _detailStatus.supportRichText = true;
         _detailStatus.horizontalOverflow = HorizontalWrapMode.Overflow;
         _detailStatus.verticalOverflow = VerticalWrapMode.Overflow;

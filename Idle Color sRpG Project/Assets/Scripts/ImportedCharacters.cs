@@ -42,7 +42,7 @@ public static class ImportSizeRules
     public static string Describe(System.Func<int, bool> isStageCleared)
     {
         StringBuilder text = new StringBuilder();
-        text.Append("読めるのは、1辺が 8、16、32、64、128 の正方形 PNG だけです。");
+        text.Append("1辺が 8、16、32、64、128 の正方形 PNG のみ読み込み可能です。");
         for (int i = 0; i < Unlocks.Length; i++)
         {
             ImportSizeUnlock unlock = Unlocks[i];
@@ -51,7 +51,7 @@ public static class ImportSizeRules
             if (SizeOpened(unlock, isStageCleared))
                 text.Append(" … 開放");
             else
-                text.Append(" … 未開放（" + unlock.StageName + "をクリアすると開く）");
+                text.Append(" … 未開放（" + unlock.StageName + "をクリアすると開放されます）");
         }
         return text.ToString();
     }
@@ -71,7 +71,7 @@ public static class ImportSizeRules
             if (Unlocks[i].Size != width)
                 continue;
             if (!SizeOpened(Unlocks[i], isStageCleared))
-                return width.ToString() + " はまだ開けていません。" + Unlocks[i].StageName + "をクリアすると開きます。";
+                return width.ToString() + " は未開放です。" + Unlocks[i].StageName + "をクリアすると開きます。";
             return null;
         }
         return "一辺は 8、16、32、64、128 のいずれかにしてください。今は " + width.ToString() + " です。";

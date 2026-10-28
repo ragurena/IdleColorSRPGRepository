@@ -389,10 +389,46 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     void Update()
     {
-        if (!_partyBlink || _partyBlinkGroup == null)
-            return;
         float wave = Mathf.Sin(Time.unscaledTime * Mathf.PI * 1.5f) * 0.5f + 0.5f;
-        _partyBlinkGroup.alpha = Mathf.Lerp(0.15f, 1f, wave);
+        float alpha = Mathf.Lerp(0.15f, 1f, wave);
+        if (_partyBlink && _partyBlinkGroup != null)
+            _partyBlinkGroup.alpha = alpha;
+        BlinkZeroOwnedPortraits(alpha);
+    }
+
+    void BlinkZeroOwnedPortraits(float alpha)
+    {
+        if (ControllerProduction == null)
+            return;
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+            {
+                Image image = CellImages[x, y];
+                if (image == null)
+                    continue;
+                uint id = ControllerProduction.GetBattlePartyCharacter(CurrentSetIndex, x, y);
+                bool blink = OwnsNone(id);
+                CanvasGroup group = image.GetComponent<CanvasGroup>();
+                if (!blink)
+                {
+                    if (group != null && group.alpha != 1f)
+                        group.alpha = 1f;
+                    continue;
+                }
+                if (group == null)
+                    group = image.gameObject.AddComponent<CanvasGroup>();
+                group.alpha = alpha;
+            }
+        }
+    }
+
+    bool OwnsNone(uint id)
+    {
+        if (id == 0)
+            return false;
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, id);
+        return character != null && character.OwnedNumCur < 1;
     }
 
     void LateUpdate()

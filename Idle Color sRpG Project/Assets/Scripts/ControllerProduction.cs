@@ -1387,6 +1387,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowImportPanel();
         UpdateProductionCharacterConsumeViews();
         UpdateCharacterProductionStockLabels();
+        FitCharacterProductionList();
         PaintCharacterProductionBlack();
     }
 
@@ -2003,6 +2004,15 @@ public class ControllerProduction : MonoBehaviour
         return "消費 R " + UiNumber.Format(red) + "  G " + UiNumber.Format(green) + "  B " + UiNumber.Format(blue);
     }
 
+    public bool TryImportRgbCost(CharacterClass character, out ulong red, out ulong green, out ulong blue, out bool affordable)
+    {
+        affordable = false;
+        if (!ImportRgbCost(character, out red, out green, out blue))
+            return false;
+        affordable = CurR >= red && CurG >= green && CurB >= blue;
+        return true;
+    }
+
     public string ImportRgbShortageText()
     {
         return "RGBが足りません。所持 R " + UiNumber.Format(CurR) + "  G " + UiNumber.Format(CurG) + "  B " + UiNumber.Format(CurB);
@@ -2604,6 +2614,7 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonSelectColorMethodRGBNum()
     {
         ShowPanel(PanelSelectColorMethodRGBNum);
+        StyleSpecificationNumSliders();
 
         //パネルの初期化
         UpdateSlectColorMethodRGBNum("R");
@@ -6099,7 +6110,7 @@ public class ControllerProduction : MonoBehaviour
 
         TextIncreaseValueLeft.text = "+" + UiNumber.Format(IncreaseValue);
         TextIncreaseValueRight.text = "+" + UiNumber.Format(IncreaseValue);
-        TextCostIncreaseValueUp.text = "コスト : " + UiNumber.Format(CostIncreaseUp);
+        TextCostIncreaseValueUp.text = UiNumber.Format(CostIncreaseUp);
         SliderCostIncrease.maxValue = CostIncreaseUp;
         SliderCostIncrease.minValue = 0;
         SliderCostIncrease.value = ColorValue;
@@ -6112,7 +6123,7 @@ public class ControllerProduction : MonoBehaviour
             ButtonIncreaseValueUp.interactable = true;
         }
 
-        TextCostMaxValueUp.text = "コスト : " + UiNumber.Format(CostMaxValueUp);
+        TextCostMaxValueUp.text = UiNumber.Format(CostMaxValueUp);
         SliderCostMaxValueUp.maxValue = CostMaxValueUp;
         SliderCostMaxValueUp.minValue = 0;
         SliderCostMaxValueUp.value = ColorValue;
@@ -6140,6 +6151,14 @@ public class ControllerProduction : MonoBehaviour
 
         SliderCostIncrease.value = ColorValue;
         SliderCostMaxValueUp.value = ColorValue;
+    }
+
+    public static void PaintChannelText(Text text, int channel)
+    {
+        if (text == null)
+            return;
+        text.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+        StyleGaugeTextGlow(text, channel);
     }
 
     static void StyleGaugeTextGlow(Text text, int channel)
@@ -7133,12 +7152,35 @@ public class ControllerProduction : MonoBehaviour
             chip.type = Image.Type.Sliced;
         }
 
+        string next = PixelChannelLineText(channel, color01, pixelCount);
+        if (text.text != next)
+            text.text = next;
+        ShowPixelColorHalo(image, imageName != "ImagePixelColorG" && imageName != "ImagePixelColorB", imageName != "ImagePixelColorR" && imageName != "ImagePixelColorG");
+    }
+
+    // レベルアップで生産数が変わったとき、×px の式だけ書き直す。枠や色はそのまま。
+    static void RefreshPixelChannelYield(Transform colorPanel, string imageName, string channel, float color01, uint pixelCount)
+    {
+        if (colorPanel == null)
+            return;
+        Transform image = colorPanel.Find(imageName);
+        if (image == null)
+            return;
+        Text text = image.GetComponent<Image>().GetComponentInChildren<Text>();
+        if (text == null)
+            return;
+        string next = PixelChannelLineText(channel, color01, pixelCount);
+        if (text.text != next)
+            text.text = next;
+    }
+
+    static string PixelChannelLineText(string channel, float color01, uint pixelCount)
+    {
         int value = ColorByte(color01);
         long total = (long)value * pixelCount;
-        text.text = channel + " " + value.ToString() + "\n"
+        return channel + " " + value.ToString() + "\n"
             + "× " + UiNumber.Format(pixelCount) + " px\n"
             + "= " + UiNumber.Format(total);
-        ShowPixelColorHalo(image, imageName != "ImagePixelColorG" && imageName != "ImagePixelColorB", imageName != "ImagePixelColorR" && imageName != "ImagePixelColorG");
     }
 
     static Sprite _pixelColorFrame;
@@ -7242,6 +7284,10 @@ public class ControllerProduction : MonoBehaviour
         ApplyPixelChannelGauge(colorPanel, "SliderPixelColorR", ProgressProductionPixel[argIndex, 1], ColorByte(ColorProductionPixel[argIndex].r));
         ApplyPixelChannelGauge(colorPanel, "SliderPixelColorG", ProgressProductionPixel[argIndex, 2], ColorByte(ColorProductionPixel[argIndex].g));
         ApplyPixelChannelGauge(colorPanel, "SliderPixelColorB", ProgressProductionPixel[argIndex, 3], ColorByte(ColorProductionPixel[argIndex].b));
+        uint pixelCount = PixelYield(argIndex);
+        RefreshPixelChannelYield(colorPanel, "ImagePixelColorR", "R", ColorProductionPixel[argIndex].r, pixelCount);
+        RefreshPixelChannelYield(colorPanel, "ImagePixelColorG", "G", ColorProductionPixel[argIndex].g, pixelCount);
+        RefreshPixelChannelYield(colorPanel, "ImagePixelColorB", "B", ColorProductionPixel[argIndex].b, pixelCount);
         StylePixelSpeedButtons(Content.transform, ColorProductionPixel[argIndex]);
         SetPixelStockLabel(Content, argIndex);
     }
@@ -7538,6 +7584,67 @@ public class ControllerProduction : MonoBehaviour
     }
 
 
+    static Sprite _specificationHandleSprite;
+
+    static Sprite SpecificationHandleSprite()
+    {
+        if (_specificationHandleSprite != null)
+            return _specificationHandleSprite;
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Point;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        texture.SetPixel(0, 0, Color.white);
+        texture.Apply();
+        _specificationHandleSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f), 100f);
+        _specificationHandleSprite.hideFlags = HideFlags.HideAndDontSave;
+        return _specificationHandleSprite;
+    }
+
+    void StyleSpecificationNumSliders()
+    {
+        StyleSpecificationNumSlider("SliderSpecificationNumR");
+        StyleSpecificationNumSlider("SliderSpecificationNumG");
+        StyleSpecificationNumSlider("SliderSpecificationNumB");
+    }
+
+    static void StyleSpecificationNumSlider(string name)
+    {
+        GameObject found = GameObject.Find(name);
+        if (found == null)
+            return;
+        Slider slider = found.GetComponent<Slider>();
+        if (slider == null)
+            return;
+        Transform handle = slider.handleRect;
+        if (handle == null)
+            handle = slider.transform.Find("Handle Slide Area/Handle");
+        if (handle == null)
+            return;
+
+        Image image = handle.GetComponent<Image>();
+        if (image != null)
+        {
+            Sprite square = SpecificationHandleSprite();
+            if (image.sprite != square || image.type != Image.Type.Simple || image.preserveAspect)
+            {
+                image.sprite = square;
+                image.type = Image.Type.Simple;
+                image.preserveAspect = false;
+            }
+            if (image.color != Color.white)
+                image.color = Color.white;
+        }
+
+        RectTransform rect = handle as RectTransform;
+        if (rect == null)
+            return;
+        // 横スライダーは上下いっぱいまで伸びる。幅を細くし、上下にはみ出して縦長の棒にする。
+        Vector2 size = new Vector2(14f, 22f);
+        if (rect.sizeDelta != size)
+            rect.sizeDelta = size;
+    }
+
     public void UpdateSlectColorMethodRGBNum(string argRGB)
     {
         if (argRGB.Equals("R"))
@@ -7643,7 +7750,27 @@ public class ControllerProduction : MonoBehaviour
         UpdateAllProductionCharacterProgressImages();
         UpdateProductionCharacterConsumeViews();
         ShowCharacterOwnedNum();
+        FitCharacterProductionList();
         PaintCharacterProductionBlack();
+    }
+
+    // キャラリストは今の4/5。上端は動かさず、空いた分は下の生産枠へ渡す。
+    void FitCharacterProductionList()
+    {
+        if (PanelCharacterProduction == null)
+            return;
+        RectTransform list = PanelCharacterProduction.transform.Find("PanelCharacterList") as RectTransform;
+        if (list != null && (list.sizeDelta.y != 336f || list.anchoredPosition.y != 502f))
+        {
+            list.sizeDelta = new Vector2(list.sizeDelta.x, 336f);
+            list.anchoredPosition = new Vector2(list.anchoredPosition.x, 502f);
+        }
+        RectTransform slots = PanelCharacterProduction.transform.Find("PanelCharacterProductionList") as RectTransform;
+        if (slots != null && (slots.sizeDelta.y != 984f || slots.anchoredPosition.y != -178f))
+        {
+            slots.sizeDelta = new Vector2(slots.sizeDelta.x, 984f);
+            slots.anchoredPosition = new Vector2(slots.anchoredPosition.x, -178f);
+        }
     }
 
     //作成担当キャラと作成するキャラのボタンを、保存されている割り当てに合わせる
@@ -7689,6 +7816,7 @@ public class ControllerProduction : MonoBehaviour
         {
             HideCharacterStockLabel(label);
             HideCharacterStockLabel(detail);
+            ApplyCharacterOwnedAlertTone(row, false);
             return;
         }
         if (detail == null)
@@ -7696,6 +7824,7 @@ public class ControllerProduction : MonoBehaviour
 
         stockCharacter.EnsureStock();
         OwnedStock stock = stockCharacter.Stock;
+        ApplyCharacterOwnedAlertTone(row, stock.Total <= 1);
         StyleCharacterStockText(label, TextAnchor.LowerCenter);
         label.text = "所持 " + stock.Total.ToString();
         PlaceCharacterStockLabelAbove(label, buttonRect);
@@ -7707,6 +7836,109 @@ public class ControllerProduction : MonoBehaviour
             + "\n×0.8: " + stock.Eight.ToString()
             + "\n×0.5: " + stock.Half.ToString();
         PlaceCharacterStockLabelBelow(detail, buttonRect);
+    }
+
+    // 対象キャラの所持が1以下のカードだけ、ピクセル不足と同じ赤トーンを敷く。
+    void ApplyCharacterOwnedAlertTone(Transform row, bool alert)
+    {
+        if (row == null)
+            return;
+        Transform tone = row.Find("CharacterOwnedAlertTone");
+        if (!alert)
+        {
+            if (tone != null && tone.gameObject.activeSelf)
+                tone.gameObject.SetActive(false);
+            return;
+        }
+        if (tone == null)
+        {
+            GameObject obj = new GameObject("CharacterOwnedAlertTone", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+            obj.transform.SetParent(row, false);
+            LayoutElement layout = obj.GetComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+            RectTransform rect = obj.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            Image created = obj.GetComponent<Image>();
+            created.type = Image.Type.Simple;
+            created.preserveAspect = false;
+            created.color = Color.white;
+            created.raycastTarget = false;
+            tone = obj.transform;
+        }
+        if (!tone.gameObject.activeSelf)
+            tone.gameObject.SetActive(true);
+        tone.SetAsFirstSibling();
+        Image fill = tone.GetComponent<Image>();
+        if (fill == null)
+            return;
+        Sprite sprite = CharacterOwnedAlertToneSprite(row as RectTransform);
+        if (fill.sprite != sprite)
+            fill.sprite = sprite;
+        if (fill.color != Color.white)
+            fill.color = Color.white;
+    }
+
+    static Sprite _characterOwnedAlertTone;
+    static int _characterOwnedAlertCols;
+    static int _characterOwnedAlertRows;
+
+    // カードいっぱいに伸ばしても、1ドットが正方形になる数でトーンを焼く。
+    static Sprite CharacterOwnedAlertToneSprite(RectTransform row)
+    {
+        const float dot = 4f;
+        float width = row != null ? row.rect.width : 0f;
+        float height = row != null ? row.rect.height : 0f;
+        if (width < 1f && row != null)
+            width = row.sizeDelta.x;
+        if (height < 1f && row != null)
+            height = row.sizeDelta.y;
+        if (width < 1f)
+            width = 1040f;
+        if (height < 1f)
+            height = 425f;
+        int cols = Mathf.Max(1, Mathf.RoundToInt(width / dot));
+        int rows = Mathf.Max(1, Mathf.RoundToInt(height / dot));
+        if (_characterOwnedAlertTone != null && _characterOwnedAlertCols == cols && _characterOwnedAlertRows == rows)
+            return _characterOwnedAlertTone;
+
+        Texture2D texture = new Texture2D(cols, rows, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Point;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        Color red = new Color(0.26f, 0.045f, 0.04f, 1f);
+        Color[] pixels = new Color[cols * rows];
+        const float blackUntil = 1f / 3f;
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                float xNorm = (x + 0.5f) / cols;
+                if (xNorm <= blackUntil)
+                {
+                    pixels[y * cols + x] = Color.black;
+                    continue;
+                }
+                float mix = (xNorm - blackUntil) / (1f - blackUntil);
+                int threshold = MeshBayer4[(x & 3) + ((y & 3) * 4)];
+                pixels[y * cols + x] = mix * 16f > threshold ? red : Color.black;
+            }
+        }
+        texture.SetPixels(pixels);
+        texture.Apply();
+        if (_characterOwnedAlertTone != null)
+        {
+            if (_characterOwnedAlertTone.texture != null)
+                UnityEngine.Object.Destroy(_characterOwnedAlertTone.texture);
+            UnityEngine.Object.Destroy(_characterOwnedAlertTone);
+        }
+        _characterOwnedAlertTone = Sprite.Create(texture, new Rect(0f, 0f, cols, rows), new Vector2(0.5f, 0.5f), 100f);
+        _characterOwnedAlertTone.hideFlags = HideFlags.HideAndDontSave;
+        _characterOwnedAlertCols = cols;
+        _characterOwnedAlertRows = rows;
+        return _characterOwnedAlertTone;
     }
 
     static void HideCharacterStockLabel(Text label)
@@ -8128,7 +8360,7 @@ public class ControllerProduction : MonoBehaviour
         if (image == null || image.GetComponentInParent<Button>() != null)
             return false;
         string name = image.gameObject.name;
-        if (name == "ImagePixelColor" || name == "Handle" || name == "WhiteFrame" || name == "AttributeGlow")
+        if (name == "ImagePixelColor" || name == "Handle" || name == "WhiteFrame" || name == "AttributeGlow" || name == "CharacterOwnedAlertTone")
             return false;
         if (IsPixelListChrome(image.transform))
             return false;

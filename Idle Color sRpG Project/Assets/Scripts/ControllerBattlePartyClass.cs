@@ -257,6 +257,43 @@ public class ControllerBattlePartyClass : MonoBehaviour
         PlacePersonSlots();
     }
 
+    void Update()
+    {
+        if (ControllerProduction == null)
+            return;
+        float wave = Mathf.Sin(Time.unscaledTime * Mathf.PI * 1.5f) * 0.5f + 0.5f;
+        float alpha = Mathf.Lerp(0.15f, 1f, wave);
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+            {
+                Button cell = ButtonCells[x, y];
+                if (cell == null)
+                    continue;
+                uint id = ControllerProduction.GetBattlePartyCharacter(CurrentSetIndex, x, y);
+                bool blink = OwnsNone(id);
+                CanvasGroup group = cell.GetComponent<CanvasGroup>();
+                if (!blink)
+                {
+                    if (group != null && group.alpha != 1f)
+                        group.alpha = 1f;
+                    continue;
+                }
+                if (group == null)
+                    group = cell.gameObject.AddComponent<CanvasGroup>();
+                group.alpha = alpha;
+            }
+        }
+    }
+
+    bool OwnsNone(uint id)
+    {
+        if (id == 0)
+            return false;
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, id);
+        return character != null && character.OwnedNumCur < 1;
+    }
+
     void PaintUsualButton(Button button, Color color, bool enabled)
     {
         if (button == null || ControllerProduction == null)

@@ -17,6 +17,11 @@ public class ControllerImportCharacterClass : MonoBehaviour
     Image _confirmImage;
     Text _confirmPrompt;
     Text _confirmMessage;
+    Text _costIntro;
+    Text _costR;
+    Text _costG;
+    Text _costB;
+    Text _costError;
     Button _confirmButton;
     Button _pickButton;
     string _importStatus;
@@ -32,6 +37,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
     const float FrameThin = 3f;
     static readonly Color DeleteFill = new Color(0.78f, 0.18f, 0.16f, 1f);
+    static readonly Color ImportOkFill = new Color(0.12f, 0.72f, 0.22f, 1f);
+    static readonly Color ImportCancelFill = new Color(0.86f, 0.16f, 0.12f, 1f);
 
     public GameObject Panel { get; private set; }
 
@@ -208,21 +215,18 @@ public class ControllerImportCharacterClass : MonoBehaviour
     {
         CharacterClass character = _production != null ? _production.PreparedImportCharacter() : null;
         bool affordable = false;
-        string cost = _production != null
-            ? _production.ImportRgbCostText(character, out affordable)
-            : "このキャラのRGBを計算できません。";
-        bool priced = _production != null && !cost.StartsWith("このキャラのRGB");
+        ulong red = 0;
+        ulong green = 0;
+        ulong blue = 0;
+        bool priced = _production != null && _production.TryImportRgbCost(character, out red, out green, out blue, out affordable);
         if (!priced)
             affordable = false;
-        string shortage = priced ? _production.ImportRgbShortageText() : cost;
-        string status = (affordable ? "1" : "0") + "\n" + cost + "\n" + shortage;
+        string shortage = priced ? _production.ImportRgbShortageText() : "このキャラのRGBを計算できません。";
+        string status = (affordable ? "1" : "0") + "\n" + red.ToString() + "\n" + green.ToString() + "\n" + blue.ToString() + "\n" + shortage;
         if (status == _importStatus)
             return;
         _importStatus = status;
-        if (_confirmPrompt != null)
-        {
-            _confirmPrompt.text = "名前を決めて読み込むと、この絵がキャラになります。\n違う名前も設定できます。\n" + cost;
-        }
+        ShowImportCost(priced, red, green, blue);
         PaintConfirmAfford(affordable);
         string shown = _confirmMessage != null ? _confirmMessage.text : "";
         bool statusMessage = shown.Length == 0
@@ -234,6 +238,70 @@ public class ControllerImportCharacterClass : MonoBehaviour
             SetConfirmMessage("", true);
         else
             SetConfirmMessage(shortage, false);
+    }
+
+    void BuildImportCostRow(Transform parent)
+    {
+        GameObject row = new GameObject("ImportCostRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        row.transform.SetParent(parent, false);
+        Place(row.GetComponent<RectTransform>(), 0f, -104f, 960f, 72f);
+        HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+        layout.spacing = 18f;
+        layout.padding = new RectOffset(12, 12, 10, 10);
+
+        _costIntro = CreateCostText(row.transform, "消費", 36);
+        _costR = CreateCostText(row.transform, "R", 40);
+        _costG = CreateCostText(row.transform, "G", 40);
+        _costB = CreateCostText(row.transform, "B", 40);
+        ControllerProduction.PaintChannelText(_costR, 0);
+        ControllerProduction.PaintChannelText(_costG, 1);
+        ControllerProduction.PaintChannelText(_costB, 2);
+        _costError = CreateCostText(row.transform, "", 32);
+        _costError.gameObject.SetActive(false);
+    }
+
+    Text CreateCostText(Transform parent, string text, int fontSize)
+    {
+        Text label = CreateText("Text", parent, fontSize, TextAnchor.MiddleCenter);
+        label.text = text;
+        label.horizontalOverflow = HorizontalWrapMode.Overflow;
+        label.verticalOverflow = VerticalWrapMode.Overflow;
+        return label;
+    }
+
+    void ShowImportCost(bool priced, ulong red, ulong green, ulong blue)
+    {
+        if (_costIntro != null)
+            _costIntro.gameObject.SetActive(priced);
+        if (_costR != null)
+        {
+            _costR.gameObject.SetActive(priced);
+            if (priced)
+                _costR.text = "R " + UiNumber.Format(red);
+        }
+        if (_costG != null)
+        {
+            _costG.gameObject.SetActive(priced);
+            if (priced)
+                _costG.text = "G " + UiNumber.Format(green);
+        }
+        if (_costB != null)
+        {
+            _costB.gameObject.SetActive(priced);
+            if (priced)
+                _costB.text = "B " + UiNumber.Format(blue);
+        }
+        if (_costError != null)
+        {
+            _costError.gameObject.SetActive(!priced);
+            if (!priced)
+                _costError.text = "このキャラのRGBを計算できません。";
+        }
     }
 
     void HideConfirm()
@@ -529,7 +597,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         birth.transform.SetParent(Panel.transform, false);
         Stretch(birth.GetComponent<RectTransform>());
         _rebirth = birth.AddComponent<ImportRebirthPlayer>();
-        _rebirth.Initialize(_font, OnRebirthClosed);
+        _rebirth.Initialize(_production, _font, OnRebirthClosed);
     }
 
     void BuildConfirm()
@@ -553,17 +621,18 @@ public class ControllerImportCharacterClass : MonoBehaviour
         EnsureWhiteFrame(picture.transform, FrameThin);
 
         Text prompt = CreateText("TextImportConfirmPrompt", _confirm.transform, 26, TextAnchor.MiddleCenter);
-        Place(prompt.rectTransform, 0f, -20f, 960f, 140f);
+        Place(prompt.rectTransform, 0f, -8f, 960f, 80f);
         prompt.horizontalOverflow = HorizontalWrapMode.Wrap;
         prompt.verticalOverflow = VerticalWrapMode.Overflow;
         prompt.text = "名前を決めて読み込むと、この絵がキャラになります。\n違う名前も設定できます。";
         _confirmPrompt = prompt;
 
+        BuildImportCostRow(_confirm.transform);
         BuildNameField(_confirm.transform);
 
         GameObject okObject = new GameObject("ButtonImportConfirm", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         okObject.transform.SetParent(_confirm.transform, false);
-        Place(okObject.GetComponent<RectTransform>(), -200f, -260f, 360f, 84f);
+        Place(okObject.GetComponent<RectTransform>(), -200f, -300f, 360f, 84f);
         okObject.GetComponent<Image>().color = Color.white;
         Button ok = okObject.GetComponent<Button>();
         ok.targetGraphic = okObject.GetComponent<Image>();
@@ -572,12 +641,11 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Text okLabel = CreateText("Text", okObject.transform, 28, TextAnchor.MiddleCenter);
         Stretch(okLabel.rectTransform);
         okLabel.text = "この名前で読み込む";
-        okLabel.color = Color.white;
-        StyleChromeButton(ok);
+        _production.StyleRepresentativeButton(ok, ImportOkFill, true);
 
         GameObject cancelObject = new GameObject("ButtonImportCancel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         cancelObject.transform.SetParent(_confirm.transform, false);
-        Place(cancelObject.GetComponent<RectTransform>(), 200f, -260f, 280f, 84f);
+        Place(cancelObject.GetComponent<RectTransform>(), 200f, -300f, 280f, 84f);
         cancelObject.GetComponent<Image>().color = Color.white;
         Button cancel = cancelObject.GetComponent<Button>();
         cancel.targetGraphic = cancelObject.GetComponent<Image>();
@@ -585,11 +653,10 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Text cancelLabel = CreateText("Text", cancelObject.transform, 28, TextAnchor.MiddleCenter);
         Stretch(cancelLabel.rectTransform);
         cancelLabel.text = "やめる";
-        cancelLabel.color = Color.white;
-        StyleChromeButton(cancel);
+        _production.StyleRepresentativeButton(cancel, ImportCancelFill, true);
 
         _confirmMessage = CreateText("TextImportConfirmMessage", _confirm.transform, 24, TextAnchor.MiddleCenter);
-        Place(_confirmMessage.rectTransform, 0f, -360f, 960f, 70f);
+        Place(_confirmMessage.rectTransform, 0f, -410f, 960f, 70f);
         _confirmMessage.horizontalOverflow = HorizontalWrapMode.Wrap;
 
         _confirm.SetActive(false);
@@ -599,7 +666,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
     {
         GameObject fieldObject = new GameObject("InputFieldImportCharacterName", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(InputField));
         fieldObject.transform.SetParent(parent, false);
-        Place(fieldObject.GetComponent<RectTransform>(), 0f, -140f, 760f, 80f);
+        Place(fieldObject.GetComponent<RectTransform>(), 0f, -200f, 760f, 80f);
         Image background = fieldObject.GetComponent<Image>();
         background.color = Color.black;
 
@@ -743,14 +810,15 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
     void PaintConfirmAfford(bool affordable)
     {
-        if (_confirmButton == null)
+        if (_confirmButton == null || _production == null)
             return;
+        _production.StyleRepresentativeButton(_confirmButton, ImportOkFill, affordable);
         _confirmButton.interactable = affordable;
+        if (affordable)
+            return;
         Text label = _confirmButton.GetComponentInChildren<Text>();
-        Color ink = affordable ? Color.white : new Color(0.45f, 0.45f, 0.45f, 1f);
         if (label != null)
-            label.color = ink;
-        SetFrameColor(_confirmButton.transform, ink);
+            label.color = new Color(0.45f, 0.45f, 0.45f, 1f);
     }
 
     static void PaintDeleteFill(Button button)

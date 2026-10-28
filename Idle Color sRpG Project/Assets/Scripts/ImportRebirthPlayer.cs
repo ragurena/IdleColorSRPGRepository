@@ -18,8 +18,8 @@ public class ImportRebirthPlayer : MonoBehaviour
     const float FlashSeconds = 0.33f;
     const float SparkSeconds = 0.88f;
     const float BarSeconds = 0.42f;
-    const float FrameThin = 3f;
 
+    ControllerProduction _production;
     Font _font;
     Action<string> _onClosed;
     int _generation;
@@ -109,8 +109,9 @@ public class ImportRebirthPlayer : MonoBehaviour
         public bool Sqrt;
     }
 
-    public void Initialize(Font font, Action<string> onClosed)
+    public void Initialize(ControllerProduction production, Font font, Action<string> onClosed)
     {
+        _production = production;
         _font = font;
         _onClosed = onClosed;
         _whiteTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
@@ -1012,11 +1013,6 @@ public class ImportRebirthPlayer : MonoBehaviour
         _bodyRest = new Vector2(0f, _bodyBottom);
         _body.anchoredPosition = _bodyRest;
 
-        GameObject portraitFrame = new GameObject("RebirthPortraitFrame", typeof(RectTransform));
-        portraitFrame.transform.SetParent(transform, false);
-        Place(portraitFrame.GetComponent<RectTransform>(), 0f, MaskCenterY, MaskWidth, MaskHeight);
-        EnsureWhiteFrame(portraitFrame.transform);
-
         GameObject pictureObject = new GameObject("ImageRebirth", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
         pictureObject.transform.SetParent(_body, false);
         Stretch(pictureObject.GetComponent<RectTransform>());
@@ -1057,8 +1053,8 @@ public class ImportRebirthPlayer : MonoBehaviour
         Text backLabel = CreateText("Text", backObject.transform, 28, TextAnchor.MiddleCenter);
         Stretch(backLabel.rectTransform);
         backLabel.text = "一覧へ戻る";
-        backLabel.color = Color.white;
-        StyleChromeButton(_backButton);
+        if (_production != null)
+            _production.StyleRepresentativeButton(_backButton, Color.white, true);
         backObject.SetActive(false);
     }
 
@@ -1292,63 +1288,4 @@ public class ImportRebirthPlayer : MonoBehaviour
         rect.offsetMax = Vector2.zero;
     }
 
-    static void StyleChromeButton(Button button)
-    {
-        if (button == null)
-            return;
-        Image image = button.targetGraphic as Image;
-        if (image == null)
-            image = button.GetComponent<Image>();
-        if (image != null)
-            image.color = Color.white;
-        ColorBlock colors = button.colors;
-        colors.normalColor = Color.black;
-        colors.highlightedColor = new Color(0.16f, 0.16f, 0.18f, 1f);
-        colors.pressedColor = new Color(0.28f, 0.28f, 0.3f, 1f);
-        colors.selectedColor = Color.black;
-        colors.disabledColor = Color.black;
-        colors.colorMultiplier = 1f;
-        button.colors = colors;
-        EnsureWhiteFrame(button.transform);
-    }
-
-    static void EnsureWhiteFrame(Transform target)
-    {
-        if (target == null || target.Find("WhiteFrame") != null)
-            return;
-        GameObject root = new GameObject("WhiteFrame", typeof(RectTransform));
-        root.transform.SetParent(target, false);
-        Stretch(root.GetComponent<RectTransform>());
-        AddWhiteEdge(root.transform, "Top", true, true);
-        AddWhiteEdge(root.transform, "Bottom", true, false);
-        AddWhiteEdge(root.transform, "Left", false, false);
-        AddWhiteEdge(root.transform, "Right", false, true);
-        root.transform.SetAsLastSibling();
-    }
-
-    static void AddWhiteEdge(Transform parent, string name, bool horizontal, bool end)
-    {
-        GameObject edgeObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        edgeObject.transform.SetParent(parent, false);
-        Image image = edgeObject.GetComponent<Image>();
-        image.color = Color.white;
-        image.raycastTarget = false;
-        RectTransform rect = edgeObject.GetComponent<RectTransform>();
-        if (horizontal)
-        {
-            rect.anchorMin = new Vector2(0f, end ? 1f : 0f);
-            rect.anchorMax = new Vector2(1f, end ? 1f : 0f);
-            rect.pivot = new Vector2(0.5f, end ? 1f : 0f);
-            rect.sizeDelta = new Vector2(0f, FrameThin);
-            rect.anchoredPosition = Vector2.zero;
-        }
-        else
-        {
-            rect.anchorMin = new Vector2(end ? 1f : 0f, 0f);
-            rect.anchorMax = new Vector2(end ? 1f : 0f, 1f);
-            rect.pivot = new Vector2(end ? 1f : 0f, 0.5f);
-            rect.sizeDelta = new Vector2(FrameThin, 0f);
-            rect.anchoredPosition = Vector2.zero;
-        }
-    }
 }

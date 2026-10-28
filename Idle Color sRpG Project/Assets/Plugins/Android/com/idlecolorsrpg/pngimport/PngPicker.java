@@ -90,12 +90,23 @@ public class PngPicker {
                 input = getActivity().getContentResolver().openInputStream(uri);
                 if (input == null)
                     return null;
-                File out = new File(getActivity().getCacheDir(), "picked.png");
+                File cache = getActivity().getCacheDir();
+                File[] oldFiles = cache.listFiles();
+                if (oldFiles != null) {
+                    for (int i = 0; i < oldFiles.length; i++) {
+                        String name = oldFiles[i].getName();
+                        if (name.startsWith("picked") && name.endsWith(".png"))
+                            oldFiles[i].delete();
+                    }
+                }
+                File out = new File(cache, "picked-" + System.nanoTime() + ".png");
                 output = new FileOutputStream(out);
                 byte[] buffer = new byte[8192];
                 int read;
                 while ((read = input.read(buffer)) != -1)
                     output.write(buffer, 0, read);
+                output.flush();
+                output.getFD().sync();
                 return out.getAbsolutePath();
             } catch (Exception exception) {
                 return null;
