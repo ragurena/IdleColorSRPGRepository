@@ -14,6 +14,7 @@ public class ControllerFusionClass : MonoBehaviour
     CharacterStatGraph _stats;
     RectTransform _content;
     uint _selectedId;
+    bool _fusionFxPlaying;
     const float FrameThin = 3f;
     const float FrameSelected = 8f;
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
@@ -110,6 +111,8 @@ public class ControllerFusionClass : MonoBehaviour
 
     void Select(uint characterId)
     {
+        if (_fusionFxPlaying)
+            return;
         CharacterClass character = _production.GetCharacter(characterId);
         if (character == null || character.ID != characterId)
             return;
@@ -126,11 +129,23 @@ public class ControllerFusionClass : MonoBehaviour
 
     void PushFuse()
     {
-        if (_production == null || _selectedId == 0)
+        if (_production == null || _selectedId == 0 || _fusionFxPlaying)
             return;
+        CharacterClass character = _production.GetCharacter(_selectedId);
         if (!_production.TryFuse(_selectedId))
             return;
         Refresh();
+        Color color = ControllerProduction.RepresentativeColor(character);
+        if (_fuseButton != null)
+            _fuseButton.interactable = false;
+        _fusionFxPlaying = true;
+        FusionCompleteFx.Play(_detailImage, color, OnFusionFxDone);
+    }
+
+    void OnFusionFxDone()
+    {
+        _fusionFxPlaying = false;
+        ShowDetail();
     }
 
     CellEntry CreateCell(CharacterClass character)
@@ -266,10 +281,13 @@ public class ControllerFusionClass : MonoBehaviour
         long lives = ToLong(character.OwnedNumCur);
         long cost = FusionBonus.NextCost(count);
         long nextLives = lives - cost;
-        string countText = UiNumber.LevelText(UiNumber.Format(count) + "回", count, cap);
+        string countLine = UiNumber.LevelText(UiNumber.Format(count) + "/" + UiNumber.Format(cap) + "回", count, cap);
+        long nowPercent = FusionBonus.Percent(count);
+        long nextPercent = FusionBonus.Percent(atCap ? count : count + 1);
         _detail.supportRichText = true;
-        _detail.text = "合成 " + countText + " / " + UiNumber.Format(cap) + "回（+" + FusionBonus.Percent(count).ToString() + "%）\n"
-            + "次は " + cost.ToString() + "体で +" + FusionBonus.PercentPerFusion.ToString() + "%（+" + FusionBonus.Percent(count + 1).ToString() + "%）\n"
+        _detail.text = countLine + "\n"
+            + "次は " + cost.ToString() + "体で合成\n"
+            + "+" + nowPercent.ToString() + "% → +" + nextPercent.ToString() + "%\n"
             + "所持 " + lives.ToString() + " → " + nextLives.ToString();
         if (atCap)
             _detail.text += "\n合成上限です";
@@ -327,13 +345,25 @@ public class ControllerFusionClass : MonoBehaviour
 
         GameObject detailRoot = new GameObject("FusionDetail", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         detailRoot.transform.SetParent(Panel.transform, false);
-        Place(detailRoot.GetComponent<RectTransform>(), 0f, -320f, 1020f, 300f);
+        const float detailW = 1020f;
+        Place(detailRoot.GetComponent<RectTransform>(), 0f, -325f, detailW, 312f);
         detailRoot.GetComponent<Image>().color = Color.black;
-        EnsureWhiteFrame(detailRoot.transform, FrameThin);
+
+        // 左余白・キャラ↔テキスト・テキスト↔バー・右余白を同じ幅にして、列を均等に置く。
+        const float colGap = 24f;
+        const float charW = 200f;
+        const float textW = 200f;
+        float statsW = detailW - colGap * 4f - charW - textW;
+        float cursor = -detailW * 0.5f + colGap;
+        float charX = cursor + charW * 0.5f;
+        cursor += charW + colGap;
+        float textX = cursor + textW * 0.5f;
+        cursor += textW + colGap;
+        float statsX = cursor + statsW * 0.5f;
 
         GameObject detailPicture = new GameObject("FusionDetailPicture", typeof(RectTransform));
         detailPicture.transform.SetParent(detailRoot.transform, false);
-        Place(detailPicture.GetComponent<RectTransform>(), -370f, 36f, 190f, 190f);
+        Place(detailPicture.GetComponent<RectTransform>(), charX, 36f, 190f, 190f);
         GameObject detailSprite = new GameObject("Sprite", typeof(RectTransform));
         detailSprite.transform.SetParent(detailPicture.transform, false);
         Stretch(detailSprite.GetComponent<RectTransform>());
@@ -343,26 +373,37 @@ public class ControllerFusionClass : MonoBehaviour
         _detailImage.color = new Color(1f, 1f, 1f, 0f);
 
         _detailName = CreateText("TextFusionDetailName", detailRoot.transform, 22, TextAnchor.MiddleCenter);
-        Place(_detailName.rectTransform, -370f, -108f, 240f, 64f);
+        Place(_detailName.rectTransform, charX, -108f, 220f, 64f);
         _detailName.horizontalOverflow = HorizontalWrapMode.Wrap;
         _detailName.verticalOverflow = VerticalWrapMode.Truncate;
 
-        _detail = CreateText("TextFusionDetail", detailRoot.transform, 28, TextAnchor.MiddleLeft);
-        Place(_detail.rectTransform, -100f, 0f, 340f, 270f);
+        _detail = CreateText("TextFusionDetail", detailRoot.transform, 24, TextAnchor.MiddleLeft);
+        Place(_detail.rectTransform, textX, 0f, textW, 270f);
         _detail.horizontalOverflow = HorizontalWrapMode.Wrap;
         _detail.verticalOverflow = VerticalWrapMode.Truncate;
         _stats = CharacterStatGraph.Create(
             detailRoot.transform,
             "FusionStatGraph",
             _font,
+            statsX,
+            4f,
+            statsW,
             300f,
-            0f,
-            400f,
-            280f,
             false,
             Color.white,
             new Color(0.78f, 0.8f, 0.84f, 1f),
-            new Color(0.82f, 0.82f, 0.86f, 1f));
+            new Color(0.82f, 0.82f, 0.86f, 1f),
+            18,
+            16,
+            16,
+            13,
+            14,
+            26f,
+            124f,
+            48f,
+            38f,
+            false,
+            false);
 
         _fuseButton = CreateButton("ButtonFusion", "合成", Color.white);
         Place(_fuseButton.GetComponent<RectTransform>(), 0f, -570f, 1020f, 150f);

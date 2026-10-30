@@ -290,7 +290,7 @@ public class ControllerCatalogClass : MonoBehaviour
             ShowColorRows(false);
             if (_detailStatus != null)
                 _detailStatus.text = "？？？\n？？？";
-            ShowStatusNote("まだ所持していない");
+            ShowStatusNote("まだ出会っていない");
             return;
         }
 
@@ -326,26 +326,43 @@ public class ControllerCatalogClass : MonoBehaviour
 
     GameObject CreateColorRow(Transform parent, string name, string caption, float y, out Image chip, out RgbDigits digits)
     {
+        const float captionW = 52f;
+        const float chipW = 24f;
+        const float digitW = 36f;
+        const float commaW = 14f;
+        const float gapCaptionChip = 18f;
+        const float gapChipDigits = 8f;
+        float digitsW = digitW * 3f + commaW * 2f;
+        float total = captionW + gapCaptionChip + chipW + gapChipDigits + digitsW;
+        float cursor = -total * 0.5f;
+
         GameObject row = new GameObject(name, typeof(RectTransform));
         row.transform.SetParent(parent, false);
-        Place(row.GetComponent<RectTransform>(), -341f, y, 290f, 34f);
+        // 画像・名前と同じ中央（-341）に、行全体を揃える。
+        Place(row.GetComponent<RectTransform>(), -341f, y, total + 16f, 34f);
 
         Text captionText = CreateText("Caption", row.transform, 18, TextAnchor.MiddleRight);
-        Place(captionText.rectTransform, -98f, 0f, 52f, 34f);
+        Place(captionText.rectTransform, cursor + captionW * 0.5f, 0f, captionW, 34f);
         captionText.text = caption;
+        cursor += captionW + gapCaptionChip;
 
         GameObject chipObject = new GameObject("Chip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         chipObject.transform.SetParent(row.transform, false);
         chip = chipObject.GetComponent<Image>();
         chip.raycastTarget = false;
-        Place(chip.rectTransform, -46f, 0f, 24f, 24f);
+        Place(chip.rectTransform, cursor + chipW * 0.5f, 0f, chipW, chipW);
+        cursor += chipW + gapChipDigits;
 
         digits = new RgbDigits();
-        digits.Red = CreateRgbDigit(row.transform, "Red", 10f, new Color(1f, 0.2f, 0.14f, 0.9f));
-        CreateRgbComma(row.transform, 36f);
-        digits.Green = CreateRgbDigit(row.transform, "Green", 62f, new Color(0.2f, 0.9f, 0.26f, 0.9f));
-        CreateRgbComma(row.transform, 88f);
-        digits.Blue = CreateRgbDigit(row.transform, "Blue", 114f, new Color(0.2f, 0.46f, 1f, 0.9f));
+        digits.Red = CreateRgbDigit(row.transform, "Red", cursor + digitW * 0.5f, new Color(1f, 0.2f, 0.14f, 0.9f));
+        cursor += digitW;
+        CreateRgbComma(row.transform, cursor + commaW * 0.5f);
+        cursor += commaW;
+        digits.Green = CreateRgbDigit(row.transform, "Green", cursor + digitW * 0.5f, new Color(0.2f, 0.9f, 0.26f, 0.9f));
+        cursor += digitW;
+        CreateRgbComma(row.transform, cursor + commaW * 0.5f);
+        cursor += commaW;
+        digits.Blue = CreateRgbDigit(row.transform, "Blue", cursor + digitW * 0.5f, new Color(0.2f, 0.46f, 1f, 0.9f));
         return row;
     }
 
@@ -437,10 +454,11 @@ public class ControllerCatalogClass : MonoBehaviour
         if (_detail == null)
             return;
         _detail.gameObject.SetActive(true);
-        _detail.alignment = TextAnchor.MiddleLeft;
+        // 左の画像の右にある余白の中央へ置く。
+        _detail.alignment = TextAnchor.MiddleCenter;
         _detail.fontSize = 24;
         _detail.lineSpacing = 1f;
-        Place(_detail.rectTransform, 130f, 19f, 700f, 500f);
+        Place(_detail.rectTransform, 160f, 19f, 560f, 500f);
         _detail.text = message;
     }
 
@@ -540,8 +558,8 @@ public class ControllerCatalogClass : MonoBehaviour
         GameObject detailRoot = new GameObject("CatalogDetail", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         detailRoot.transform.SetParent(Panel.transform, false);
         RectTransform detailRect = detailRoot.GetComponent<RectTransform>();
-        // 下端は -620。上端は -23。リストはこの上で終わる。
-        Place(detailRect, 0f, -321.5f, 1020f, 597f);
+        // 下端は -670。上端は -73。リストとのあいだに余白を残す。
+        Place(detailRect, 0f, -371.5f, 1020f, 597f);
         detailRoot.transform.SetAsLastSibling();
         detailRoot.GetComponent<Image>().color = Color.black;
 
@@ -575,13 +593,14 @@ public class ControllerCatalogClass : MonoBehaviour
         _detail.verticalOverflow = VerticalWrapMode.Truncate;
         _detail.gameObject.SetActive(false);
 
+        // Main/Weak 列の余白を残すため、棒グラフは少し右へ・幅を少し縮める。
         _stats = CharacterStatGraph.Create(
             detailRoot.transform,
             "CatalogStatGraph",
             _font,
-            140f,
+            168f,
             19f,
-            650f,
+            620f,
             560f,
             true,
             Color.white,
@@ -598,7 +617,6 @@ public class ControllerCatalogClass : MonoBehaviour
             46f,
             true);
         BuildPersonBoard(detailRoot.transform);
-        EnsureWhiteFrame(detailRoot.transform, FrameThin);
     }
 
     void BuildPersonBoard(Transform parent)

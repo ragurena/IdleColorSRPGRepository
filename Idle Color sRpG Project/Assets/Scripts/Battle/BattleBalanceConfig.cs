@@ -44,7 +44,7 @@ public class BattleBalanceConfig
     public double RecruitRatePerPoint = 0.002;
     public double RecruitRateCap = 0.05;
 
-    public const int MaxOwnedCount = 255;
+    public const int MaxOwnedCount = 999;
     public int MaxLives = MaxOwnedCount;
     public int EnemyInitialLives = 0;
 

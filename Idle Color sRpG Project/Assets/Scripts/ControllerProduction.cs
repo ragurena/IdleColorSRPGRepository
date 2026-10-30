@@ -601,6 +601,11 @@ public class ControllerProduction : MonoBehaviour
                     SyncCharacterWorkerMotion(i, false, false);
                     continue;
                 }
+                if (IsOwnedAtCap(CharacterOf(CharactersIDProducedCharacter[i])))
+                {
+                    SyncCharacterWorkerMotion(i, false, false);
+                    continue;
+                }
 
                 int paintRate;
                 if (personId != 0)
@@ -1372,6 +1377,7 @@ public class ControllerProduction : MonoBehaviour
 
         //PanelCharacterProductionの表示
         ShowPanel(PanelCharacterProduction);
+        UpdateProductionCharacterScene();
 
         //他のシーンを非表示
         //PanelRGBProductionの非表示
@@ -1385,10 +1391,6 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
-        UpdateProductionCharacterConsumeViews();
-        UpdateCharacterProductionStockLabels();
-        FitCharacterProductionList();
-        PaintCharacterProductionBlack();
     }
 
     //バトル編成シーンボタンが押されたら
@@ -3088,6 +3090,8 @@ public class ControllerProduction : MonoBehaviour
         CharacterClass producedNow = ImportedCharacters.FindAny(CharactersAll, CharactersIDProducedCharacter[argIndex]);
         if (producedNow == null)
             return false;
+        if (IsOwnedAtCap(producedNow))
+            return false;
         Texture2D ProductionCharacterTexture2D = producedNow.ImageTexture2D;
         if (ProductionCharacterTexture2D == null)
             return false;
@@ -3254,6 +3258,8 @@ public class ControllerProduction : MonoBehaviour
         if (index < 1 || index >= CharactersIDProducedCharacter.Length || index >= PersonIdProductionCharacter.Length)
             return false;
         if (CharactersIDProducedCharacter[index] == 0)
+            return false;
+        if (IsOwnedAtCap(CharacterOf(CharactersIDProducedCharacter[index])))
             return false;
         if (PersonIdProductionCharacter[index] != 0)
             return PersonAt((int)PersonIdProductionCharacter[index]) != null;
@@ -3425,7 +3431,6 @@ public class ControllerProduction : MonoBehaviour
         texture.wrapMode = TextureWrapMode.Clamp;
         texture.filterMode = FilterMode.Point;
         texture.hideFlags = HideFlags.HideAndDontSave;
-        Color red = new Color(0.26f, 0.045f, 0.04f, 1f);
         Color[] pixels = new Color[cols * rows];
         const float blackUntil = 1f / 3f;
         for (int y = 0; y < rows; y++)
@@ -3440,7 +3445,7 @@ public class ControllerProduction : MonoBehaviour
                 }
                 float mix = (xNorm - blackUntil) / (1f - blackUntil);
                 int threshold = MeshBayer4[(x & 3) + ((y & 3) * 4)];
-                pixels[y * cols + x] = mix * 16f > threshold ? red : Color.black;
+                pixels[y * cols + x] = mix * 16f > threshold ? ProductionAlertToneRed : Color.black;
             }
         }
         texture.SetPixels(pixels);
@@ -5285,6 +5290,8 @@ public class ControllerProduction : MonoBehaviour
         3, 11, 1, 9,
         15, 7, 13, 5
     };
+    // ピクセル不足・所持不足のカード背景トーン。少しだけ赤を残す。
+    static readonly Color ProductionAlertToneRed = new Color(0.34f, 0.07f, 0.06f, 1f);
 
     static Sprite RgbBackgroundMesh(int width, int height, int order)
     {
@@ -7375,15 +7382,31 @@ public class ControllerProduction : MonoBehaviour
     void StylePixelSpeedButtons(Transform row, Color color)
     {
         color.a = 1f;
-        StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpPixelProductionLeft"), color);
-        StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpPixelProductionRight"), color);
+        Transform left = FindPixelSpeedButton(row, "ButtonSpeedUpPixelProductionLeft");
+        Transform right = FindPixelSpeedButton(row, "ButtonSpeedUpPixelProductionRight");
+        StylePixelSpeedButton(left, color);
+        StylePixelSpeedButton(right, color);
+        EnsureSpeedHoldRepeat(left);
+        EnsureSpeedHoldRepeat(right);
     }
 
     void StyleCharacterSpeedButtons(Transform row, Color color)
     {
         color.a = 1f;
-        StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpCharacterProductionLeft"), color);
-        StylePixelSpeedButton(FindPixelSpeedButton(row, "ButtonSpeedUpCharacterProductionRight"), color);
+        Transform left = FindPixelSpeedButton(row, "ButtonSpeedUpCharacterProductionLeft");
+        Transform right = FindPixelSpeedButton(row, "ButtonSpeedUpCharacterProductionRight");
+        StylePixelSpeedButton(left, color);
+        StylePixelSpeedButton(right, color);
+        EnsureSpeedHoldRepeat(left);
+        EnsureSpeedHoldRepeat(right);
+    }
+
+    static void EnsureSpeedHoldRepeat(Transform buttonTransform)
+    {
+        if (buttonTransform == null)
+            return;
+        Button button = buttonTransform.GetComponent<Button>();
+        EnsureRgbHoldRepeat(button, button);
     }
 
     public static Color RepresentativeColor(CharacterClass character)
@@ -7824,14 +7847,15 @@ public class ControllerProduction : MonoBehaviour
 
         stockCharacter.EnsureStock();
         OwnedStock stock = stockCharacter.Stock;
-        ApplyCharacterOwnedAlertTone(row, stock.Total <= 1);
-        StyleCharacterStockText(label, TextAnchor.LowerCenter);
+        bool atCap = stock.Total >= BattleBalanceConfig.MaxOwnedCount;
+        ApplyCharacterOwnedAlertTone(row, stock.Total <= 1 || atCap);
+        StyleCharacterStockText(label, TextAnchor.LowerCenter, atCap);
         label.text = "所持 " + stock.Total.ToString();
         PlaceCharacterStockLabelAbove(label, buttonRect);
 
         if (detail == null)
             return;
-        StyleCharacterStockText(detail, TextAnchor.UpperCenter);
+        StyleCharacterStockText(detail, TextAnchor.UpperCenter, false);
         detail.text = "×1: " + stock.Full.ToString()
             + "\n×0.8: " + stock.Eight.ToString()
             + "\n×0.5: " + stock.Half.ToString();
@@ -7908,7 +7932,6 @@ public class ControllerProduction : MonoBehaviour
         texture.wrapMode = TextureWrapMode.Clamp;
         texture.filterMode = FilterMode.Point;
         texture.hideFlags = HideFlags.HideAndDontSave;
-        Color red = new Color(0.26f, 0.045f, 0.04f, 1f);
         Color[] pixels = new Color[cols * rows];
         const float blackUntil = 1f / 3f;
         for (int y = 0; y < rows; y++)
@@ -7923,7 +7946,7 @@ public class ControllerProduction : MonoBehaviour
                 }
                 float mix = (xNorm - blackUntil) / (1f - blackUntil);
                 int threshold = MeshBayer4[(x & 3) + ((y & 3) * 4)];
-                pixels[y * cols + x] = mix * 16f > threshold ? red : Color.black;
+                pixels[y * cols + x] = mix * 16f > threshold ? ProductionAlertToneRed : Color.black;
             }
         }
         texture.SetPixels(pixels);
@@ -7949,10 +7972,10 @@ public class ControllerProduction : MonoBehaviour
         label.gameObject.SetActive(false);
     }
 
-    static void StyleCharacterStockText(Text label, TextAnchor alignment)
+    static void StyleCharacterStockText(Text label, TextAnchor alignment, bool atCap)
     {
         label.gameObject.SetActive(true);
-        label.color = Color.white;
+        label.color = atCap ? OwnedCapTextColor : Color.white;
         label.fontSize = 22;
         label.fontStyle = FontStyle.Bold;
         label.alignment = alignment;
@@ -7963,6 +7986,8 @@ public class ControllerProduction : MonoBehaviour
         label.verticalOverflow = VerticalWrapMode.Overflow;
         label.raycastTarget = false;
     }
+
+    static readonly Color OwnedCapTextColor = new Color(1f, 0.28f, 0.28f, 1f);
 
     static void PlaceCharacterStockLabelAbove(Text label, RectTransform buttonRect)
     {
@@ -8272,7 +8297,7 @@ public class ControllerProduction : MonoBehaviour
             {
                 Text label = OwnedCountLabel(existing);
                 if (label != null)
-                    FitOwnedStockLabel(label, "所持 " + character.StockText(true));
+                    FitOwnedStockLabel(label, "所持 " + character.StockText(true), IsOwnedAtCap(character));
                 RemoveWhiteFrame(existing);
                 EnsureOwnedAttributeGlow(existing, character);
                 CatalogNewMark.Apply(existing, character);
@@ -8286,7 +8311,7 @@ public class ControllerProduction : MonoBehaviour
             characterButton.transform.SetSiblingIndex(shown);
             characterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             Text createdLabel = characterButton.GetComponentInChildren<Text>();
-            FitOwnedStockLabel(createdLabel, "所持 " + character.StockText(true));
+            FitOwnedStockLabel(createdLabel, "所持 " + character.StockText(true), IsOwnedAtCap(character));
             EnsureOwnedAttributeGlow(characterButton.transform, character);
             CatalogNewMark.Apply(characterButton.transform, character);
             if (character.Whereabouts == Place.CreateR ||
@@ -8341,9 +8366,12 @@ public class ControllerProduction : MonoBehaviour
             if (text == null)
                 continue;
             string name = text.gameObject.name;
-            if (name == "TextPixelNumR" || name == "TextPixelNumG" || name == "TextPixelNumB" || name == "TextPixelNum" || name == "ProductionWarning" || name == "CatalogNewMark")
+            if (name == "TextPixelNumR" || name == "TextPixelNumG" || name == "TextPixelNumB" || name == "TextPixelNum" || name == "ProductionWarning" || name == "CatalogNewMark"
+                || name == "TextCharacterStock" || name == "TextCharacterStockDetail")
                 continue;
             Transform parent = text.transform.parent;
+            if (parent != null && parent.name.StartsWith("OwnedCharacter", StringComparison.Ordinal))
+                continue;
             if (parent != null && parent.name == "ButtonAdUnlockCharacterSlot")
             {
                 if (text.color != Color.black)
@@ -8558,7 +8586,15 @@ public class ControllerProduction : MonoBehaviour
         return _whiteFrameSprite;
     }
 
-    static void FitOwnedStockLabel(Text label, string text)
+    static bool IsOwnedAtCap(CharacterClass character)
+    {
+        if (character == null)
+            return false;
+        character.EnsureStock();
+        return character.Stock.Total >= BattleBalanceConfig.MaxOwnedCount;
+    }
+
+    static void FitOwnedStockLabel(Text label, string text, bool atCap)
     {
         if (label == null)
             return;
@@ -8576,7 +8612,7 @@ public class ControllerProduction : MonoBehaviour
         label.resizeTextForBestFit = false;
         label.fontSize = 18;
         label.text = text;
-        label.color = Color.white;
+        label.color = atCap ? OwnedCapTextColor : Color.white;
     }
 
     static Text OwnedCountLabel(Transform button)
@@ -9971,6 +10007,9 @@ public class ControllerProduction : MonoBehaviour
             && (Slots.PixelSlots >= Constants.PRODUCTION_SLOT_MAX
                 || Slots.CharacterSlots >= Constants.PRODUCTION_SLOT_MAX))
             return "生産枠は255までです";
+        if (def.Reward == QuestRewardKind.FusionAndPixelSlot
+            && Slots.PixelSlots >= Constants.PRODUCTION_SLOT_MAX)
+            return "生産枠は255までです";
         return "";
     }
 
@@ -10059,16 +10098,11 @@ public class ControllerProduction : MonoBehaviour
             ApplyFusionButtonLock();
         }
         else if (def.Reward == QuestRewardKind.FusionEfficiency)
+            RaiseFusionEfficiency(def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount);
+        else if (def.Reward == QuestRewardKind.FusionAndPixelSlot)
         {
-            int amount = def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount;
-            if (amount < 1)
-                amount = 1;
-            long next = (long)Quests.FusionEfficiency + amount;
-            if (next > int.MaxValue)
-                next = int.MaxValue;
-            Quests.FusionEfficiency = (int)next;
-            FusionBonus.ExtraPercent = Quests.FusionEfficiency;
-            RebuildAllCharacterStats();
+            RaiseFusionEfficiency(def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount);
+            AddProductionSlots(1, true, false);
         }
         else if (def.Reward == QuestRewardKind.GrantPalette)
             GrantProduciblePixels(def.RewardAmount > 0 ? (ulong)def.RewardAmount : 0);
@@ -10085,6 +10119,19 @@ public class ControllerProduction : MonoBehaviour
             RaiseCharacterLevelCap(def.LevelCap);
         if (def.FusionCap > 0)
             ApplyFusionCountCap();
+    }
+
+    void RaiseFusionEfficiency(int amount)
+    {
+        if (amount < 1)
+            amount = 1;
+        long next = (long)Quests.FusionEfficiency + amount;
+        if (next > int.MaxValue)
+            next = int.MaxValue;
+        Quests.FusionEfficiency = (int)next;
+        Quests.HasFusionEfficiency = true;
+        FusionBonus.ExtraPercent = Quests.FusionEfficiency;
+        RebuildAllCharacterStats();
     }
 
     // クエストからレベル上限を上げる。今より低い値では下がらない。
@@ -10241,7 +10288,7 @@ public class ControllerProduction : MonoBehaviour
             Quests.ImportCap = ImportSizeRules.MaxCount;
         Quests.DefaultsApplied = true;
         ImportedCharacters.SetImportCap(Quests.ImportCap);
-        MigrateLegacyInitialSlots();
+        ReconcileProductionSlots();
         LatchQuests();
         RebuildAllCharacterStats();
         RefreshUnlockedProductionSlots();
@@ -10249,12 +10296,87 @@ public class ControllerProduction : MonoBehaviour
         ApplyMainFeatureLocks();
     }
 
-    void MigrateLegacyInitialSlots()
+    // 受け取った枠が、起動のたびに初期値へ戻らないようにする。
+    // 以前の初期値5は、クエストも広告も無い古いセーブだけ3へ下げる。
+    void ReconcileProductionSlots()
     {
+        int pixelEarned = EarnedProductionSlots(false);
+        int characterEarned = EarnedProductionSlots(true);
+        if (Slots.PixelSlots < pixelEarned)
+            Slots.PixelSlots = pixelEarned;
+        if (Slots.CharacterSlots < characterEarned)
+            Slots.CharacterSlots = characterEarned;
+        if (HasQuestSaveProgress() || HasPurchasedProductionSlots())
+            return;
         if (Slots.PixelSlots == 5 && Slots.AdPixelSlots == 0)
             Slots.PixelSlots = Constants.PRODUCTION_SLOT_INITIAL;
         if (Slots.CharacterSlots == 5 && Slots.AdCharacterSlots == 0)
             Slots.CharacterSlots = Constants.PRODUCTION_SLOT_INITIAL;
+    }
+
+    bool HasQuestSaveProgress()
+    {
+        if (Quests.Records.Count > 0)
+            return true;
+        return Quests.HasTotalR || Quests.HasTotalG || Quests.HasTotalB
+            || Quests.HasPixel || Quests.HasCharacter || Quests.HasGallery
+            || Quests.HasEnemy || Quests.HasFusionUnlocked || Quests.HasFusionEfficiency
+            || Quests.HasImport || Quests.HasLevelCap || Quests.HasFusionCap;
+    }
+
+    bool HasPurchasedProductionSlots()
+    {
+        return Slots.IapPlus1 || Slots.IapPlus3 || Slots.IapPlus5 || Slots.IapPlus10;
+    }
+
+    int EarnedProductionSlots(bool character)
+    {
+        long count = Constants.PRODUCTION_SLOT_INITIAL;
+        if (Slots.IapPlus1)
+            count += 1;
+        if (Slots.IapPlus3)
+            count += 3;
+        if (Slots.IapPlus5)
+            count += 5;
+        if (Slots.IapPlus10)
+            count += 10;
+        count += character ? Slots.AdCharacterSlots : Slots.AdPixelSlots;
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            QuestDef def = all[i];
+            if (!IsQuestClaimed(def))
+                continue;
+            count += CharacterOrPixelSlotReward(def, character);
+        }
+        if (count > int.MaxValue)
+            count = int.MaxValue;
+        return ProductionSlotState.ClampCount((int)count);
+    }
+
+    int CharacterOrPixelSlotReward(QuestDef def, bool character)
+    {
+        if (def == null)
+            return 0;
+        if (def.Reward == QuestRewardKind.CharacterBundle)
+            return 1;
+        if (def.Reward == QuestRewardKind.FusionAndPixelSlot)
+            return character ? 0 : 1;
+        int amount = def.RewardAmount > int.MaxValue ? int.MaxValue : (int)def.RewardAmount;
+        if (amount < 1)
+            amount = 1;
+        if (def.Reward == QuestRewardKind.BothSlots)
+            return amount;
+        if (def.Reward != QuestRewardKind.ChooseSlots && def.Reward != QuestRewardKind.TapChooseSlot)
+            return 0;
+        QuestRecord record;
+        if (!Quests.TryGet(def.Id, out record))
+            return 0;
+        if (character && record.Choice == 2)
+            return amount;
+        if (!character && record.Choice == 1)
+            return amount;
+        return 0;
     }
 
     void RebuildAllCharacterStats()
@@ -11558,6 +11680,8 @@ public class ControllerProduction : MonoBehaviour
                     slots |= SlotClips(0, gift.RewardAmount);
                 if (gift.Reward == QuestRewardKind.CharacterBundle)
                     slots |= SlotClips(0, 1);
+                if (gift.Reward == QuestRewardKind.FusionAndPixelSlot)
+                    slots |= SlotClips(1, 1);
                 if (gift.Reward == QuestRewardKind.ImportCap)
                     importCap |= Quests.ImportCap + (gift.RewardAmount > 0 ? gift.RewardAmount : 1) > ImportSizeRules.MaxCount;
                 if (gift.Reward == QuestRewardKind.CharacterBundle)
@@ -11771,13 +11895,11 @@ public class ControllerProduction : MonoBehaviour
             ApplyFusionButtonLock();
         }
         else if (gift.Reward == QuestRewardKind.FusionEfficiency)
+            RaiseFusionEfficiency(whole > 0 ? whole : 1);
+        else if (gift.Reward == QuestRewardKind.FusionAndPixelSlot)
         {
-            long next = (long)Quests.FusionEfficiency + (whole > 0 ? whole : 1);
-            if (next > int.MaxValue)
-                next = int.MaxValue;
-            Quests.FusionEfficiency = (int)next;
-            FusionBonus.ExtraPercent = Quests.FusionEfficiency;
-            RebuildAllCharacterStats();
+            RaiseFusionEfficiency(whole > 0 ? whole : 1);
+            AddProductionSlots(1, true, false);
         }
         else if (gift.Reward == QuestRewardKind.GrantPalette)
             GrantProduciblePixels(rewardAmount > 0 ? (ulong)rewardAmount : 0);
@@ -11974,7 +12096,8 @@ public class RgbBarTap : MonoBehaviour, IPointerDownHandler
     }
 }
 
-// RGBの＋ボタンを押し続けると、2秒後から1秒ごとに押したことになる。短いタップは今までどおり離したとき。
+// 押し続けると、2秒後から1秒ごとに押したことになる。短いタップは今までどおり離したとき。
+// RGBの＋、ピクセル生成とキャラ生成の SpeedUp で使う。
 public class RgbHoldRepeat : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
 {
     public Button Target;

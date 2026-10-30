@@ -30,7 +30,8 @@ public enum QuestRewardKind
     UnlockFeature,
     GrantPalette,
     BothSlots,
-    LevelCap
+    LevelCap,
+    FusionAndPixelSlot
 }
 
 // サブクエストを受け取ったとき、広告で生産枠を増やせる回数をどちらに足すか。
@@ -448,6 +449,8 @@ public static class QuestCatalog
             body = "合成機能開放";
         else if (def.Reward == QuestRewardKind.FusionEfficiency)
             body = "合成効率 +" + UiNumber.Format(def.RewardAmount) + "%";
+        else if (def.Reward == QuestRewardKind.FusionAndPixelSlot)
+            body = "合成効率 +" + UiNumber.Format(def.RewardAmount) + "%、ピクセル生成枠 +1";
         else if (def.Reward == QuestRewardKind.TapChooseSlot)
         {
             string slots;
@@ -537,6 +540,9 @@ public static class QuestCatalog
             return "";
         if (def.Arg == 1)
             return "次のステージ「" + ControllerBattleStageClass.GetStageName(2) + "」「" + ControllerBattleStageClass.GetStageName(3) + "」の開放";
+        // チグサとバトル１はチュートリアルクリアで開く。スライムの森では重ねて出さない。
+        if (def.Arg == 2)
+            return "";
         int next = def.Arg + 1;
         if (next < 1 || next > Constants.BATTLE_STAGE_NUM)
             return "";
@@ -590,7 +596,7 @@ public static class QuestCatalog
 
     static QuestDef Import(int id, int size, long count)
     {
-        return new QuestDef(id, "1辺" + size.ToString() + "pxのキャラを" + UiNumber.Format(count) + "体読込", QuestMetric.ImportedOfSize, size, count, QuestRewardKind.FusionEfficiency, 1, true);
+        return new QuestDef(id, "1辺" + size.ToString() + "pxのキャラを" + UiNumber.Format(count) + "体読込", QuestMetric.ImportedOfSize, size, count, QuestRewardKind.FusionAndPixelSlot, 1, true);
     }
 
     static QuestDef MainQuest(int id, string title, QuestMetric metric, int arg, long target, QuestRewardKind reward, long amount)

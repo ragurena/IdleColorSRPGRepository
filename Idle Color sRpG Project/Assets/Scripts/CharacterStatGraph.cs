@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 // 合成と図鑑で共通のステータスグラフ。
 // 棒の暗い部分が初期、色の部分が今。右端は、いまのレベル上限まで育て、そこへ合成上限を足した値。装備は含めない。
-// 合成画面は「今→次の1回」と上限。図鑑は今と上限。初期は棒の暗い部分だけ。
+// 合成画面は「今→次の1回」のみ（上限列なし）。図鑑は現在値と上限。初期は棒の暗い部分だけ。
 // SPD と LUC は合成で増えない。LUC はレベルでも増えないので、上限は 10。
 public sealed class CharacterStatGraph
 {
@@ -29,6 +29,7 @@ public sealed class CharacterStatGraph
     float _bornX;
     float _bornW;
     bool _showBorn;
+    bool _showCap;
     int _labelSize;
     int _valueSize;
     int _capSize;
@@ -53,6 +54,7 @@ public sealed class CharacterStatGraph
     Text _bandValue;
     Text _bandCap;
     Text _lucBorn;
+    Text _capHead;
 
     class StatGauge
     {
@@ -87,7 +89,8 @@ public sealed class CharacterStatGraph
         float firstRowY = 92f,
         float rowPitch = 40f,
         float headGap = 36f,
-        bool showBorn = false)
+        bool showBorn = false,
+        bool showCap = true)
     {
         CharacterStatGraph graph = new CharacterStatGraph();
         graph._font = font;
@@ -103,7 +106,7 @@ public sealed class CharacterStatGraph
         graph._rgbSize = rgbSize;
         graph._bar = bar;
         float text = labelSize > valueSize ? labelSize : valueSize;
-        if (capSize > text)
+        if (showCap && capSize > text)
             text = capSize;
         graph._textH = text + 8f;
         if (graph._textH < 32f)
@@ -117,9 +120,10 @@ public sealed class CharacterStatGraph
         graph._rowPitch = rowPitch;
         graph._headGap = headGap;
         graph._showBorn = showBorn;
+        graph._showCap = showCap;
         graph._labelW = 44f * labelSize / 16f;
         graph._valueW = 104f * valueSize / 13f;
-        graph._capW = 76f * capSize / 13f;
+        graph._capW = showCap ? 76f * capSize / 13f : 0f;
         graph.Measure();
         graph.Build(parent, name, x, y, height);
         return graph;
@@ -153,6 +157,7 @@ public sealed class CharacterStatGraph
         ulong capG;
         ulong capB;
         LevelCapStats(born, config, out capHp, out capAtk, out capDef, out capSpd, out capR, out capG, out capB);
+        PaintCapHead(config);
         ulong nextHp = NextFused(now.HPMax, born.HPMax, level != null ? level.HPMax : 0, fusionCount);
         ulong nextAtk = NextFused(now.ATK, born.ATK, level != null ? level.ATK : 0, fusionCount);
         ulong nextDef = NextFused(now.DEF, born.DEF, level != null ? level.DEF : 0, fusionCount);
@@ -254,6 +259,21 @@ public sealed class CharacterStatGraph
             _bandValue.text = "";
         if (_bandCap != null)
             _bandCap.text = "";
+        if (_capHead != null)
+            _capHead.text = "上限\nLv0\n合成0";
+    }
+
+    void PaintCapHead(BattleBalanceConfig config)
+    {
+        if (_capHead == null)
+            return;
+        long maxLevel = BattleBalanceConfig.InitialLevelCap;
+        if (config != null && config.MaxLevel > maxLevel)
+            maxLevel = config.MaxLevel;
+        long fusionCap = FusionBonus.MaxCount;
+        if (fusionCap < FusionBonus.InitialCap)
+            fusionCap = FusionBonus.InitialCap;
+        _capHead.text = "上限\nLv" + UiNumber.Format(maxLevel) + "\n合成" + UiNumber.Format(fusionCap);
     }
 
     void Measure()
@@ -265,13 +285,23 @@ public sealed class CharacterStatGraph
         float trackRight;
         if (_showBorn)
         {
-            float col = 92f;
+            float col = 110f;
             float colHalf = col * 0.5f;
             _valueW = col;
             _capW = col;
             _capX = half - 2f - colHalf;
             _valueX = _capX - col - 6f;
             trackRight = _valueX - colHalf - 6f;
+        }
+        else if (!_showCap)
+        {
+            // 上限列なし。数値を右端に寄せて、棒を長くする。
+            if (_valueW < 128f)
+                _valueW = 128f;
+            float valueHalf = _valueW * 0.5f;
+            _valueX = half - 6f - valueHalf;
+            _capX = _valueX;
+            trackRight = _valueX - valueHalf - 14f;
         }
         else
         {
@@ -296,19 +326,21 @@ public sealed class CharacterStatGraph
 
         float hp = _firstRowY;
         float step = _rowPitch;
-        float headY = hp + _headGap;
-        float headH = _headSize <= 12 ? 18f : _headSize + 6f;
-        if (_showBorn)
+        if (_showCap)
         {
-            Text nowHead = CreateText("NowHead", Root.transform, _headSize, TextAnchor.MiddleRight);
-            Place(nowHead.rectTransform, _valueX, headY, _valueW, headH);
-            nowHead.text = "今";
-            nowHead.color = _capColor;
+            float headY = hp + _headGap;
+            float headH = _headSize <= 12 ? 18f : _headSize + 6f;
+            // 「上限」の上に、その列が想定するレベル上限と合成上限を出す。
+            float capHeadH = headH * 3.35f;
+            _capHead = CreateText("CapHead", Root.transform, _headSize, TextAnchor.MiddleRight);
+            Place(_capHead.rectTransform, _capX, headY + (capHeadH - headH) * 0.5f, _capW + 24f, capHeadH);
+            _capHead.supportRichText = true;
+            _capHead.lineSpacing = 0.92f;
+            _capHead.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _capHead.verticalOverflow = VerticalWrapMode.Overflow;
+            _capHead.color = _capColor;
+            PaintCapHead(null);
         }
-        Text capHead = CreateText("CapHead", Root.transform, _headSize, TextAnchor.MiddleRight);
-        Place(capHead.rectTransform, _capX, headY, _capW, headH);
-        capHead.text = "上限";
-        capHead.color = _capColor;
 
         _gauges = new StatGauge[4];
         _gauges[0] = BuildGauge("HP", new Color(0.76f, 0.28f, 0.28f, 1f), hp);
@@ -336,7 +368,7 @@ public sealed class CharacterStatGraph
 
         Text born = CreateBornText();
         Text value = CreateText("Value", row.transform, _valueSize, TextAnchor.MiddleRight);
-        Text cap = CreateText("Cap", row.transform, _capSize, TextAnchor.MiddleRight);
+        Text cap = _showCap ? CreateText("Cap", row.transform, _capSize, TextAnchor.MiddleRight) : null;
         PlaceStatNumbers(born, value, cap);
 
         return new StatGauge { NextFill = nextFill, Fill = fill, BaseFill = baseFill, Born = born, Value = value, Cap = cap };
@@ -391,7 +423,7 @@ public sealed class CharacterStatGraph
 
         _lucBorn = CreateBornText();
         _lucValue = CreateText("Value", row.transform, _valueSize, TextAnchor.MiddleRight);
-        _lucCap = CreateText("Cap", row.transform, _capSize, TextAnchor.MiddleRight);
+        _lucCap = _showCap ? CreateText("Cap", row.transform, _capSize, TextAnchor.MiddleRight) : null;
         PlaceStatNumbers(_lucBorn, _lucValue, _lucCap);
     }
 
@@ -423,19 +455,23 @@ public sealed class CharacterStatGraph
         if (_bandBorn != null)
             _bandBorn.fontSize = _rgbSize;
         _bandValue = CreateText("Value", row.transform, _rgbSize, _showBorn ? TextAnchor.MiddleRight : TextAnchor.UpperRight);
-        _bandCap = CreateText("Cap", row.transform, _rgbSize, TextAnchor.MiddleRight);
+        _bandCap = _showCap ? CreateText("Cap", row.transform, _rgbSize, TextAnchor.MiddleRight) : null;
         PlaceStatNumbers(_bandBorn, _bandValue, _bandCap);
         _bandValue.fontSize = _rgbSize;
-        _bandCap.fontSize = _rgbSize;
+        if (_bandCap != null)
+            _bandCap.fontSize = _rgbSize;
         if (_showBorn)
         {
             float rgbH = _rgbSize * 3f + 8f;
             _bandValue.alignment = TextAnchor.UpperRight;
-            _bandCap.alignment = TextAnchor.UpperRight;
             _bandValue.verticalOverflow = VerticalWrapMode.Overflow;
-            _bandCap.verticalOverflow = VerticalWrapMode.Overflow;
             Place(_bandValue.rectTransform, _valueX, -rgbH * 0.25f, _valueW, rgbH);
-            Place(_bandCap.rectTransform, _capX, -rgbH * 0.25f, _capW, rgbH);
+            if (_bandCap != null)
+            {
+                _bandCap.alignment = TextAnchor.UpperRight;
+                _bandCap.verticalOverflow = VerticalWrapMode.Overflow;
+                Place(_bandCap.rectTransform, _capX, -rgbH * 0.25f, _capW, rgbH);
+            }
         }
         else
         {
@@ -462,6 +498,8 @@ public sealed class CharacterStatGraph
         }
         Place(value.rectTransform, _valueX, 0f, _valueW, _textH);
         value.horizontalOverflow = HorizontalWrapMode.Overflow;
+        if (cap == null)
+            return;
         Place(cap.rectTransform, _capX, 0f, _capW, _textH);
         cap.horizontalOverflow = HorizontalWrapMode.Overflow;
         cap.color = _capColor;
