@@ -541,6 +541,7 @@ public class ControllerProduction : MonoBehaviour
             }
         }
 
+        BlinkZeroOwnedWorkers();
         TimeElapsed += Time.deltaTime;
 
         if (TimeElapsed >= TimeOut)
@@ -626,7 +627,11 @@ public class ControllerProduction : MonoBehaviour
                     paintRate = (int)amount;
                 }
                 else
+                {
                     paintRate = productionWorker.PaintPixels > int.MaxValue ? int.MaxValue : (int)productionWorker.PaintPixels;
+                    if (productionWorker.OwnedNumCur < 1)
+                        paintRate = HalfCeilMin1(paintRate);
+                }
 
                 bool PCF = false;
                 bool painted = false;
@@ -2148,11 +2153,38 @@ public class ControllerProduction : MonoBehaviour
         CharacterClass character = CharacterOf(id);
         if (character == null || character.Stats == null || character.Stats[0] == null || character.ID == 0)
             return 0;
+        ulong produced;
         if (channel == 1)
-            return character.Stats[0].GCreates;
-        if (channel == 2)
-            return character.Stats[0].BCreates;
-        return character.Stats[0].RCreates;
+            produced = character.Stats[0].GCreates;
+        else if (channel == 2)
+            produced = character.Stats[0].BCreates;
+        else
+            produced = character.Stats[0].RCreates;
+        if (character.OwnedNumCur < 1)
+            produced = HalfCeilMin1(produced);
+        return produced;
+    }
+
+    // 所持0の生産は半分。端数は切り上げ、0は1。
+    static ulong HalfCeilMin1(ulong amount)
+    {
+        if (amount <= 1)
+            return 1;
+        return (amount + 1) / 2;
+    }
+
+    static uint HalfCeilMin1(uint amount)
+    {
+        if (amount <= 1)
+            return 1;
+        return (amount + 1) / 2;
+    }
+
+    static int HalfCeilMin1(int amount)
+    {
+        if (amount <= 1)
+            return 1;
+        return (amount + 1) / 2;
     }
 
     void WireFusionButton()
@@ -3547,22 +3579,7 @@ public class ControllerProduction : MonoBehaviour
             return false;
 
         LeaveBattle();
-
-        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
-        {
-            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
-            {
-                uint characterId = BattlePartyCharacterIds[setIndex, x, y];
-                if (characterId == 0)
-                    continue;
-
-                ReleaseCharacterFromProduction(characterId);
-                CharacterClass battleCharacter = CharacterOf(characterId);
-                if (battleCharacter != null)
-                    battleCharacter.Whereabouts = Place.Battle;
-            }
-        }
-
+        PlaceSortieCharacters(setIndex);
         ReleasePeopleFromProduction(setIndex);
         ActiveBattlePartySet = setIndex;
         ActiveBattleStage = 0;
@@ -4035,21 +4052,8 @@ public class ControllerProduction : MonoBehaviour
 
     void EnsureSortiePlaces()
     {
-        int setIndex = ActiveBattlePartySet;
-        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
-        {
-            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
-            {
-                uint characterId = BattlePartyCharacterIds[setIndex, x, y];
-                if (characterId == 0)
-                    continue;
-                ReleaseCharacterFromProduction(characterId);
-                CharacterClass battleCharacter = CharacterOf(characterId);
-                if (battleCharacter != null)
-                    battleCharacter.Whereabouts = Place.Battle;
-            }
-        }
-        ReleasePeopleFromProduction(setIndex);
+        PlaceSortieCharacters(ActiveBattlePartySet);
+        ReleasePeopleFromProduction(ActiveBattlePartySet);
         RefreshProductionAssignmentViews();
     }
 
@@ -4352,6 +4356,28 @@ public class ControllerProduction : MonoBehaviour
             ShowCharacterOwnedNum();
     }
 
+    // 所持が1以上のキャラだけ出撃扱いにして、生産から外す。所持0はバトルに出ないので担当のまま。
+    void PlaceSortieCharacters(int setIndex)
+    {
+        if (setIndex < 1 || setIndex > Constants.BATTLE_PARTY_SET_NUM)
+            return;
+        for (int x = 1; x <= Constants.BATTLE_FORMATION_SIZE; x++)
+        {
+            for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
+            {
+                uint characterId = BattlePartyCharacterIds[setIndex, x, y];
+                if (characterId == 0)
+                    continue;
+                CharacterClass battleCharacter = CharacterOf(characterId);
+                if (battleCharacter != null && battleCharacter.OwnedNumCur < 1)
+                    continue;
+                ReleaseCharacterFromProduction(characterId);
+                if (battleCharacter != null)
+                    battleCharacter.Whereabouts = Place.Battle;
+            }
+        }
+    }
+
     void ReleaseCharacterFromProduction(uint characterId)
     {
         for (int i = 1; i <= Constants.CHARACTERS_HELP_PRODUCTION_NUM; i++)
@@ -4624,7 +4650,7 @@ public class ControllerProduction : MonoBehaviour
         int pixelB = ColorByte(ColorProductionPixel[argIndex].b);
         uint createPixels = pixelPerson != null
             ? ToUint(pixelPerson.PixelAmount(pixelR, pixelG, pixelB, PersonBalance))
-            : pixelWorker.GetCreatePixels((ushort)pixelR, (ushort)pixelG, (ushort)pixelB);
+            : PixelCreateAmount(pixelWorker, pixelR, pixelG, pixelB);
 
         if (pixelR == 0 && ProgressProductionPixel[argIndex, 1] == 0)
         {
@@ -8715,7 +8741,58 @@ public class ControllerProduction : MonoBehaviour
         CharacterClass character = CharacterOf(CharactersIDProductionPixel[index]);
         if (character == null || character.ID == 0)
             return 0;
-        return character.GetCreatePixels((ushort)r, (ushort)g, (ushort)b);
+        return PixelCreateAmount(character, r, g, b);
+    }
+
+    uint PixelCreateAmount(CharacterClass character, int r, int g, int b)
+    {
+        if (character == null)
+            return 0;
+        uint amount = character.GetCreatePixels((ushort)r, (ushort)g, (ushort)b);
+        if (character.OwnedNumCur < 1)
+            amount = HalfCeilMin1(amount);
+        return amount;
+    }
+
+    void BlinkZeroOwnedWorkers()
+    {
+        List<ShownProductionWorker> workers = ShownProductionWorker.Active;
+        if (workers.Count == 0)
+            return;
+        float wave = Mathf.Sin(Time.unscaledTime * Mathf.PI * 1.5f) * 0.5f + 0.5f;
+        float alpha = Mathf.Lerp(0.15f, 1f, wave);
+        for (int i = workers.Count - 1; i >= 0; i--)
+        {
+            ShownProductionWorker shown = workers[i];
+            if (shown == null)
+            {
+                workers.RemoveAt(i);
+                continue;
+            }
+            bool blink = shown.PersonId == 0 && shown.CharacterId != 0 && OwnsNone(shown.CharacterId);
+            CanvasGroup group = shown.GetComponent<CanvasGroup>();
+            if (!blink)
+            {
+                if (group != null && group.alpha != 1f)
+                    group.alpha = 1f;
+                continue;
+            }
+            if (group == null)
+            {
+                group = shown.gameObject.AddComponent<CanvasGroup>();
+                group.interactable = true;
+                group.blocksRaycasts = true;
+            }
+            group.alpha = alpha;
+        }
+    }
+
+    bool OwnsNone(uint id)
+    {
+        if (id == 0)
+            return false;
+        CharacterClass character = CharacterOf(id);
+        return character != null && character.OwnedNumCur < 1;
     }
 
     static uint ToUint(long value)
@@ -12186,9 +12263,22 @@ public class RgbHoldRepeat : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
 
 public class ShownProductionWorker : MonoBehaviour
 {
+    public static readonly List<ShownProductionWorker> Active = new List<ShownProductionWorker>();
+
     public uint PersonId;
     public uint CharacterId;
     public Sprite OwnedSprite;
+
+    void OnEnable()
+    {
+        if (!Active.Contains(this))
+            Active.Add(this);
+    }
+
+    void OnDisable()
+    {
+        Active.Remove(this);
+    }
 }
 
 public class RgbButtonPressGlow : MonoBehaviour, IPointerDownHandler

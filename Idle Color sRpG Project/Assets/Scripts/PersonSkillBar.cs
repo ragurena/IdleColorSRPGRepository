@@ -5,6 +5,8 @@ using UnityEngine.UI;
 public static class PersonSkillBar
 {
     const string RootName = "PersonSkillBar";
+    const int LevelFontSize = 16;
+    const float LevelHeight = 18f;
 
     public static void Hide(Button button)
     {
@@ -49,6 +51,11 @@ public static class PersonSkillBar
             Place(rect, inside);
         root.gameObject.SetActive(true);
         Text label = root.Find("Level").GetComponent<Text>();
+        if (label.fontSize != LevelFontSize)
+            label.fontSize = LevelFontSize;
+        RectTransform levelRect = label.rectTransform;
+        if (levelRect.sizeDelta.y != LevelHeight)
+            levelRect.sizeDelta = new Vector2(levelRect.sizeDelta.x, LevelHeight);
         string levelText = "Lv" + level.ToString();
         if (label.text != levelText)
             label.text = levelText;
@@ -117,10 +124,10 @@ public static class PersonSkillBar
         levelRect.anchorMax = new Vector2(1f, 1f);
         levelRect.pivot = new Vector2(0.5f, 1f);
         levelRect.anchoredPosition = Vector2.zero;
-        levelRect.sizeDelta = new Vector2(0f, 16f);
+        levelRect.sizeDelta = new Vector2(0f, LevelHeight);
         Text level = levelObject.AddComponent<Text>();
         level.font = font;
-        level.fontSize = 14;
+        level.fontSize = LevelFontSize;
         level.alignment = TextAnchor.MiddleCenter;
         level.color = Color.white;
         level.raycastTarget = false;
