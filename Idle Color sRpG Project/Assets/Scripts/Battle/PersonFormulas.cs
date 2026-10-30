@@ -136,7 +136,7 @@ public static class PersonFormulas
         return initial;
     }
 
-    public static long AmountAtLevel(long initial, int level, PersonBalanceConfig config)
+    public static long AmountAtLevel(long initial, int level, PersonBalanceConfig config, int growthDivisor = 0)
     {
         if (config == null)
             config = PersonBalanceConfig.CreateDefault();
@@ -144,7 +144,7 @@ public static class PersonFormulas
             initial = 0;
         if (level < 1)
             level = 1;
-        int divisor = config.LevelGrowthDivisor;
+        int divisor = growthDivisor > 0 ? growthDivisor : config.LevelGrowthDivisor;
         if (divisor < 1)
             divisor = 1;
         long amount = initial;

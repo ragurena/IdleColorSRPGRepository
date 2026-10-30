@@ -13,6 +13,8 @@ public class PersonBalanceConfig
     public int PixelExpSpecialtyMultiplier = 2;
     public int RgbExpBatch = 255;
     public int LevelGrowthDivisor = 10;
+    // ピクセル生産のレベル成長。共通の LevelGrowthDivisor の半分なので、1レベルごとの増加は倍。
+    public int PixelLevelGrowthDivisor = 5;
     public int ExpBase = 100;
     // ピクセル生産の必要経験値は、初期値 ExpBase をこの倍にしてからレベルで増やす。
     public int PixelExpBaseMultiplier = 3;

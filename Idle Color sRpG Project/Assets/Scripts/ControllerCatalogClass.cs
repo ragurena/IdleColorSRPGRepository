@@ -829,8 +829,9 @@ public class ControllerCatalogClass : MonoBehaviour
         PaintPersonRow(_personRows[2], person.RgbLevel[2], person.RgbExp[2], config.RgbExpExponent, config, 1, person.RgbAmount(2, config).ToString() + "/秒");
         int pixelLevel = person.PixelLevel < 1 ? 1 : person.PixelLevel;
         long pixelExp = person.PixelExp < 0 ? 0 : person.PixelExp;
-        long pixelPlain = PersonFormulas.AmountAtLevel(config.PixelBase, pixelLevel, config);
-        long pixelSpecialty = PersonFormulas.AmountAtLevel(config.PixelSpecialtyBase, pixelLevel, config);
+        int pixelDivisor = config.PixelLevelGrowthDivisor;
+        long pixelPlain = PersonFormulas.AmountAtLevel(config.PixelBase, pixelLevel, config, pixelDivisor);
+        long pixelSpecialty = PersonFormulas.AmountAtLevel(config.PixelSpecialtyBase, pixelLevel, config, pixelDivisor);
         string pixelValue = pixelPlain.ToString() + " px";
         if (person.Specialties.Count > 0 && pixelSpecialty != pixelPlain)
             pixelValue += "（得意 " + pixelSpecialty.ToString() + " px）";

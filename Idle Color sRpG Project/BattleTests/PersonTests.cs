@@ -9,6 +9,9 @@ static class PersonTests
         failures += Check(PersonFormulas.AmountAtLevel(10, 1, config) == 10, "rgb lv1");
         failures += Check(PersonFormulas.AmountAtLevel(10, 2, config) == 12, "rgb lv2");
         failures += Check(PersonFormulas.AmountAtLevel(10, 3, config) == 15, "rgb lv3");
+        failures += Check(PersonFormulas.AmountAtLevel(10, 2, config, config.PixelLevelGrowthDivisor) == 14, "pixel lv2");
+        failures += Check(PersonFormulas.AmountAtLevel(10, 3, config, config.PixelLevelGrowthDivisor) == 20, "pixel lv3");
+        failures += Check(PersonFormulas.AmountAtLevel(25, 3, config, config.PixelLevelGrowthDivisor) == 50, "pixel specialty lv3");
         failures += Check(PersonFormulas.AmountAtLevel(50, 3, config) == 75, "fire lv3");
         failures += Check(PersonFormulas.ExpToNext(1, 1.7, config) == 100, "exp lv1");
         failures += Check(PersonFormulas.ExpToNext(2, 1.7, config) == 325, "exp rgb 2");

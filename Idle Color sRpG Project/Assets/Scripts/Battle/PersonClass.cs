@@ -43,7 +43,8 @@ public sealed class PersonClass
     public long PixelAmount(int r, int g, int b, PersonBalanceConfig config)
     {
         int level = PixelLevel < 1 ? 1 : PixelLevel;
-        return PersonFormulas.AmountAtLevel(PersonFormulas.PixelInitial(SpecialtyArray(), r, g, b, config), level, config);
+        int divisor = config != null ? config.PixelLevelGrowthDivisor : 5;
+        return PersonFormulas.AmountAtLevel(PersonFormulas.PixelInitial(SpecialtyArray(), r, g, b, config), level, config, divisor);
     }
 
     public long CharacterAmount(bool isAuthor, PersonBalanceConfig config)
