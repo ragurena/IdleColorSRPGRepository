@@ -105,6 +105,7 @@ public static class ItemIds
     public const int ExpOrb64 = 64;
     public const int ExpOrb128 = 128;
     public const int StageShard = 1001;
+    public const int EnmusubiOmamori = 2001;
 
     public static string DisplayName(int itemId)
     {
@@ -116,7 +117,21 @@ public static class ItemIds
             case ExpOrb64: return "経験値玉(64)";
             case ExpOrb128: return "経験値玉(128)";
             case StageShard: return "階層の欠片";
+            case EnmusubiOmamori: return "縁結びのお守り";
             default: return "アイテム" + itemId.ToString();
         }
+    }
+
+    public static bool IsExpOrb(int itemId)
+    {
+        return itemId == ExpOrb8 || itemId == ExpOrb16 || itemId == ExpOrb32 || itemId == ExpOrb64 || itemId == ExpOrb128;
+    }
+
+    // 1個あたり、そのサイズ × 10 の経験値。
+    public static long ExpPerOrb(int itemId)
+    {
+        if (!IsExpOrb(itemId))
+            return 0;
+        return (long)itemId * 10L;
     }
 }

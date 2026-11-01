@@ -35,7 +35,9 @@ public class ControllerBattleClass : MonoBehaviour
     QuestBoard _questBoard;
         SettingsBoard _settings;
         MessageBoard _messages;
+        ItemBoard _items;
         GameObject _messageButton;
+        GameObject _charmIcon;
         GameObject _messageBadge;
         Text _messageBadgeText;
     Transform _questOverlay;
@@ -133,6 +135,10 @@ public class ControllerBattleClass : MonoBehaviour
             unit.RawHpMax = hpMax;
             unit.RawAtk = (long)character.Stats[0].ATK;
             unit.RawDef = (long)character.Stats[0].DEF;
+            int level = character.Level > int.MaxValue ? int.MaxValue : (int)character.Level;
+            if (level < 1)
+                level = 1;
+            unit.Level = level;
             _production.ApplyPersonStats(unit);
             long delta = unit.HpMax - previousHp;
             if (delta > 0)
@@ -1171,6 +1177,7 @@ public class ControllerBattleClass : MonoBehaviour
     {
         if (_root != null)
             _root.SetActive(true);
+        RefreshCharmIcon();
     }
 
     public void ApplyStageBackground(int stageIndex)
@@ -1488,6 +1495,7 @@ public class ControllerBattleClass : MonoBehaviour
         _withdrawButton = CreateButton("ButtonBattleWithdraw", "撤退", new Color(0.75f, 0.28f, 0.24f, 1f));
         PlaceRect(_withdrawButton.GetComponent<RectTransform>(), -430f, 175f, 120f, 44f);
         _withdrawButton.onClick.AddListener(PushWithdraw);
+        BuildCharmIcon();
 
         _fastButton = CreateButton("ButtonBattleFast", "通常", new Color(0.25f, 0.45f, 0.75f, 1f));
         PlaceRect(_fastButton.GetComponent<RectTransform>(), -290f, 175f, 120f, 44f);
@@ -1692,6 +1700,17 @@ public class ControllerBattleClass : MonoBehaviour
             const float gap = 12f;
             float messageY = quest.anchoredPosition.y - quest.sizeDelta.y * 0.5f - gap - message.sizeDelta.y * 0.5f;
             message.anchoredPosition = new Vector2(quest.anchoredPosition.x, messageY);
+        }
+        RectTransform items = parent.Find("ButtonItemList") as RectTransform;
+        if (items != null)
+        {
+            const float gap = 12f;
+            RectTransform above = message != null && message.gameObject.activeSelf ? message : quest;
+            if (above != null)
+            {
+                float itemY = above.anchoredPosition.y - above.sizeDelta.y * 0.5f - gap - items.sizeDelta.y * 0.5f;
+                items.anchoredPosition = new Vector2(above.anchoredPosition.x, itemY);
+            }
         }
     }
 
@@ -1975,12 +1994,25 @@ public class ControllerBattleClass : MonoBehaviour
         _messageButton = message.gameObject;
         BuildMessageBadge(message.transform);
 
+        Button items = CreateButton("ButtonItemList", "アイテム一覧", new Color(0.55f, 0.36f, 0.22f, 1f), _questOverlay);
+        PlaceRect(items.GetComponent<RectTransform>(), battlePos.x + 430f, battlePos.y - 172f, 150f, 96f);
+        Text itemLabel = items.GetComponentInChildren<Text>();
+        if (itemLabel != null)
+        {
+            itemLabel.fontSize = 22;
+            itemLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            itemLabel.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+        items.onClick.AddListener(ToggleItems);
+
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
         _settings = new SettingsBoard();
         _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, ApplyKeepAwake, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
         _messages = new MessageBoard();
         _messages.Build(_questOverlay, _font, _production);
+        _items = new ItemBoard();
+        _items.Build(_questOverlay, _font, _production);
         RefreshMessageButton();
         BringQuestForward();
     }
@@ -2117,6 +2149,8 @@ public class ControllerBattleClass : MonoBehaviour
                 _settings.Close();
             if (_messages != null && _messages.IsOpen)
                 _messages.Close();
+            if (_items != null && _items.IsOpen)
+                _items.Close();
             _questBoard.Open();
         }
     }
@@ -2133,6 +2167,8 @@ public class ControllerBattleClass : MonoBehaviour
                 _questBoard.Close();
             if (_messages != null && _messages.IsOpen)
                 _messages.Close();
+            if (_items != null && _items.IsOpen)
+                _items.Close();
             _settings.Open(SpeedCap(), AdWatchConfirm(), ScreenAwake.Enabled);
         }
     }
@@ -2149,6 +2185,7 @@ public class ControllerBattleClass : MonoBehaviour
         bool show = _production != null && _production.Messages != null && _production.Messages.AnyVisible();
         if (_messageButton != null)
             _messageButton.SetActive(show);
+        PlaceItemButton();
         int badge = show && _production.Messages != null ? _production.Messages.BadgeCount() : 0;
         if (_messageBadge == null)
             return;
@@ -2174,8 +2211,86 @@ public class ControllerBattleClass : MonoBehaviour
                 _questBoard.Close();
             if (_settings != null && _settings.IsOpen)
                 _settings.Close();
+            if (_items != null && _items.IsOpen)
+                _items.Close();
             _messages.Open();
         }
+    }
+
+    void PlaceItemButton()
+    {
+        if (_questOverlay == null)
+            return;
+        RectTransform items = _questOverlay.Find("ButtonItemList") as RectTransform;
+        RectTransform message = _questOverlay.Find("ButtonMessage") as RectTransform;
+        RectTransform quest = _questOverlay.Find("ButtonBattleQuest") as RectTransform;
+        if (items == null)
+            return;
+        const float gap = 12f;
+        RectTransform above = message != null && message.gameObject.activeSelf ? message : quest;
+        if (above == null)
+            return;
+        float itemY = above.anchoredPosition.y - above.sizeDelta.y * 0.5f - gap - items.sizeDelta.y * 0.5f;
+        items.anchoredPosition = new Vector2(above.anchoredPosition.x, itemY);
+    }
+
+    void ToggleItems()
+    {
+        if (_items == null)
+            return;
+        if (_items.IsOpen)
+            _items.Close();
+        else
+        {
+            if (_questBoard != null && _questBoard.IsOpen)
+                _questBoard.Close();
+            if (_settings != null && _settings.IsOpen)
+                _settings.Close();
+            if (_messages != null && _messages.IsOpen)
+                _messages.Close();
+            _items.Open();
+        }
+    }
+
+    public void RefreshItemBoard()
+    {
+        if (_items != null)
+            _items.Refresh();
+    }
+
+    void BuildCharmIcon()
+    {
+        if (_withdrawButton == null || _charmIcon != null)
+            return;
+        Image icon = CreateImage("ImageEnmusubiCharm", _withdrawButton.transform, Color.white);
+        icon.preserveAspect = true;
+        icon.raycastTarget = false;
+        Sprite sprite = ItemImages.Enmusubi();
+        if (sprite != null)
+            icon.sprite = sprite;
+        RectTransform rect = icon.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0.82f, 0.82f);
+        rect.anchoredPosition = new Vector2(22f, -24f);
+        rect.sizeDelta = new Vector2(68f, 68f);
+        _charmIcon = icon.gameObject;
+        _charmIcon.SetActive(false);
+    }
+
+    public void RefreshCharmIcon()
+    {
+        if (_charmIcon == null)
+            return;
+        bool on = _production != null && _production.IsEnmusubiArmed();
+        Image icon = _charmIcon.GetComponent<Image>();
+        if (on && icon != null && icon.sprite == null)
+        {
+            Sprite sprite = ItemImages.Enmusubi();
+            if (sprite != null)
+                icon.sprite = sprite;
+        }
+        _charmIcon.SetActive(on && icon != null && icon.sprite != null);
     }
 
     void BuildMessageBadge(Transform message)
@@ -2621,6 +2736,17 @@ public class ControllerBattleClass : MonoBehaviour
         public bool IsGuaranteedRecruit()
         {
             return _view._production != null && _view._production.IsNextEnemyDefeatGuaranteedRecruit();
+        }
+
+        public bool ForcesUnownedRecruit(uint characterId)
+        {
+            return _view._production != null && _view._production.CharmForcesUnownedRecruit(characterId);
+        }
+
+        public void EndForcedRecruit()
+        {
+            if (_view._production != null)
+                _view._production.EndEnmusubiCharm();
         }
     }
 }

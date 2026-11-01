@@ -59,6 +59,19 @@ sealed class RecordingSink : IBattleRewardSink
     {
         return false;
     }
+
+    public bool ForceRecruit;
+
+    public bool ForcesUnownedRecruit(uint characterId)
+    {
+        return ForceRecruit;
+    }
+
+    public void EndForcedRecruit()
+    {
+        ForceRecruit = false;
+        Calls.Add("charm-end");
+    }
 }
 
 static class Program
@@ -76,6 +89,7 @@ static class Program
         TestAttribute();
         TestComplement();
         TestRewards(config);
+        TestCharmRecruit(config);
         TestTurnOrder(config);
         TestTargeting();
         TestKnockout(config);
@@ -238,6 +252,29 @@ static class Program
         Check(r + g + b == 10, "split light keeps total");
         Check(config.ResolveExpOrbItemId(8) == 8, "orb 8");
         Check(config.ResolveExpOrbItemId(20) == 16, "orb nearest");
+        Check(ItemIds.DisplayName(ItemIds.EnmusubiOmamori) == "縁結びのお守り", "charm name");
+    }
+
+    // 確率が0でも未所持なら仲間にし、その1回で効果を切る。次の1体には続かない。
+    static void TestCharmRecruit(BattleBalanceConfig config)
+    {
+        var rng = new FixedRandom();
+        rng.DoubleValue = 1;
+        var sink = new RecordingSink();
+        sink.ForceRecruit = true;
+        BattleUnit killer = Unit(1, true, 10, 1, 1);
+        killer.Luc = 0;
+        killer.Obs = 0;
+        BattleUnit enemy = Unit(2, false, 10, 1, 1);
+        enemy.CharacterId = 9;
+        var units = new List<BattleUnit> { killer };
+        BattleDefeatProcessor.Process(killer, enemy, units, config, rng, sink);
+        Check(sink.Calls.Contains("recruit"), "charm recruits");
+        Check(sink.Calls.Contains("charm-end"), "charm ends");
+        Check(sink.ForceRecruit == false, "charm flag off");
+        sink.Calls.Clear();
+        BattleDefeatProcessor.Process(killer, enemy, units, config, rng, sink);
+        Check(sink.Calls.Contains("recruit") == false, "charm does not chain");
     }
 
     static void TestTurnOrder(BattleBalanceConfig config)

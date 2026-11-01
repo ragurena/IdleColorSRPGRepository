@@ -91,6 +91,7 @@ public class ControllerProduction : MonoBehaviour
     readonly Dictionary<string, Color> FeatureButtonTextColors = new Dictionary<string, Color>();
     BattleBalanceConfig BattleBalance = BattleBalanceConfig.CreateDefault();
     Dictionary<int, int> ItemCounts = new Dictionary<int, int>();
+    bool EnmusubiArmed;
     bool SaveBlocked;
     bool SaveFailureNotified;
     GameObject SaveNotice;
@@ -761,7 +762,8 @@ public class ControllerProduction : MonoBehaviour
             Slots,
             Quests,
             _messages != null ? _messages.Save : null,
-            RgbRowOrder
+            RgbRowOrder,
+            EnmusubiArmed
             );
         if (saved)
         {
@@ -970,6 +972,7 @@ public class ControllerProduction : MonoBehaviour
                     Quests,
                     _messages != null ? _messages.Save : null,
                     ref RgbRowOrder,
+                    ref EnmusubiArmed,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -1043,6 +1046,7 @@ public class ControllerProduction : MonoBehaviour
         }
         if (ItemCounts != null)
             ItemCounts.Clear();
+        EnmusubiArmed = false;
         if (_messages != null)
             _messages.Save.Clear();
 
@@ -4122,6 +4126,220 @@ public class ControllerProduction : MonoBehaviour
         if (sum > int.MaxValue)
             sum = int.MaxValue;
         ItemCounts[itemId] = (int)sum;
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshItemBoard();
+    }
+
+    public int GetItemCount(int itemId)
+    {
+        int count;
+        if (ItemCounts != null && ItemCounts.TryGetValue(itemId, out count) && count > 0)
+            return count;
+        return 0;
+    }
+
+    public void CollectOwnedItemIds(List<int> into)
+    {
+        if (into == null)
+            return;
+        into.Clear();
+        if (ItemCounts == null)
+            return;
+        foreach (KeyValuePair<int, int> pair in ItemCounts)
+        {
+            if (pair.Value > 0)
+                into.Add(pair.Key);
+        }
+        into.Sort();
+    }
+
+    public bool IsEnmusubiArmed()
+    {
+        return EnmusubiArmed;
+    }
+
+    // 所持が1以上のときだけ1つ減らし、次の未所持撃破まで効果を付ける。効果中はもう消費しない。
+    public bool TryUseEnmusubi()
+    {
+        if (EnmusubiArmed)
+            return false;
+        int count = GetItemCount(ItemIds.EnmusubiOmamori);
+        if (count < 1)
+            return false;
+        count--;
+        if (count <= 0)
+            ItemCounts.Remove(ItemIds.EnmusubiOmamori);
+        else
+            ItemCounts[ItemIds.EnmusubiOmamori] = count;
+        EnmusubiArmed = true;
+        SaveGame();
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshCharmIcon();
+        return true;
+    }
+
+    public bool CharmForcesUnownedRecruit(uint characterId)
+    {
+        if (!EnmusubiArmed)
+            return false;
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null)
+            return false;
+        return character.OwnedNumCur < 1;
+    }
+
+    public void EndEnmusubiCharm()
+    {
+        if (!EnmusubiArmed)
+            return;
+        EnmusubiArmed = false;
+        SaveGame();
+        if (ControllerBattle != null)
+        {
+            ControllerBattle.RefreshCharmIcon();
+            ControllerBattle.RefreshItemBoard();
+        }
+    }
+
+    public void CollectOwnedCharactersOfSize(int size, List<uint> into)
+    {
+        if (into == null)
+            return;
+        into.Clear();
+        if (size < 1)
+            return;
+        for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
+            RememberOwnedSize(CharactersAll[i], size, into);
+        ForEachImportedCharacter(character => RememberOwnedSize(character, size, into));
+        into.Sort();
+    }
+
+    static void RememberOwnedSize(CharacterClass character, int size, List<uint> into)
+    {
+        if (character == null || character.ID == 0 || character.OwnedNumCur < 1)
+            return;
+        if (character.Size != size)
+            return;
+        into.Add(character.ID);
+    }
+
+    public ExpOrbForecast PreviewExpOrb(uint characterId, int itemId, int count)
+    {
+        ExpOrbForecast forecast = new ExpOrbForecast();
+        CharacterClass character = GetCharacter(characterId);
+        if (!CanSpendExpOrb(character, itemId, count))
+            return forecast;
+        long gain = ItemIds.ExpPerOrb(itemId) * count;
+        forecast = ForecastExp(character, gain);
+        forecast.Ok = true;
+        forecast.ItemId = itemId;
+        forecast.Count = count;
+        forecast.Gain = gain;
+        return forecast;
+    }
+
+    public bool TryUseExpOrbs(uint characterId, int itemId, int count, out ExpOrbForecast forecast)
+    {
+        forecast = PreviewExpOrb(characterId, itemId, count);
+        if (!forecast.Ok || forecast.Unchanged)
+            return false;
+        CharacterClass character = GetCharacter(characterId);
+        int owned = GetItemCount(itemId);
+        owned -= count;
+        if (owned <= 0)
+            ItemCounts.Remove(itemId);
+        else
+            ItemCounts[itemId] = owned;
+        character.Level = (ulong)forecast.LevelAfter;
+        character.Exp = (ulong)forecast.ExpAfter;
+        character.ExpMax = (ulong)forecast.ExpMaxAfter;
+        character.RebuildLevelStats(GetBattleBalance());
+        if (ControllerBattle != null)
+            ControllerBattle.ApplyAllyFusion(character);
+        if (forecast.Levels > 0)
+            RefreshMessages();
+        SaveGame();
+        return true;
+    }
+
+    bool CanSpendExpOrb(CharacterClass character, int itemId, int count)
+    {
+        if (character == null || !ItemIds.IsExpOrb(itemId))
+            return false;
+        if (count != 1 && count != 10 && count != 100 && count != 1000)
+            return false;
+        if (character.Size != itemId || character.OwnedNumCur < 1)
+            return false;
+        return GetItemCount(itemId) >= count;
+    }
+
+    ExpOrbForecast ForecastExp(CharacterClass character, long gain)
+    {
+        ExpOrbForecast forecast = new ExpOrbForecast();
+        BattleBalanceConfig config = GetBattleBalance();
+        if (config == null)
+            config = BattleBalanceConfig.CreateDefault();
+        forecast.Name = character.Name;
+        forecast.LevelBefore = (long)character.Level;
+        if (forecast.LevelBefore < 1)
+            forecast.LevelBefore = 1;
+        forecast.ExpBefore = (long)character.Exp;
+        forecast.ExpMaxBefore = (long)character.ExpMax;
+        if (forecast.ExpMaxBefore < 1)
+            forecast.ExpMaxBefore = config.ExpToNext(forecast.LevelBefore, character.OpaquePixelCount());
+        forecast.HpBefore = (long)character.Stats[0].HPMax;
+        forecast.AtkBefore = (long)character.Stats[0].ATK;
+        forecast.DefBefore = (long)character.Stats[0].DEF;
+        forecast.SpdBefore = character.Stats[0].SPD;
+
+        ulong keepLevel = character.Level;
+        ulong keepExp = character.Exp;
+        ulong keepExpMax = character.ExpMax;
+        long level = forecast.LevelBefore;
+        long exp = forecast.ExpBefore < 0 ? 0 : forecast.ExpBefore;
+        long expMax = forecast.ExpMaxBefore;
+        long opaque = character.OpaquePixelCount();
+        long pending = gain < 0 ? 0 : gain;
+        try
+        {
+            for (int safety = 0; safety < 400; safety++)
+            {
+                int got = BattleExperience.Add(ref level, ref exp, ref expMax, pending, config, opaque);
+                pending = 0;
+                character.Level = (ulong)level;
+                character.Exp = (ulong)exp;
+                character.RebuildLevelStats(config);
+                level = (long)character.Level;
+                exp = (long)character.Exp;
+                expMax = (long)character.ExpMax;
+                if (level >= config.MaxLevel || exp < expMax || got == 0)
+                    break;
+            }
+            forecast.LevelAfter = level;
+            forecast.ExpAfter = exp;
+            forecast.ExpMaxAfter = expMax;
+            long risen = level - forecast.LevelBefore;
+            if (risen < 0)
+                risen = 0;
+            if (risen > int.MaxValue)
+                risen = int.MaxValue;
+            forecast.Levels = (int)risen;
+            forecast.HpAfter = (long)character.Stats[0].HPMax;
+            forecast.AtkAfter = (long)character.Stats[0].ATK;
+            forecast.DefAfter = (long)character.Stats[0].DEF;
+            forecast.SpdAfter = character.Stats[0].SPD;
+        }
+        finally
+        {
+            character.Level = keepLevel;
+            character.Exp = keepExp;
+            character.ExpMax = keepExpMax;
+            character.RebuildLevelStats(config);
+            character.Level = keepLevel;
+            character.Exp = keepExp;
+            character.ExpMax = keepExpMax;
+        }
+        return forecast;
     }
 
     public int GrantBattleExp(BattleUnit unit, long gain, BattleBalanceConfig config)
@@ -4444,6 +4662,7 @@ public class ControllerProduction : MonoBehaviour
                 CopyCharacterImage(file, fileName);
         }
         PersonPortraits.CopyFromFolder(Application.streamingAssetsPath + "/human");
+        ItemImages.CopyFromFolder(Application.streamingAssetsPath + "/item");
 
 #elif UNITY_IPHONE
     Debug.Log("UNITY_IPHONE");
@@ -4456,6 +4675,7 @@ public class ControllerProduction : MonoBehaviour
             CopyCharacterImage(file, fileName);
     }
     PersonPortraits.CopyFromFolder(Application.dataPath + "/Raw" + "/human");
+    ItemImages.CopyFromFolder(Application.dataPath + "/Raw" + "/item");
 
 #elif UNITY_ANDROID
     Debug.Log("UNITY_ANDROID");
@@ -4494,6 +4714,7 @@ public class ControllerProduction : MonoBehaviour
         }
     }
     yield return CopyHumanAndroid();
+    yield return CopyItemAndroid();
 #endif
 
         Debug.Log("MakeFile End");
@@ -4521,6 +4742,23 @@ public class ControllerProduction : MonoBehaviour
                 else
                     Debug.LogError("人の画像コピー失敗: " + fileName + " エラー: " + www.error);
             }
+        }
+    }
+
+    IEnumerator CopyItemAndroid()
+    {
+        string destDir = Application.persistentDataPath + "/item";
+        if (!Directory.Exists(destDir))
+            Directory.CreateDirectory(destDir);
+        string fileName = ItemImages.EnmusubiFile;
+        string path = Application.streamingAssetsPath + "/item/" + fileName;
+        using (UnityWebRequest www = UnityWebRequest.Get(path))
+        {
+            yield return www.SendWebRequest();
+            if (www.result == UnityWebRequest.Result.Success)
+                File.WriteAllBytes(Path.Combine(destDir, fileName), www.downloadHandler.data);
+            else
+                Debug.LogError("アイテム画像のコピーに失敗しました。 " + fileName + " " + www.error);
         }
     }
 
@@ -10238,6 +10476,8 @@ public class ControllerProduction : MonoBehaviour
             RaiseCharacterLevelCap(def.LevelCap);
         if (def.FusionCap > 0)
             ApplyFusionCountCap();
+        if (def.ItemCount > 0 && def.ItemId != 0)
+            AddBattleItem(def.ItemId, def.ItemCount);
     }
 
     void RaiseFusionEfficiency(int amount)
@@ -12387,5 +12627,34 @@ public class GaugeTextGlow : BaseMeshEffect
             for (int i = 0; i < count; i += 3)
                 vh.AddTriangle(start + i, start + i + 1, start + i + 2);
         }
+    }
+}
+
+public struct ExpOrbForecast
+{
+    public bool Ok;
+    public int ItemId;
+    public int Count;
+    public long Gain;
+    public string Name;
+    public long LevelBefore;
+    public long LevelAfter;
+    public int Levels;
+    public long ExpBefore;
+    public long ExpMaxBefore;
+    public long ExpAfter;
+    public long ExpMaxAfter;
+    public long HpBefore;
+    public long HpAfter;
+    public long AtkBefore;
+    public long AtkAfter;
+    public long DefBefore;
+    public long DefAfter;
+    public long SpdBefore;
+    public long SpdAfter;
+
+    public bool Unchanged
+    {
+        get { return LevelAfter == LevelBefore && ExpAfter == ExpBefore; }
     }
 }

@@ -69,8 +69,11 @@ public sealed class QuestDef
     public readonly int LevelCap;
     // 0 は合成回数の上限を変えない。あるときは、その回数だけ上限を足す。クリアした分は重なる。
     public readonly int FusionCap;
+    // 0 はアイテムを渡さない。あるときは、受け取りでその個数を足す。
+    public readonly int ItemId;
+    public readonly int ItemCount;
 
-    public QuestDef(int id, string title, QuestMetric metric, int arg, long target, QuestRewardKind reward, long rewardAmount, bool shown, bool main = false, int levelCap = 0, int fusionCap = 0)
+    public QuestDef(int id, string title, QuestMetric metric, int arg, long target, QuestRewardKind reward, long rewardAmount, bool shown, bool main = false, int levelCap = 0, int fusionCap = 0, int itemId = 0, int itemCount = 0)
     {
         Id = id;
         Shown = shown;
@@ -83,6 +86,16 @@ public sealed class QuestDef
         Main = main;
         LevelCap = levelCap;
         FusionCap = fusionCap;
+        if (itemCount < 1 || itemId == 0)
+        {
+            ItemId = 0;
+            ItemCount = 0;
+        }
+        else
+        {
+            ItemId = itemId;
+            ItemCount = itemCount;
+        }
     }
 }
 
@@ -257,11 +270,11 @@ public static class QuestCatalog
         Pixel(233, 20000,   10000),
 
         // キャラ生成
-        Character(  14,  100),
+        Character(  14,  100, 1),
         Character(  34,  250),
         Character(  54,  500),
         Character(  74,  750),
-        Character(  94, 1000),
+        Character(  94, 1000, 1),
         Character( 114, 1250),
         Character( 134, 1500),
         Character( 154, 1750),
@@ -270,6 +283,16 @@ public static class QuestCatalog
         Character( 214, 2500),
         Character( 234, 2750),
         Character( 254, 3000),
+        Character( 274, 3500),
+        Character( 294, 4000),
+        Character( 314, 4500),
+        Character( 334, 5000, 1),
+        Character( 354, 6000),
+        Character( 374, 7000),
+        Character( 394, 8000),
+        Character( 414, 9000),
+        Character( 434, 10000, 1),
+        Character( 454, 100000, 1),
 
         // 敵を倒す
         Enemy( 15,   100, QuestRewardKind.FusionUnlock, 0),
@@ -482,6 +505,11 @@ public static class QuestCatalog
             string capText = "合成上限 +" + def.FusionCap.ToString() + "回";
             body = body.Length == 0 ? capText : body + "\n" + capText;
         }
+        if (def.ItemCount > 0)
+        {
+            string itemText = ItemIds.DisplayName(def.ItemId) + " +" + UiNumber.Format(def.ItemCount);
+            body = body.Length == 0 ? itemText : body + "\n" + itemText;
+        }
         string unlock = StageUnlockText(def);
         if (unlock.Length > 0)
             body = unlock + "\n" + body;
@@ -569,9 +597,10 @@ public static class QuestCatalog
         return new QuestDef(id, "ピクセル生成を" + UiNumber.Format(count) + "回完了", QuestMetric.PixelCompletions, 0, count, QuestRewardKind.RgbAll, rgb, true);
     }
 
-    static QuestDef Character(int id, long count)
+    static QuestDef Character(int id, long count, int charmCount = 0)
     {
-        return new QuestDef(id, "キャラを" + UiNumber.Format(count) + "体生成", QuestMetric.CharacterCompletions, 0, count, QuestRewardKind.CharacterBundle, 1, true);
+        int itemId = charmCount > 0 ? ItemIds.EnmusubiOmamori : 0;
+        return new QuestDef(id, "キャラを" + UiNumber.Format(count) + "体生成", QuestMetric.CharacterCompletions, 0, count, QuestRewardKind.CharacterBundle, 1, true, false, 0, 0, itemId, charmCount);
     }
 
     static QuestDef Enemy(int id, long count, QuestRewardKind reward, long amount)

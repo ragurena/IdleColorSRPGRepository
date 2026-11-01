@@ -54,7 +54,8 @@ public class SaveClass// : MonoBehaviour
         ProductionSlotState slots,
         QuestSave quests,
         MessageSave messages,
-        int rgbRowOrder
+        int rgbRowOrder,
+        bool EnmusubiArmed
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -311,6 +312,7 @@ public class SaveClass// : MonoBehaviour
             foreach (KeyValuePair<int, int> item in ItemCounts)
                 sw.WriteLine("ItemCount[" + item.Key.ToString() + "]," + item.Value.ToString());
         }
+        sw.WriteLine("EnmusubiArmed," + (EnmusubiArmed ? "true" : "false"));
 
         ImportedCharacters.WriteSave(sw);
         if (people != null)
@@ -444,6 +446,7 @@ public class SaveClass// : MonoBehaviour
         QuestSave quests,
         MessageSave messages,
         ref int rgbRowOrder,
+        ref bool EnmusubiArmed,
         string sourcePath
         )
     {
@@ -900,6 +903,12 @@ public class SaveClass// : MonoBehaviour
                 int itemId = int.Parse(values[0].Substring(idStart, idEnd - idStart));
                 if (ItemCounts != null)
                     ItemCounts[itemId] = int.Parse(values[1]);
+            }
+
+            else
+            if (values[0].Equals("EnmusubiArmed"))
+            {
+                EnmusubiArmed = values[1].Equals("true");
             }
 
             else

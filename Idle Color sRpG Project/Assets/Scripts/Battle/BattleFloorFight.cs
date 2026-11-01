@@ -16,6 +16,10 @@ public interface IBattleRewardSink
     void Recruit(uint characterId);
     void NoteDefeated(uint characterId);
     bool IsGuaranteedRecruit();
+    // 縁結びのお守りが有効で、倒した敵をまだ所持していないとき true。
+    bool ForcesUnownedRecruit(uint characterId);
+    // その1体を仲間にしたら効果を切る。次のお守りは、プレイヤーが使うまで消費しない。
+    void EndForcedRecruit();
 }
 
 public struct BattleAttackResult
@@ -264,9 +268,12 @@ public static class BattleDefeatProcessor
         if (rng.NextDouble() < orbProbability)
             sink.GrantItem(config.ResolveExpOrbItemId(enemy.Size), 1);
 
+        bool forced = sink.ForcesUnownedRecruit(enemy.CharacterId);
         double recruitProbability = BattleRewardCalculator.RecruitProbability(killer.Luc, killer.Obs, config);
-        if (sink.IsGuaranteedRecruit() || (rng != null && rng.NextDouble() < recruitProbability))
+        if (forced || sink.IsGuaranteedRecruit() || (rng != null && rng.NextDouble() < recruitProbability))
             sink.Recruit(enemy.CharacterId);
+        if (forced)
+            sink.EndForcedRecruit();
 
         sink.NoteDefeated(enemy.CharacterId);
     }
