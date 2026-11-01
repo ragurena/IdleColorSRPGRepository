@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-// クエストの下のボタンから開く設定。バトル速度の上限と、広告を見る前の確認を選ぶ。
+// クエストの下のボタンから開く設定。バトル速度の上限、広告を見る前の確認、画面の自動消灯を選ぶ。
 public sealed class SettingsBoard
 {
     static readonly int[] Caps = { 2, 4, 8, 16 };
@@ -13,12 +13,15 @@ public sealed class SettingsBoard
     GameObject _root;
     Action<int> _onCap;
     Action<bool> _onAdConfirm;
+    Action<bool> _onKeepAwake;
     Action _onSave;
     Action _onDeleteSave;
     int _cap = 16;
     bool _adConfirm = true;
+    bool _keepAwake = true;
     readonly Button[] _choices = new Button[Caps.Length];
     readonly Button[] _adChoices = new Button[2];
+    readonly Button[] _awakeChoices = new Button[2];
     Text _saveStatus;
 
     public bool IsOpen
@@ -27,11 +30,12 @@ public sealed class SettingsBoard
     }
 
     // RELEASE_REMOVE_TEST_GRANTS: リリース用ビルドの前に、このテストボタンと呼び出しを消す。
-    public void Build(Transform parent, Font font, Action<int> onCap, Action<bool> onAdConfirm, Action onSave, Action onDeleteSave, Action onAddRgb, Action onAddPixels, Action onAddOwned)
+    public void Build(Transform parent, Font font, Action<int> onCap, Action<bool> onAdConfirm, Action<bool> onKeepAwake, Action onSave, Action onDeleteSave, Action onAddRgb, Action onAddPixels, Action onAddOwned)
     {
         _font = font;
         _onCap = onCap;
         _onAdConfirm = onAdConfirm;
+        _onKeepAwake = onKeepAwake;
         _onSave = onSave;
         _onDeleteSave = onDeleteSave;
         _root = new GameObject("PanelSettings", typeof(RectTransform), typeof(Image));
@@ -89,8 +93,33 @@ public sealed class SettingsBoard
         confirmOff.onClick.AddListener(() => SelectAdConfirm(false));
         _adChoices[1] = confirmOff;
 
+        Text awakeLabel = CreateText("TextSettingsKeepAwake", _root.transform, 26, TextAnchor.MiddleCenter);
+        awakeLabel.text = "スリープしない";
+        StretchTop(awakeLabel.rectTransform, 24f, 24f, 564f, 48f);
+
+        Text awakeNote = CreateText("TextSettingsKeepAwakeNote", _root.transform, 22, TextAnchor.MiddleCenter);
+        awakeNote.text = "ONのあいだは、操作していなくても画面が消えません。OFFは端末の設定どおりです。";
+        awakeNote.color = new Color(0.78f, 0.80f, 0.84f, 1f);
+        StretchTop(awakeNote.rectTransform, 24f, 24f, 616f, 72f);
+
+        Button awakeOn = CreateButton("ButtonSettingsKeepAwakeOn", _root.transform, "ON", Idle);
+        PlaceRow(awakeOn.GetComponent<RectTransform>(), 0, 2, 700f, 96f);
+        Text awakeOnLabel = awakeOn.GetComponentInChildren<Text>();
+        if (awakeOnLabel != null)
+            awakeOnLabel.fontSize = 28;
+        awakeOn.onClick.AddListener(() => SelectKeepAwake(true));
+        _awakeChoices[0] = awakeOn;
+
+        Button awakeOff = CreateButton("ButtonSettingsKeepAwakeOff", _root.transform, "OFF", Idle);
+        PlaceRow(awakeOff.GetComponent<RectTransform>(), 1, 2, 700f, 96f);
+        Text awakeOffLabel = awakeOff.GetComponentInChildren<Text>();
+        if (awakeOffLabel != null)
+            awakeOffLabel.fontSize = 28;
+        awakeOff.onClick.AddListener(() => SelectKeepAwake(false));
+        _awakeChoices[1] = awakeOff;
+
         Button save = CreateButton("ButtonSettingsSave", _root.transform, "セーブ", new Color(0.25f, 0.45f, 0.75f, 1f));
-        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 700f, 96f);
+        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 828f, 96f);
         Text saveLabel = save.GetComponentInChildren<Text>();
         if (saveLabel != null)
             saveLabel.fontSize = 28;
@@ -101,7 +130,7 @@ public sealed class SettingsBoard
         });
 
         Button deleteSave = CreateButton("ButtonSettingsDeleteSave", _root.transform, "セーブ削除", new Color(0.75f, 0.28f, 0.24f, 1f));
-        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 700f, 96f);
+        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 828f, 96f);
         Text deleteLabel = deleteSave.GetComponentInChildren<Text>();
         if (deleteLabel != null)
             deleteLabel.fontSize = 28;
@@ -114,7 +143,7 @@ public sealed class SettingsBoard
         _saveStatus = CreateText("TextSettingsSaveStatus", _root.transform, 22, TextAnchor.MiddleCenter);
         _saveStatus.text = "";
         _saveStatus.color = new Color(0.78f, 0.80f, 0.84f, 1f);
-        StretchTop(_saveStatus.rectTransform, 24f, 24f, 812f, 48f);
+        StretchTop(_saveStatus.rectTransform, 24f, 24f, 940f, 48f);
 
         // RELEASE_REMOVE_TEST_GRANTS: 設定画面下部のテストボタン。リリース用ビルドの前に消す。
         Text testLabel = CreateText("TextSettingsTest", _root.transform, 22, TextAnchor.MiddleCenter);
@@ -127,15 +156,17 @@ public sealed class SettingsBoard
 
         Paint();
         PaintAdConfirm();
+        PaintKeepAwake();
         _root.SetActive(false);
     }
 
-    public void Open(int cap, bool adConfirm)
+    public void Open(int cap, bool adConfirm, bool keepAwake)
     {
         if (_root == null)
             return;
         _cap = Normalize(cap);
         _adConfirm = adConfirm;
+        _keepAwake = keepAwake;
         _root.SetActive(true);
         Transform overlay = _root.transform.parent;
         if (overlay != null && overlay.parent != null)
@@ -143,6 +174,7 @@ public sealed class SettingsBoard
         _root.transform.SetAsLastSibling();
         Paint();
         PaintAdConfirm();
+        PaintKeepAwake();
         SetSaveStatus("");
     }
 
@@ -196,6 +228,28 @@ public sealed class SettingsBoard
                 continue;
             Image image = choice.GetComponent<Image>();
             bool selected = i == 0 ? _adConfirm : !_adConfirm;
+            if (image != null)
+                image.color = selected ? Selected : Idle;
+        }
+    }
+
+    void SelectKeepAwake(bool keep)
+    {
+        _keepAwake = keep;
+        PaintKeepAwake();
+        if (_onKeepAwake != null)
+            _onKeepAwake(_keepAwake);
+    }
+
+    void PaintKeepAwake()
+    {
+        for (int i = 0; i < _awakeChoices.Length; i++)
+        {
+            Button choice = _awakeChoices[i];
+            if (choice == null)
+                continue;
+            Image image = choice.GetComponent<Image>();
+            bool selected = i == 0 ? _keepAwake : !_keepAwake;
             if (image != null)
                 image.color = selected ? Selected : Idle;
         }

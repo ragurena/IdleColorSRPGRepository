@@ -53,8 +53,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     Color StageButtonLabelColor = new Color(0.19607843f, 0.19607843f, 0.19607843f, 1f);
     bool StageButtonLabelColorStored;
-    Color RepeatLabelColor = Color.black;
-    bool RepeatLabelColorStored;
+    RawImage _repeatButtonMark;
     bool FloorFromSliderMeasured;
     float FloorFromSliderFullWidth;
     float FloorFromSliderLeft;
@@ -66,6 +65,8 @@ public class ControllerBattleStageClass : MonoBehaviour
     Color ColorStageLocked = new Color(0.55f, 0.55f, 0.55f, 1.0f);
     Color ColorCellEmpty = new Color(0.2f, 0.2f, 0.2f, 1.0f);
     Color ColorSortie = new Color(0.12f, 0.72f, 0.22f, 1f);
+    Color ColorRepeatOn = new Color(0.35f, 0.95f, 0.38f, 1f);
+    Color ColorRepeatOff = new Color(0.04f, 0.28f, 0.08f, 1f);
     Color ColorWithdraw = new Color(0.86f, 0.16f, 0.12f, 1f);
     static readonly Color[] SetColors =
     {
@@ -470,6 +471,56 @@ public class ControllerBattleStageClass : MonoBehaviour
         Text label = button.GetComponentInChildren<Text>();
         if (label != null)
             label.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+    }
+
+    // 文字の左に、直した繰り返し矢印を置く。閉じているときは文字だけにする。
+    void LayoutRepeatButtonLabel(Text label, bool showMark)
+    {
+        if (ButtonBattleRepeat == null || label == null)
+            return;
+        RectTransform textRect = label.rectTransform;
+        if (!showMark)
+        {
+            if (_repeatButtonMark != null)
+                _repeatButtonMark.gameObject.SetActive(false);
+            textRect.offsetMin = new Vector2(8f, 4f);
+            textRect.offsetMax = new Vector2(-8f, -4f);
+            label.alignment = TextAnchor.MiddleCenter;
+            return;
+        }
+
+        if (_repeatButtonMark == null)
+        {
+            Texture2D texture = Resources.Load<Texture2D>("RepeatMark");
+            if (texture == null)
+                return;
+            GameObject obj = new GameObject("ImageRepeatButtonMark");
+            obj.transform.SetParent(ButtonBattleRepeat.transform, false);
+            RawImage image = obj.AddComponent<RawImage>();
+            image.texture = texture;
+            image.raycastTarget = false;
+            image.color = Color.white;
+            const float tex = 1024f;
+            image.uvRect = new Rect(50f / tex, (tex - 1000f) / tex, 924f / tex, 950f / tex);
+            _repeatButtonMark = image;
+        }
+
+        _repeatButtonMark.gameObject.SetActive(true);
+        const float size = 48f;
+        float markWidth = size * (924f / 950f);
+        const float pad = 14f;
+        RectTransform mark = _repeatButtonMark.rectTransform;
+        mark.anchorMin = new Vector2(0f, 0.5f);
+        mark.anchorMax = new Vector2(0f, 0.5f);
+        mark.pivot = new Vector2(0f, 0.5f);
+        mark.sizeDelta = new Vector2(markWidth, size);
+        mark.anchoredPosition = new Vector2(pad, 0f);
+        mark.SetAsLastSibling();
+
+        textRect.offsetMin = new Vector2(pad + markWidth + 8f, 4f);
+        textRect.offsetMax = new Vector2(-10f, -4f);
+        label.alignment = TextAnchor.MiddleLeft;
+        label.color = Color.white;
     }
 
     // 選んでいるセットは色を置き換えず、白いスクリーンを上に乗せて明るくする。
@@ -921,33 +972,26 @@ public class ControllerBattleStageClass : MonoBehaviour
         if (ButtonBattleRepeat != null)
         {
             bool repeatOpen = IsRepeatUnlocked();
-            ButtonBattleRepeat.interactable = repeatOpen;
+            bool repeatOn = repeatOpen && ControllerProduction.GetBattleRepeat();
+            PaintUsualButton(ButtonBattleRepeat, repeatOn ? ColorRepeatOn : ColorRepeatOff, repeatOpen);
             Text repeatLabel = ButtonBattleRepeat.GetComponentInChildren<Text>();
-            if (repeatLabel != null && !RepeatLabelColorStored)
-            {
-                RepeatLabelColor = repeatLabel.color;
-                RepeatLabelColorStored = true;
-            }
-
             if (!repeatOpen)
             {
-                ButtonBattleRepeat.image.color = ColorStageLocked;
                 if (repeatLabel != null)
                 {
-                    repeatLabel.color = new Color(0.28f, 0.28f, 0.28f, 1f);
                     repeatLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
                     repeatLabel.verticalOverflow = VerticalWrapMode.Overflow;
-                    repeatLabel.text = "繰り返し\nクエストを受け取ると開く";
+                    repeatLabel.text = "Repeat\nクエストを受け取ると開く";
                 }
+                LayoutRepeatButtonLabel(repeatLabel, false);
             }
-            else
+            else if (repeatLabel != null)
             {
-                ButtonBattleRepeat.image.color = ControllerProduction.GetBattleRepeat() ? ColorButtonSelected : ColorButtonNormal;
-                if (repeatLabel != null)
-                {
-                    repeatLabel.color = RepeatLabelColor;
-                    repeatLabel.text = ControllerProduction.GetBattleRepeat() ? "繰り返し\nON" : "繰り返し\nOFF";
-                }
+                repeatLabel.color = Color.white;
+                repeatLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                repeatLabel.verticalOverflow = VerticalWrapMode.Overflow;
+                repeatLabel.text = ControllerProduction.GetBattleRepeat() ? "Repeat\nON" : "Repeat\nOFF";
+                LayoutRepeatButtonLabel(repeatLabel, true);
             }
         }
 

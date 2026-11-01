@@ -252,6 +252,7 @@ public class ControllerProduction : MonoBehaviour
     Button ButtonCharacterTmp = null;
     Button ButtonColorTmp = null;
     Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+    bool SpecificationRgbUpdating;
 
 
 
@@ -2094,11 +2095,13 @@ public class ControllerProduction : MonoBehaviour
         ClearProducedCharacter(id);
         RefreshProductionAssignmentViews();
         RefreshProductionFigures();
+        int glowKey = character.ImageTexture2D != null ? character.ImageTexture2D.GetInstanceID() : 0;
         if (!ImportedCharacters.TryRemove(id))
         {
             message = "消せませんでした。";
             return false;
         }
+        ReleaseOwnedListGlow(glowKey);
         ShowCharacterOwnedNum();
         if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
             ControllerCatalog.Refresh();
@@ -2650,10 +2653,10 @@ public class ControllerProduction : MonoBehaviour
         ShowPanel(PanelSelectColorMethodRGBNum);
         StyleSpecificationNumSliders();
 
-        //パネルの初期化
-        UpdateSlectColorMethodRGBNum("R");
-        UpdateSlectColorMethodRGBNum("G");
-        UpdateSlectColorMethodRGBNum("B");
+        // 開いた時点の色も、階調の値へ寄せてから表示する
+        SetSpecificationChannel("R", NearestGradation(ColorByte(ColorTmp.r)));
+        SetSpecificationChannel("G", NearestGradation(ColorByte(ColorTmp.g)));
+        SetSpecificationChannel("B", NearestGradation(ColorByte(ColorTmp.b)));
     }
 
     //カラーセレクトの色指定方法パネルの表示
@@ -2678,148 +2681,41 @@ public class ControllerProduction : MonoBehaviour
         ColorTmp.b = 0.0f;
     }
 
-    //RGB値で色指定のスライダーまたはインプットフィールドの入力があったら
+    //RGB値で色指定のスライダーが動いたら。数字は表示だけで、入力は受け取らない。
     public void ValueChangeSliderOrInputFieldSpecificationRGBNum(string argName)
     {
-        if(argName.StartsWith("SliderSpecificationNum") || argName.StartsWith("InputFieldSpecificationNum"))
-        {
-            string strRGB = argName.Substring(argName.Length - 1, 1);
+        if (SpecificationRgbUpdating || argName == null)
+            return;
+        if (!argName.StartsWith("SliderSpecificationNum"))
+            return;
 
-            if (strRGB.Equals("R"))
-            {
-                if (argName.StartsWith("SliderSpecificationNum"))
-                {
-                    Slider SliderSpecificationNumR = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
-                    ColorTmp.r = CharacterClass.ColorUnit(Mathf.Clamp(Mathf.RoundToInt(SliderSpecificationNumR.value), 0, 255));
-                }
-                else
-                if (argName.StartsWith("InputFieldSpecificationNum"))
-                {
-                    int num;
-                    if (int.TryParse(InputFieldSpecificationNumR.text, out num))
-                    {
-                        if(num > 255)
-                        {
-                            num = 255;
-                        }
-                        ColorTmp.r = CharacterClass.ColorUnit(num);
-                    }
-                    else
-                    if (InputFieldSpecificationNumR.text.Equals(""))
-                    {
-                        ColorTmp.r = 0.0f;
-                    }
-                }
+        string channel = argName.Substring(argName.Length - 1, 1);
+        if (!channel.Equals("R") && !channel.Equals("G") && !channel.Equals("B"))
+            return;
 
-                UpdateSlectColorMethodRGBNum("R");
-            }
-            else
-            if (strRGB.Equals("G"))
-            {
-                if (argName.StartsWith("SliderSpecificationNum"))
-                {
-                    Slider SliderSpecificationNumG = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
-                    ColorTmp.g = CharacterClass.ColorUnit(Mathf.Clamp(Mathf.RoundToInt(SliderSpecificationNumG.value), 0, 255));
-                }
-                else
-                if (argName.StartsWith("InputFieldSpecificationNum"))
-                {
-                    int num;
-                    if (int.TryParse(InputFieldSpecificationNumG.text, out num))
-                    {
-                        if (num > 255)
-                        {
-                            num = 255;
-                        }
-                        ColorTmp.g = CharacterClass.ColorUnit(num);
-                    }
-                    else
-                    if (InputFieldSpecificationNumG.text.Equals(""))
-                    {
-                        ColorTmp.g = 0.0f;
-                    }
-                }
-
-                UpdateSlectColorMethodRGBNum("G");
-            }
-            else
-            if (strRGB.Equals("B"))
-            {
-                if (argName.StartsWith("SliderSpecificationNum"))
-                {
-                    Slider SliderSpecificationNumB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
-                    ColorTmp.b = CharacterClass.ColorUnit(Mathf.Clamp(Mathf.RoundToInt(SliderSpecificationNumB.value), 0, 255));
-                }
-                else
-                if (argName.StartsWith("InputFieldSpecificationNum"))
-                {
-                    int num;
-                    if (int.TryParse(InputFieldSpecificationNumB.text, out num))
-                    {
-                        if (num > 255)
-                        {
-                            num = 255;
-                        }
-                        ColorTmp.b = CharacterClass.ColorUnit(num);
-                    }
-                    else
-                    if (InputFieldSpecificationNumB.text.Equals(""))
-                    {
-                        ColorTmp.b = 0.0f;
-                    }
-                }
-
-                UpdateSlectColorMethodRGBNum("B");
-            }
-        }
+        Slider slider = GameObject.Find("SliderSpecificationNum" + channel).GetComponent<Slider>();
+        int snapped = NearestGradation(Mathf.Clamp(Mathf.RoundToInt(slider.value), 0, 255));
+        SetSpecificationChannel(channel, snapped);
     }
-    //RGB値で色指定のDownまたはUpボタンが押されたら
+    //RGB値で色指定のDownまたはUpボタンが押されたら。1ずつではなく、隣の階調へ動かす。
     public void PushButtonSpecificationNumRGBDownOrUP(string argName)
     {
+        if (argName == null || argName.Length < 5)
+            return;
+
+        string channel = null;
         if (argName.Substring(argName.Length - 5, 1).Equals("R") || argName.Substring(argName.Length - 3, 1).Equals("R"))
-        {
-            if (argName.Contains("Down") && ColorTmp.r > 0.0f)
-            {
-                ColorTmp.r -= 1 / 255.0f;
-            }
-            else
-            if (argName.Contains("Up") && ColorTmp.r < 1.0f)
-            {
-                ColorTmp.r += 1 / 255.0f;
-            }
+            channel = "R";
+        else if (argName.Substring(argName.Length - 5, 1).Equals("G") || argName.Substring(argName.Length - 3, 1).Equals("G"))
+            channel = "G";
+        else if (argName.Substring(argName.Length - 5, 1).Equals("B") || argName.Substring(argName.Length - 3, 1).Equals("B"))
+            channel = "B";
+        if (channel == null)
+            return;
 
-            UpdateSlectColorMethodRGBNum("R");
-        }
-        else
-        if (argName.Substring(argName.Length - 5, 1).Equals("G") || argName.Substring(argName.Length - 3, 1).Equals("G"))
-        {
-            if (argName.Contains("Down") && ColorTmp.g > 0.0f)
-            {
-                ColorTmp.g -= 1 / 255.0f;
-            }
-            else
-            if (argName.Contains("Up") && ColorTmp.g < 1.0f)
-            {
-                ColorTmp.g += 1 / 255.0f;
-            }
-
-            UpdateSlectColorMethodRGBNum("G");
-        }
-        else
-        if (argName.Substring(argName.Length - 5, 1).Equals("B") || argName.Substring(argName.Length - 3, 1).Equals("B"))
-        {
-            if (argName.Contains("Down") && ColorTmp.b > 0.0f)
-            {
-                ColorTmp.b -= 1 / 255.0f;
-            }
-            else
-            if (argName.Contains("Up") && ColorTmp.b < 1.0f)
-            {
-                ColorTmp.b += 1 / 255.0f;
-            }
-
-            UpdateSlectColorMethodRGBNum("B");
-        }
+        float current = channel.Equals("R") ? ColorTmp.r : channel.Equals("G") ? ColorTmp.g : ColorTmp.b;
+        int direction = argName.Contains("Down") ? -1 : 1;
+        SetSpecificationChannel(channel, StepGradation(ColorByte(current), direction));
     }
     //RGB値で色指定の決定ボタンが押されたら
     public void PushButtonConfirmSelectColorRGBNum()
@@ -2828,6 +2724,7 @@ public class ControllerProduction : MonoBehaviour
         if (ProductionPixelIndex < 1)
             return;
 
+        SnapSpecificationFields();
         ApplyPixelProductionColor(ProductionPixelIndex, ColorTmp);
 
         NotShowPanel(PanelSelectColorMethodRGBNum);
@@ -3703,6 +3600,8 @@ public class ControllerProduction : MonoBehaviour
     public void SetBattleRepeat(bool on)
     {
         BattleRepeat = on;
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshStageTitle();
     }
 
     public int GetClearedBattleStage()
@@ -7655,6 +7554,51 @@ public class ControllerProduction : MonoBehaviour
         StyleSpecificationNumSlider("SliderSpecificationNumR");
         StyleSpecificationNumSlider("SliderSpecificationNumG");
         StyleSpecificationNumSlider("SliderSpecificationNumB");
+        ShowSpecificationNumAsText(InputFieldSpecificationNumR);
+        ShowSpecificationNumAsText(InputFieldSpecificationNumG);
+        ShowSpecificationNumAsText(InputFieldSpecificationNumB);
+    }
+
+    // 数字欄は入力せず、今の階調だけを出す。
+    static void ShowSpecificationNumAsText(InputField field)
+    {
+        if (field == null)
+            return;
+        field.DeactivateInputField();
+        field.enabled = false;
+
+        Image plate = field.GetComponent<Image>();
+        if (plate != null)
+            plate.enabled = false;
+        if (field.placeholder != null)
+            field.placeholder.gameObject.SetActive(false);
+
+        Text label = field.textComponent;
+        if (label == null)
+            return;
+        label.raycastTarget = false;
+        label.color = Color.white;
+        Outline outline = label.GetComponent<Outline>();
+        if (outline == null)
+            outline = label.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        outline.effectDistance = new Vector2(1f, -1f);
+    }
+
+    static void SetSpecificationNumLabel(InputField field, int value)
+    {
+        if (field == null)
+            return;
+        string shown = value.ToString();
+        Text label = field.textComponent;
+        if (label != null)
+        {
+            if (label.text != shown)
+                label.text = shown;
+            return;
+        }
+        if (field.text != shown)
+            field.text = shown;
     }
 
     static void StyleSpecificationNumSlider(string name)
@@ -7694,6 +7638,71 @@ public class ControllerProduction : MonoBehaviour
             rect.sizeDelta = size;
     }
 
+    void SetSpecificationChannel(string channel, int value)
+    {
+        float unit = CharacterClass.ColorUnit(value);
+        if (channel.Equals("R"))
+            ColorTmp.r = unit;
+        else if (channel.Equals("G"))
+            ColorTmp.g = unit;
+        else
+            ColorTmp.b = unit;
+
+        SpecificationRgbUpdating = true;
+        UpdateSlectColorMethodRGBNum(channel);
+        SpecificationRgbUpdating = false;
+    }
+
+    void SnapSpecificationFields()
+    {
+        SetSpecificationChannel("R", NearestGradation(ColorByte(ColorTmp.r)));
+        SetSpecificationChannel("G", NearestGradation(ColorByte(ColorTmp.g)));
+        SetSpecificationChannel("B", NearestGradation(ColorByte(ColorTmp.b)));
+    }
+
+    // ピクセル一覧と同じ色だけを返す。8階調なら 0, 32, 64, 96, 128, 160, 192, 224, 255。
+    static int NearestGradation(int value)
+    {
+        if (value < 0)
+            value = 0;
+        if (value > 255)
+            value = 255;
+        int[] colors = GradationColors();
+        int best = colors[0];
+        int bestDist = Mathf.Abs(value - best);
+        for (int i = 1; i < colors.Length; i++)
+        {
+            int dist = Mathf.Abs(value - colors[i]);
+            if (dist < bestDist)
+            {
+                best = colors[i];
+                bestDist = dist;
+            }
+        }
+        return best;
+    }
+
+    static int StepGradation(int value, int direction)
+    {
+        int[] colors = GradationColors();
+        if (direction > 0)
+        {
+            for (int i = 0; i < colors.Length; i++)
+            {
+                if (colors[i] > value)
+                    return colors[i];
+            }
+            return colors[colors.Length - 1];
+        }
+
+        for (int i = colors.Length - 1; i >= 0; i--)
+        {
+            if (colors[i] < value)
+                return colors[i];
+        }
+        return colors[0];
+    }
+
     public void UpdateSlectColorMethodRGBNum(string argRGB)
     {
         if (argRGB.Equals("R"))
@@ -7702,9 +7711,7 @@ public class ControllerProduction : MonoBehaviour
 
             Slider SliderSpecificationNumR = GameObject.Find("SliderSpecificationNumR").GetComponent<Slider>();
             SliderSpecificationNumR.value = ColorByte(ColorTmp.r);
-
-            InputFieldSpecificationNumR.placeholder.GetComponent<Text>().text = ColorByte(ColorTmp.r).ToString();
-            InputFieldSpecificationNumR.text = ColorByte(ColorTmp.r).ToString();
+            SetSpecificationNumLabel(InputFieldSpecificationNumR, ColorByte(ColorTmp.r));
         }
         else
         if (argRGB.Equals("G"))
@@ -7713,9 +7720,7 @@ public class ControllerProduction : MonoBehaviour
 
             Slider SliderSpecificationNumG = GameObject.Find("SliderSpecificationNumG").GetComponent<Slider>();
             SliderSpecificationNumG.value = ColorByte(ColorTmp.g);
-
-            InputFieldSpecificationNumG.placeholder.GetComponent<Text>().text = ColorByte(ColorTmp.g).ToString();
-            InputFieldSpecificationNumG.text = ColorByte(ColorTmp.g).ToString();
+            SetSpecificationNumLabel(InputFieldSpecificationNumG, ColorByte(ColorTmp.g));
         }
         else
         if (argRGB.Equals("B"))
@@ -7724,9 +7729,7 @@ public class ControllerProduction : MonoBehaviour
 
             Slider SliderSpecificationNumB = GameObject.Find("SliderSpecificationNumB").GetComponent<Slider>();
             SliderSpecificationNumB.value = ColorByte(ColorTmp.b);
-
-            InputFieldSpecificationNumB.placeholder.GetComponent<Text>().text = ColorByte(ColorTmp.b).ToString();
-            InputFieldSpecificationNumB.text = ColorByte(ColorTmp.b).ToString();
+            SetSpecificationNumLabel(InputFieldSpecificationNumB, ColorByte(ColorTmp.b));
         }
 
         ControlImageSelectColor("SelectColorMethodRGBNum");
@@ -8311,6 +8314,7 @@ public class ControllerProduction : MonoBehaviour
 
         int shown = 0;
         bool added = false;
+        KeptOwnedListIds.Clear();
         System.Action<CharacterClass> addOwned = null;
         addOwned = character =>
         {
@@ -8328,6 +8332,7 @@ public class ControllerProduction : MonoBehaviour
                 EnsureOwnedAttributeGlow(existing, character);
                 CatalogNewMark.Apply(existing, character);
                 existing.SetSiblingIndex(shown);
+                KeptOwnedListIds.Add(existing.GetInstanceID());
                 shown++;
                 return;
             }
@@ -8346,6 +8351,7 @@ public class ControllerProduction : MonoBehaviour
                 character.Whereabouts == Place.CreatePixel ||
                 character.Whereabouts == Place.CreateCharacter)
                 ControllerCharacterSelectClass.AddFaintWarningMark(characterButton);
+            KeptOwnedListIds.Add(characterButton.transform.GetInstanceID());
             shown++;
             added = true;
         };
@@ -8353,9 +8359,28 @@ public class ControllerProduction : MonoBehaviour
             addOwned(CharactersAll[i]);
         ImportedCharacters.ForEach(addOwned);
 
-        if (added)
+        bool removed = RemoveStaleOwnedListButtons(list);
+        if (added || removed)
             LayoutRebuilder.ForceRebuildLayoutImmediate(list as RectTransform);
         PaintCharacterProductionBlack();
+    }
+
+    // 消した読み込みキャラのボタンは名前が OwnedCharacter のまま残る。絵だけ先に消えるので、オーラと文字が残る。
+    static bool RemoveStaleOwnedListButtons(Transform list)
+    {
+        bool removed = false;
+        for (int i = list.childCount - 1; i >= 0; i--)
+        {
+            Transform child = list.GetChild(i);
+            if (!child.name.StartsWith("OwnedCharacter"))
+                continue;
+            if (KeptOwnedListIds.Contains(child.GetInstanceID()))
+                continue;
+            child.gameObject.SetActive(false);
+            Destroy(child.gameObject);
+            removed = true;
+        }
+        return removed;
     }
 
     void PaintCharacterProductionBlack()
@@ -8444,6 +8469,7 @@ public class ControllerProduction : MonoBehaviour
     }
 
     static readonly Dictionary<int, OwnedListGlow> OwnedListGlows = new Dictionary<int, OwnedListGlow>();
+    static readonly HashSet<int> KeptOwnedListIds = new HashSet<int>();
 
     public static void EnsureOwnedAttributeGlow(Transform button, CharacterClass character)
     {
@@ -8501,6 +8527,22 @@ public class ControllerProduction : MonoBehaviour
         Transform glow = host.Find("AttributeGlow");
         if (glow != null)
             UnityEngine.Object.Destroy(glow.gameObject);
+    }
+
+    public static void ReleaseOwnedListGlow(int textureId)
+    {
+        if (textureId == 0)
+            return;
+        OwnedListGlow cached;
+        if (!OwnedListGlows.TryGetValue(textureId, out cached))
+            return;
+        OwnedListGlows.Remove(textureId);
+        if (cached.Sprite == null)
+            return;
+        Texture glowTexture = cached.Sprite.texture;
+        DestroyRuntime(cached.Sprite);
+        if (glowTexture != null)
+            DestroyRuntime(glowTexture);
     }
 
     static Sprite OwnedListGlowSprite(Texture2D texture, int size, out float scaleX, out float scaleY)

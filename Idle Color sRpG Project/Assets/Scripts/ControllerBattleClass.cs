@@ -14,7 +14,16 @@ public class ControllerBattleClass : MonoBehaviour
     Sprite _fieldSprite;
     Image.Type _fieldType;
     bool _fieldStored;
+    int _shownStageIndex;
+    bool _stageWiping;
+    float _stageWipeTime;
+    Image _stageWipeImage;
+    Image _stageDimImage;
+    Material _stageWipeMaterial;
+    Sprite _stageWipeSprite;
+    const float StageWipeSeconds = 0.55f;
     Text _header;
+    RawImage _repeatMark;
     Image _headerFill;
     Image _headerRecord;
     float _headerRate;
@@ -215,6 +224,7 @@ public class ControllerBattleClass : MonoBehaviour
 
             while (fight.Outcome == BattleOutcome.InProgress && !_stop)
             {
+                ClearDropVisuals();
                 ClearDropCue();
                 BattleAttackResult step = fight.Step();
                 if (!string.IsNullOrEmpty(step.Log))
@@ -232,6 +242,8 @@ public class ControllerBattleClass : MonoBehaviour
                 if (!(step.Acted && step.Actor != null))
                     yield return new WaitForSeconds(Interval());
             }
+
+            ClearDropVisuals();
 
             if (_stop)
                 break;
@@ -535,6 +547,8 @@ public class ControllerBattleClass : MonoBehaviour
             yield break;
 
         Vector2 origin = cell.Home;
+        float walkTime = ScaledSeconds(0.95f);
+        float bounceTime = ScaledSeconds(0.7f);
         Image walker = null;
         if (_cueWalk && cell.Portrait != null && cell.Portrait.sprite != null)
         {
@@ -545,6 +559,7 @@ public class ControllerBattleClass : MonoBehaviour
             PlaceRect(walker.rectTransform, origin.x, origin.y, 70f, 70f);
             walker.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
             walker.transform.SetAsLastSibling();
+            RememberDrop(walker.gameObject, walkTime);
             SetPortrait(cell, null);
             SetMetersVisible(cell, false, false);
             RestoreCell(cell);
@@ -574,11 +589,10 @@ public class ControllerBattleClass : MonoBehaviour
                 frame.transform.SetAsLastSibling();
                 pixels[i] = frame;
                 drift[i] = (i - (pixelCount - 1) * 0.5f) * 18f;
+                RememberDrop(frame.gameObject, bounceTime);
             }
         }
 
-        float walkTime = ScaledSeconds(0.95f);
-        float bounceTime = ScaledSeconds(0.7f);
         float total = 0f;
         if (walker != null)
             total = walkTime;
@@ -615,15 +629,56 @@ public class ControllerBattleClass : MonoBehaviour
             yield return null;
         }
 
-        if (walker != null)
-            Destroy(walker.gameObject);
-        if (pixels != null)
+        ClearDropVisuals();
+    }
+
+    sealed class BattleDrop
+    {
+        public GameObject Object;
+        public float DieAt;
+    }
+
+    readonly List<BattleDrop> _battleDrops = new List<BattleDrop>();
+
+    void RememberDrop(GameObject obj, float life)
+    {
+        if (obj == null)
+            return;
+        if (life < 0.05f)
+            life = 0.05f;
+        _battleDrops.Add(new BattleDrop { Object = obj, DieAt = Time.time + life });
+    }
+
+    void TickDrops()
+    {
+        float now = Time.time;
+        for (int i = _battleDrops.Count - 1; i >= 0; i--)
         {
-            for (int i = 0; i < pixels.Length; i++)
+            BattleDrop drop = _battleDrops[i];
+            if (drop.Object == null || now >= drop.DieAt)
             {
-                if (pixels[i] != null)
-                    Destroy(pixels[i].gameObject);
+                if (drop.Object != null)
+                    Destroy(drop.Object);
+                _battleDrops.RemoveAt(i);
             }
+        }
+    }
+
+    void ClearDropVisuals()
+    {
+        for (int i = _battleDrops.Count - 1; i >= 0; i--)
+        {
+            if (_battleDrops[i].Object != null)
+                Destroy(_battleDrops[i].Object);
+        }
+        _battleDrops.Clear();
+        if (_root == null)
+            return;
+        for (int i = _root.transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = _root.transform.GetChild(i);
+            if (child.name == "DropPixel" || child.name == "DropWalker")
+                Destroy(child.gameObject);
         }
     }
 
@@ -908,6 +963,7 @@ public class ControllerBattleClass : MonoBehaviour
         if (!_running && !_stop)
             return;
         StopAllCoroutines();
+        ClearDropVisuals();
         _running = false;
         _stop = false;
         _battleStageIndex = 0;
@@ -936,10 +992,74 @@ public class ControllerBattleClass : MonoBehaviour
             _logText.text = string.Join("\n", _logs.ToArray());
     }
 
+    public void RefreshStageTitle()
+    {
+        if (_header == null || _production == null || !_running)
+            return;
+        int stageIndex = _battleStageIndex != 0 ? _battleStageIndex : _production.GetActiveBattleStage();
+        if (stageIndex == 0)
+            return;
+        string stageName = ControllerBattleStageClass.GetStageName(stageIndex);
+        SetStageTitle(stageName, _production.GetActiveBattleFloor(), _production.GetActiveBattleFloorFrom(), _production.GetActiveBattleFloorTo());
+    }
+
+    string FormatStageTitle(string stageName, int floor, int floorFrom, int floorTo)
+    {
+        return stageName + "  " + floor.ToString() + "階  （" + floorFrom.ToString() + "〜" + floorTo.ToString() + "）";
+    }
+
+    void SetStageTitle(string stageName, int floor, int floorFrom, int floorTo)
+    {
+        if (_header == null)
+            return;
+        _header.text = FormatStageTitle(stageName, floor, floorFrom, floorTo);
+        PlaceRepeatMark();
+    }
+
+    // 見出しのフォントは絵文字を描けない。文字に混ぜると空白のまま幅を取り、ステージ名がずれる。
+    void PlaceRepeatMark()
+    {
+        bool on = _running && _production != null && _production.IsBattleRepeatOn();
+        if (!on)
+        {
+            if (_repeatMark != null)
+                _repeatMark.gameObject.SetActive(false);
+            return;
+        }
+        if (_header == null)
+            return;
+        if (_repeatMark == null)
+        {
+            Texture2D texture = Resources.Load<Texture2D>("RepeatMark");
+            if (texture == null)
+                return;
+            GameObject obj = new GameObject("ImageBattleRepeatMark");
+            obj.transform.SetParent(_header.transform, false);
+            RawImage image = obj.AddComponent<RawImage>();
+            image.texture = texture;
+            image.raycastTarget = false;
+            image.color = Color.white;
+            // 余白を除いた矢印の範囲。画像の上からの位置を、下原点のUVにしている。
+            const float tex = 1024f;
+            image.uvRect = new Rect(50f / tex, (tex - 1000f) / tex, 924f / tex, 950f / tex);
+            _repeatMark = image;
+        }
+        _repeatMark.gameObject.SetActive(true);
+        float textWidth = _header.preferredWidth;
+        if (textWidth < 8f)
+            textWidth = _header.fontSize * Mathf.Max(1, _header.text.Length) * 0.55f;
+        float size = _header.fontSize * 0.75f;
+        RectTransform mark = _repeatMark.rectTransform;
+        mark.anchorMin = new Vector2(0.5f, 0.5f);
+        mark.anchorMax = new Vector2(0.5f, 0.5f);
+        mark.pivot = new Vector2(1f, 0.5f);
+        mark.sizeDelta = new Vector2(size * (924f / 950f), size);
+        mark.anchoredPosition = new Vector2(-textWidth * 0.5f - 4f, 0f);
+    }
+
     void Refresh(string stageName, int floor, int floorFrom, int floorTo)
     {
-        if (_header != null)
-            _header.text = stageName + "  " + floor.ToString() + "階  （" + floorFrom.ToString() + "〜" + floorTo.ToString() + "）";
+        SetStageTitle(stageName, floor, floorFrom, floorTo);
         SetHeaderProgress(floor);
         if (_resource != null)
             _resource.text = _production.GetRgbText();
@@ -1069,7 +1189,179 @@ public class ControllerBattleClass : MonoBehaviour
             _fieldStored = true;
         }
 
+        if (stageIndex == _shownStageIndex)
+            return;
+
         Sprite sprite = BattleStageCatalog.BackgroundSprite(stageIndex);
+        int previous = _shownStageIndex;
+        bool wipe = previous > 0 && stageIndex > 0 && sprite != null;
+        if (_stageWiping)
+            FinishStageWipe();
+        _shownStageIndex = stageIndex;
+        if (!wipe)
+        {
+            HideStageWipe();
+            PaintStageImage(image, sprite);
+            return;
+        }
+
+        PlayStageWipe(image, sprite, stageIndex > previous);
+    }
+
+    void Update()
+    {
+        TickDrops();
+        if (!_stageWiping || _stageWipeMaterial == null)
+            return;
+        _stageWipeTime += Time.deltaTime;
+        PlaceStageTransition();
+        float t = _stageWipeTime / StageWipeSeconds;
+        if (t >= 1f)
+        {
+            FinishStageWipe();
+            return;
+        }
+        float remain = 1f - t;
+        SetStageDim(1f - remain * remain);
+        _stageWipeMaterial.SetFloat("_Progress", Mathf.SmoothStep(0f, 1f, t));
+    }
+
+    void PlayStageWipe(Image baseImage, Sprite sprite, bool forward)
+    {
+        if (!EnsureStageWipe())
+        {
+            PaintStageImage(baseImage, sprite);
+            return;
+        }
+
+        _stageWipeSprite = sprite;
+        _stageWipeImage.sprite = sprite;
+        _stageWipeImage.color = Color.white;
+        _stageWipeImage.gameObject.SetActive(true);
+        if (_stageDimImage != null)
+        {
+            _stageDimImage.gameObject.SetActive(true);
+            SetStageDim(0f);
+        }
+        PlaceStageTransition();
+        Vector4 uv = UnityEngine.Sprites.DataUtility.GetOuterUV(sprite);
+        _stageWipeMaterial.SetVector("_UvRect", uv);
+        _stageWipeMaterial.SetFloat("_Direction", forward ? 1f : -1f);
+        _stageWipeMaterial.SetFloat("_Softness", 0.34f);
+        _stageWipeMaterial.SetFloat("_Progress", 0f);
+        _stageWipeTime = 0f;
+        _stageWiping = true;
+    }
+
+    void FinishStageWipe()
+    {
+        _stageWiping = false;
+        if (_root != null && _stageWipeSprite != null)
+        {
+            Image image = _root.GetComponent<Image>();
+            if (image != null)
+                PaintStageImage(image, _stageWipeSprite);
+        }
+        _stageWipeSprite = null;
+        HideStageWipe();
+    }
+
+    void PlaceStageTransition()
+    {
+        if (_stageDimImage != null)
+            _stageDimImage.transform.SetAsFirstSibling();
+        if (_stageWipeImage == null)
+            return;
+        int index = _stageDimImage != null ? _stageDimImage.transform.GetSiblingIndex() + 1 : 0;
+        _stageWipeImage.transform.SetSiblingIndex(index);
+    }
+
+    void SetStageDim(float alpha)
+    {
+        if (_stageDimImage == null)
+            return;
+        if (alpha < 0f)
+            alpha = 0f;
+        if (alpha > 1f)
+            alpha = 1f;
+        _stageDimImage.color = new Color(0f, 0f, 0f, alpha);
+    }
+
+    void HideStageWipe()
+    {
+        if (_stageWipeImage != null)
+            _stageWipeImage.gameObject.SetActive(false);
+        if (_stageDimImage != null)
+            _stageDimImage.gameObject.SetActive(false);
+    }
+
+    bool EnsureStageWipe()
+    {
+        if (_stageWipeImage != null && _stageWipeMaterial != null)
+            return true;
+        Shader shader = Resources.Load<Shader>("StageWipe");
+        if (shader == null)
+            shader = Shader.Find("UI/StageWipe");
+        if (shader == null)
+            return false;
+        if (_stageWipeMaterial == null)
+        {
+            _stageWipeMaterial = new Material(shader);
+            _stageWipeMaterial.hideFlags = HideFlags.HideAndDontSave;
+        }
+        if (_root == null)
+            return false;
+        if (_stageWipeImage == null)
+        {
+            GameObject obj = new GameObject("StageWipe", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(_root.transform, false);
+            _stageWipeImage = obj.GetComponent<Image>();
+            _stageWipeImage.raycastTarget = false;
+            _stageWipeImage.type = Image.Type.Simple;
+            _stageWipeImage.preserveAspect = false;
+            _stageWipeImage.material = _stageWipeMaterial;
+            StretchStageOverlay(_stageWipeImage.rectTransform);
+        }
+        if (_stageDimImage == null && _root != null)
+        {
+            GameObject dim = new GameObject("StageDim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            dim.transform.SetParent(_root.transform, false);
+            _stageDimImage = dim.GetComponent<Image>();
+            _stageDimImage.sprite = StageDimSprite();
+            _stageDimImage.raycastTarget = false;
+            _stageDimImage.type = Image.Type.Simple;
+            _stageDimImage.color = new Color(0f, 0f, 0f, 0f);
+            StretchStageOverlay(_stageDimImage.rectTransform);
+            dim.SetActive(false);
+        }
+        return _stageWipeImage != null;
+    }
+
+    static void StretchStageOverlay(RectTransform rect)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+    }
+
+    static Sprite _stageDimSprite;
+
+    static Sprite StageDimSprite()
+    {
+        if (_stageDimSprite != null)
+            return _stageDimSprite;
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        texture.SetPixel(0, 0, Color.white);
+        texture.Apply();
+        _stageDimSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+        _stageDimSprite.hideFlags = HideFlags.HideAndDontSave;
+        return _stageDimSprite;
+    }
+
+    void PaintStageImage(Image image, Sprite sprite)
+    {
         if (sprite != null)
         {
             image.sprite = sprite;
@@ -1082,6 +1374,12 @@ public class ControllerBattleClass : MonoBehaviour
         image.sprite = _fieldSprite;
         image.type = _fieldType;
         image.color = Color.white;
+    }
+
+    void OnDestroy()
+    {
+        if (_stageWipeMaterial != null)
+            Destroy(_stageWipeMaterial);
     }
 
     public void Hide()
@@ -1112,6 +1410,8 @@ public class ControllerBattleClass : MonoBehaviour
         Show();
         if (_header != null)
             _header.text = "バトル";
+        if (_repeatMark != null)
+            _repeatMark.gameObject.SetActive(false);
         SetHeaderProgress(0);
         if (_resource != null && _production != null)
             _resource.text = _production.GetRgbText();
@@ -1678,7 +1978,7 @@ public class ControllerBattleClass : MonoBehaviour
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
         _settings = new SettingsBoard();
-        _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
+        _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, ApplyKeepAwake, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
         _messages = new MessageBoard();
         _messages.Build(_questOverlay, _font, _production);
         RefreshMessageButton();
@@ -1833,7 +2133,7 @@ public class ControllerBattleClass : MonoBehaviour
                 _questBoard.Close();
             if (_messages != null && _messages.IsOpen)
                 _messages.Close();
-            _settings.Open(SpeedCap(), AdWatchConfirm());
+            _settings.Open(SpeedCap(), AdWatchConfirm(), ScreenAwake.Enabled);
         }
     }
 
@@ -1916,6 +2216,11 @@ public class ControllerBattleClass : MonoBehaviour
             return;
         _production.SetAdWatchConfirm(confirm);
         _production.SaveGame();
+    }
+
+    void ApplyKeepAwake(bool keep)
+    {
+        ScreenAwake.Enabled = keep;
     }
 
     void PushSettingsSave()
