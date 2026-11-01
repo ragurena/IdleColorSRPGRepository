@@ -55,7 +55,8 @@ public class SaveClass// : MonoBehaviour
         QuestSave quests,
         MessageSave messages,
         int rgbRowOrder,
-        bool EnmusubiArmed
+        bool EnmusubiArmed,
+        HospitalState hospital
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -313,6 +314,8 @@ public class SaveClass// : MonoBehaviour
                 sw.WriteLine("ItemCount[" + item.Key.ToString() + "]," + item.Value.ToString());
         }
         sw.WriteLine("EnmusubiArmed," + (EnmusubiArmed ? "true" : "false"));
+        if (hospital != null)
+            hospital.Write(sw);
 
         ImportedCharacters.WriteSave(sw);
         if (people != null)
@@ -447,6 +450,7 @@ public class SaveClass// : MonoBehaviour
         MessageSave messages,
         ref int rgbRowOrder,
         ref bool EnmusubiArmed,
+        HospitalState hospital,
         string sourcePath
         )
     {
@@ -456,6 +460,8 @@ public class SaveClass// : MonoBehaviour
         try
         {
         ImportedCharacters.BeginLoad();
+        if (hospital != null)
+            hospital.Reset();
         Debug.Log("ロード : " + sourcePath);
 
         // キャラを途中に入れた版より古いセーブは、入れた位置以降の ID をずらす
@@ -912,6 +918,11 @@ public class SaveClass// : MonoBehaviour
             }
 
             else
+            if (hospital != null && hospital.TryApply(values))
+            {
+            }
+
+            else
             if (values[0].StartsWith("BattlePartyCharacterIds["))
             {
                 int setStart = values[0].IndexOf('[') + 1;
@@ -1127,6 +1138,8 @@ public class SaveClass// : MonoBehaviour
         }
         if (IsOlderThan(savedVersion, "0.0.6"))
             ImportedCharacters.RaisePendingLevels();
+        if (hospital != null)
+            hospital.Repair();
         if (slots != null)
             slots.Clamp();
         return true;

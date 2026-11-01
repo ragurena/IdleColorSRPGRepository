@@ -15,6 +15,7 @@ public interface IBattleRewardSink
     void GrantItem(int itemId, int count);
     void Recruit(uint characterId);
     void NoteDefeated(uint characterId);
+    void NoteAllyFainted(uint characterId);
     bool IsGuaranteedRecruit();
     // 縁結びのお守りが有効で、倒した敵をまだ所持していないとき true。
     bool ForcesUnownedRecruit(uint characterId);
@@ -146,6 +147,8 @@ public sealed class BattleFloorFight
 
         if (knockout == KnockoutResult.Defeated && actor.IsAlly && !target.IsAlly)
             BattleDefeatProcessor.Process(actor, target, Units, _config, _rng, _sink);
+        if (target.IsAlly && knockout != KnockoutResult.Alive && _sink != null)
+            _sink.NoteAllyFainted(target.CharacterId);
 
         ResolveIfSideMissing();
 

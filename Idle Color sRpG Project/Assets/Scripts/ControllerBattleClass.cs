@@ -372,7 +372,7 @@ public class ControllerBattleClass : MonoBehaviour
                 if (id == 0)
                     continue;
                 CharacterClass character = _production.GetCharacter(id);
-                if (character == null || character.OwnedNumCur == 0)
+                if (character == null || character.OwnedNumCur == 0 || _production.IsHospitalNurse(id))
                     continue;
                 BattleUnit unit = BattleCharacterFactory.CreateAlly(character, x, y, _nextUnitId++, _config);
                 if (unit == null)
@@ -2674,6 +2674,22 @@ public class ControllerBattleClass : MonoBehaviour
         rect.offsetMax = Vector2.zero;
     }
 
+    public void NoteHospitalReturn(uint characterId)
+    {
+        if (characterId == 0)
+            return;
+        int cap = _config != null ? _config.MaxLives : BattleBalanceConfig.MaxOwnedCount;
+        for (int i = 0; i < _units.Count; i++)
+        {
+            BattleUnit unit = _units[i];
+            if (unit == null || !unit.IsAlly || unit.CharacterId != characterId)
+                continue;
+            if (unit.Lives < cap)
+                unit.Lives++;
+            return;
+        }
+    }
+
     sealed class RewardSink : IBattleRewardSink
     {
         readonly ControllerBattleClass _view;
@@ -2731,6 +2747,16 @@ public class ControllerBattleClass : MonoBehaviour
         {
             _view._production.NoteEnemyDefeat();
             _view._production.MarkCatalogDefeated(characterId);
+        }
+
+        public void NoteAllyFainted(uint characterId)
+        {
+            if (_view._production == null)
+                return;
+            _view._production.AdmitHospitalSpirit(characterId);
+            CharacterClass character = _view._production.GetCharacter(characterId);
+            if (character != null)
+                _view.AddLog(character.Name + " を病院へ");
         }
 
         public bool IsGuaranteedRecruit()

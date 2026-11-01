@@ -291,7 +291,9 @@ public class ControllerBattlePartyClass : MonoBehaviour
         if (id == 0)
             return false;
         CharacterClass character = ImportedCharacters.FindAny(CharactersAll, id);
-        return character != null && character.OwnedNumCur < 1;
+        if (character != null && character.OwnedNumCur < 1)
+            return true;
+        return ControllerProduction != null && ControllerProduction.IsHospitalNurse(id);
     }
 
     void PaintUsualButton(Button button, Color color, bool enabled)

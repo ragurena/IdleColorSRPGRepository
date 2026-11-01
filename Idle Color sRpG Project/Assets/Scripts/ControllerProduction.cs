@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 //using OpenCvSharp;
@@ -68,6 +69,10 @@ public class ControllerProduction : MonoBehaviour
     GameObject PanelCatalog;
     GameObject PanelFusion;
     GameObject PanelImport;
+    ControllerHospitalClass ControllerHospital;
+    GameObject PanelHospital;
+    readonly HospitalState Hospital = new HospitalState();
+    bool _hospitalBusy;
     readonly List<GameObject> SelectScenePage1Buttons = new List<GameObject>();
     readonly List<GameObject> SelectScenePage2Buttons = new List<GameObject>();
     int SelectScenePage;
@@ -494,6 +499,16 @@ public class ControllerProduction : MonoBehaviour
                 NotShowPanel(PanelImport);
         }
         MoveBattlePartyButtonIntoStage();
+        if (PanelRGBProduction != null)
+        {
+            ControllerHospital = GetComponent<ControllerHospitalClass>();
+            if (ControllerHospital == null)
+                ControllerHospital = gameObject.AddComponent<ControllerHospitalClass>();
+            ControllerHospital.Initialize(this, PanelRGBProduction);
+            PanelHospital = ControllerHospital.Panel;
+            if (PanelHospital != null)
+                NotShowPanel(PanelHospital);
+        }
         WireSelectScenePages();
         ApplyMainFeatureLocks();
         if (ControllerBattle != null)
@@ -533,6 +548,7 @@ public class ControllerProduction : MonoBehaviour
     Color _rgbFxTint;
     void Update()
     {
+        AdvanceHospital(false);
         if (_autosaveReady)
         {
             _autosaveElapsed += Time.unscaledDeltaTime;
@@ -725,6 +741,7 @@ public class ControllerProduction : MonoBehaviour
         _saving = true;
         try
         {
+        CatchHospitalForSave();
         EnsureQuestDefaults();
         LatchQuests();
         SaveClass SC = new SaveClass();
@@ -763,7 +780,8 @@ public class ControllerProduction : MonoBehaviour
             Quests,
             _messages != null ? _messages.Save : null,
             RgbRowOrder,
-            EnmusubiArmed
+            EnmusubiArmed,
+            Hospital
             );
         if (saved)
         {
@@ -973,6 +991,7 @@ public class ControllerProduction : MonoBehaviour
                     _messages != null ? _messages.Save : null,
                     ref RgbRowOrder,
                     ref EnmusubiArmed,
+                    Hospital,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -987,6 +1006,8 @@ public class ControllerProduction : MonoBehaviour
             }
 
             version = info.DataVersion ?? "";
+            Hospital.FillMissingNurseSizes(HospitalNurseSize);
+            Hospital.CatchUp(HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
             SaveBlocked = false;
             SetBattleSpeed(BattleSpeed);
             return true;
@@ -1025,6 +1046,7 @@ public class ControllerProduction : MonoBehaviour
         ClearArray(PersonIdProductionCharacter);
         Slots.Reset();
         Quests.Reset();
+        Hospital.Reset();
         FusionBonus.ExtraPercent = 0;
         ImportedCharacters.SetImportCap(Constants.IMPORT_CHARACTER_CAP_INITIAL);
         if (BattlePartyCharacterIds != null)
@@ -1352,6 +1374,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        NotShowHospitalPanel();
     }
 
     //ピクセル生産シーンボタンが押されたら
@@ -1377,6 +1400,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        NotShowHospitalPanel();
     }
 
     //キャラクター生産シーンボタンが押されたら
@@ -1401,6 +1425,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        NotShowHospitalPanel();
     }
 
     //バトル編成シーンボタンが押されたら
@@ -1426,6 +1451,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        NotShowHospitalPanel();
     }
 
     //バトルステージ選択シーンボタンが押されたら
@@ -1454,6 +1480,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        NotShowHospitalPanel();
     }
 
     public void PushButtonSelectSceneCatalog()
@@ -1473,6 +1500,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowBattleStagePanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        NotShowHospitalPanel();
     }
 
     public void ReturnFromBattle()
@@ -1492,6 +1520,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        NotShowHospitalPanel();
         RefreshCatalogBadge();
     }
 
@@ -1520,6 +1549,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
         NotShowImportPanel();
+        NotShowHospitalPanel();
     }
 
     void NotShowFusionPanel()
@@ -1545,6 +1575,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
         NotShowFusionPanel();
+        NotShowHospitalPanel();
     }
 
     void NotShowImportPanel()
@@ -1553,6 +1584,34 @@ public class ControllerProduction : MonoBehaviour
             ControllerImport.Close();
         if (PanelImport != null)
             NotShowPanel(PanelImport);
+    }
+
+    public void PushButtonSelectSceneHospital()
+    {
+        if (PanelHospital == null)
+            return;
+
+        ShowPanel(PanelHospital);
+        if (ControllerHospital != null)
+            ControllerHospital.Open();
+
+        NotShowPanel(PanelRGBProduction);
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
+        NotShowPanel(PanelCharacterProduction);
+        NotShowPanel(PanelBattleParty);
+        NotShowBattleStagePanel();
+        NotShowCatalogPanel();
+        NotShowFusionPanel();
+        NotShowImportPanel();
+    }
+
+    void NotShowHospitalPanel()
+    {
+        if (ControllerHospital != null)
+            ControllerHospital.RefreshIfVisible();
+        if (PanelHospital != null)
+            NotShowPanel(PanelHospital);
     }
 
     // 編成は下のメニューから外し、ステージ画面の左下へ置く。出撃ボタンと左右で対になる。
@@ -1688,6 +1747,7 @@ public class ControllerProduction : MonoBehaviour
 
         if (ButtonSelectScenePagePrev != null)
         {
+            SilenceSceneSwitch(ButtonSelectScenePagePrev);
             ButtonSelectScenePagePrev.onClick.RemoveListener(ShowSelectScenePagePrev);
             ButtonSelectScenePagePrev.onClick.AddListener(ShowSelectScenePagePrev);
         }
@@ -1702,6 +1762,7 @@ public class ControllerProduction : MonoBehaviour
             importButton.onClick.RemoveListener(PushButtonSelectSceneImport);
             importButton.onClick.AddListener(PushButtonSelectSceneImport);
         }
+        EnsureHospitalSceneButton(bar.transform, importButton);
 
         SelectScenePage1Buttons.Clear();
         SelectScenePage2Buttons.Clear();
@@ -1719,6 +1780,13 @@ public class ControllerProduction : MonoBehaviour
         }
 
         ShowSelectScenePage(0);
+    }
+
+    static void SilenceSceneSwitch(Button button)
+    {
+        int count = button.onClick.GetPersistentEventCount();
+        for (int i = 0; i < count; i++)
+            button.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
     }
 
     static bool IsSelectScenePage2(string name)
@@ -1948,6 +2016,77 @@ public class ControllerProduction : MonoBehaviour
         rect.anchoredPosition = position;
         rect.sizeDelta = size;
         return buttonObject.GetComponent<Button>();
+    }
+
+    void EnsureHospitalSceneButton(Transform bar, Button importButton)
+    {
+        if (bar == null)
+            return;
+        const string name = "ButtonHospitalScenePage2";
+        Transform existing = bar.Find(name);
+        bool created = existing == null;
+        GameObject buttonObject = created ? null : existing.gameObject;
+        if (created)
+        {
+            buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            buttonObject.transform.SetParent(bar, false);
+            buttonObject.AddComponent<Button>();
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(buttonObject.transform, false);
+            Text text = textObject.AddComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.fontSize = 28;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+            text.raycastTarget = false;
+            text.text = "病院";
+            RectTransform textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+        }
+
+        Text label = buttonObject.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = "病院";
+        Image image = buttonObject.GetComponent<Image>();
+        if (image != null)
+            image.color = new Color(0.62f, 0.28f, 0.34f, 1f);
+        if (created)
+        {
+            RectTransform rect = buttonObject.GetComponent<RectTransform>();
+            RectTransform importRect = importButton != null ? importButton.GetComponent<RectTransform>() : null;
+            if (importButton != null)
+            {
+                Image importImage = importButton.GetComponent<Image>();
+                if (importImage != null && importImage.sprite != null && image != null)
+                {
+                    image.sprite = importImage.sprite;
+                    image.type = importImage.type;
+                }
+            }
+            Vector2 size = importRect != null ? importRect.sizeDelta : new Vector2(180f, 128f);
+            if (size.x < 40f)
+                size.x = 180f;
+            if (size.y < 40f)
+                size.y = 128f;
+            Vector2 pos = importRect != null ? importRect.anchoredPosition : Vector2.zero;
+            pos.x += size.x + 12f;
+            rect.anchorMin = importRect != null ? importRect.anchorMin : new Vector2(0.5f, 0.5f);
+            rect.anchorMax = importRect != null ? importRect.anchorMax : new Vector2(0.5f, 0.5f);
+            rect.pivot = importRect != null ? importRect.pivot : new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = pos;
+        }
+
+        Button button = buttonObject.GetComponent<Button>();
+        if (button == null)
+            return;
+        button.onClick.RemoveListener(PushButtonSelectSceneHospital);
+        button.onClick.AddListener(PushButtonSelectSceneHospital);
     }
 
     public int ImportedCharacterCount()
@@ -2437,6 +2576,22 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクトの決定ボタンが押されたら
     public void PushButtonConfirmSelectCharacter()
     {
+        if (ButtonCharacterTmp != null && IsHospitalNurseButton(ButtonCharacterTmp))
+        {
+            int card = HospitalNurseCardIndex(ButtonCharacterTmp.name);
+            int personId = ControllerCharacterSelect.GetSelectedPersonId();
+            bool assigned = personId != 0
+                ? TryAssignHospitalPerson(card, (uint)personId)
+                : TryAssignHospitalNurse(card, ControllerCharacterSelect.GetSelectedCharacterID());
+            if (!assigned)
+                return;
+            ButtonCharacterTmp = null;
+            ControllerCharacterSelect.NotShowPanelSelectCharacter();
+            NotShowPanel(PanelSelectCharacter);
+            if (ControllerHospital != null)
+                ControllerHospital.RefreshIfVisible();
+            return;
+        }
         if (ButtonCharacterTmp != null && ControllerBattlePartyClass.IsPersonButton(ButtonCharacterTmp))
         {
             int slot = ControllerBattlePartyClass.PersonSlot(ButtonCharacterTmp);
@@ -2505,6 +2660,17 @@ public class ControllerProduction : MonoBehaviour
     //キャラクターセレクトの外すボタンが押されたら
     public void PushButtonRemoveCharacterSelect()
     {
+        if (ButtonCharacterTmp != null && IsHospitalNurseButton(ButtonCharacterTmp))
+        {
+            int card = HospitalNurseCardIndex(ButtonCharacterTmp.name);
+            TryAssignHospitalNurse(card, 0);
+            ButtonCharacterTmp = null;
+            ControllerCharacterSelect.NotShowPanelSelectCharacter();
+            NotShowPanel(PanelSelectCharacter);
+            if (ControllerHospital != null)
+                ControllerHospital.RefreshIfVisible();
+            return;
+        }
         if (ControllerBattlePartyClass.IsPersonButton(ButtonCharacterTmp))
         {
             int slot = ControllerBattlePartyClass.PersonSlot(ButtonCharacterTmp);
@@ -3398,6 +3564,8 @@ public class ControllerProduction : MonoBehaviour
         {
             CharacterClass partyCharacter = CharacterOf(characterId);
             if (partyCharacter == null || partyCharacter.ID != characterId)
+                return false;
+            if (IsHospitalNurse(characterId))
                 return false;
             if (setIndex == ActiveBattlePartySet)
                 return false;
@@ -4469,11 +4637,261 @@ public class ControllerProduction : MonoBehaviour
                     unit.Hp = unit.HpMax;
             }
         }
-        if (ownedChanged)
+        int hospitalReturns = Hospital != null
+            ? Hospital.CatchUp(HospitalState.NowUnixMs(), TryReturnHospitalSpirit)
+            : 0;
+        if (ownedChanged || hospitalReturns > 0)
             ShowCharacterOwnedNum();
     }
 
+    public HospitalState GetHospital()
+    {
+        return Hospital;
+    }
+
+    public bool IsHospitalNurse(uint characterId)
+    {
+        return characterId != 0 && Hospital != null && Hospital.IsNurse(characterId);
+    }
+
+    public bool IsHospitalPerson(uint personId)
+    {
+        return personId != 0 && Hospital != null && Hospital.IsPersonNurse(personId);
+    }
+
+    public int HospitalNurseCard(uint characterId)
+    {
+        return Hospital == null ? 0 : Hospital.NurseCard(characterId);
+    }
+
+    public int HospitalPersonCard(uint personId)
+    {
+        return Hospital == null ? 0 : Hospital.PersonCard(personId);
+    }
+
+    public int HospitalExperience(bool person, uint id)
+    {
+        return Hospital == null ? 0 : Hospital.Experience(person, id);
+    }
+
+    public static bool IsHospitalNurseButton(Button button)
+    {
+        return button != null && button.name.Contains("ButtonHospitalNurseCard");
+    }
+
+    public static int HospitalNurseCardIndex(string name)
+    {
+        if (string.IsNullOrEmpty(name) || name.Length < 2 || !name.Contains("ButtonHospitalNurseCard"))
+            return 0;
+        int card;
+        if (!int.TryParse(name.Substring(name.Length - 2), out card))
+            return 0;
+        return card;
+    }
+
+    public void AdmitHospitalSpirit(uint characterId)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null || character.ID != characterId || Hospital == null)
+            return;
+        int size = character.Size;
+        if (size < 1)
+            size = 1;
+        int area = size * size;
+        int transparent = character.APixels > (uint)area ? area : (int)character.APixels;
+        int opaque = area - transparent;
+        if (opaque < 0)
+            opaque = 0;
+        Hospital.Admit(characterId, opaque, size, HospitalState.NowUnixMs(), null);
+        if (ControllerHospital != null)
+            ControllerHospital.RefreshIfVisible();
+    }
+
+    public void CareHospitalBed(int bed)
+    {
+        if (Hospital == null || bed < 1)
+            return;
+        HospitalStep step = Hospital.CareBed(bed, HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+        if (step.Returned > 0)
+            ShowCharacterOwnedNum();
+        if (step.Tapped > 0 || step.Returned > 0)
+            SaveGame();
+        if (ControllerHospital != null)
+            ControllerHospital.RefreshIfVisible();
+    }
+
+    public bool TryAssignHospitalNurse(int card, uint characterId)
+    {
+        if (Hospital == null)
+            return false;
+        int nurseSize = 0;
+        if (characterId != 0)
+        {
+            if (Hospital.IsNurse(characterId) && Hospital.NurseCard(characterId) != card)
+                return false;
+            int unlockedCards = (Hospital.UnlockedBeds + 1) / 2;
+            if (card < 1 || card > unlockedCards)
+                return false;
+            CharacterClass character = GetCharacter(characterId);
+            if (character == null || character.ID != characterId || character.OwnedNumCur < 1)
+                return false;
+            if (character.Whereabouts == Place.Battle)
+                return false;
+            ReleaseCharacterFromProduction(characterId);
+            if (character.Whereabouts == Place.CreateR
+                || character.Whereabouts == Place.CreateG
+                || character.Whereabouts == Place.CreateB
+                || character.Whereabouts == Place.CreatePixel
+                || character.Whereabouts == Place.CreateCharacter)
+                character.Whereabouts = Place.None;
+            nurseSize = character.Size;
+            RefreshProductionAssignmentViews();
+        }
+        int returned = Hospital.AssignNurse(card, characterId, nurseSize, HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+        if (returned < 0)
+            return false;
+        if (returned > 0)
+            ShowCharacterOwnedNum();
+        SaveGame();
+        if (ControllerHospital != null)
+            ControllerHospital.RefreshIfVisible();
+        return true;
+    }
+
+    public bool TryAssignHospitalPerson(int card, uint personId)
+    {
+        if (Hospital == null || personId == 0 || GetPerson((int)personId) == null)
+            return false;
+        if (IsPersonSortieing((int)personId))
+            return false;
+        if (IsHospitalPerson(personId) && Hospital.PersonCard(personId) != card)
+            return false;
+        ClearPersonFromProduction(personId);
+        ClearPersonFromBattleParties(personId);
+        int returned = Hospital.AssignPerson(card, personId, HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+        if (returned < 0)
+            return false;
+        if (returned > 0)
+            ShowCharacterOwnedNum();
+        RefreshProductionAssignmentViews();
+        SaveGame();
+        if (ControllerHospital != null)
+            ControllerHospital.RefreshIfVisible();
+        return true;
+    }
+
+    void ClearPersonFromBattleParties(uint personId)
+    {
+        if (personId == 0 || BattlePartyPersonIds == null)
+            return;
+        for (int set = 1; set <= Constants.BATTLE_PARTY_SET_NUM; set++)
+        {
+            for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
+            {
+                if (BattlePartyPersonIds[set, slot] == personId)
+                    BattlePartyPersonIds[set, slot] = 0;
+            }
+        }
+        if (ControllerBattleParty != null)
+            ControllerBattleParty.Refresh();
+    }
+
+    public bool TryGrantHospitalBed(string sourceId)
+    {
+        if (Hospital == null)
+            return false;
+        bool granted = Hospital.TryGrantBed(sourceId, HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+        if (!granted)
+            return false;
+        ShowCharacterOwnedNum();
+        SaveGame();
+        if (ControllerHospital != null)
+            ControllerHospital.RefreshIfVisible();
+        return true;
+    }
+
+    int HospitalNurseSize(uint characterId)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null || character.ID != characterId)
+            return 0;
+        return character.Size;
+    }
+
+    bool TryReturnHospitalSpirit(uint characterId)
+    {
+        CharacterClass character = GetCharacter(characterId);
+        if (character == null || character.ID != characterId)
+            return _autosaveReady;
+        int cap = BattleBalance != null ? BattleBalance.MaxLives : BattleBalanceConfig.MaxOwnedCount;
+        int before = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+        character.GainOwned(1, cap);
+        int after = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
+        if (after <= before)
+            return false;
+        if (ControllerBattle != null)
+            ControllerBattle.NoteHospitalReturn(characterId);
+        return true;
+    }
+
+    void AdvanceHospital(bool forceSave)
+    {
+        if (!_autosaveReady || _hospitalBusy || _saving || Hospital == null)
+            return;
+        _hospitalBusy = true;
+        int returned = 0;
+        try
+        {
+            returned = Hospital.CatchUp(HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+        }
+        finally
+        {
+            _hospitalBusy = false;
+        }
+        if (returned > 0)
+            ShowCharacterOwnedNum();
+        if (ControllerHospital != null)
+            ControllerHospital.RefreshIfVisible();
+        if (returned > 0 || forceSave)
+            SaveGame();
+    }
+
+    void CatchHospitalForSave()
+    {
+        if (!_autosaveReady || _hospitalBusy || Hospital == null)
+            return;
+        _hospitalBusy = true;
+        int returned = 0;
+        try
+        {
+            returned = Hospital.CatchUp(HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+        }
+        finally
+        {
+            _hospitalBusy = false;
+        }
+        if (returned > 0)
+            ShowCharacterOwnedNum();
+    }
+
+    void OnApplicationPause(bool paused)
+    {
+        if (paused)
+            AdvanceHospital(true);
+        else
+            AdvanceHospital(false);
+    }
+
+    void OnApplicationFocus(bool focused)
+    {
+        if (!focused)
+            AdvanceHospital(true);
+        else
+            AdvanceHospital(false);
+    }
+
     // 所持が1以上のキャラだけ出撃扱いにして、生産から外す。所持0はバトルに出ないので担当のまま。
+    // 看病担当も出撃しない。
     void PlaceSortieCharacters(int setIndex)
     {
         if (setIndex < 1 || setIndex > Constants.BATTLE_PARTY_SET_NUM)
@@ -4486,7 +4904,7 @@ public class ControllerProduction : MonoBehaviour
                 if (characterId == 0)
                     continue;
                 CharacterClass battleCharacter = CharacterOf(characterId);
-                if (battleCharacter != null && battleCharacter.OwnedNumCur < 1)
+                if (battleCharacter != null && (battleCharacter.OwnedNumCur < 1 || IsHospitalNurse(characterId)))
                     continue;
                 ReleaseCharacterFromProduction(characterId);
                 if (battleCharacter != null)
@@ -6254,6 +6672,8 @@ public class ControllerProduction : MonoBehaviour
         PanelCanvasGroup.alpha = 1;
         PanelCanvasGroup.interactable = true;
         PanelCanvasGroup.blocksRaycasts = true;
+        if (argPanel == PanelSelectCharacter)
+            argPanel.transform.SetAsLastSibling();
     }
     //パネルの非表示
     public void NotShowPanel(GameObject argPanel)
@@ -9130,7 +9550,7 @@ public class ControllerProduction : MonoBehaviour
             return false;
         if (setIndex == ActiveBattlePartySet)
             return false;
-        if (personId != 0 && PersonAt((int)personId) == null)
+        if (personId != 0 && (PersonAt((int)personId) == null || IsHospitalPerson(personId)))
             return false;
         if (personId != 0)
         {
@@ -9176,7 +9596,7 @@ public class ControllerProduction : MonoBehaviour
 
     public void AssignProductionPerson(Button button, int personId)
     {
-        if (button == null || PersonAt(personId) == null || IsPersonSortieing(personId))
+        if (button == null || PersonAt(personId) == null || IsPersonSortieing(personId) || IsHospitalPerson((uint)personId))
             return;
         ClearPersonFromProduction((uint)personId);
         if (button.name.StartsWith("ButtonRProductionHelpCharacter"))
@@ -9398,6 +9818,40 @@ public class ControllerProduction : MonoBehaviour
         shown.OwnedSprite = null;
     }
 
+    public static void ShowAssignedCharacter(Button button, CharacterClass character)
+    {
+        if (button == null)
+            return;
+        if (character == null || character.ImageTexture2D == null)
+        {
+            ReleaseButtonCharacterSprite(button);
+            return;
+        }
+        ShowOwnedCharacter(button, character);
+    }
+
+    public static void ShowAssignedPerson(Button button, PersonClass person)
+    {
+        if (button == null)
+            return;
+        if (person == null)
+        {
+            ReleaseButtonCharacterSprite(button);
+            return;
+        }
+        if (IsHospitalNurseButton(button))
+        {
+            Transform portrait = button.transform.Find("PersonPortrait");
+            if (portrait == null || !portrait.gameObject.activeSelf)
+            {
+                ShownProductionWorker shown = button.GetComponent<ShownProductionWorker>();
+                if (shown != null)
+                    shown.PersonId = 0;
+            }
+        }
+        ShowWorkerPerson(button, person);
+    }
+
     static void ShowOwnedCharacter(Button button, CharacterClass character)
     {
         if (button == null || button.image == null || character == null || character.ImageTexture2D == null)
@@ -9560,7 +10014,7 @@ public class ControllerProduction : MonoBehaviour
         Text label = button.GetComponentInChildren<Text>();
         if (portrait != null)
         {
-            if (button.name.Contains("Production"))
+            if (button.name.Contains("Production") || IsHospitalNurseButton(button))
             {
                 ShowPersonPortrait(button, portrait, PersonFrameColors(person));
                 button.image.sprite = null;
@@ -10080,7 +10534,7 @@ public class ControllerProduction : MonoBehaviour
             for (int y = 1; y <= Constants.BATTLE_FORMATION_SIZE; y++)
             {
                 CharacterClass character = GetCharacter(BattlePartyCharacterIds[setIndex, x, y]);
-                if (character == null || character.OwnedNumCur == 0)
+                if (character == null || character.OwnedNumCur == 0 || IsHospitalNurse(character.ID))
                     continue;
                 list.Add(new AllyAuthorship
                 {

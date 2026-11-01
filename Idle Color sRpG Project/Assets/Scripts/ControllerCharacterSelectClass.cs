@@ -170,6 +170,17 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             ShowBattleStats(argCharacterID);
         }
+        else
+        if (ButtonTmp.name.Contains("ButtonHospitalNurseCard"))
+        {
+            CharacterClass nurse = ImportedCharacters.FindAny(CharactersAll, argCharacterID);
+            TextSelectCharacter1.text = nurse == null ? "" : nurse.Name;
+            TextSelectCharacter1.color = Color.black;
+            TextSelectCharacter2.text = "Size : " + (nurse == null ? "" : nurse.Size.ToString());
+            TextSelectCharacter2.color = Color.black;
+            TextSelectCharacter3.text = "";
+            TextSelectCharacter3.color = Color.black;
+        }
     }
 
     public uint GetSelectedCharacterID()
@@ -673,13 +684,39 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 }
             }
         }
+        else
+        if (ButtonTmp.name.Contains("ButtonHospitalNurseCard"))
+        {
+            TextSelectCharacter1.text = "看病";
+            TextSelectCharacter1.color = Color.black;
+            TextSelectCharacter2.text = "";
+            TextSelectCharacter2.color = Color.black;
+            TextSelectCharacter3.text = "";
+            TextSelectCharacter3.color = Color.black;
+            int card = ControllerProduction.HospitalNurseCardIndex(ButtonTmp.name);
+            ControllerProduction production = GetComponent<ControllerProduction>();
+            HospitalState hospital = production == null ? null : production.GetHospital();
+            uint nurseId = hospital != null && card >= 1 ? hospital.NurseOnBed(card * 2 - 1) : 0;
+            uint personId = hospital != null && card >= 1 ? hospital.PersonOnBed(card * 2 - 1) : 0;
+            if (nurseId != 0)
+            {
+                ShowCharacterPreview(nurseId);
+                CharacterClass nurse = ImportedCharacters.FindAny(CharactersAll, nurseId);
+                TextSelectCharacter1.text = nurse == null ? "" : nurse.Name;
+                TextSelectCharacter2.text = nurse == null ? "" : "Size : " + nurse.Size.ToString();
+                SetRemoveEnabled(true);
+            }
+            else if (personId != 0)
+                ShowAssignedPerson((int)personId, ButtonTmp);
+        }
 
         //キャラクターボタン生成
         if (ButtonTmp.name.Contains("RProductionHelpCharacter") ||
         ButtonTmp.name.Contains("GProductionHelpCharacter") ||
         ButtonTmp.name.Contains("BProductionHelpCharacter") ||
         ButtonTmp.name.Contains("ButtonPixelProductionCharacter") ||
-        ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
+        ButtonTmp.name.Contains("ButtonCharacterProductionCharacter") ||
+        ButtonTmp.name.Contains("ButtonHospitalNurseCard"))
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
@@ -827,6 +864,13 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
+        if (argButtonTmp.name.Contains("ButtonHospitalNurseCard"))
+        {
+            CharacterClass shown = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
+            GameObjectCharacterButton.GetComponentInChildren<Text>().text = shown == null ? "" : "Size : " + shown.Size.ToString();
+            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+        else
         if (argButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
         {
             GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixels : " + ((ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Size * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Size) - ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).APixels);
@@ -840,7 +884,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         }
 
         //出撃中のキャラは生産へ割り当てられない。一覧には残して、グレーで押せなくする
-        if (IsLockedOutOfProduction((uint)argCharacterIndex, argButtonTmp))
+        if (IsLockedOutOfProduction((uint)argCharacterIndex, argButtonTmp)
+            || (ControllerBattlePartyClass.IsCellButton(argButtonTmp) && GetComponent<ControllerProduction>() != null && GetComponent<ControllerProduction>().IsHospitalNurse((uint)argCharacterIndex)))
         {
             GrayOutCharacterButton(GameObjectCharacterButton);
             CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
@@ -865,7 +910,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             || name.Contains("GProductionHelpCharacter")
             || name.Contains("BProductionHelpCharacter")
             || name.Contains("ButtonPixelProductionCharacter")
-            || name.Contains("ButtonCharacterProductionCharacter");
+            || name.Contains("ButtonCharacterProductionCharacter")
+            || name.Contains("ButtonHospitalNurseCard");
     }
 
     bool IsLockedOutOfProduction(uint characterId, Button sourceButton)
@@ -875,7 +921,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         CharacterClass character = ImportedCharacters.FindAny(CharactersAll, characterId);
         if (character == null || character.ID != characterId)
             return false;
-        return character.Whereabouts == Place.Battle;
+        if (character.Whereabouts == Place.Battle)
+            return true;
+        ControllerProduction production = GetComponent<ControllerProduction>();
+        if (production == null || !production.IsHospitalNurse(characterId))
+            return false;
+        if (ControllerProduction.IsHospitalNurseButton(sourceButton))
+            return production.HospitalNurseCard(characterId) != ControllerProduction.HospitalNurseCardIndex(sourceButton.name);
+        return true;
     }
 
     static void GrayOutCharacterButton(GameObject buttonObject)
@@ -1368,9 +1421,22 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     bool IsPersonLockedOutOfProduction(int personId, Button source)
     {
+        ControllerProduction production = GetComponent<ControllerProduction>();
+        bool sortie = PersonSortieCheck != null && PersonSortieCheck(personId);
+        bool nursing = production != null && production.IsHospitalPerson((uint)personId);
+        if (ControllerProduction.IsHospitalNurseButton(source))
+        {
+            if (sortie)
+                return true;
+            if (!nursing)
+                return false;
+            return production.HospitalPersonCard((uint)personId) != ControllerProduction.HospitalNurseCardIndex(source.name);
+        }
+        if (ControllerBattlePartyClass.IsPersonButton(source))
+            return nursing;
         if (!IsProductionAssignmentButton(source))
             return false;
-        return PersonSortieCheck != null && PersonSortieCheck(personId);
+        return sortie || nursing;
     }
 
     void SelectPerson(int personId, Button source)
@@ -1434,6 +1500,16 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         }
         if (source != null && source.name.Contains("ButtonCharacterProductionCharacter"))
             return UiNumber.Format(person.CharacterAmount(false, PersonBalance)) + " /秒";
+        if (source != null && ControllerProduction.IsHospitalNurseButton(source))
+        {
+            ControllerProduction production = GetComponent<ControllerProduction>();
+            int experience = production == null ? 0 : production.HospitalExperience(true, (uint)person.Id);
+            int size = HospitalMath.PersonNurseSize;
+            int level = HospitalMath.LevelFromExperience(experience);
+            for (int i = 0; i < level && size <= int.MaxValue / 2; i++)
+                size *= 2;
+            return "Size : " + size.ToString();
+        }
         return "バトル Lv" + person.BattleLevel.ToString();
     }
 
@@ -1451,6 +1527,15 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             return (int)PersonIdProductionPixel[ControllerProduction.ProductionSlotIndex(source.name)];
         if (source.name.Contains("ButtonCharacterProductionCharacter"))
             return (int)PersonIdProductionCharacter[ControllerProduction.ProductionSlotIndex(source.name)];
+        if (ControllerProduction.IsHospitalNurseButton(source))
+        {
+            ControllerProduction production = GetComponent<ControllerProduction>();
+            HospitalState hospital = production == null ? null : production.GetHospital();
+            int card = ControllerProduction.HospitalNurseCardIndex(source.name);
+            if (hospital == null || card < 1)
+                return 0;
+            return (int)hospital.PersonOnBed(card * 2 - 1);
+        }
         return 0;
     }
 

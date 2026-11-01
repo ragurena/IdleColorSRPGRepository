@@ -55,6 +55,11 @@ sealed class RecordingSink : IBattleRewardSink
         Calls.Add("catalog");
     }
 
+    public void NoteAllyFainted(uint characterId)
+    {
+        Calls.Add("hospital");
+    }
+
     public bool IsGuaranteedRecruit()
     {
         return false;
