@@ -2041,7 +2041,7 @@ public class ControllerProduction : MonoBehaviour
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
             text.raycastTarget = false;
-            text.text = "病院";
+            text.text = "休憩所";
             RectTransform textRect = text.rectTransform;
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
@@ -2051,7 +2051,7 @@ public class ControllerProduction : MonoBehaviour
 
         Text label = buttonObject.GetComponentInChildren<Text>();
         if (label != null)
-            label.text = "病院";
+            label.text = "休憩所";
         Image image = buttonObject.GetComponent<Image>();
         if (image != null)
             image.color = new Color(0.62f, 0.28f, 0.34f, 1f);
@@ -2602,6 +2602,14 @@ public class ControllerProduction : MonoBehaviour
             NotShowPanel(PanelSelectCharacter);
             SaveGame();
             return;
+        }
+        if (ButtonCharacterTmp != null && IsProductionWorkerButton(ButtonCharacterTmp))
+        {
+            int nursingPerson = ControllerCharacterSelect.GetSelectedPersonId();
+            if (nursingPerson != 0)
+                ReleaseHospitalPerson((uint)nursingPerson);
+            else
+                ReleaseHospitalNurse(ControllerCharacterSelect.GetSelectedCharacterID());
         }
         if (ButtonCharacterTmp != null && ControllerCharacterSelect.GetSelectedPersonId() != 0 && IsProductionWorkerButton(ButtonCharacterTmp))
         {
@@ -4720,6 +4728,20 @@ public class ControllerProduction : MonoBehaviour
             ControllerHospital.RefreshIfVisible();
     }
 
+    public void ReleaseHospitalNurse(uint characterId)
+    {
+        if (Hospital == null || characterId == 0 || !IsHospitalNurse(characterId))
+            return;
+        TryAssignHospitalNurse(Hospital.NurseCard(characterId), 0);
+    }
+
+    public void ReleaseHospitalPerson(uint personId)
+    {
+        if (Hospital == null || personId == 0 || !IsHospitalPerson(personId))
+            return;
+        TryAssignHospitalNurse(Hospital.PersonCard(personId), 0);
+    }
+
     public bool TryAssignHospitalNurse(int card, uint characterId)
     {
         if (Hospital == null)
@@ -4825,7 +4847,7 @@ public class ControllerProduction : MonoBehaviour
             return _autosaveReady;
         int cap = BattleBalance != null ? BattleBalance.MaxLives : BattleBalanceConfig.MaxOwnedCount;
         int before = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
-        character.GainOwned(1, cap);
+        character.GainOwnedTier(OwnedTier.Half, 1, cap);
         int after = character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)character.OwnedNumCur;
         if (after <= before)
             return false;
@@ -9596,8 +9618,9 @@ public class ControllerProduction : MonoBehaviour
 
     public void AssignProductionPerson(Button button, int personId)
     {
-        if (button == null || PersonAt(personId) == null || IsPersonSortieing(personId) || IsHospitalPerson((uint)personId))
+        if (button == null || PersonAt(personId) == null || IsPersonSortieing(personId))
             return;
+        ReleaseHospitalPerson((uint)personId);
         ClearPersonFromProduction((uint)personId);
         if (button.name.StartsWith("ButtonRProductionHelpCharacter"))
             AssignRgbPerson(PersonIdHelpProductionR, CharactersIDHelpProductionR, button, personId);

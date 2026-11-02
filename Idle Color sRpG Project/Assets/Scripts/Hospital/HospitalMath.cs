@@ -1,20 +1,54 @@
 using System;
 using System.Globalization;
 
-// 治療時間。非透過1pxにつき、担当なしは2秒。担当ありは画像の一辺で短縮する。
-// 人の担当は8サイズと同じ。患者が戻るたびに人だけ経験が1入り、64、128、256、512と倍の区切りで次のサイズと同じ速度になる。
-// 32サイズの0.5秒より先は、区切りごとに半分になる。
+// 治療時間。非透過1pxにつき、担当なしは5秒。担当キャラは画像の一辺で、8は4秒、16は3秒、32は2秒、64は1秒、128以上は0.5秒。
+// 人の担当はレベル1が5秒。患者が戻るたびに人だけ経験が1入り、64、128、256、512と倍の区切りで次のサイズと同じ速度になる。
 public static class HospitalMath
 {
-    public const int MillisecondsWithoutNurse = 2000;
+    public const int MillisecondsWithoutNurse = 5000;
     public const int PersonNurseSize = 8;
     public const int SpeedUpMilliseconds = 5000;
+    static readonly int[] PersonMilliseconds = { 5000, 4000, 3000, 2000, 1000, 500 };
 
     public static int MillisecondsPerPixel(int nurseSize, bool nurse)
     {
         if (!nurse)
             return MillisecondsWithoutNurse;
-        return MillisecondsForNurse(nurseSize, 0);
+        return MillisecondsForSize(nurseSize);
+    }
+
+    public static int MillisecondsForSize(int size)
+    {
+        if (size <= 8)
+            return 4000;
+        if (size <= 16)
+            return 3000;
+        if (size <= 32)
+            return 2000;
+        if (size < 128)
+            return 1000;
+        return 500;
+    }
+
+    public static int MillisecondsForPerson(int experience)
+    {
+        int step = LevelFromExperience(experience);
+        if (step < 0)
+            step = 0;
+        if (step >= PersonMilliseconds.Length)
+            step = PersonMilliseconds.Length - 1;
+        return PersonMilliseconds[step];
+    }
+
+    public static int PersonEquivalentSize(int experience)
+    {
+        int step = LevelFromExperience(experience);
+        if (step <= 0)
+            return 0;
+        int size = 8;
+        for (int i = 1; i < step && size < 128; i++)
+            size *= 2;
+        return size;
     }
 
     public static int LevelFromExperience(int experience)
@@ -53,30 +87,6 @@ public static class HospitalMath
         need = threshold - previous;
         if (need < 1)
             need = 1;
-    }
-
-    public static int MillisecondsForNurse(int baseSize, int experience)
-    {
-        int tier = SizeTier(baseSize) + LevelFromExperience(experience);
-        if (tier <= 0)
-            return 1500;
-        if (tier == 1)
-            return 1000;
-        if (tier == 2)
-            return 500;
-        int ms = 500;
-        for (int extra = 2; extra < tier && ms > 1; extra++)
-            ms /= 2;
-        return ms < 1 ? 1 : ms;
-    }
-
-    static int SizeTier(int size)
-    {
-        if (size <= 8)
-            return 0;
-        if (size <= 16)
-            return 1;
-        return 2;
     }
 
     public static double RemainingSeconds(double healedPixels, int opaquePixels, int millisecondsPerPixel)

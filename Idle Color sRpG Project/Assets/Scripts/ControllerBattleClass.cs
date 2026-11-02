@@ -2021,7 +2021,9 @@ public class ControllerBattleClass : MonoBehaviour
     {
         Image track = CreateImage("ImageBattleQuestBanner", _questOverlay, new Color(0.10f, 0.12f, 0.16f, 0.95f));
         PlaceRect(track.rectTransform, battlePos.x, battlePos.y + 250f, BattleTextWidth(), 50f);
-        track.raycastTarget = false;
+        Button banner = track.gameObject.AddComponent<Button>();
+        banner.targetGraphic = track;
+        banner.onClick.AddListener(ToggleQuest);
         _questBanner = track.gameObject;
 
         _questBannerFill = CreateImage("Fill", track.transform, new Color(0.32f, 0.72f, 0.4f, 1f));
@@ -2756,7 +2758,7 @@ public class ControllerBattleClass : MonoBehaviour
             _view._production.AdmitHospitalSpirit(characterId);
             CharacterClass character = _view._production.GetCharacter(characterId);
             if (character != null)
-                _view.AddLog(character.Name + " を病院へ");
+                _view.AddLog(character.Name + " を休憩所へ");
         }
 
         public bool IsGuaranteedRecruit()

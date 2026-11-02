@@ -928,7 +928,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             return false;
         if (ControllerProduction.IsHospitalNurseButton(sourceButton))
             return production.HospitalNurseCard(characterId) != ControllerProduction.HospitalNurseCardIndex(sourceButton.name);
-        return true;
+        return false;
     }
 
     static void GrayOutCharacterButton(GameObject buttonObject)
@@ -1436,7 +1436,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             return nursing;
         if (!IsProductionAssignmentButton(source))
             return false;
-        return sortie || nursing;
+        return sortie;
     }
 
     void SelectPerson(int personId, Button source)
@@ -1504,11 +1504,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             ControllerProduction production = GetComponent<ControllerProduction>();
             int experience = production == null ? 0 : production.HospitalExperience(true, (uint)person.Id);
-            int size = HospitalMath.PersonNurseSize;
-            int level = HospitalMath.LevelFromExperience(experience);
-            for (int i = 0; i < level && size <= int.MaxValue / 2; i++)
-                size *= 2;
-            return "Size : " + size.ToString();
+            int size = HospitalMath.PersonEquivalentSize(experience);
+            return size < 8 ? "Size : -" : "Size : " + size.ToString();
         }
         return "バトル Lv" + person.BattleLevel.ToString();
     }

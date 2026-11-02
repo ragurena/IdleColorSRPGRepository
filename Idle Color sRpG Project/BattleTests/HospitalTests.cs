@@ -40,13 +40,13 @@ static class HospitalTests
     static int Formats()
     {
         int failures = 0;
-        failures += Check(HospitalMath.FormatSeconds(64 * 2) == "0:02:08", "8x8 time");
-        failures += Check(HospitalMath.FormatSeconds(256 * 2) == "0:08:32", "16x16 time");
-        failures += Check(HospitalMath.FormatSeconds(1024 * 2) == "0:34:08", "32x32 time");
-        failures += Check(HospitalMath.FormatSeconds(4096 * 2) == "2:16:32", "64x64 time");
-        failures += Check(HospitalMath.FormatSeconds(16384 * 2) == "9:06:08", "128x128 time");
-        failures += Check(HospitalMath.FormatSeconds(65536 * 2) == "36:24:32", "256x256 time");
-        failures += Check(HospitalMath.FormatSeconds(262144 * 2) == "145:38:08", "512x512 time");
+        failures += Check(HospitalMath.FormatSeconds(64 * 5) == "0:05:20", "8x8 time");
+        failures += Check(HospitalMath.FormatSeconds(256 * 5) == "0:21:20", "16x16 time");
+        failures += Check(HospitalMath.FormatSeconds(1024 * 5) == "1:25:20", "32x32 time");
+        failures += Check(HospitalMath.FormatSeconds(4096 * 5) == "5:41:20", "64x64 time");
+        failures += Check(HospitalMath.FormatSeconds(16384 * 5) == "22:45:20", "128x128 time");
+        failures += Check(HospitalMath.FormatSeconds(65536 * 5) == "91:01:20", "256x256 time");
+        failures += Check(HospitalMath.FormatSeconds(262144 * 5) == "364:05:20", "512x512 time");
         failures += Check(HospitalMath.Gauge01(100, 4096) == 100f / 4096f, "gauge");
         failures += Check(HospitalMath.Gauge01(4096, 4096) == 1f, "gauge full");
         return failures;
@@ -55,18 +55,26 @@ static class HospitalTests
     static int Rates()
     {
         int failures = 0;
-        failures += Check(HospitalMath.MillisecondsPerPixel(8, false) == 2000, "base 8");
-        failures += Check(HospitalMath.MillisecondsPerPixel(64, false) == 2000, "base 64");
-        failures += Check(HospitalMath.MillisecondsPerPixel(8, true) == 1500, "nurse 8");
-        failures += Check(HospitalMath.MillisecondsPerPixel(16, true) == 1000, "nurse 16");
-        failures += Check(HospitalMath.MillisecondsPerPixel(32, true) == 500, "nurse 32");
+        failures += Check(HospitalMath.MillisecondsPerPixel(8, false) == 5000, "base 8");
+        failures += Check(HospitalMath.MillisecondsPerPixel(64, false) == 5000, "base 64");
+        failures += Check(HospitalMath.MillisecondsPerPixel(8, true) == 4000, "nurse 8");
+        failures += Check(HospitalMath.MillisecondsPerPixel(16, true) == 3000, "nurse 16");
+        failures += Check(HospitalMath.MillisecondsPerPixel(32, true) == 2000, "nurse 32");
+        failures += Check(HospitalMath.MillisecondsPerPixel(64, true) == 1000, "nurse 64");
+        failures += Check(HospitalMath.MillisecondsPerPixel(96, true) == 1000, "nurse 96");
+        failures += Check(HospitalMath.MillisecondsPerPixel(128, true) == 500, "nurse 128");
         failures += Check(HospitalMath.MillisecondsPerPixel(512, true) == 500, "nurse 512");
-        failures += Check(HospitalMath.MillisecondsForNurse(8, 63) == 1500, "xp 63 stays size 8");
-        failures += Check(HospitalMath.MillisecondsForNurse(8, 64) == 1000, "xp 64 is size 16");
-        failures += Check(HospitalMath.MillisecondsForNurse(8, 128) == 500, "xp 128 is size 32");
-        failures += Check(HospitalMath.MillisecondsForNurse(8, 256) == 250, "xp 256 is faster");
-        failures += Check(HospitalMath.MillisecondsForNurse(8, 512) == 125, "xp 512 is faster");
-        failures += Check(HospitalMath.MillisecondsForNurse(32, 64) == 250, "size 32 grows at 64");
+        failures += Check(HospitalMath.MillisecondsForPerson(0) == 5000, "person level 1 is 5 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(63) == 5000, "xp 63 stays 5 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(64) == 4000, "xp 64 is 4 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(128) == 3000, "xp 128 is 3 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(256) == 2000, "xp 256 is 2 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(512) == 1000, "xp 512 is 1 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(1024) == 500, "xp 1024 is 0.5 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(2048) == 500, "xp stays 0.5 sec");
+        failures += Check(HospitalMath.PersonEquivalentSize(0) == 0, "level 1 has no size");
+        failures += Check(HospitalMath.PersonEquivalentSize(64) == 8, "level 2 is size 8");
+        failures += Check(HospitalMath.PersonEquivalentSize(1024) == 128, "level 6 is size 128");
         int level;
         int into;
         int need;
@@ -88,26 +96,26 @@ static class HospitalTests
         failures += Check(hospital.AssignPerson(1, 4, 0, null) >= 0, "assign person");
         hospital.Admit(1, 4, 64, 0, null);
         hospital.Admit(2, 4, 64, 0, null);
-        hospital.CatchUp(1500, null);
-        failures += Check(Nearly(hospital.PatientOnBed(1).HealedPixels, 1) && Nearly(hospital.PatientOnBed(2).HealedPixels, 1), "person heals like size 8");
+        hospital.CatchUp(5000, null);
+        failures += Check(Nearly(hospital.PatientOnBed(1).HealedPixels, 1) && Nearly(hospital.PatientOnBed(2).HealedPixels, 1), "person heals at 5 sec");
         List<uint> returned = new List<uint>();
-        hospital.CatchUp(6000, id => Grant(returned, id));
+        hospital.CatchUp(20000, id => Grant(returned, id));
         failures += Check(returned.Count == 2 && hospital.Experience(true, 4) == 2, "each return gives 1 xp");
         HospitalState characterNurse = new HospitalState();
         characterNurse.AssignNurse(1, 3, 32, 0, null);
         characterNurse.Admit(1, 1, 8, 0, null);
-        characterNurse.CatchUp(500, id => true);
+        characterNurse.CatchUp(2000, id => true);
         failures += Check(characterNurse.Experience(false, 3) == 0, "character nurse gains no xp");
 
         HospitalState grown = new HospitalState();
         grown.AssignPerson(1, 4, 0, null);
         grown.AddExperience(true, 4, 64);
         grown.Admit(1, 4, 8, 0, null);
-        grown.CatchUp(1000, null);
-        failures += Check(Nearly(grown.PatientOnBed(1).HealedPixels, 1), "64 xp heals at 1 sec");
+        grown.CatchUp(4000, null);
+        failures += Check(Nearly(grown.PatientOnBed(1).HealedPixels, 1), "64 xp heals at 4 sec");
         grown.AddExperience(true, 4, 64);
-        grown.CatchUp(1500, null);
-        failures += Check(Nearly(grown.PatientOnBed(1).HealedPixels, 2), "128 xp heals at 0.5 sec");
+        grown.CatchUp(7000, null);
+        failures += Check(Nearly(grown.PatientOnBed(1).HealedPixels, 2), "128 xp heals at 3 sec");
         StringWriter writer = new StringWriter();
         grown.Write(writer);
         HospitalState loaded = new HospitalState();
@@ -138,7 +146,7 @@ static class HospitalTests
         failures += Check(hospital.PatientOnBed(1) != null && hospital.PatientOnBed(1).CharacterId == 1, "bed1 first");
         failures += Check(hospital.PatientOnBed(2) != null && hospital.PatientOnBed(2).CharacterId == 2, "bed2 second");
         failures += Check(hospital.WaitingCount == 1 && WaitingId(hospital) == 3, "third waits");
-        hospital.CatchUp(4 * 2000, id => Grant(returned, id));
+        hospital.CatchUp(4 * 5000, id => Grant(returned, id));
         failures += Check(returned.Count == 2 && returned[0] == 1 && returned[1] == 2, "finish order");
         failures += Check(hospital.PatientOnBed(1) != null && hospital.PatientOnBed(1).CharacterId == 3, "waiter takes bed");
         failures += Check(hospital.WaitingCount == 0, "queue empty");
@@ -150,46 +158,46 @@ static class HospitalTests
         int failures = 0;
         HospitalState hospital = new HospitalState();
         hospital.Admit(7, 4, 8, 0, null);
-        hospital.CatchUp(2000, null);
+        hospital.CatchUp(5000, null);
         HospitalPatient patient = hospital.PatientOnBed(1);
-        failures += Check(patient != null && Nearly(patient.HealedPixels, 1), "2 sec per px");
+        failures += Check(patient != null && Nearly(patient.HealedPixels, 1), "5 sec per px");
         double kept = patient.HealedPixels;
-        failures += Check(hospital.AssignNurse(1, 9, 8, 2000, null) >= 0, "assign nurse");
+        failures += Check(hospital.AssignNurse(1, 9, 8, 5000, null) >= 0, "assign nurse");
         failures += Check(hospital.IsNurse(9) && hospital.NurseOnBed(1) == 9 && hospital.NurseOnBed(2) == 9, "nurse covers the card");
-        hospital.TryGrantBed("nurse-card", 2000, null);
-        hospital.TryGrantBed("nurse-card-2", 2000, null);
-        failures += Check(hospital.AssignNurse(2, 9, 8, 2000, null) < 0, "nurse unique");
+        hospital.TryGrantBed("nurse-card", 5000, null);
+        hospital.TryGrantBed("nurse-card-2", 5000, null);
+        failures += Check(hospital.AssignNurse(2, 9, 8, 5000, null) < 0, "nurse unique");
         patient = hospital.PatientOnBed(1);
         failures += Check(patient != null && Nearly(patient.HealedPixels, kept), "progress kept");
-        hospital.CatchUp(2000 + 1500, null);
+        hospital.CatchUp(5000 + 4000, null);
         patient = hospital.PatientOnBed(1);
-        failures += Check(patient != null && Nearly(patient.HealedPixels, 2), "8 nurse 1.5 sec");
+        failures += Check(patient != null && Nearly(patient.HealedPixels, 2), "8 nurse 4 sec");
 
         HospitalState smallNurse = new HospitalState();
         smallNurse.Admit(4, 4, 64, 0, null);
         smallNurse.AssignNurse(1, 3, 8, 0, null);
-        smallNurse.CatchUp(1500, null);
+        smallNurse.CatchUp(4000, null);
         failures += Check(Nearly(smallNurse.PatientOnBed(1).HealedPixels, 1), "large patient still follows 8 nurse");
 
         HospitalState wide = new HospitalState();
         wide.Admit(4, 4, 8, 0, null);
         wide.AssignNurse(1, 3, 16, 0, null);
-        wide.CatchUp(1000, null);
-        failures += Check(Nearly(wide.PatientOnBed(1).HealedPixels, 1), "16 nurse 1 sec");
+        wide.CatchUp(3000, null);
+        failures += Check(Nearly(wide.PatientOnBed(1).HealedPixels, 1), "16 nurse 3 sec");
 
         HospitalState big = new HospitalState();
         big.Admit(5, 4, 8, 0, null);
         big.AssignNurse(1, 3, 32, 0, null);
-        big.CatchUp(500, null);
-        failures += Check(Nearly(big.PatientOnBed(1).HealedPixels, 1), "32 nurse 0.5 sec");
-        big.CatchUp(500 + 250, null);
+        big.CatchUp(2000, null);
+        failures += Check(Nearly(big.PatientOnBed(1).HealedPixels, 1), "32 nurse 2 sec");
+        big.CatchUp(2000 + 1000, null);
         failures += Check(Nearly(big.PatientOnBed(1).HealedPixels, 1.5), "half pixel");
 
         HospitalState pair = new HospitalState();
         pair.Admit(1, 4, 64, 0, null);
         pair.Admit(2, 4, 64, 0, null);
         pair.AssignNurse(1, 8, 8, 0, null);
-        pair.CatchUp(1500, null);
+        pair.CatchUp(4000, null);
         failures += Check(Nearly(pair.PatientOnBed(1).HealedPixels, 1) && Nearly(pair.PatientOnBed(2).HealedPixels, 1), "card nurse heals both");
         return failures;
     }
@@ -199,28 +207,28 @@ static class HospitalTests
         int failures = 0;
         HospitalState hospital = new HospitalState();
         hospital.Admit(1, 10, 8, 0, null);
-        hospital.CatchUp(2000, null);
+        hospital.CatchUp(5000, null);
         double before = hospital.RemainingSeconds(hospital.PatientOnBed(1));
-        HospitalStep step = hospital.Care(0, 2000, null);
+        HospitalStep step = hospital.Care(0, 5000, null);
         failures += Check(step.Tapped == 1, "one tap");
-        failures += Check(Nearly(hospital.PatientOnBed(1).HealedPixels, 3.5), "tap is 5 seconds");
+        failures += Check(Nearly(hospital.PatientOnBed(1).HealedPixels, 2), "tap is 5 seconds");
         failures += Check(Nearly(hospital.RemainingSeconds(hospital.PatientOnBed(1)), before - 5), "five seconds shorter");
-        hospital.CatchUp(3000, null);
-        failures += Check(Nearly(hospital.PatientOnBed(1).HealedPixels, 4), "time after tap");
+        hospital.CatchUp(6000, null);
+        failures += Check(Nearly(hospital.PatientOnBed(1).HealedPixels, 2.2), "time after tap");
         HospitalState fast = new HospitalState();
         fast.Admit(1, 40, 8, 0, null);
         fast.AssignNurse(1, 3, 32, 0, null);
         double fastBefore = fast.RemainingSeconds(fast.PatientOnBed(1));
         fast.CareBed(1, 0, null);
-        failures += Check(Nearly(fast.PatientOnBed(1).HealedPixels, 10), "32 nurse tap is 10 px");
+        failures += Check(Nearly(fast.PatientOnBed(1).HealedPixels, 2.5), "32 nurse tap is 2.5 px");
         failures += Check(Nearly(fast.RemainingSeconds(fast.PatientOnBed(1)), fastBefore - 5), "nurse tap still 5 seconds");
         List<uint> returned = new List<uint>();
         HospitalState finish = new HospitalState();
         finish.Admit(1, 3, 8, 0, null);
-        finish.CatchUp(2000, null);
-        step = finish.Care(0, 2000, id => Grant(returned, id));
+        finish.CatchUp(12000, null);
+        step = finish.Care(0, 12000, id => Grant(returned, id));
         failures += Check(step.Tapped == 1 && returned.Count == 1 && finish.PatientOnBed(1) == null, "tap under 5 seconds returns");
-        step = finish.Care(0, 2000, id => Grant(returned, id));
+        step = finish.Care(0, 12000, id => Grant(returned, id));
         failures += Check(step.Tapped == 0 && returned.Count == 1, "tap after complete ignored");
         return failures;
     }
@@ -233,14 +241,14 @@ static class HospitalTests
         hospital.Admit(1, 2, 32, 1000, id => Grant(returned, id));
         hospital.Admit(2, 2, 32, 1000, id => Grant(returned, id));
         hospital.Admit(3, 2, 32, 1000, id => Grant(returned, id));
-        long now = 1000 + 2 * 2000 + 500;
+        long now = 1000 + 2 * 5000 + 500;
         hospital.CatchUp(now, id => Grant(returned, id));
         failures += Check(returned.Count == 2, "offline finished two");
         HospitalPatient third = hospital.PatientOnBed(1);
         if (third == null || third.CharacterId != 3)
             third = hospital.PatientOnBed(2);
         failures += Check(third != null && third.CharacterId == 3, "third entered offline");
-        failures += Check(third != null && Nearly(third.HealedPixels, 0.25), "offline partial after turnover");
+        failures += Check(third != null && Nearly(third.HealedPixels, 0.1), "offline partial after turnover");
         failures += Check(hospital.WaitingCount == 0, "no waiter left");
         return failures;
     }
@@ -290,7 +298,7 @@ static class HospitalTests
         hospital.TryGrantBed("quest-bed", 0, null);
         hospital.Admit(12, 64, 8, 10, null);
         hospital.AssignNurse(1, 3, 32, 10, null);
-        hospital.CatchUp(10 + 500, null);
+        hospital.CatchUp(10 + 2000, null);
         StringWriter writer = new StringWriter();
         hospital.Write(writer);
         HospitalState loaded = new HospitalState();
@@ -350,11 +358,11 @@ static class HospitalTests
         HospitalState hospital = new HospitalState();
         bool room = false;
         hospital.Admit(6, 1, 8, 0, id => room);
-        hospital.CatchUp(2000, id => room);
+        hospital.CatchUp(5000, id => room);
         failures += Check(hospital.PendingCount == 1 && hospital.PatientOnBed(1) == null, "waits for room");
         room = true;
         List<uint> got = new List<uint>();
-        hospital.CatchUp(2000, id =>
+        hospital.CatchUp(5000, id =>
         {
             if (!room)
                 return false;
@@ -391,7 +399,7 @@ static class HospitalTests
         oneSide.Admit(1, 4, 8, 0, null);
         oneSide.Admit(2, 4, 8, 0, null);
         HospitalStep left = oneSide.CareBed(1, 0, null);
-        failures += Check(left.Tapped == 1 && Nearly(oneSide.PatientOnBed(1).HealedPixels, 2.5), "left care hits left bed");
+        failures += Check(left.Tapped == 1 && Nearly(oneSide.PatientOnBed(1).HealedPixels, 1), "left care hits left bed");
         failures += Check(Nearly(oneSide.PatientOnBed(2).HealedPixels, 0), "left care skips right bed");
         return failures;
     }

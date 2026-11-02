@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 病院画面。ベッドカードと待機列は、合成画面と同じ白枠と文字で組む。
+// 休憩所。ベッドカードと待機列は、合成画面と同じ白枠と文字で組む。
 public class ControllerHospitalClass : MonoBehaviour
 {
     const float SpiritAlpha = 0.7f;
@@ -414,7 +414,7 @@ public class ControllerHospitalClass : MonoBehaviour
         picture.color = new Color(1f, 1f, 1f, SpiritAlpha);
         ControllerProduction.EnsureOwnedAttributeGlow(pictureObject.transform, character);
 
-        Text caption = CreateText(cell.transform, "TextHospitalWait", UiNumber.Format(patient.OpaquePixels) + " px\n" + HospitalMath.FormatSeconds(patient.OpaquePixels * 2.0), 18, TextAnchor.UpperCenter);
+        Text caption = CreateText(cell.transform, "TextHospitalWait", UiNumber.Format(patient.OpaquePixels) + " px\n" + HospitalMath.FormatSeconds(patient.OpaquePixels * (HospitalMath.MillisecondsWithoutNurse / 1000.0)), 18, TextAnchor.UpperCenter);
         RectTransform captionRect = caption.rectTransform;
         captionRect.anchorMin = new Vector2(0.5f, 1f);
         captionRect.anchorMax = new Vector2(0.5f, 1f);

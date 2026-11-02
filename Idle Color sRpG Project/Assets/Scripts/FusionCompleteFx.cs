@@ -5,6 +5,7 @@ using UnityEngine.UI;
 // 合成完了。代表色の光が集まり、輪郭から染み込み、跳ねて着地で飛び散る。
 public class FusionCompleteFx : MonoBehaviour
 {
+    const float PlaySpeed = 1.5f;
     const float GatherDuration = 0.55f;
     const float WhiteHoldDuration = 0.08f;
     const float HopDuration = 0.38f;
@@ -126,7 +127,7 @@ public class FusionCompleteFx : MonoBehaviour
     {
         if (!_playing)
             return;
-        _elapsed += Time.deltaTime;
+        _elapsed += Time.deltaTime * PlaySpeed;
         float local = _elapsed - _phaseStart;
 
         if (_phase == 0)

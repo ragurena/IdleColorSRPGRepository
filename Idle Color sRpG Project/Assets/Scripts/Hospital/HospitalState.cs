@@ -226,11 +226,12 @@ public sealed class HospitalState
         uint id = person ? _nursePersons[card] : _nurses[card];
         if (id == 0)
             return HospitalMath.MillisecondsWithoutNurse;
+        if (person)
+            return HospitalMath.MillisecondsForPerson(Experience(true, id));
         int baseSize = _nurseSizes[card];
         if (baseSize < 1)
-            baseSize = person ? HospitalMath.PersonNurseSize : 1;
-        int experience = person ? Experience(true, id) : 0;
-        return HospitalMath.MillisecondsForNurse(baseSize, experience);
+            baseSize = 1;
+        return HospitalMath.MillisecondsForSize(baseSize);
     }
 
     public double RemainingSeconds(HospitalPatient patient)
