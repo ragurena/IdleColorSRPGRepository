@@ -260,6 +260,33 @@ public class ControllerProduction : MonoBehaviour
     Color ColorTmp = new Color(0.0f, 0.0f, 0.0f, 1.0f);
     bool SpecificationRgbUpdating;
 
+    class ShortColorNeed
+    {
+        public int R;
+        public int G;
+        public int B;
+        public uint AlertId;
+        public readonly uint[] Characters = new uint[ShortColorFaceMax];
+        public int Count;
+    }
+
+    const float ColorMethodGap = 40f;
+    const float ColorMethodTopLift = 80f;
+    const int ShortColorColumns = 2;
+    const int ShortColorFaceMax = 6;
+    const float ShortColorCardHeight = 150f;
+    const float ShortColorGridGap = 18f;
+    readonly List<ShortColorNeed> ShortColorNeeds = new List<ShortColorNeed>();
+    readonly List<RectTransform> ColorMethodChoiceButtons = new List<RectTransform>();
+    RectTransform ShortColorListRoot;
+    ScrollRect ShortColorScroll;
+    RectTransform ShortColorListContent;
+    string ShortColorListSignature;
+    bool ShortColorListSuppressed;
+    Font ShortColorListFont;
+    Sprite ShortColorPlateSprite;
+    Image.Type ShortColorPlateType;
+
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2828,6 +2855,7 @@ public class ControllerProduction : MonoBehaviour
     //カラーセレクトの色指定方法のRGB値で指定ボタンが押されたら
     public void PushButtonSelectColorMethodRGBNum()
     {
+        SuppressShortColorList();
         ShowPanel(PanelSelectColorMethodRGBNum);
         StyleSpecificationNumSliders();
 
@@ -2840,14 +2868,948 @@ public class ControllerProduction : MonoBehaviour
     //カラーセレクトの色指定方法パネルの表示
     public void ShowPanelSelectColorMethod()
     {
+        ShortColorListSuppressed = false;
         ShowPanel(PanelSelectColor);
         ShowPanel(PanelSelectColorMethod);
+        RefreshShortColorList(true);
     }
     //カラーセレクトの色指定方法パネルの非表示
     public void NotShowPanelSelectColorMethod()
     {
         NotShowPanel(PanelSelectColorMethod);
         NotShowPanel(PanelSelectColor);
+        if (ShortColorListRoot != null)
+            ShortColorListRoot.gameObject.SetActive(false);
+    }
+
+    // 色の指定方法の下に、キャラ生産で所持が足りない色をカードで並べる。押すとその色を生産色にする。
+    void RefreshShortColorList(bool opened)
+    {
+        if (ShortColorListSuppressed || PanelSelectColorMethod == null)
+            return;
+        CanvasGroup group = PanelSelectColorMethod.GetComponent<CanvasGroup>();
+        if (group == null || group.alpha < 0.5f)
+            return;
+
+        CollectShortColorNeeds();
+        string signature = ShortColorSignature();
+        if (opened)
+            StackColorMethodButtons();
+        if (ShortColorNeeds.Count == 0)
+        {
+            ShortColorListSignature = signature;
+            if (ShortColorListRoot != null)
+                ShortColorListRoot.gameObject.SetActive(false);
+            return;
+        }
+
+        EnsureShortColorList();
+        if (ShortColorListRoot == null)
+            return;
+        ShortColorListRoot.gameObject.SetActive(true);
+        bool changed = signature != ShortColorListSignature;
+        if (opened || changed)
+            PlaceShortColorList(ShortColorNeeds.Count);
+        if (!changed && ShortColorListContent != null && ShortColorListContent.childCount > 0)
+        {
+            if (opened)
+                ResetShortColorScroll();
+            return;
+        }
+
+        float keptScroll = 0f;
+        if (!opened && ShortColorListContent != null)
+            keptScroll = ShortColorListContent.anchoredPosition.y;
+        ShortColorListSignature = signature;
+        RebuildShortColorCards();
+        if (opened)
+            ResetShortColorScroll();
+        else if (ShortColorListContent != null)
+        {
+            Vector2 position = ShortColorListContent.anchoredPosition;
+            position.y = keptScroll;
+            ShortColorListContent.anchoredPosition = position;
+        }
+    }
+
+    void SuppressShortColorList()
+    {
+        ShortColorListSuppressed = true;
+        if (ShortColorListRoot != null)
+            ShortColorListRoot.gameObject.SetActive(false);
+    }
+
+    void CollectShortColorNeeds()
+    {
+        ShortColorNeeds.Clear();
+        int slots = Slots != null ? Slots.CharacterSlots : 0;
+        for (int i = 1; i <= slots; i++)
+        {
+            if (CharactersIDProducedCharacter == null || i >= CharactersIDProducedCharacter.Length)
+                break;
+            uint characterId = CharactersIDProducedCharacter[i];
+            if (characterId == 0)
+                continue;
+            if (!CharacterProductionRunning(i))
+                continue;
+            CharacterClass character = CharacterOf(characterId);
+            if (character == null || character.ID != characterId)
+                continue;
+            List<ConsumePixelClass> pixels = EnsureConsumePixelList(i);
+            if (pixels == null)
+                continue;
+            for (int pixelIndex = 0; pixelIndex < pixels.Count; pixelIndex++)
+            {
+                ConsumePixelClass pixel = pixels[pixelIndex];
+                if (!CharacterPixelShort(pixel))
+                    continue;
+                int r = ColorByte(pixel.PixelColor.r);
+                int g = ColorByte(pixel.PixelColor.g);
+                int b = ColorByte(pixel.PixelColor.b);
+                ShortColorNeed need = FindShortColorNeed(r, g, b);
+                NoteShortColorAlert(need, characterId);
+            }
+        }
+        for (int i = 0; i < ShortColorNeeds.Count; i++)
+            FillShortColorCharacters(ShortColorNeeds[i]);
+    }
+
+    ShortColorNeed FindShortColorNeed(int r, int g, int b)
+    {
+        for (int i = 0; i < ShortColorNeeds.Count; i++)
+        {
+            ShortColorNeed need = ShortColorNeeds[i];
+            if (need.R == r && need.G == g && need.B == b)
+                return need;
+        }
+        ShortColorNeed created = new ShortColorNeed();
+        created.R = r;
+        created.G = g;
+        created.B = b;
+        ShortColorNeeds.Add(created);
+        return created;
+    }
+
+    void FillShortColorCharacters(ShortColorNeed need)
+    {
+        if (need == null || need.Count >= ShortColorFaceMax)
+            return;
+        AddShortColorUsers(need, true);
+        if (need.Count < ShortColorFaceMax)
+            AddShortColorUsers(need, false);
+    }
+
+    void AddShortColorUsers(ShortColorNeed need, bool ownedOnly)
+    {
+        if (need == null || need.Count >= ShortColorFaceMax)
+            return;
+        for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
+            TryAddShortColorUser(need, CharactersAll[i], ownedOnly);
+        ImportedCharacters.ForEach(character => TryAddShortColorUser(need, character, ownedOnly));
+    }
+
+    void TryAddShortColorUser(ShortColorNeed need, CharacterClass character, bool ownedOnly)
+    {
+        if (need == null || need.Count >= ShortColorFaceMax || character == null || character.ID == 0)
+            return;
+        bool owned = character.OwnedNumCur > 0;
+        if (ownedOnly != owned)
+            return;
+        if (!CharacterUsesColor(character, need.R, need.G, need.B))
+            return;
+        AddShortColorOther(need, character.ID);
+    }
+
+    static bool CharacterUsesColor(CharacterClass character, int r, int g, int b)
+    {
+        if (character == null || character.ListExistsColors == null)
+            return false;
+        for (int i = 0; i < character.ListExistsColors.Count; i++)
+        {
+            ExistColor entry = character.ListExistsColors[i];
+            if (entry == null)
+                continue;
+            if (ColorByte(entry.Color.r) == r && ColorByte(entry.Color.g) == g && ColorByte(entry.Color.b) == b)
+                return true;
+        }
+        return false;
+    }
+
+    void NoteShortColorAlert(ShortColorNeed need, uint characterId)
+    {
+        if (need == null || characterId == 0)
+            return;
+        CharacterClass character = CharacterOf(characterId);
+        if (character == null || character.ImageTexture2D == null)
+            return;
+        if (need.AlertId == 0)
+        {
+            need.AlertId = characterId;
+            return;
+        }
+        if (need.AlertId == characterId)
+            return;
+        AddShortColorOther(need, characterId);
+    }
+
+    void AddShortColorOther(ShortColorNeed need, uint characterId)
+    {
+        if (need == null || characterId == 0 || characterId == need.AlertId || need.Count >= ShortColorFaceMax)
+            return;
+        for (int i = 0; i < need.Count; i++)
+        {
+            if (need.Characters[i] == characterId)
+                return;
+        }
+        CharacterClass character = CharacterOf(characterId);
+        if (character == null || character.ImageTexture2D == null)
+            return;
+        need.Characters[need.Count] = characterId;
+        need.Count++;
+    }
+
+    string ShortColorSignature()
+    {
+        if (ShortColorNeeds.Count == 0)
+            return "";
+        System.Text.StringBuilder builder = new System.Text.StringBuilder();
+        for (int i = 0; i < ShortColorNeeds.Count; i++)
+        {
+            ShortColorNeed need = ShortColorNeeds[i];
+            builder.Append(need.AlertId);
+            builder.Append(':');
+            builder.Append(need.R);
+            builder.Append(',');
+            builder.Append(need.G);
+            builder.Append(',');
+            builder.Append(need.B);
+            builder.Append(':');
+            for (int face = 0; face < need.Count; face++)
+            {
+                builder.Append(need.Characters[face]);
+                builder.Append('.');
+            }
+            builder.Append(';');
+        }
+        return builder.ToString();
+    }
+
+    void EnsureShortColorList()
+    {
+        if (ShortColorListRoot != null || PanelSelectColorMethod == null)
+            return;
+
+        GameObject rootObject = new GameObject("ShortColorList", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
+        rootObject.transform.SetParent(PanelSelectColorMethod.transform, false);
+        ShortColorListRoot = rootObject.GetComponent<RectTransform>();
+        ShortColorListRoot.localScale = Vector3.one;
+        Image plate = rootObject.GetComponent<Image>();
+        plate.color = new Color(0f, 0f, 0f, 0f);
+        plate.raycastTarget = false;
+
+        GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(RectMask2D));
+        viewportObject.transform.SetParent(rootObject.transform, false);
+        RectTransform viewport = viewportObject.GetComponent<RectTransform>();
+        viewport.anchorMin = Vector2.zero;
+        viewport.anchorMax = Vector2.one;
+        viewport.offsetMin = Vector2.zero;
+        viewport.offsetMax = Vector2.zero;
+        Image viewportImage = viewportObject.GetComponent<Image>();
+        viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+        viewportImage.raycastTarget = true;
+
+        GameObject contentObject = new GameObject("Content", typeof(RectTransform), typeof(GridLayoutGroup), typeof(ContentSizeFitter));
+        contentObject.transform.SetParent(viewportObject.transform, false);
+        ShortColorListContent = contentObject.GetComponent<RectTransform>();
+        ShortColorListContent.anchorMin = new Vector2(0f, 1f);
+        ShortColorListContent.anchorMax = new Vector2(1f, 1f);
+        ShortColorListContent.pivot = new Vector2(0.5f, 1f);
+        ShortColorListContent.anchoredPosition = Vector2.zero;
+        ShortColorListContent.sizeDelta = new Vector2(0f, 0f);
+
+        GridLayoutGroup layout = contentObject.GetComponent<GridLayoutGroup>();
+        layout.padding = new RectOffset(0, 0, 0, 0);
+        layout.spacing = new Vector2(ShortColorGridGap, ShortColorGridGap);
+        layout.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        layout.startAxis = GridLayoutGroup.Axis.Horizontal;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        layout.constraintCount = ShortColorColumns;
+        layout.cellSize = new Vector2(280f, ShortColorCardHeight);
+
+        ContentSizeFitter fitter = contentObject.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        ShortColorScroll = rootObject.GetComponent<ScrollRect>();
+        ShortColorScroll.viewport = viewport;
+        ShortColorScroll.content = ShortColorListContent;
+        ShortColorScroll.horizontal = false;
+        ShortColorScroll.vertical = true;
+        ShortColorScroll.movementType = ScrollRect.MovementType.Clamped;
+        ShortColorScroll.scrollSensitivity = 40f;
+        ShortColorScroll.inertia = true;
+    }
+
+    // キャラから指定とRGB値で指定を、上の操作列より少し上から同じ間隔で積む。
+    void StackColorMethodButtons()
+    {
+        RectTransform panel = PanelSelectColorMethod != null ? PanelSelectColorMethod.transform as RectTransform : null;
+        if (panel == null)
+            return;
+
+        ColorMethodChoiceButtons.Clear();
+        CollectColorMethodChoices(panel, panel);
+        if (ColorMethodChoiceButtons.Count == 0)
+            return;
+        ColorMethodChoiceButtons.Sort(CompareColorMethodChoice);
+
+        Canvas canvas = panel.GetComponentInParent<Canvas>();
+        RectTransform space = canvas != null ? canvas.transform as RectTransform : panel;
+        Vector3[] spaceCorners = new Vector3[4];
+        space.GetWorldCorners(spaceCorners);
+        float spaceTop = panel.InverseTransformPoint(spaceCorners[1]).y;
+        float spaceBottom = panel.InverseTransformPoint(spaceCorners[0]).y;
+        float chromeBottom = ColorMethodChromeBottom(panel, spaceTop, spaceBottom);
+        float top = chromeBottom - ColorMethodGap + ColorMethodTopLift;
+        for (int i = 0; i < ColorMethodChoiceButtons.Count; i++)
+        {
+            RectTransform rect = ColorMethodChoiceButtons[i];
+            if (rect == null)
+                continue;
+            RenameCharacterColorMethod(rect);
+            LayoutGroup group = rect.parent != null ? rect.parent.GetComponent<LayoutGroup>() : null;
+            if (group != null && group.enabled)
+                group.enabled = false;
+            float height = ColorMethodRectHeight(rect, panel);
+            MoveRectTop(rect, panel, top);
+            top -= height + ColorMethodGap;
+        }
+    }
+
+    void CollectColorMethodChoices(Transform node, Transform panel)
+    {
+        if (node == null || node.name == "ShortColorList")
+            return;
+        if (!ShortColorBranchVisible(node, panel))
+            return;
+        Button button = node.GetComponent<Button>();
+        RectTransform rect = node as RectTransform;
+        if (button != null && rect != null && IsColorMethodChoice(button) && !ColorMethodChoiceNested(node))
+            ColorMethodChoiceButtons.Add(rect);
+        for (int i = 0; i < node.childCount; i++)
+            CollectColorMethodChoices(node.GetChild(i), panel);
+    }
+
+    static bool IsColorMethodChoice(Button button)
+    {
+        if (button == null)
+            return false;
+        Text[] texts = button.GetComponentsInChildren<Text>(true);
+        bool character = false;
+        bool rgb = false;
+        for (int i = 0; i < texts.Length; i++)
+        {
+            Text text = texts[i];
+            if (text == null || string.IsNullOrEmpty(text.text))
+                continue;
+            if (text.text.Contains("から指定"))
+                character = true;
+            if (text.text.Contains("RGB"))
+                rgb = true;
+        }
+        return character != rgb;
+    }
+
+    static bool ColorMethodChoiceNested(Transform node)
+    {
+        for (int i = 0; i < node.childCount; i++)
+        {
+            Transform child = node.GetChild(i);
+            Button button = child.GetComponent<Button>();
+            if (button != null && IsColorMethodChoice(button))
+                return true;
+            if (ColorMethodChoiceNested(child))
+                return true;
+        }
+        return false;
+    }
+
+    static void RenameCharacterColorMethod(RectTransform rect)
+    {
+        Text[] texts = rect.GetComponentsInChildren<Text>(true);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            Text text = texts[i];
+            if (text == null || string.IsNullOrEmpty(text.text))
+                continue;
+            if (!text.text.Contains("から指定") || text.text == "キャラから指定")
+                continue;
+            text.text = "キャラから指定";
+        }
+    }
+
+    static int CompareColorMethodChoice(RectTransform a, RectTransform b)
+    {
+        return ColorMethodChoiceRank(a) - ColorMethodChoiceRank(b);
+    }
+
+    static int ColorMethodChoiceRank(RectTransform rect)
+    {
+        if (rect == null)
+            return 9;
+        Text[] texts = rect.GetComponentsInChildren<Text>(true);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            Text text = texts[i];
+            if (text == null || string.IsNullOrEmpty(text.text))
+                continue;
+            if (text.text.Contains("から指定"))
+                return 0;
+            if (text.text.Contains("RGB"))
+                return 1;
+        }
+        return 2;
+    }
+
+    float ColorMethodChromeBottom(RectTransform panel, float spaceTop, float spaceBottom)
+    {
+        float mid = (spaceTop + spaceBottom) * 0.5f;
+        float bottom = float.PositiveInfinity;
+        bool found = false;
+        string[] names = { "PrefabPixelListPageR", "PrefabPixelListPageG", "PrefabPixelListPageB" };
+        for (int i = 0; i < names.Length; i++)
+        {
+            GameObject page = GameObject.Find(names[i]);
+            if (page == null || !page.activeInHierarchy)
+                continue;
+            ConsiderColorMethodChrome(page.transform as RectTransform, panel, mid, ref bottom, ref found);
+        }
+
+        Canvas canvas = panel.GetComponentInParent<Canvas>();
+        if (canvas != null)
+        {
+            Text[] texts = canvas.GetComponentsInChildren<Text>(false);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text text = texts[i];
+                if (text == null || text.text != "Back")
+                    continue;
+                if (text.transform.IsChildOf(panel))
+                    continue;
+                ConsiderColorMethodChrome(text.rectTransform, panel, mid, ref bottom, ref found);
+            }
+        }
+
+        if (!found)
+            return spaceTop - (spaceTop - spaceBottom) * 0.18f;
+        return bottom;
+    }
+
+    static void ConsiderColorMethodChrome(RectTransform rect, RectTransform panel, float mid, ref float bottom, ref bool found)
+    {
+        if (rect == null || panel == null)
+            return;
+        Vector3[] corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        float top = panel.InverseTransformPoint(corners[1]).y;
+        float low = panel.InverseTransformPoint(corners[0]).y;
+        if ((top + low) * 0.5f < mid)
+            return;
+        if (low < bottom)
+            bottom = low;
+        found = true;
+    }
+
+    static float ColorMethodRectHeight(RectTransform rect, RectTransform space)
+    {
+        Vector3[] corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        float height = space.InverseTransformPoint(corners[1]).y - space.InverseTransformPoint(corners[0]).y;
+        if (height < 1f)
+            height = rect.rect.height;
+        if (height < 1f)
+            height = rect.sizeDelta.y;
+        if (height < 1f)
+            height = 96f;
+        return height;
+    }
+
+    static void MoveRectTop(RectTransform rect, RectTransform space, float top)
+    {
+        Vector3[] corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        float currentTop = space.InverseTransformPoint(corners[1]).y;
+        float delta = top - currentTop;
+        if (Mathf.Abs(delta) < 0.5f)
+            return;
+        rect.position += space.TransformVector(new Vector3(0f, delta, 0f));
+    }
+
+    void PlaceShortColorList(int cardCount)
+    {
+        RectTransform panel = PanelSelectColorMethod != null ? PanelSelectColorMethod.transform as RectTransform : null;
+        if (panel == null || ShortColorListRoot == null)
+            return;
+
+        float lowest = float.PositiveInfinity;
+        bool foundButton = false;
+        for (int i = 0; i < panel.childCount; i++)
+            MeasureShortColorAnchor(panel.GetChild(i), panel, ref lowest, ref foundButton);
+
+        Canvas canvas = panel.GetComponentInParent<Canvas>();
+        RectTransform space = canvas != null ? canvas.transform as RectTransform : panel;
+        Vector3[] spaceCorners = new Vector3[4];
+        space.GetWorldCorners(spaceCorners);
+        float spaceLeft = panel.InverseTransformPoint(spaceCorners[0]).x;
+        float spaceRight = panel.InverseTransformPoint(spaceCorners[2]).x;
+        float spaceBottom = panel.InverseTransformPoint(spaceCorners[0]).y;
+        float spaceTop = panel.InverseTransformPoint(spaceCorners[1]).y;
+
+        float barTop = spaceBottom + (spaceTop - spaceBottom) * 0.1f;
+        GameObject bar = GameObject.Find("PanelSelectScene");
+        if (bar != null)
+        {
+            RectTransform barRect = bar.transform as RectTransform;
+            if (barRect != null)
+            {
+                Vector3[] barCorners = new Vector3[4];
+                barRect.GetWorldCorners(barCorners);
+                barTop = panel.InverseTransformPoint(barCorners[1]).y;
+            }
+        }
+
+        float top = foundButton ? lowest - ColorMethodGap : (spaceTop + spaceBottom) * 0.5f - ColorMethodGap;
+        float bottomLimit = barTop + 12f;
+        int rows = (cardCount + ShortColorColumns - 1) / ShortColorColumns;
+        if (rows < 1)
+            rows = 1;
+        float wanted = rows * ShortColorCardHeight + Mathf.Max(0, rows - 1) * ShortColorGridGap;
+        float available = top - bottomLimit;
+        if (available < 160f)
+            available = 160f;
+        float height = Mathf.Min(wanted, available);
+        float bottom = top - height;
+
+        float side = 28f;
+        float left = spaceLeft + side;
+        float right = spaceRight - side;
+        if (right - left < 280f)
+        {
+            float midX = (spaceLeft + spaceRight) * 0.5f;
+            left = midX - 340f;
+            right = midX + 340f;
+        }
+
+        float midXPosition = (left + right) * 0.5f;
+        float midYPosition = (bottom + top) * 0.5f;
+        Rect parentRect = panel.rect;
+        Vector2 parentCenter = new Vector2(
+            (0.5f - panel.pivot.x) * parentRect.width,
+            (0.5f - panel.pivot.y) * parentRect.height);
+        ShortColorListRoot.anchorMin = new Vector2(0.5f, 0.5f);
+        ShortColorListRoot.anchorMax = new Vector2(0.5f, 0.5f);
+        ShortColorListRoot.pivot = new Vector2(0.5f, 0.5f);
+        ShortColorListRoot.anchoredPosition = new Vector2(midXPosition - parentCenter.x, midYPosition - parentCenter.y);
+        float listWidth = right - left;
+        ShortColorListRoot.sizeDelta = new Vector2(listWidth, height);
+        ShortColorListRoot.SetAsLastSibling();
+        FitShortColorGrid(listWidth);
+    }
+
+    void FitShortColorGrid(float width)
+    {
+        if (ShortColorListContent == null)
+            return;
+        GridLayoutGroup grid = ShortColorListContent.GetComponent<GridLayoutGroup>();
+        if (grid == null)
+            return;
+        float cell = (width - ShortColorGridGap * (ShortColorColumns - 1)) / ShortColorColumns;
+        if (cell < 72f)
+            cell = 72f;
+        grid.spacing = new Vector2(ShortColorGridGap, ShortColorGridGap);
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = ShortColorColumns;
+        grid.cellSize = new Vector2(cell, ShortColorCardHeight);
+    }
+
+    void MeasureShortColorAnchor(Transform node, Transform panel, ref float lowest, ref bool foundButton)
+    {
+        if (node == null || node.name == "ShortColorList")
+            return;
+        if (!ShortColorBranchVisible(node, panel))
+            return;
+        Button button = node.GetComponent<Button>();
+        RectTransform rect = node as RectTransform;
+        RectTransform panelRect = panel as RectTransform;
+        bool coversPanel = button != null
+            && rect != null
+            && panelRect != null
+            && panelRect.rect.height > 100f
+            && rect.rect.height > panelRect.rect.height * 0.75f
+            && rect.rect.width > panelRect.rect.width * 0.75f;
+        if (button != null && rect != null && !coversPanel)
+        {
+            Vector3[] corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            float bottom = panel.InverseTransformPoint(corners[0]).y;
+            if (bottom < lowest)
+                lowest = bottom;
+            foundButton = true;
+        }
+        for (int i = 0; i < node.childCount; i++)
+            MeasureShortColorAnchor(node.GetChild(i), panel, ref lowest, ref foundButton);
+    }
+
+    static bool ShortColorBranchVisible(Transform node, Transform panel)
+    {
+        Transform cursor = node;
+        while (cursor != null && cursor != panel)
+        {
+            if (!cursor.gameObject.activeSelf)
+                return false;
+            CanvasGroup group = cursor.GetComponent<CanvasGroup>();
+            if (group != null && group.alpha < 0.5f)
+                return false;
+            cursor = cursor.parent;
+        }
+        return cursor == panel;
+    }
+
+    void RebuildShortColorCards()
+    {
+        if (ShortColorListContent == null)
+            return;
+        ClearShortColorCards();
+        Font font = ShortColorFont();
+        for (int i = 0; i < ShortColorNeeds.Count; i++)
+            CreateShortColorCard(ShortColorNeeds[i], font);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(ShortColorListContent);
+    }
+
+    void CreateShortColorCard(ShortColorNeed need, Font font)
+    {
+        GameObject card = new GameObject("ShortColorCard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
+        card.transform.SetParent(ShortColorListContent, false);
+        Image plate = card.GetComponent<Image>();
+        ApplyShortColorPlate(plate, new Color(0.10f, 0.11f, 0.14f, 1f));
+        plate.raycastTarget = true;
+
+        LayoutElement layout = card.GetComponent<LayoutElement>();
+        layout.preferredHeight = ShortColorCardHeight;
+        layout.minHeight = ShortColorCardHeight;
+        layout.flexibleWidth = 1f;
+
+        Color picked = new Color(
+            CharacterClass.ColorUnit(need.R),
+            CharacterClass.ColorUnit(need.G),
+            CharacterClass.ColorUnit(need.B),
+            1f);
+        Button button = card.GetComponent<Button>();
+        button.targetGraphic = plate;
+        ColorBlock colors = button.colors;
+        colors.fadeDuration = 0.05f;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.92f, 0.92f, 0.92f, 1f);
+        colors.pressedColor = new Color(0.75f, 0.75f, 0.75f, 1f);
+        colors.selectedColor = Color.white;
+        button.colors = colors;
+        Navigation navigation = button.navigation;
+        navigation.mode = Navigation.Mode.None;
+        button.navigation = navigation;
+        button.onClick.AddListener(() => PickShortPixelColor(picked));
+
+        ShortColorCardMetrics metrics = ShortColorCardMetricsFor(ShortColorCellWidth());
+        GameObject chipObject = new GameObject("ImageColor", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        chipObject.transform.SetParent(card.transform, false);
+        RectTransform chipRect = chipObject.GetComponent<RectTransform>();
+        chipRect.anchorMin = new Vector2(0f, 0.5f);
+        chipRect.anchorMax = new Vector2(0f, 0.5f);
+        chipRect.pivot = new Vector2(0f, 0.5f);
+        chipRect.anchoredPosition = new Vector2(metrics.ChipX, 0f);
+        chipRect.sizeDelta = new Vector2(metrics.Chip, metrics.Chip);
+        Image chip = chipObject.GetComponent<Image>();
+        chip.raycastTarget = false;
+        chip.color = picked;
+        Sprite chipFrame = PixelColorFrameSprite(null);
+        if (chipFrame != null)
+        {
+            chip.sprite = chipFrame;
+            chip.type = Image.Type.Sliced;
+        }
+        ShowPixelColorHalo(chip.transform);
+        ApplyPixelColorInkFrame(chip.transform, PixelColorInk(picked));
+
+        CreateShortColorChannelText(card.transform, font, "TextR", "R " + need.R.ToString(), 0, metrics.TextX, metrics.TextW, new Color(1f, 0.62f, 0.58f, 1f));
+        CreateShortColorChannelText(card.transform, font, "TextG", "G " + need.G.ToString(), 1, metrics.TextX, metrics.TextW, new Color(0.62f, 1f, 0.68f, 1f));
+        CreateShortColorChannelText(card.transform, font, "TextB", "B " + need.B.ToString(), 2, metrics.TextX, metrics.TextW, new Color(0.62f, 0.78f, 1f, 1f));
+        CreateShortColorFace(card.transform, "ImageCharacterAlert", metrics.AlertX, 0f, metrics.Alert, need.AlertId);
+        for (int face = 0; face < need.Count; face++)
+        {
+            int col = face % 3;
+            int row = face / 3;
+            float x = metrics.FaceX + col * (metrics.Face + metrics.FaceGap);
+            float y = (row == 0 ? 1f : -1f) * (metrics.Face + metrics.FaceGap) * 0.5f;
+            CreateShortColorFace(card.transform, "ImageCharacter" + face.ToString(), x, y, metrics.Face, need.Characters[face]);
+        }
+        EnsureButtonNeon(card.transform, new Color(0.95f, 0.32f, 0.26f, 1f), true, false);
+    }
+
+    struct ShortColorCardMetrics
+    {
+        public float Alert;
+        public float AlertX;
+        public float Chip;
+        public float ChipX;
+        public float TextX;
+        public float TextW;
+        public float Face;
+        public float FaceGap;
+        public float FaceX;
+    }
+
+    float ShortColorCellWidth()
+    {
+        if (ShortColorListContent == null)
+            return 480f;
+        GridLayoutGroup grid = ShortColorListContent.GetComponent<GridLayoutGroup>();
+        if (grid != null && grid.cellSize.x > 40f)
+            return grid.cellSize.x;
+        return 480f;
+    }
+
+    static ShortColorCardMetrics ShortColorCardMetricsFor(float cellWidth)
+    {
+        float left = 8f;
+        float alert = 108f;
+        float chip = 88f;
+        float textW = 72f;
+        float faceGap = 6f;
+        float right = 8f;
+        float face = ShortColorFaceSize(cellWidth, left, alert, chip, textW, right, faceGap);
+        if (face < 32f)
+        {
+            alert = 92f;
+            chip = 76f;
+            textW = 64f;
+            face = ShortColorFaceSize(cellWidth, left, alert, chip, textW, right, faceGap);
+        }
+        float maxSquare = ShortColorCardHeight - 16f;
+        if (alert > maxSquare)
+            alert = maxSquare;
+        if (chip > maxSquare)
+            chip = maxSquare;
+        if (face < 24f)
+            face = 24f;
+        float chipX = left + alert + 6f;
+        float textX = chipX + chip + 6f;
+        float block = face * 3f + faceGap * 2f;
+        float faceX = cellWidth - right - block;
+        float minFaceX = textX + textW + 6f;
+        if (faceX < minFaceX)
+            faceX = minFaceX;
+        return new ShortColorCardMetrics
+        {
+            Alert = alert,
+            AlertX = left,
+            Chip = chip,
+            ChipX = chipX,
+            TextX = textX,
+            TextW = textW,
+            Face = face,
+            FaceGap = faceGap,
+            FaceX = faceX
+        };
+    }
+
+    static float ShortColorFaceSize(float cellWidth, float left, float alert, float chip, float textW, float right, float faceGap)
+    {
+        float textEnd = left + alert + 6f + chip + 6f + textW + 6f;
+        float availW = cellWidth - textEnd - right;
+        float availH = ShortColorCardHeight - 16f;
+        float byW = (availW - faceGap * 2f) / 3f;
+        float byH = (availH - faceGap) / 2f;
+        float size = Mathf.Min(byW, byH);
+        if (size < 1f)
+            size = 1f;
+        return Mathf.Floor(size);
+    }
+
+    void CreateShortColorFace(Transform card, string name, float x, float y, float size, uint characterId)
+    {
+        CharacterClass character = CharacterOf(characterId);
+        if (card == null || character == null || character.ImageTexture2D == null || size < 1f)
+            return;
+        GameObject faceObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        faceObject.transform.SetParent(card, false);
+        RectTransform faceRect = faceObject.GetComponent<RectTransform>();
+        faceRect.anchorMin = new Vector2(0f, 0.5f);
+        faceRect.anchorMax = new Vector2(0f, 0.5f);
+        faceRect.pivot = new Vector2(0f, 0.5f);
+        faceRect.anchoredPosition = new Vector2(x, y);
+        faceRect.sizeDelta = new Vector2(size, size);
+        Image face = faceObject.GetComponent<Image>();
+        face.raycastTarget = false;
+        face.preserveAspect = true;
+        face.color = Color.white;
+        face.type = Image.Type.Simple;
+        Texture2D texture = character.ImageTexture2D;
+        Sprite sprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect);
+        MarkRuntime(sprite);
+        face.sprite = sprite;
+    }
+
+    static void CreateShortColorChannelText(Transform parent, Font font, string name, string value, int row, float textX, float textW, Color color)
+    {
+        GameObject textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+        textObject.transform.SetParent(parent, false);
+        RectTransform rect = textObject.GetComponent<RectTransform>();
+        float rowHeight = 1f / 3f;
+        rect.anchorMin = new Vector2(0f, 1f - (row + 1) * rowHeight);
+        rect.anchorMax = new Vector2(0f, 1f - row * rowHeight);
+        rect.pivot = new Vector2(0f, 0.5f);
+        rect.anchoredPosition = new Vector2(textX, 0f);
+        rect.sizeDelta = new Vector2(textW, 0f);
+        Text text = textObject.GetComponent<Text>();
+        text.font = font;
+        text.text = value;
+        text.fontSize = 28;
+        text.alignment = TextAnchor.MiddleLeft;
+        text.color = color;
+        text.raycastTarget = false;
+        text.resizeTextForBestFit = true;
+        text.resizeTextMinSize = 12;
+        text.resizeTextMaxSize = 32;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
+    }
+
+    void ClearShortColorCards()
+    {
+        if (ShortColorListContent == null)
+            return;
+        for (int i = ShortColorListContent.childCount - 1; i >= 0; i--)
+        {
+            Transform child = ShortColorListContent.GetChild(i);
+            ReleaseShortColorFace(child);
+            child.gameObject.SetActive(false);
+            Destroy(child.gameObject);
+        }
+    }
+
+    static void ReleaseShortColorFace(Transform card)
+    {
+        if (card == null)
+            return;
+        for (int i = 0; i < card.childCount; i++)
+        {
+            Transform face = card.GetChild(i);
+            if (face == null || !face.name.StartsWith("ImageCharacter"))
+                continue;
+            Image image = face.GetComponent<Image>();
+            if (image == null || image.sprite == null)
+                continue;
+            Sprite sprite = image.sprite;
+            image.sprite = null;
+            DestroyRuntime(sprite);
+        }
+    }
+
+    void ResetShortColorScroll()
+    {
+        if (ShortColorListContent == null)
+            return;
+        Vector2 position = ShortColorListContent.anchoredPosition;
+        position.y = 0f;
+        ShortColorListContent.anchoredPosition = position;
+        if (ShortColorScroll != null)
+            ShortColorScroll.verticalNormalizedPosition = 1f;
+    }
+
+    void PickShortPixelColor(Color color)
+    {
+        if (ButtonColorTmp == null)
+            return;
+        int index = ProductionSlotIndex(ButtonColorTmp.name);
+        if (index < 1)
+            return;
+
+        ApplyPixelProductionColor(index, color);
+        ColorTmp.r = 0f;
+        ColorTmp.g = 0f;
+        ColorTmp.b = 0f;
+        ButtonColorTmp = null;
+        NotShowPanelSelectColorMethod();
+        UpdatePixelColorPixelProduction(index);
+        UpdateSliderPixelProduction(index);
+        SaveGame();
+    }
+
+    Font ShortColorFont()
+    {
+        if (ShortColorListFont != null)
+            return ShortColorListFont;
+        if (PanelSelectColorMethod != null)
+        {
+            Text[] texts = PanelSelectColorMethod.GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text text = texts[i];
+                if (text == null || text.font == null)
+                    continue;
+                if (text.transform.name == "Title" && text.transform.parent != null && text.transform.parent.name == "ShortColorList")
+                    continue;
+                ShortColorListFont = text.font;
+                break;
+            }
+        }
+        if (ShortColorListFont == null)
+            ShortColorListFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (ShortColorListFont == null)
+            ShortColorListFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        return ShortColorListFont;
+    }
+
+    void ApplyShortColorPlate(Image image, Color color)
+    {
+        if (image == null)
+            return;
+        CacheShortColorPlate();
+        if (ShortColorPlateSprite != null)
+        {
+            image.sprite = ShortColorPlateSprite;
+            image.type = ShortColorPlateType;
+        }
+        image.color = color;
+    }
+
+    void CacheShortColorPlate()
+    {
+        if (ShortColorPlateSprite != null || PanelSelectColorMethod == null)
+            return;
+        Button[] buttons = PanelSelectColorMethod.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            if (button == null || button.name.StartsWith("ShortColor"))
+                continue;
+            if (ShortColorListRoot != null && button.transform.IsChildOf(ShortColorListRoot))
+                continue;
+            Image image = button.image;
+            if (image == null || image.sprite == null)
+                continue;
+            ShortColorPlateSprite = image.sprite;
+            ShortColorPlateType = image.type == Image.Type.Sliced ? Image.Type.Sliced : Image.Type.Simple;
+            return;
+        }
+        ShortColorPlateSprite = PixelColorFrameSprite(null);
+        ShortColorPlateType = ShortColorPlateSprite != null ? Image.Type.Sliced : Image.Type.Simple;
     }
 
     //カラーセレクトの色指定方法のRGB値で指定で戻るボタンが押されたら
@@ -2857,6 +3819,8 @@ public class ControllerProduction : MonoBehaviour
         ColorTmp.r = 0.0f;
         ColorTmp.g = 0.0f;
         ColorTmp.b = 0.0f;
+        ShortColorListSuppressed = false;
+        RefreshShortColorList(true);
     }
 
     //RGB値で色指定のスライダーが動いたら。数字は表示だけで、入力は受け取らない。
@@ -2924,6 +3888,7 @@ public class ControllerProduction : MonoBehaviour
     //カラーセレクトの色指定方法のキャラクターで指定ボタンが押されたら
     public void PushButtonSelectColorMethodCharacter()
     {
+        SuppressShortColorList();
         ShowPanel(PanelSelectColorMethodCharacter);
 
         ColorTmp.r = 0.0f;
@@ -2965,6 +3930,8 @@ public class ControllerProduction : MonoBehaviour
         ButtonCharacterTmp = null;
 
         ControlImageSelectColor("SelectColorMethodCharacter");
+        ShortColorListSuppressed = false;
+        RefreshShortColorList(true);
     }
     //カラーセレクトの色指定方法のキャラクターで指定でキャラクターボタンが押されたら
     public void PushButtonSelectColorMethodCharacterCharacter()
@@ -3105,6 +4072,7 @@ public class ControllerProduction : MonoBehaviour
             || ProgressProductionPixel[ProductionPixelIndex, 3] != beforeB;
         SyncPixelWorkerMotion(ProductionPixelIndex, completed, advanced);
         RefreshProductionFigures();
+        RefreshCharacterStopPixels();
     }
 
     ///////////////////////////////////////////////////////////////
@@ -3308,6 +4276,7 @@ public class ControllerProduction : MonoBehaviour
             CollectStopPixels(i, PixelAlertKeys, ref PixelAlertCount);
         ShowCharacterStopPixels(PixelAlertKeys, PixelAlertCount);
         ApplyPixelAlertTones();
+        RefreshShortColorList(false);
     }
 
     void CollectStopPixels(int index, int[] keys, ref int count)
