@@ -814,16 +814,18 @@ public sealed class HospitalState
         patient.Bed = 0;
         _patients.Remove(patient);
         _pending.Add(patient.CharacterId);
-        GrantNurseExperience(bed);
+        GrantNurseExperience(bed, patient.OpaquePixels);
     }
 
-    void GrantNurseExperience(int bed)
+    void GrantNurseExperience(int bed, int opaquePixels)
     {
         int card = CardOf(bed);
         if (card < 1 || card > MaxCards)
             return;
+        if (opaquePixels < 1)
+            return;
         if (_nursePersons[card] != 0)
-            AddExperience(true, _nursePersons[card], 1);
+            AddExperience(true, _nursePersons[card], opaquePixels);
     }
 
     void ClearNurse(int card)

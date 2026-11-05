@@ -123,7 +123,7 @@ public sealed class ItemBoard
         _game.CollectOwnedItemIds(_ids);
         bool charmArmed = _game.IsEnmusubiArmed();
         bool any = false;
-        if (charmArmed || _game.GetItemCount(ItemIds.EnmusubiOmamori) > 0)
+        if (charmArmed || _game.HasHeldItem(ItemIds.EnmusubiOmamori))
         {
             AddCharm(_game.GetItemCount(ItemIds.EnmusubiOmamori), charmArmed);
             any = true;
@@ -134,8 +134,6 @@ public sealed class ItemBoard
             if (itemId == ItemIds.EnmusubiOmamori || itemId == ItemIds.StageShard)
                 continue;
             int count = _game.GetItemCount(itemId);
-            if (count < 1)
-                continue;
             if (ItemIds.IsExpOrb(itemId))
                 AddOrb(itemId, count);
             else
@@ -193,16 +191,17 @@ public sealed class ItemBoard
         detailRect.offsetMin = new Vector2(152f, 16f);
         detailRect.offsetMax = new Vector2(-156f, -62f);
 
+        bool canUse = !armed && count > 0;
         Button use = CreateButton("ButtonUseEnmusubi", plate.transform, armed ? "効果中" : "使う",
-            armed ? new Color(0.45f, 0.48f, 0.52f, 1f) : new Color(0.28f, 0.55f, 0.34f, 1f));
+            canUse ? new Color(0.28f, 0.55f, 0.34f, 1f) : new Color(0.45f, 0.48f, 0.52f, 1f));
         RectTransform useRect = use.GetComponent<RectTransform>();
         useRect.anchorMin = new Vector2(1f, 0.5f);
         useRect.anchorMax = new Vector2(1f, 0.5f);
         useRect.pivot = new Vector2(1f, 0.5f);
         useRect.anchoredPosition = new Vector2(-16f, 0f);
         useRect.sizeDelta = new Vector2(124f, 72f);
-        use.interactable = !armed;
-        if (!armed)
+        use.interactable = canUse;
+        if (canUse)
             use.onClick.AddListener(UseCharm);
     }
 
@@ -217,13 +216,14 @@ public sealed class ItemBoard
         int id = itemId;
         button.onClick.AddListener(() => OpenOrb(id));
 
+        float textLeft = PlaceListIcon(plate.transform, itemId, 96f);
         Text name = CreateText("Name", plate.transform, 28, TextAnchor.MiddleLeft);
         name.text = ItemIds.DisplayName(itemId);
         name.color = Ink;
         RectTransform nameRect = name.rectTransform;
         nameRect.anchorMin = new Vector2(0f, 0.5f);
         nameRect.anchorMax = new Vector2(1f, 1f);
-        nameRect.offsetMin = new Vector2(20f, 0f);
+        nameRect.offsetMin = new Vector2(textLeft, 0f);
         nameRect.offsetMax = new Vector2(-140f, -8f);
 
         long each = ItemIds.ExpPerOrb(itemId);
@@ -233,7 +233,7 @@ public sealed class ItemBoard
         RectTransform detailRect = detail.rectTransform;
         detailRect.anchorMin = new Vector2(0f, 0f);
         detailRect.anchorMax = new Vector2(1f, 0.5f);
-        detailRect.offsetMin = new Vector2(20f, 8f);
+        detailRect.offsetMin = new Vector2(textLeft, 8f);
         detailRect.offsetMax = new Vector2(-140f, 0f);
 
         Text choose = CreateText("Choose", plate.transform, 26, TextAnchor.MiddleCenter);
@@ -254,13 +254,14 @@ public sealed class ItemBoard
         element.minHeight = 96f;
         element.preferredHeight = 96f;
 
+        float textLeft = PlaceListIcon(plate.transform, itemId, 72f);
         Text name = CreateText("Name", plate.transform, 28, TextAnchor.MiddleLeft);
         name.text = ItemIds.DisplayName(itemId);
         name.color = Ink;
         RectTransform nameRect = name.rectTransform;
         nameRect.anchorMin = new Vector2(0f, 0.5f);
         nameRect.anchorMax = new Vector2(1f, 1f);
-        nameRect.offsetMin = new Vector2(20f, 0f);
+        nameRect.offsetMin = new Vector2(textLeft, 0f);
         nameRect.offsetMax = new Vector2(-20f, -8f);
 
         Text detail = CreateText("Detail", plate.transform, 22, TextAnchor.MiddleLeft);
@@ -269,8 +270,26 @@ public sealed class ItemBoard
         RectTransform detailRect = detail.rectTransform;
         detailRect.anchorMin = new Vector2(0f, 0f);
         detailRect.anchorMax = new Vector2(1f, 0.5f);
-        detailRect.offsetMin = new Vector2(20f, 8f);
+        detailRect.offsetMin = new Vector2(textLeft, 8f);
         detailRect.offsetMax = new Vector2(-20f, 0f);
+    }
+
+    static float PlaceListIcon(Transform parent, int itemId, float size)
+    {
+        Sprite sprite = ItemImages.SpriteOf(itemId);
+        if (sprite == null || parent == null)
+            return 20f;
+        Image icon = CreateImage("Icon", parent, Color.white);
+        icon.sprite = sprite;
+        icon.preserveAspect = true;
+        icon.raycastTarget = false;
+        RectTransform rect = icon.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0.5f);
+        rect.anchorMax = new Vector2(0f, 0.5f);
+        rect.pivot = new Vector2(0f, 0.5f);
+        rect.anchoredPosition = new Vector2(16f, 0f);
+        rect.sizeDelta = new Vector2(size, size);
+        return 16f + size + 12f;
     }
 
     void UseCharm()
@@ -405,16 +424,8 @@ public sealed class ItemBoard
             return;
         int owned = _game.GetItemCount(_itemId);
         if (owned < 1)
-        {
-            _ownedLine.text = "所持 0    1個で経験値 " + UiNumber.Format(ItemIds.ExpPerOrb(_itemId));
-            PaintQuantities(0);
-            if (_characterId != 0)
-                PaintPreview();
-            else
-                ShowList();
-            return;
-        }
-        if (_quantity > owned)
+            _quantity = 1;
+        else if (_quantity > owned)
             _quantity = LargestQuantity(owned);
         _useTitle.text = ItemIds.DisplayName(_itemId);
         _ownedLine.text = "所持 " + UiNumber.Format(owned) + "    1個で経験値 " + UiNumber.Format(ItemIds.ExpPerOrb(_itemId));

@@ -113,26 +113,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             ButtonTmp.name.Contains("BProductionHelpCharacter"))
         {
             //選択キャラクターのステータスを表示
-            TextSelectCharacter1.text = "CreateR : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].RCreates;
-            TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter2.text = "CreateG : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].GCreates;
-            TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-            TextSelectCharacter3.text = "CreateB : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].BCreates;
-            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+            CharacterClass picked = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterID);
+            ShowRgbCreates(picked);
         }
         else
         if (ButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
             int ColorProductionPixelIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
-
-            //選択キャラクターのステータスを表示
-            TextSelectCharacter1.text = "      SPD       : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).Stats[0].SPD;
-            TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter2.text = "CreatePixel : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].b));
-            TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter3.text = "  Pixel/sec   : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], argCharacterID)
-                                                           * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].b));
-            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            ShowCharacterPixelStats(ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterID), ColorProductionPixel[ColorProductionPixelIndex]);
         }
         else
         if (ButtonTmp.name.Contains("ButtonCharacterColor"))
@@ -144,14 +132,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
-            int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
-
-            TextSelectCharacter1.text = "";
-            TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter2.text = "Pixel/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterID)).PaintPixels;
-            TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-            TextSelectCharacter3.text = "";
-            TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            CharacterClass painter = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterID);
+            ShowPaintStats(painter == null ? 0 : painter.PixelsPerCycle());
         }
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
@@ -174,12 +156,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (ButtonTmp.name.Contains("ButtonHospitalNurseCard"))
         {
             CharacterClass nurse = ImportedCharacters.FindAny(CharactersAll, argCharacterID);
-            TextSelectCharacter1.text = nurse == null ? "" : nurse.Name;
-            TextSelectCharacter1.color = Color.black;
-            TextSelectCharacter2.text = "Size : " + (nurse == null ? "" : nurse.Size.ToString());
-            TextSelectCharacter2.color = Color.black;
-            TextSelectCharacter3.text = "";
-            TextSelectCharacter3.color = Color.black;
+            ShowNurseStats(CharacterNurseMilliseconds(nurse));
         }
     }
 
@@ -500,15 +477,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 if (CharactersIDHelpProductionR[HelpProductionIndex] != 0)
                 {
-                    //選択キャラクターの画像を表示
                     ShowCharacterPreview(CharactersIDHelpProductionR[HelpProductionIndex]);
-                    //選択キャラクターのステータスを表示
-                    TextSelectCharacter1.text = "CreateR : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Stats[0].RCreates;
-                    TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                    TextSelectCharacter2.text = "CreateG : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Stats[0].GCreates;
-                    TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                    TextSelectCharacter3.text = "CreateB : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionR[HelpProductionIndex])).Stats[0].BCreates;
-                    TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                    ShowRgbCreates(ImportedCharacters.FindAny(CharactersAll, (uint)CharactersIDHelpProductionR[HelpProductionIndex]));
 
                     //外すボタンのenable設定
                     foreach (GameObject gameObject in tag1_Objects)
@@ -529,15 +499,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 if (CharactersIDHelpProductionG[HelpProductionIndex] != 0)
                 {
-                    //選択キャラクターの画像を表示
                     ShowCharacterPreview(CharactersIDHelpProductionG[HelpProductionIndex]);
-                    //選択キャラクターのステータスを表示
-                    TextSelectCharacter1.text = "CreateR : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Stats[0].RCreates;
-                    TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                    TextSelectCharacter2.text = "CreateG : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Stats[0].GCreates;
-                    TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                    TextSelectCharacter3.text = "CreateB : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionG[HelpProductionIndex])).Stats[0].BCreates;
-                    TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                    ShowRgbCreates(ImportedCharacters.FindAny(CharactersAll, (uint)CharactersIDHelpProductionG[HelpProductionIndex]));
 
                     //外すボタンのenable設定
                     foreach (GameObject gameObject in tag1_Objects)
@@ -558,15 +521,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
                 if (CharactersIDHelpProductionB[HelpProductionIndex] != 0)
                 {
-                    //選択キャラクターの画像を表示
                     ShowCharacterPreview(CharactersIDHelpProductionB[HelpProductionIndex]);
-                    //選択キャラクターのステータスを表示
-                    TextSelectCharacter1.text = "CreateR : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Stats[0].RCreates;
-                    TextSelectCharacter1.color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-                    TextSelectCharacter2.text = "CreateG : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Stats[0].GCreates;
-                    TextSelectCharacter2.color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-                    TextSelectCharacter3.text = "CreateB : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDHelpProductionB[HelpProductionIndex])).Stats[0].BCreates;
-                    TextSelectCharacter3.color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+                    ShowRgbCreates(ImportedCharacters.FindAny(CharactersAll, (uint)CharactersIDHelpProductionB[HelpProductionIndex]));
 
                     //外すボタンのenable設定
                     foreach (GameObject gameObject in tag1_Objects)
@@ -596,16 +552,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
             if (CharactersIDProductionPixel[ProductionPixelIndex] != 0)
             {
-                //選択キャラクターの画像を表示
                 ShowCharacterPreview(CharactersIDProductionPixel[ProductionPixelIndex]);
-                //選択キャラクターのステータスを表示
-                TextSelectCharacter1.text = "      SPD       : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).Stats[0].SPD;
-                TextSelectCharacter1.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-                TextSelectCharacter2.text = "CreatePixel : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].b));
-                TextSelectCharacter2.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
-                TextSelectCharacter3.text = "  Pixel/sec   : " + GetCreatePixelTime(ColorProductionPixel[ProductionPixelIndex], CharactersIDProductionPixel[ProductionPixelIndex])
-                                                               * ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionPixel[ProductionPixelIndex])).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ProductionPixelIndex].b));
-                TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+                ShowCharacterPixelStats(ImportedCharacters.FindAny(CharactersAll, (uint)CharactersIDProductionPixel[ProductionPixelIndex]), ColorProductionPixel[ProductionPixelIndex]);
 
                 //外すボタンのenable設定
                 foreach (GameObject gameObject in tag1_Objects)
@@ -639,10 +587,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             int ProductionCharacterIndex = ControllerProduction.ProductionSlotIndex(ButtonTmp.name);
             if (CharactersIDProductionCharacter[ProductionCharacterIndex] != 0)
             {
-                //選択キャラクターの画像を表示
                 ShowCharacterPreview(CharactersIDProductionCharacter[ProductionCharacterIndex]);
-
-                TextSelectCharacter2.text = "Pixel/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProductionCharacter[ProductionCharacterIndex])).PaintPixels;
+                CharacterClass painter = ImportedCharacters.FindAny(CharactersAll, (uint)CharactersIDProductionCharacter[ProductionCharacterIndex]);
+                ShowPaintStats(painter == null ? 0 : painter.PixelsPerCycle());
 
                 //外すボタンのenable設定
                 foreach (GameObject gameObject in tag1_Objects)
@@ -687,9 +634,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (ButtonTmp.name.Contains("ButtonHospitalNurseCard"))
         {
-            TextSelectCharacter1.text = "看病";
+            TextSelectCharacter1.text = "";
             TextSelectCharacter1.color = Color.black;
-            TextSelectCharacter2.text = "";
+            TextSelectCharacter2.text = "1px : ";
             TextSelectCharacter2.color = Color.black;
             TextSelectCharacter3.text = "";
             TextSelectCharacter3.color = Color.black;
@@ -702,8 +649,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             {
                 ShowCharacterPreview(nurseId);
                 CharacterClass nurse = ImportedCharacters.FindAny(CharactersAll, nurseId);
-                TextSelectCharacter1.text = nurse == null ? "" : nurse.Name;
-                TextSelectCharacter2.text = nurse == null ? "" : "Size : " + nurse.Size.ToString();
+                ShowNurseStats(CharacterNurseMilliseconds(nurse));
                 SetRemoveEnabled(true);
             }
             else if (personId != 0)
@@ -824,32 +770,32 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             argButtonTmp.name.Contains("GProductionHelpCharacter") ||
             argButtonTmp.name.Contains("BProductionHelpCharacter"))
         {
+            CharacterClass shown = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
+            Text amount = GameObjectCharacterButton.GetComponentInChildren<Text>();
             if (argButtonTmp.name.StartsWith("ButtonRProductionHelpCharacter"))
-            {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateR/sec : " + UiNumber.Format(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].RCreates);
-                GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(1.0f, 0.0f, 0.0f, 1.0f);
-            }
+                ShowRgbAmount(amount, shown != null ? shown.Stats[0].RCreates : 0, new Color(1.0f, 0.0f, 0.0f, 1.0f));
             else
             if (argButtonTmp.name.StartsWith("ButtonGProductionHelpCharacter"))
-            {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateG/sec : " + UiNumber.Format(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].GCreates);
-                GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 1.0f, 0.0f, 1.0f);
-            }
+                ShowRgbAmount(amount, shown != null ? shown.Stats[0].GCreates : 0, new Color(0.0f, 1.0f, 0.0f, 1.0f));
             else
             if (argButtonTmp.name.StartsWith("ButtonBProductionHelpCharacter"))
-            {
-                GameObjectCharacterButton.GetComponentInChildren<Text>().text = "CreateB/sec : " + UiNumber.Format(ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].BCreates);
-                GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 1.0f, 1.0f);
-            }
+                ShowRgbAmount(amount, shown != null ? shown.Stats[0].BCreates : 0, new Color(0.0f, 0.0f, 1.0f, 1.0f));
         }
         else
         if (argButtonTmp.name.Contains("ButtonPixelProductionCharacter"))
         {
             int ColorProductionPixelIndex = ControllerProduction.ProductionSlotIndex(argButtonTmp.name);
-
-            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + GetCreatePixelTime(ColorProductionPixel[ColorProductionPixelIndex], (uint)argCharacterIndex)
-                                                               * ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).GetCreatePixels((ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].r), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].g), (ushort)CharacterClass.ColorByte(ColorProductionPixel[ColorProductionPixelIndex].b));
-            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            Color pixelColor = ColorProductionPixel[ColorProductionPixelIndex];
+            CharacterClass shown = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
+            long perSecond = 0;
+            if (shown != null)
+            {
+                perSecond = (long)GetCreatePixelTime(pixelColor, (uint)argCharacterIndex)
+                    * shown.GetCreatePixels((ushort)CharacterClass.ColorByte(pixelColor.r), (ushort)CharacterClass.ColorByte(pixelColor.g), (ushort)CharacterClass.ColorByte(pixelColor.b));
+            }
+            if (perSecond < 0)
+                perSecond = 0;
+            ShowRgbAmount(GameObjectCharacterButton.GetComponentInChildren<Text>(), (ulong)perSecond, new Color(0.0f, 0.0f, 0.0f, 1.0f));
         }
         else
         if (argButtonTmp.name.Contains("ButtonCharacterColor"))
@@ -860,15 +806,14 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else
         if (argButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
-            GameObjectCharacterButton.GetComponentInChildren<Text>().text = "Pixel/sec : " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).PaintPixels;
-            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            CharacterClass shown = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
+            ShowRgbAmount(GameObjectCharacterButton.GetComponentInChildren<Text>(), shown == null ? 0 : shown.PixelsPerCycle(), Color.black);
         }
         else
         if (argButtonTmp.name.Contains("ButtonHospitalNurseCard"))
         {
             CharacterClass shown = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
-            GameObjectCharacterButton.GetComponentInChildren<Text>().text = shown == null ? "" : "Size : " + shown.Size.ToString();
-            GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+            ShowListCaption(GameObjectCharacterButton.GetComponentInChildren<Text>(), NurseSecondsText(CharacterNurseMilliseconds(shown)), Color.black);
         }
         else
         if (argButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
@@ -899,6 +844,27 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
         GameObjectCharacterButton.GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
         CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
+    }
+
+    // 一覧の顔の下に、短い文字を同じ大きさで出す。
+    static void ShowListCaption(Text label, string text, Color color)
+    {
+        if (label == null)
+            return;
+        label.text = text;
+        label.color = color;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.fontSize = 32;
+        label.resizeTextForBestFit = true;
+        label.resizeTextMinSize = 22;
+        label.resizeTextMaxSize = 36;
+        label.horizontalOverflow = HorizontalWrapMode.Overflow;
+        label.verticalOverflow = VerticalWrapMode.Overflow;
+    }
+
+    static void ShowRgbAmount(Text label, ulong amount, Color color)
+    {
+        ShowListCaption(label, UiNumber.Format(amount), color);
     }
 
     static bool IsProductionAssignmentButton(Button button)
@@ -1116,16 +1082,187 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     int GetCreatePixelTime(Color argColor, uint argCharacterID)
     {
-        return GetCreatePixelTimeRGB((ushort)CharacterClass.ColorByte(argColor.r), argCharacterID) +
-               GetCreatePixelTimeRGB((ushort)CharacterClass.ColorByte(argColor.g), argCharacterID) +
-               GetCreatePixelTimeRGB((ushort)CharacterClass.ColorByte(argColor.b), argCharacterID);
-    }
-    int GetCreatePixelTimeRGB(ushort argRGB, uint argCharacterID)
-    {
         CharacterClass character = ImportedCharacters.FindAny(CharactersAll, argCharacterID);
-        if (character == null || character.Stats == null || character.Stats[0] == null || character.Stats[0].SPD < 1)
+        if (character == null || character.Stats == null || character.Stats[0] == null)
             return 0;
-        return (int)(Mathf.Ceil((argRGB + 1) / (float)(character.Stats[0].SPD)));
+        return PixelSeconds(argColor, character.Stats[0].SPD);
+    }
+
+    int PixelSeconds(Color color, int spd)
+    {
+        if (spd < 1)
+            return 0;
+        return ChannelSeconds(CharacterClass.ColorByte(color.r), spd)
+            + ChannelSeconds(CharacterClass.ColorByte(color.g), spd)
+            + ChannelSeconds(CharacterClass.ColorByte(color.b), spd);
+    }
+
+    static int ChannelSeconds(int channel, int spd)
+    {
+        return (int)Mathf.Ceil((channel + 1) / (float)spd);
+    }
+
+    long PixelOutput(Color color, int spd, long createPixels)
+    {
+        if (spd < 1 || createPixels <= 0)
+            return 0;
+        long seconds = PixelSeconds(color, spd);
+        if (seconds <= 0)
+            return 0;
+        if (createPixels > long.MaxValue / seconds)
+            return long.MaxValue;
+        return seconds * createPixels;
+    }
+
+    void ShowCharacterPixelStats(CharacterClass character, Color color)
+    {
+        if (character == null || character.Stats == null || character.Stats[0] == null)
+        {
+            ShowPixelStats(0, 0, 0);
+            return;
+        }
+        int spd = character.Stats[0].SPD;
+        long create = character.GetCreatePixels(
+            (ushort)CharacterClass.ColorByte(color.r),
+            (ushort)CharacterClass.ColorByte(color.g),
+            (ushort)CharacterClass.ColorByte(color.b));
+        ShowPixelStats(spd, create, PixelOutput(color, spd, create));
+    }
+
+    void ShowPersonPixelStats(PersonClass person, Button source)
+    {
+        int spd = PersonPixelSpd();
+        long create = 0;
+        long perSecond = 0;
+        Color color;
+        if (PersonPixelColor(source, out color) && person != null)
+        {
+            create = person.PixelAmount(
+                CharacterClass.ColorByte(color.r),
+                CharacterClass.ColorByte(color.g),
+                CharacterClass.ColorByte(color.b),
+                PersonBalance);
+            perSecond = PixelOutput(color, spd, create);
+        }
+        ShowPixelStats(spd, create, perSecond);
+    }
+
+    int PersonPixelSpd()
+    {
+        int spd = PersonBalance != null ? PersonBalance.PixelSpd : 50;
+        if (spd < 1)
+            spd = 1;
+        return spd;
+    }
+
+    bool PersonPixelColor(Button source, out Color color)
+    {
+        color = Color.black;
+        if (source == null || ColorProductionPixel == null)
+            return false;
+        int index = ControllerProduction.ProductionSlotIndex(source.name);
+        if (index < 0 || index >= ColorProductionPixel.Length)
+            return false;
+        color = ColorProductionPixel[index];
+        return true;
+    }
+
+    long PersonPixelPerSecond(PersonClass person, Button source)
+    {
+        Color color;
+        if (person == null || !PersonPixelColor(source, out color))
+            return 0;
+        long create = person.PixelAmount(
+            CharacterClass.ColorByte(color.r),
+            CharacterClass.ColorByte(color.g),
+            CharacterClass.ColorByte(color.b),
+            PersonBalance);
+        return PixelOutput(color, PersonPixelSpd(), create);
+    }
+
+    void ShowPixelStats(int spd, long createPixels, long perSecond)
+    {
+        if (spd < 0)
+            spd = 0;
+        if (createPixels < 0)
+            createPixels = 0;
+        if (perSecond < 0)
+            perSecond = 0;
+        TextSelectCharacter1.text = "      SPD       : " + UiNumber.Format(spd);
+        TextSelectCharacter1.color = Color.black;
+        TextSelectCharacter2.text = "CreatePixel : " + UiNumber.Format(createPixels);
+        TextSelectCharacter2.color = Color.black;
+        TextSelectCharacter3.text = "  Pixel/sec   : " + UiNumber.Format(perSecond);
+        TextSelectCharacter3.color = Color.black;
+    }
+
+    void ShowPaintStats(long perSecond)
+    {
+        if (perSecond < 0)
+            perSecond = 0;
+        TextSelectCharacter1.text = "";
+        TextSelectCharacter1.color = Color.black;
+        TextSelectCharacter2.text = "Pixel/sec : " + UiNumber.Format(perSecond);
+        TextSelectCharacter2.color = Color.black;
+        TextSelectCharacter3.text = "";
+        TextSelectCharacter3.color = Color.black;
+    }
+
+    void ShowNurseStats(int milliseconds)
+    {
+        TextSelectCharacter1.text = "";
+        TextSelectCharacter1.color = Color.black;
+        TextSelectCharacter2.text = "1px : " + NurseSecondsText(milliseconds);
+        TextSelectCharacter2.color = Color.black;
+        TextSelectCharacter3.text = "";
+        TextSelectCharacter3.color = Color.black;
+    }
+
+    static int CharacterNurseMilliseconds(CharacterClass character)
+    {
+        if (character == null)
+            return HospitalMath.MillisecondsWithoutNurse;
+        return HospitalMath.MillisecondsForSize(character.Size);
+    }
+
+    int PersonNurseMilliseconds(PersonClass person)
+    {
+        if (person == null)
+            return HospitalMath.MillisecondsWithoutNurse;
+        ControllerProduction production = GetComponent<ControllerProduction>();
+        int experience = production == null ? 0 : production.HospitalExperience(true, (uint)person.Id);
+        return HospitalMath.MillisecondsForPerson(experience);
+    }
+
+    static string NurseSecondsText(int milliseconds)
+    {
+        if (milliseconds < 0)
+            milliseconds = 0;
+        if (milliseconds % 1000 == 0)
+            return (milliseconds / 1000).ToString() + "秒";
+        int tenths = (milliseconds + 50) / 100;
+        return (tenths / 10).ToString() + "." + (tenths % 10).ToString() + "秒";
+    }
+
+    // その枠で今作っているキャラの作者なら、作者の生産量を出す。
+    long PersonPaintPerSecond(PersonClass person, Button source)
+    {
+        if (person == null)
+            return 0;
+        bool author = false;
+        int index = source == null ? -1 : ControllerProduction.ProductionSlotIndex(source.name);
+        if (index >= 0 && CharactersIDProducedCharacter != null && index < CharactersIDProducedCharacter.Length)
+        {
+            uint producedId = CharactersIDProducedCharacter[index];
+            CharacterClass produced = producedId == 0 ? null : ImportedCharacters.FindAny(CharactersAll, producedId);
+            author = produced != null && produced.ID == producedId && produced.AuthorPersonId == person.Id;
+        }
+        long amount = person.CharacterAmount(author, PersonBalance);
+        if (amount < 1)
+            amount = 1;
+        if (amount > int.MaxValue)
+            amount = int.MaxValue;
+        return amount;
     }
 
     public void ShowPanelSelectBattlePerson(Button source, int currentPersonId)
@@ -1394,7 +1531,33 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         button.interactable = true;
         ControllerProduction.PaintPerson(button, person);
         Text label = buttonObject.GetComponentInChildren<Text>();
-        if (label != null)
+        if (label != null && IsRgbHelpButton(source))
+        {
+            int channel = RgbHelpChannel(source);
+            long amount = person.RgbAmount(channel, PersonBalance);
+            if (amount < 0)
+                amount = 0;
+            ShowRgbAmount(label, (ulong)amount, RgbHelpColor(channel));
+        }
+        else if (label != null && IsPixelWorkerButton(source))
+        {
+            long perSecond = PersonPixelPerSecond(person, source);
+            if (perSecond < 0)
+                perSecond = 0;
+            ShowRgbAmount(label, (ulong)perSecond, Color.black);
+        }
+        else if (label != null && IsCharacterWorkerButton(source))
+        {
+            long perSecond = PersonPaintPerSecond(person, source);
+            if (perSecond < 0)
+                perSecond = 0;
+            ShowRgbAmount(label, (ulong)perSecond, Color.black);
+        }
+        else if (label != null && ControllerProduction.IsHospitalNurseButton(source))
+        {
+            ShowListCaption(label, NurseSecondsText(PersonNurseMilliseconds(person)), Color.black);
+        }
+        else if (label != null)
         {
             label.text = person.Name + "\n" + PersonChoiceText(person, source);
             label.alignment = TextAnchor.LowerCenter;
@@ -1471,6 +1634,30 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             }
             CatalogNewMark.Apply(ImageSelectCharacter.transform, null);
         }
+        if (IsRgbHelpButton(source))
+        {
+            ShowRgbCreates(person.RgbAmount(0, PersonBalance), person.RgbAmount(1, PersonBalance), person.RgbAmount(2, PersonBalance));
+            SetRemoveEnabled(true);
+            return;
+        }
+        if (IsPixelWorkerButton(source))
+        {
+            ShowPersonPixelStats(person, source);
+            SetRemoveEnabled(true);
+            return;
+        }
+        if (IsCharacterWorkerButton(source))
+        {
+            ShowPaintStats(PersonPaintPerSecond(person, source));
+            SetRemoveEnabled(true);
+            return;
+        }
+        if (ControllerProduction.IsHospitalNurseButton(source))
+        {
+            ShowNurseStats(PersonNurseMilliseconds(person));
+            SetRemoveEnabled(true);
+            return;
+        }
         TextSelectCharacter1.color = Color.black;
         TextSelectCharacter2.color = Color.black;
         TextSelectCharacter3.color = Color.black;
@@ -1478,6 +1665,75 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         TextSelectCharacter2.text = "得意 " + person.SpecialtyText();
         TextSelectCharacter3.text = PersonChoiceText(person, source);
         SetRemoveEnabled(true);
+    }
+
+    static bool IsRgbHelpButton(Button source)
+    {
+        if (source == null)
+            return false;
+        string name = source.name;
+        return name.Contains("RProductionHelpCharacter")
+            || name.Contains("GProductionHelpCharacter")
+            || name.Contains("BProductionHelpCharacter");
+    }
+
+    static bool IsPixelWorkerButton(Button source)
+    {
+        return source != null && source.name.Contains("ButtonPixelProductionCharacter");
+    }
+
+    static bool IsCharacterWorkerButton(Button source)
+    {
+        return source != null && source.name.Contains("ButtonCharacterProductionCharacter");
+    }
+
+    static int RgbHelpChannel(Button source)
+    {
+        if (source != null && source.name.Contains("GProductionHelpCharacter"))
+            return 1;
+        if (source != null && source.name.Contains("BProductionHelpCharacter"))
+            return 2;
+        return 0;
+    }
+
+    static Color RgbHelpColor(int channel)
+    {
+        if (channel == 1)
+            return new Color(0f, 1f, 0f, 1f);
+        if (channel == 2)
+            return new Color(0f, 0f, 1f, 1f);
+        return new Color(1f, 0f, 0f, 1f);
+    }
+
+    void ShowRgbCreates(CharacterClass character)
+    {
+        if (character == null || character.Stats == null || character.Stats[0] == null)
+        {
+            ShowRgbCreates(0, 0, 0);
+            return;
+        }
+        ShowRgbCreates(character.Stats[0].RCreates, character.Stats[0].GCreates, character.Stats[0].BCreates);
+    }
+
+    void ShowRgbCreates(ulong r, ulong g, ulong b)
+    {
+        TextSelectCharacter1.text = "CreateR : " + UiNumber.Format(r);
+        TextSelectCharacter1.color = RgbHelpColor(0);
+        TextSelectCharacter2.text = "CreateG : " + UiNumber.Format(g);
+        TextSelectCharacter2.color = RgbHelpColor(1);
+        TextSelectCharacter3.text = "CreateB : " + UiNumber.Format(b);
+        TextSelectCharacter3.color = RgbHelpColor(2);
+    }
+
+    void ShowRgbCreates(long r, long g, long b)
+    {
+        if (r < 0)
+            r = 0;
+        if (g < 0)
+            g = 0;
+        if (b < 0)
+            b = 0;
+        ShowRgbCreates((ulong)r, (ulong)g, (ulong)b);
     }
 
     string PersonChoiceText(PersonClass person, Button source)
@@ -1504,8 +1760,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             ControllerProduction production = GetComponent<ControllerProduction>();
             int experience = production == null ? 0 : production.HospitalExperience(true, (uint)person.Id);
-            int size = HospitalMath.PersonEquivalentSize(experience);
-            return size < 8 ? "Size : -" : "Size : " + size.ToString();
+            return NurseSecondsText(HospitalMath.MillisecondsForPerson(experience));
         }
         return "バトル Lv" + person.BattleLevel.ToString();
     }

@@ -673,7 +673,8 @@ public class ControllerProduction : MonoBehaviour
                 }
                 else
                 {
-                    paintRate = productionWorker.PaintPixels > int.MaxValue ? int.MaxValue : (int)productionWorker.PaintPixels;
+                    uint cyclePixels = productionWorker.PixelsPerCycle();
+                    paintRate = cyclePixels > int.MaxValue ? int.MaxValue : (int)cyclePixels;
                     if (productionWorker.OwnedNumCur < 1)
                         paintRate = HalfCeilMin1(paintRate);
                 }
@@ -2050,7 +2051,7 @@ public class ControllerProduction : MonoBehaviour
         if (bar == null)
             return;
         const string name = "ButtonHospitalScenePage2";
-        Transform existing = bar.Find(name);
+        Transform existing = FindHospitalSceneButton(bar);
         bool created = existing == null;
         GameObject buttonObject = created ? null : existing.gameObject;
         if (created)
@@ -2079,11 +2080,11 @@ public class ControllerProduction : MonoBehaviour
         Text label = buttonObject.GetComponentInChildren<Text>();
         if (label != null)
             label.text = "休憩所";
-        Image image = buttonObject.GetComponent<Image>();
-        if (image != null)
-            image.color = new Color(0.62f, 0.28f, 0.34f, 1f);
         if (created)
         {
+            Image image = buttonObject.GetComponent<Image>();
+            if (image != null)
+                image.color = new Color(0.62f, 0.28f, 0.34f, 1f);
             RectTransform rect = buttonObject.GetComponent<RectTransform>();
             RectTransform importRect = importButton != null ? importButton.GetComponent<RectTransform>() : null;
             if (importButton != null)
@@ -2114,6 +2115,21 @@ public class ControllerProduction : MonoBehaviour
             return;
         button.onClick.RemoveListener(PushButtonSelectSceneHospital);
         button.onClick.AddListener(PushButtonSelectSceneHospital);
+    }
+
+    static Transform FindHospitalSceneButton(Transform bar)
+    {
+        Transform fallback = null;
+        for (int i = 0; i < bar.childCount; i++)
+        {
+            Transform child = bar.GetChild(i);
+            string childName = child.name;
+            if (childName == "ButtonSelectSceneRestArea" || childName.Contains("RestArea"))
+                return child;
+            if (childName == "ButtonHospitalScenePage2" || childName.Contains("Hospital"))
+                fallback = child;
+        }
+        return fallback;
     }
 
     public int ImportedCharacterCount()
@@ -2990,6 +3006,7 @@ public class ControllerProduction : MonoBehaviour
         return created;
     }
 
+    // その色を使うキャラを、今所持している人から順に顔で並べる。一度も所持していないキャラは出さない。
     void FillShortColorCharacters(ShortColorNeed need)
     {
         if (need == null || need.Count >= ShortColorFaceMax)
@@ -3011,6 +3028,8 @@ public class ControllerProduction : MonoBehaviour
     void TryAddShortColorUser(ShortColorNeed need, CharacterClass character, bool ownedOnly)
     {
         if (need == null || need.Count >= ShortColorFaceMax || character == null || character.ID == 0)
+            return;
+        if (character.OwnedNumMax == 0)
             return;
         bool owned = character.OwnedNumCur > 0;
         if (ownedOnly != owned)
@@ -3040,7 +3059,7 @@ public class ControllerProduction : MonoBehaviour
         if (need == null || characterId == 0)
             return;
         CharacterClass character = CharacterOf(characterId);
-        if (character == null || character.ImageTexture2D == null)
+        if (character == null || character.ImageTexture2D == null || character.OwnedNumMax == 0)
             return;
         if (need.AlertId == 0)
         {
@@ -3062,7 +3081,7 @@ public class ControllerProduction : MonoBehaviour
                 return;
         }
         CharacterClass character = CharacterOf(characterId);
-        if (character == null || character.ImageTexture2D == null)
+        if (character == null || character.ImageTexture2D == null || character.OwnedNumMax == 0)
             return;
         need.Characters[need.Count] = characterId;
         need.Count++;
@@ -5283,6 +5302,12 @@ public class ControllerProduction : MonoBehaviour
         return 0;
     }
 
+    // 一度でも入ったアイテムは、所持0でもキーを残す。一覧はこれで「持ったことがある」を見る。
+    public bool HasHeldItem(int itemId)
+    {
+        return ItemCounts != null && ItemCounts.ContainsKey(itemId);
+    }
+
     public void CollectOwnedItemIds(List<int> into)
     {
         if (into == null)
@@ -5291,11 +5316,17 @@ public class ControllerProduction : MonoBehaviour
         if (ItemCounts == null)
             return;
         foreach (KeyValuePair<int, int> pair in ItemCounts)
-        {
-            if (pair.Value > 0)
-                into.Add(pair.Key);
-        }
+            into.Add(pair.Key);
         into.Sort();
+    }
+
+    void KeepItemCount(int itemId, int count)
+    {
+        if (ItemCounts == null)
+            return;
+        if (count < 0)
+            count = 0;
+        ItemCounts[itemId] = count;
     }
 
     public bool IsEnmusubiArmed()
@@ -5311,11 +5342,7 @@ public class ControllerProduction : MonoBehaviour
         int count = GetItemCount(ItemIds.EnmusubiOmamori);
         if (count < 1)
             return false;
-        count--;
-        if (count <= 0)
-            ItemCounts.Remove(ItemIds.EnmusubiOmamori);
-        else
-            ItemCounts[ItemIds.EnmusubiOmamori] = count;
+        KeepItemCount(ItemIds.EnmusubiOmamori, count - 1);
         EnmusubiArmed = true;
         SaveGame();
         if (ControllerBattle != null)
@@ -5389,12 +5416,7 @@ public class ControllerProduction : MonoBehaviour
         if (!forecast.Ok || forecast.Unchanged)
             return false;
         CharacterClass character = GetCharacter(characterId);
-        int owned = GetItemCount(itemId);
-        owned -= count;
-        if (owned <= 0)
-            ItemCounts.Remove(itemId);
-        else
-            ItemCounts[itemId] = owned;
+        KeepItemCount(itemId, GetItemCount(itemId) - count);
         character.Level = (ulong)forecast.LevelAfter;
         character.Exp = (ulong)forecast.ExpAfter;
         character.ExpMax = (ulong)forecast.ExpMaxAfter;
@@ -5684,17 +5706,14 @@ public class ControllerProduction : MonoBehaviour
             ControllerHospital.RefreshIfVisible();
     }
 
-    public void CareHospitalBed(int bed)
+    public bool CareHospitalBed(int bed)
     {
         if (Hospital == null || bed < 1)
-            return;
+            return false;
         HospitalStep step = Hospital.CareBed(bed, HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
         if (step.Returned > 0)
             ShowCharacterOwnedNum();
-        if (step.Tapped > 0 || step.Returned > 0)
-            SaveGame();
-        if (ControllerHospital != null)
-            ControllerHospital.RefreshIfVisible();
+        return step.Returned > 0;
     }
 
     public void ReleaseHospitalNurse(uint characterId)
@@ -5968,7 +5987,7 @@ public class ControllerProduction : MonoBehaviour
     ////////////////////////////////////
     //Model?
 
-    // 黒ネコ系。StreamingAssets を書き換えても、一度コピーした画像と減色は残る。
+    // 黒ネコ系とグレイズ。StreamingAssets を書き換えても、一度コピーした画像と減色は残る。
     static readonly string[] KuronekoSeriesFiles =
     {
         "RBlackCat8.png",
@@ -5977,6 +5996,7 @@ public class ControllerProduction : MonoBehaviour
         "GrayCat8.png",
         "WhiteCat8.png",
     };
+    const string GrazeFile = "グレイズ_64.png";
 
     static bool IsKuronekoSeries(string fileName)
     {
@@ -5986,6 +6006,11 @@ public class ControllerProduction : MonoBehaviour
                 return true;
         }
         return false;
+    }
+
+    static bool RefreshesWhenSourceChanges(string fileName)
+    {
+        return IsKuronekoSeries(fileName) || fileName == GrazeFile;
     }
 
     static void DeleteNormalizedCharacterImage(string fileName)
@@ -6018,13 +6043,13 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
-    // 未コピー、または黒ネコ系で元画像の方が新しいときだけ上書きする。減色を消すと、次の生成で色とステータスを作り直す。
+    // 未コピー、または黒ネコ系とグレイズで元画像の方が新しいときだけ上書きする。減色を消すと、次の生成で色とステータスを作り直す。
     static bool ShouldCopyCharacterImage(string sourcePath, string fileName)
     {
         string dest = Application.persistentDataPath + "/Character/" + fileName;
         if (!File.Exists(dest))
             return true;
-        if (!IsKuronekoSeries(fileName))
+        if (!RefreshesWhenSourceChanges(fileName))
             return false;
         try
         {
@@ -6040,7 +6065,7 @@ public class ControllerProduction : MonoBehaviour
     {
         string dest = Application.persistentDataPath + "/Character/" + fileName;
         File.Copy(sourcePath, dest, true);
-        if (IsKuronekoSeries(fileName))
+        if (RefreshesWhenSourceChanges(fileName))
             DeleteNormalizedCharacterImage(fileName);
         Debug.Log("コピー " + sourcePath + "->" + dest);
     }
@@ -6095,9 +6120,9 @@ public class ControllerProduction : MonoBehaviour
         string curCharacterName = roster[rosterIndex].FileName;
         string toPath = Application.persistentDataPath + "/Character/" + curCharacterName;
 
-        // すでにファイルが存在すればスキップ（毎回コピーする無駄を省く）。黒ネコ系は中身が変わっていたら入れ替える。
-        bool refreshCat = IsKuronekoSeries(curCharacterName);
-        if (File.Exists(toPath) && !refreshCat) continue;
+        // すでにファイルが存在すればスキップ（毎回コピーする無駄を省く）。黒ネコ系とグレイズは中身が変わっていたら入れ替える。
+        bool refreshImage = RefreshesWhenSourceChanges(curCharacterName);
+        if (File.Exists(toPath) && !refreshImage) continue;
 
         string path = Application.streamingAssetsPath + "/Character/" + curCharacterName;
 
@@ -6109,10 +6134,10 @@ public class ControllerProduction : MonoBehaviour
             if (www.result == UnityWebRequest.Result.Success)
             {
                 byte[] data = www.downloadHandler.data;
-                if (refreshCat && SameFileBytes(toPath, data))
+                if (refreshImage && SameFileBytes(toPath, data))
                     continue;
                 File.WriteAllBytes(toPath, data);
-                if (refreshCat)
+                if (refreshImage)
                     DeleteNormalizedCharacterImage(curCharacterName);
                 Debug.Log("コピー成功: " + curCharacterName);
             }
@@ -6159,15 +6184,19 @@ public class ControllerProduction : MonoBehaviour
         string destDir = Application.persistentDataPath + "/item";
         if (!Directory.Exists(destDir))
             Directory.CreateDirectory(destDir);
-        string fileName = ItemImages.EnmusubiFile;
-        string path = Application.streamingAssetsPath + "/item/" + fileName;
-        using (UnityWebRequest www = UnityWebRequest.Get(path))
+        string[] fileNames = ItemImages.FileNames();
+        for (int i = 0; i < fileNames.Length; i++)
         {
-            yield return www.SendWebRequest();
-            if (www.result == UnityWebRequest.Result.Success)
-                File.WriteAllBytes(Path.Combine(destDir, fileName), www.downloadHandler.data);
-            else
-                Debug.LogError("アイテム画像のコピーに失敗しました。 " + fileName + " " + www.error);
+            string fileName = fileNames[i];
+            string path = Application.streamingAssetsPath + "/item/" + fileName;
+            using (UnityWebRequest www = UnityWebRequest.Get(path))
+            {
+                yield return www.SendWebRequest();
+                if (www.result == UnityWebRequest.Result.Success)
+                    File.WriteAllBytes(Path.Combine(destDir, fileName), www.downloadHandler.data);
+                else
+                    Debug.LogError("アイテム画像のコピーに失敗しました。 " + fileName + " " + www.error);
+            }
         }
     }
 

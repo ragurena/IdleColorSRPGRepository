@@ -58,14 +58,20 @@ public class ControllerBattleClass : MonoBehaviour
     bool _alliesEntered;
     bool _cuePixels;
     bool _cueWalk;
+    bool _cueItem;
+    int _cueItemId;
     int _cueR;
     int _cueG;
     int _cueB;
     long _cuePixelCount;
+    Vector2 _itemDropHome;
+    bool _itemDropHomeSet;
     int _nextUnitId = 1;
     int _battleStageIndex;
     readonly List<string> _logs = new List<string>();
     readonly List<BattleUnit> _units = new List<BattleUnit>();
+    readonly List<BattleUnit> _expPopUnits = new List<BattleUnit>();
+    readonly List<long> _expPopAmounts = new List<long>();
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
     CellView[,] _allies;
     CellView[,] _enemies;
@@ -165,6 +171,8 @@ public class ControllerBattleClass : MonoBehaviour
 
         _units.Clear();
         _logs.Clear();
+        _expPopUnits.Clear();
+        _expPopAmounts.Clear();
         _stop = false;
         _alliesVisible = true;
         _alliesEntered = false;
@@ -204,6 +212,8 @@ public class ControllerBattleClass : MonoBehaviour
         for (int floor = start; floor <= floorTo; floor++)
         {
             _production.SetActiveBattleFloor(floor);
+            _itemDropHomeSet = false;
+            ClearBattleFloats();
             if (_stop)
                 break;
             if (!HasLivingAlly())
@@ -236,10 +246,20 @@ public class ControllerBattleClass : MonoBehaviour
                 if (!string.IsNullOrEmpty(step.Log))
                     AddLog(step.Log);
                 _production.SyncAllyLivesFromBattle(_units);
+                ShowBattleFloats(step);
                 if (step.Acted && step.Actor != null)
                     yield return PlayAttackMotion(step.Actor, step.Target);
-                if (step.Target != null && !step.Target.IsAlly && !step.Target.IsLiving() && (_cuePixels || _cueWalk))
-                    yield return PlayDefeatDrops(step.Target);
+                if (step.Target != null && !step.Target.IsAlly && !step.Target.IsLiving())
+                {
+                    CellView fallen = CellOf(step.Target);
+                    if (fallen != null)
+                    {
+                        _itemDropHome = fallen.Home;
+                        _itemDropHomeSet = true;
+                    }
+                    if (_cuePixels || _cueWalk || _cueItem)
+                        yield return PlayDefeatDrops(step.Target);
+                }
                 Refresh(stageName, floor, floorFrom, floorTo);
                 if (_stop)
                     break;
@@ -268,6 +288,8 @@ public class ControllerBattleClass : MonoBehaviour
                 _production.AddBattleItem(drops[i], 1);
                 AddLog(ItemIds.DisplayName(drops[i]) + " を入手");
             }
+            if (drops.Count > 0)
+                yield return PlayFloorItemDrops(drops);
 
             bool advanced = _production.MarkBattleFloorCleared(stageIndex, floor);
             _production.GrantPersonBattleFloor();
@@ -341,6 +363,7 @@ public class ControllerBattleClass : MonoBehaviour
         ShowIdle();
         Hide();
         _production.ReturnFromBattle();
+        ClearBattleFloats();
     }
 
     public AllyAuthorship[] AllyAuthorships()
@@ -532,6 +555,41 @@ public class ControllerBattleClass : MonoBehaviour
         RestoreCell(defender);
     }
 
+    void QueueExpFloat(BattleUnit ally, long exp)
+    {
+        if (ally == null || exp <= 0)
+            return;
+        _expPopUnits.Add(ally);
+        _expPopAmounts.Add(exp);
+    }
+
+    // ダメージは受けたキャラの右、真ん中の高さから浮かぶ。経験値は味方の右下に出て、その場で消える。
+    void ShowBattleFloats(BattleAttackResult step)
+    {
+        if (step.Acted && step.Target != null && step.Damage > 0)
+        {
+            CellView cell = CellOf(step.Target);
+            if (cell != null && cell.Image != null)
+                BattleFloatText.Show(cell.Image.rectTransform, true, step.Damage);
+        }
+        for (int i = 0; i < _expPopUnits.Count; i++)
+        {
+            CellView cell = CellOf(_expPopUnits[i]);
+            if (cell != null && cell.Image != null)
+                BattleFloatText.Show(cell.Image.rectTransform, false, _expPopAmounts[i]);
+        }
+        _expPopUnits.Clear();
+        _expPopAmounts.Clear();
+    }
+
+    void ClearBattleFloats()
+    {
+        _expPopUnits.Clear();
+        _expPopAmounts.Clear();
+        if (_root != null)
+            BattleFloatText.Clear(_root.transform);
+    }
+
     void ClearDropCue()
     {
         _cuePixels = false;
@@ -540,6 +598,8 @@ public class ControllerBattleClass : MonoBehaviour
         _cueG = 0;
         _cueB = 0;
         _cuePixelCount = 0;
+        _cueItem = false;
+        _cueItemId = 0;
     }
 
     const float PixelSize = 16f;
@@ -599,11 +659,28 @@ public class ControllerBattleClass : MonoBehaviour
             }
         }
 
+        Image item = null;
+        int itemHops = 3;
+        Vector2 feet = new Vector2(origin.x, origin.y - 35f);
+        float itemTime = 0f;
+        if (_cueItem)
+        {
+            item = CreateDropItem(_cueItemId, feet);
+            if (item != null)
+            {
+                itemHops = ItemHopCount(_cueItemId);
+                itemTime = ItemHopDuration();
+                RememberDrop(item.gameObject, itemTime + 0.15f);
+            }
+        }
+
         float total = 0f;
         if (walker != null)
             total = walkTime;
         if (pixels != null && bounceTime > total)
             total = bounceTime;
+        if (item != null && itemTime > total)
+            total = itemTime;
 
         float elapsed = 0f;
         while (elapsed < total && !_stop)
@@ -632,10 +709,177 @@ public class ControllerBattleClass : MonoBehaviour
                     pixels[i].rectTransform.anchoredPosition = new Vector2(x, origin.y + height);
                 }
             }
+            if (item != null)
+                PlaceItemHop(item, feet, itemTime <= 0f ? 1f : elapsed / itemTime, itemHops);
             yield return null;
         }
 
         ClearDropVisuals();
+    }
+
+    IEnumerator PlayFloorItemDrops(List<int> itemIds)
+    {
+        if (itemIds == null || itemIds.Count == 0 || _root == null)
+            yield break;
+        Vector2 home = _itemDropHomeSet ? _itemDropHome : EnemySideHome();
+        Vector2 feet = new Vector2(home.x, home.y - 35f);
+        var icons = new List<Image>();
+        var hops = new List<int>();
+        for (int i = 0; i < itemIds.Count; i++)
+        {
+            Image icon = CreateDropItem(itemIds[i], feet);
+            if (icon == null)
+                continue;
+            icons.Add(icon);
+            hops.Add(ItemHopCount(itemIds[i]));
+        }
+        if (icons.Count == 0)
+            yield break;
+
+        float duration = ItemHopDuration();
+        float stagger = duration * 0.16f;
+        float total = duration + stagger * (icons.Count - 1);
+        float elapsed = 0f;
+        while (elapsed < total && !_stop)
+        {
+            elapsed += Time.deltaTime;
+            for (int i = 0; i < icons.Count; i++)
+            {
+                if (icons[i] == null)
+                    continue;
+                float local = elapsed - stagger * i;
+                PlaceItemHop(icons[i], feet, duration <= 0f ? 1f : local / duration, hops[i]);
+            }
+            yield return null;
+        }
+        for (int i = 0; i < icons.Count; i++)
+        {
+            if (icons[i] != null)
+                Destroy(icons[i].gameObject);
+        }
+    }
+
+    Image CreateDropItem(int itemId, Vector2 feet)
+    {
+        Sprite sprite = ItemImages.SpriteOf(itemId);
+        if (sprite == null || _root == null)
+            return null;
+        Image icon = CreateImage("DropItem", _root.transform, Color.white);
+        icon.sprite = sprite;
+        icon.preserveAspect = true;
+        icon.raycastTarget = false;
+        PlaceRect(icon.rectTransform, feet.x, feet.y, 48f, 48f);
+        icon.rectTransform.localScale = new Vector3(0.2f, 0.2f, 1f);
+        icon.transform.SetAsLastSibling();
+        return icon;
+    }
+
+    Vector2 EnemySideHome()
+    {
+        if (_enemies != null && _config != null)
+        {
+            int mid = (_config.FormationSize + 1) / 2;
+            if (mid >= 1 && mid <= _config.FormationSize)
+            {
+                CellView view = _enemies[mid, mid];
+                if (view != null)
+                    return view.Home;
+            }
+        }
+        return new Vector2(170f, -14f);
+    }
+
+    float ItemHopDuration()
+    {
+        float duration = ScaledSeconds(0.92f);
+        if (duration < 0.24f)
+            duration = 0.24f;
+        return duration;
+    }
+
+    static int ItemHopCount(int itemId)
+    {
+        return (itemId / 8) % 2 == 0 ? 3 : 2;
+    }
+
+    static void PlaceItemHop(Image icon, Vector2 feet, float u, int hops)
+    {
+        if (icon == null)
+            return;
+        if (u < 0f)
+        {
+            icon.rectTransform.localScale = new Vector3(0.2f, 0.2f, 1f);
+            icon.rectTransform.anchoredPosition = feet;
+            return;
+        }
+        if (u > 1f)
+            u = 1f;
+        float along;
+        float rise;
+        float scale;
+        float alpha;
+        SampleItemHop(u, hops, out along, out rise, out scale, out alpha);
+        icon.rectTransform.anchoredPosition = new Vector2(feet.x + along, feet.y + rise);
+        icon.rectTransform.localScale = new Vector3(scale, scale, 1f);
+        Color color = Color.white;
+        color.a = alpha;
+        icon.color = color;
+    }
+
+    // 足元から右後ろへ、2回か3回跳ねて、最後に縮みながら消える。
+    static void SampleItemHop(float u, int hops, out float along, out float rise, out float scale, out float alpha)
+    {
+        if (hops < 2)
+            hops = 2;
+        if (hops > 3)
+            hops = 3;
+        float[] share = hops == 2 ? new float[] { 0.56f, 0.44f } : new float[] { 0.40f, 0.33f, 0.27f };
+        float[] height = hops == 2 ? new float[] { 72f, 30f } : new float[] { 70f, 36f, 16f };
+        float[] endX = hops == 2 ? new float[] { 0.64f, 1f } : new float[] { 0.46f, 0.78f, 1f };
+        const float travel = 112f;
+        float start = 0f;
+        float prevX = 0f;
+        along = 0f;
+        rise = 0f;
+        scale = 1f;
+        alpha = 1f;
+        for (int i = 0; i < hops; i++)
+        {
+            float end = start + share[i];
+            if (u > end && i < hops - 1)
+            {
+                prevX = endX[i];
+                start = end;
+                continue;
+            }
+            float local = share[i] <= 0f ? 1f : (u - start) / share[i];
+            if (local < 0f)
+                local = 0f;
+            if (local > 1f)
+                local = 1f;
+            float move = local * local * (3f - 2f * local);
+            along = Mathf.Lerp(prevX, endX[i], move) * travel;
+            rise = Mathf.Sin(local * Mathf.PI) * height[i];
+            scale = 1f;
+            if (i == 0 && local < 0.22f)
+                scale = Mathf.Lerp(0.2f, 1.18f, local / 0.22f);
+            else if (i == 0 && local < 0.36f)
+                scale = Mathf.Lerp(1.18f, 1f, (local - 0.22f) / 0.14f);
+            if (local > 0.84f)
+            {
+                float land = (local - 0.84f) / 0.16f;
+                float squash = Mathf.Lerp(1f, 0.84f, land);
+                if (scale > squash)
+                    scale = squash;
+            }
+            if (i == hops - 1 && local > 0.42f)
+            {
+                float fade = (local - 0.42f) / 0.58f;
+                alpha = 1f - fade;
+                scale *= Mathf.Lerp(1f, 0.45f, fade);
+            }
+            return;
+        }
     }
 
     sealed class BattleDrop
@@ -683,7 +927,7 @@ public class ControllerBattleClass : MonoBehaviour
         for (int i = _root.transform.childCount - 1; i >= 0; i--)
         {
             Transform child = _root.transform.GetChild(i);
-            if (child.name == "DropPixel" || child.name == "DropWalker")
+            if (child.name == "DropPixel" || child.name == "DropWalker" || child.name == "DropItem")
                 Destroy(child.gameObject);
         }
     }
@@ -2728,7 +2972,10 @@ public class ControllerBattleClass : MonoBehaviour
                 exp = (exp + 1) / 2;
             int levels = _view._production.GrantBattleExp(ally, exp, _view._config);
             if (exp > 0)
+            {
                 _view.AddLog(ally.Name + " 経験値 +" + UiNumber.Format(exp));
+                _view.QueueExpFloat(ally, exp);
+            }
             if (levels > 0)
                 _view.AddLog(ally.Name + " レベル " + levels.ToString() + " 上昇");
         }
@@ -2737,6 +2984,11 @@ public class ControllerBattleClass : MonoBehaviour
         {
             _view._production.AddBattleItem(itemId, count);
             _view.AddLog(ItemIds.DisplayName(itemId) + " を入手");
+            if (count > 0)
+            {
+                _view._cueItem = true;
+                _view._cueItemId = itemId;
+            }
         }
 
         public void Recruit(uint characterId)

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -6,19 +7,57 @@ public static class ItemImages
 {
     public const string EnmusubiFile = "enmusubinoomamori.png";
 
-    static Sprite _enmusubi;
+    static readonly Dictionary<int, Sprite> Sprites = new Dictionary<int, Sprite>();
 
     public static Sprite Enmusubi()
     {
-        if (_enmusubi != null)
-            return _enmusubi;
-        Texture2D texture = Read(EnmusubiFile);
+        return SpriteOf(ItemIds.EnmusubiOmamori);
+    }
+
+    public static Sprite SpriteOf(int itemId)
+    {
+        Sprite cached;
+        if (Sprites.TryGetValue(itemId, out cached) && cached != null)
+            return cached;
+        string fileName = FileName(itemId);
+        if (string.IsNullOrEmpty(fileName))
+            return null;
+        Texture2D texture = Read(fileName);
         if (texture == null)
             return null;
-        texture.filterMode = FilterMode.Bilinear;
+        bool pixel = itemId != ItemIds.EnmusubiOmamori;
+        texture.filterMode = pixel ? FilterMode.Point : FilterMode.Bilinear;
         texture.wrapMode = TextureWrapMode.Clamp;
-        _enmusubi = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-        return _enmusubi;
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+        Sprites[itemId] = sprite;
+        return sprite;
+    }
+
+    public static string FileName(int itemId)
+    {
+        switch (itemId)
+        {
+            case ItemIds.ExpOrb8: return "keikentidama8.png";
+            case ItemIds.ExpOrb16: return "keikentidama16.png";
+            case ItemIds.ExpOrb32: return "keikentidama32.png";
+            case ItemIds.ExpOrb64: return "keikentidama64.png";
+            case ItemIds.ExpOrb128: return "keikentidama128.png";
+            case ItemIds.EnmusubiOmamori: return EnmusubiFile;
+            default: return null;
+        }
+    }
+
+    public static string[] FileNames()
+    {
+        return new string[]
+        {
+            "keikentidama8.png",
+            "keikentidama16.png",
+            "keikentidama32.png",
+            "keikentidama64.png",
+            "keikentidama128.png",
+            EnmusubiFile
+        };
     }
 
     public static void CopyFromFolder(string sourceDirectory)

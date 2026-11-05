@@ -2,12 +2,14 @@ using System;
 using System.Globalization;
 
 // 治療時間。非透過1pxにつき、担当なしは5秒。担当キャラは画像の一辺で、8は4秒、16は3秒、32は2秒、64は1秒、128以上は0.5秒。
-// 人の担当はレベル1が5秒。患者が戻るたびに人だけ経験が1入り、64、128、256、512と倍の区切りで次のサイズと同じ速度になる。
+// 人の担当はレベル1が5秒。回復した相手の非透過ピクセル数が経験値になる。
+// 最初の区切りは 4096。その後は 8192、16384、32768 と倍になり、次のサイズと同じ速度になる。
 public static class HospitalMath
 {
     public const int MillisecondsWithoutNurse = 5000;
     public const int PersonNurseSize = 8;
     public const int SpeedUpMilliseconds = 5000;
+    public const int PersonLevelStep = 64 * 64;
     static readonly int[] PersonMilliseconds = { 5000, 4000, 3000, 2000, 1000, 500 };
 
     public static int MillisecondsPerPixel(int nurseSize, bool nurse)
@@ -53,10 +55,10 @@ public static class HospitalMath
 
     public static int LevelFromExperience(int experience)
     {
-        if (experience < 64)
+        if (experience < PersonLevelStep)
             return 0;
         int level = 0;
-        int need = 64;
+        int need = PersonLevelStep;
         while (experience >= need && level < 24)
         {
             level++;
@@ -73,7 +75,7 @@ public static class HospitalMath
             experience = 0;
         int levelIndex = 0;
         int previous = 0;
-        int threshold = 64;
+        int threshold = PersonLevelStep;
         while (experience >= threshold && levelIndex < 24)
         {
             levelIndex++;

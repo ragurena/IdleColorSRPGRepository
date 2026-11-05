@@ -437,8 +437,31 @@ public class ControllerHospitalClass : MonoBehaviour
     {
         if (_production == null || bed < 1)
             return;
-        _production.CareHospitalBed(bed);
-        Refresh();
+        if (_production.CareHospitalBed(bed))
+            Refresh();
+        else
+            PaintBedProgress(bed);
+    }
+
+    void PaintBedProgress(int bed)
+    {
+        HospitalState hospital = _production != null ? _production.GetHospital() : null;
+        if (hospital == null)
+            return;
+        for (int i = 0; i < _cards.Count; i++)
+        {
+            CardView card = _cards[i];
+            if (card.Left != null && card.Left.Bed == bed)
+            {
+                PaintBed(card.Left, hospital);
+                return;
+            }
+            if (card.Right != null && card.Right.Bed == bed)
+            {
+                PaintBed(card.Right, hospital);
+                return;
+            }
+        }
     }
 
     Button CreateCareButton(Transform parent, int bed, float x)

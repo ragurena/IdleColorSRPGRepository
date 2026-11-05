@@ -65,27 +65,27 @@ static class HospitalTests
         failures += Check(HospitalMath.MillisecondsPerPixel(128, true) == 500, "nurse 128");
         failures += Check(HospitalMath.MillisecondsPerPixel(512, true) == 500, "nurse 512");
         failures += Check(HospitalMath.MillisecondsForPerson(0) == 5000, "person level 1 is 5 sec");
-        failures += Check(HospitalMath.MillisecondsForPerson(63) == 5000, "xp 63 stays 5 sec");
-        failures += Check(HospitalMath.MillisecondsForPerson(64) == 4000, "xp 64 is 4 sec");
-        failures += Check(HospitalMath.MillisecondsForPerson(128) == 3000, "xp 128 is 3 sec");
-        failures += Check(HospitalMath.MillisecondsForPerson(256) == 2000, "xp 256 is 2 sec");
-        failures += Check(HospitalMath.MillisecondsForPerson(512) == 1000, "xp 512 is 1 sec");
-        failures += Check(HospitalMath.MillisecondsForPerson(1024) == 500, "xp 1024 is 0.5 sec");
-        failures += Check(HospitalMath.MillisecondsForPerson(2048) == 500, "xp stays 0.5 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(4095) == 5000, "xp 4095 stays 5 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(4096) == 4000, "xp 4096 is 4 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(8192) == 3000, "xp 8192 is 3 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(16384) == 2000, "xp 16384 is 2 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(32768) == 1000, "xp 32768 is 1 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(65536) == 500, "xp 65536 is 0.5 sec");
+        failures += Check(HospitalMath.MillisecondsForPerson(131072) == 500, "xp stays 0.5 sec");
         failures += Check(HospitalMath.PersonEquivalentSize(0) == 0, "level 1 has no size");
-        failures += Check(HospitalMath.PersonEquivalentSize(64) == 8, "level 2 is size 8");
-        failures += Check(HospitalMath.PersonEquivalentSize(1024) == 128, "level 6 is size 128");
+        failures += Check(HospitalMath.PersonEquivalentSize(4096) == 8, "level 2 is size 8");
+        failures += Check(HospitalMath.PersonEquivalentSize(65536) == 128, "level 6 is size 128");
         int level;
         int into;
         int need;
         HospitalMath.NurseLevelProgress(0, out level, out into, out need);
-        failures += Check(level == 1 && into == 0 && need == 64, "nurse level 1");
-        HospitalMath.NurseLevelProgress(63, out level, out into, out need);
-        failures += Check(level == 1 && into == 63 && need == 64, "nurse level 1 almost");
-        HospitalMath.NurseLevelProgress(64, out level, out into, out need);
-        failures += Check(level == 2 && into == 0 && need == 64, "nurse level 2");
-        HospitalMath.NurseLevelProgress(128, out level, out into, out need);
-        failures += Check(level == 3 && into == 0 && need == 128, "nurse level 3");
+        failures += Check(level == 1 && into == 0 && need == 4096, "nurse level 1");
+        HospitalMath.NurseLevelProgress(4095, out level, out into, out need);
+        failures += Check(level == 1 && into == 4095 && need == 4096, "nurse level 1 almost");
+        HospitalMath.NurseLevelProgress(4096, out level, out into, out need);
+        failures += Check(level == 2 && into == 0 && need == 4096, "nurse level 2");
+        HospitalMath.NurseLevelProgress(8192, out level, out into, out need);
+        failures += Check(level == 3 && into == 0 && need == 8192, "nurse level 3");
         return failures;
     }
 
@@ -100,7 +100,7 @@ static class HospitalTests
         failures += Check(Nearly(hospital.PatientOnBed(1).HealedPixels, 1) && Nearly(hospital.PatientOnBed(2).HealedPixels, 1), "person heals at 5 sec");
         List<uint> returned = new List<uint>();
         hospital.CatchUp(20000, id => Grant(returned, id));
-        failures += Check(returned.Count == 2 && hospital.Experience(true, 4) == 2, "each return gives 1 xp");
+        failures += Check(returned.Count == 2 && hospital.Experience(true, 4) == 8, "each return gives opaque pixels");
         HospitalState characterNurse = new HospitalState();
         characterNurse.AssignNurse(1, 3, 32, 0, null);
         characterNurse.Admit(1, 1, 8, 0, null);
@@ -109,13 +109,13 @@ static class HospitalTests
 
         HospitalState grown = new HospitalState();
         grown.AssignPerson(1, 4, 0, null);
-        grown.AddExperience(true, 4, 64);
+        grown.AddExperience(true, 4, 4096);
         grown.Admit(1, 4, 8, 0, null);
         grown.CatchUp(4000, null);
-        failures += Check(Nearly(grown.PatientOnBed(1).HealedPixels, 1), "64 xp heals at 4 sec");
-        grown.AddExperience(true, 4, 64);
+        failures += Check(Nearly(grown.PatientOnBed(1).HealedPixels, 1), "4096 xp heals at 4 sec");
+        grown.AddExperience(true, 4, 4096);
         grown.CatchUp(7000, null);
-        failures += Check(Nearly(grown.PatientOnBed(1).HealedPixels, 2), "128 xp heals at 3 sec");
+        failures += Check(Nearly(grown.PatientOnBed(1).HealedPixels, 2), "8192 xp heals at 3 sec");
         StringWriter writer = new StringWriter();
         grown.Write(writer);
         HospitalState loaded = new HospitalState();
@@ -129,7 +129,7 @@ static class HospitalTests
             loaded.TryApply(line.Split(','));
         }
         loaded.Repair();
-        failures += Check(loaded.PersonOnBed(1) == 4 && loaded.NurseOnBed(1) == 0 && loaded.Experience(true, 4) == 128, "saved person xp");
+        failures += Check(loaded.PersonOnBed(1) == 4 && loaded.NurseOnBed(1) == 0 && loaded.Experience(true, 4) == 8192, "saved person xp");
         failures += Check(Nearly(loaded.PatientOnBed(1).HealedPixels, 2), "saved progress after growth");
         return failures;
     }

@@ -1214,8 +1214,27 @@ public class CharacterClass //: MonoBehaviour
 
     public uint GetCreatePixels(ushort r, ushort g, ushort b)
     {
-        //画像の一辺に、色コードと同じ 0〜255 のピクセル数を足す
-        return Size + CountMatchingColors(r, g, b);
+        // 画像の一辺に、同じ色のピクセル数を足す。レベルが1上がるごとに、さらに1増える。レベル1は基礎のまま。
+        ulong amount = (ulong)Size + CountMatchingColors(r, g, b) + LevelSteps();
+        if (amount > uint.MaxValue)
+            return uint.MaxValue;
+        return (uint)amount;
+    }
+
+    // キャラ生産の1秒で塗るピクセル数。色の種類数に、レベル10ごとに1を足す。
+    public uint PixelsPerCycle()
+    {
+        ulong amount = PaintPixels + Level / 10;
+        if (amount > uint.MaxValue)
+            return uint.MaxValue;
+        return (uint)amount;
+    }
+
+    ulong LevelSteps()
+    {
+        if (Level <= 1)
+            return 0;
+        return Level - 1;
     }
 
     uint CountMatchingColors(ushort r, ushort g, ushort b)

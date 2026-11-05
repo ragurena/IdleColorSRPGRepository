@@ -30,6 +30,8 @@ public struct BattleAttackResult
     public BattleOutcome Outcome;
     public BattleUnit Actor;
     public BattleUnit Target;
+    // その一撃で実際に減ったHP。超過分は含めない。
+    public long Damage;
 }
 
 public sealed class BattleFloorFight
@@ -141,7 +143,12 @@ public sealed class BattleFloorFight
         bool typeWeakness = AttributeWeakness.IsHit(actor.Attribute, target.WeaknessAttribute);
         long attack = BattleDamageCalculator.AttackForWeakness(actor.Atk, colorWeakness, typeWeakness, _config);
         long damage = BattleDamageCalculator.Calculate(attack, target.Def, _config);
+        long hpBefore = target.Hp;
         KnockoutResult knockout = BattleKnockout.Apply(target, damage, _config.MaxLives);
+        long lost = damage > hpBefore ? hpBefore : damage;
+        if (lost < 0)
+            lost = 0;
+        result.Damage = lost;
         if (knockout != KnockoutResult.Alive)
             CancelRemainingActions(target.UnitId);
 
