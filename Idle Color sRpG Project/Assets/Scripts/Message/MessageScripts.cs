@@ -27,6 +27,23 @@ public static class MessageScripts
                 Line.Mine(81, "ありがとう"),
                 Line.Say(82, "chigusa", "どういたしまして。"))),
 
+        Talk("present", new MessageQuest[0],
+            Notice(new MessageCond[] { Cond.ProtagonistSpecialty(CharacterAttribute.Fire) },
+                Line.Say(1, "present", "火属性のキャラを5体読み込んだか、モアを作者とするキャラが500回以上生成されました。"),
+                Line.Say(2, "present", "条件を達成したので、主人公の得意属性に火が加わりました。")),
+            Notice(new MessageCond[] { Cond.ProtagonistSpecialty(CharacterAttribute.Grass) },
+                Line.Say(3, "present", "草属性のキャラを5体読み込んだか、チグサを作者とするキャラが500回以上生成されました。"),
+                Line.Say(4, "present", "条件を達成したので、主人公の得意属性に草が加わりました。")),
+            Notice(new MessageCond[] { Cond.ProtagonistSpecialty(CharacterAttribute.Water) },
+                Line.Say(5, "present", "水属性のキャラを5体読み込んだか、ソウガを作者とするキャラが500回以上生成されました。"),
+                Line.Say(6, "present", "条件を達成したので、主人公の得意属性に水が加わりました。")),
+            Notice(new MessageCond[] { Cond.ProtagonistSpecialty(CharacterAttribute.Light) },
+                Line.Say(7, "present", "光属性のキャラを5体読み込みました。"),
+                Line.Say(8, "present", "条件を達成したので、主人公の得意属性に光が加わりました。")),
+            Notice(new MessageCond[] { Cond.ProtagonistSpecialty(CharacterAttribute.Dark) },
+                Line.Say(9, "present", "闇属性のキャラを5体読み込みました。"),
+                Line.Say(10, "present", "条件を達成したので、主人公の得意属性に闇が加わりました。"))),
+
         Talk("class", new MessageQuest[0],
             Chapter(new MessageCond[] { Cond.Always() },
                 Line.Say(1, "chigusa", "みんな、集合しよ。"),
@@ -54,6 +71,11 @@ public static class MessageScripts
     static MessageBlock Chapter(MessageCond[] when, params MessageLine[] lines)
     {
         return new MessageChapterBlock(new MessageChapter(when, lines));
+    }
+
+    static MessageBlock Notice(MessageCond[] when, params MessageLine[] lines)
+    {
+        return new MessageChapterBlock(new MessageChapter(when, lines, true));
     }
 
     static MessageBlock Offer(int id, MessageCond[] when, string prompt, MessageGift[] gifts, params MessageLine[] hook)
@@ -117,6 +139,11 @@ public static class Cond
     public static MessageCond Companions(string faceId, int count)
     {
         return new MessageCond(MessageCondKind.CompanionsAtLeast, 0, 0, count, faceId, 0);
+    }
+
+    public static MessageCond ProtagonistSpecialty(CharacterAttribute attribute)
+    {
+        return new MessageCond(MessageCondKind.ProtagonistSpecialty, (int)attribute, 0, 1, "", 0);
     }
 }
 

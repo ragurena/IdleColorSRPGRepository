@@ -147,6 +147,25 @@ public class ControllerBattleStageClass : MonoBehaviour
     }
 
     const float FrameThin = 3f;
+    const float StageCardHeightPreferred = 188f;
+
+    void RaiseStageCards()
+    {
+        for (int i = 0; i < ButtonBattleStages.Length; i++)
+            SetStageCardHeight(ButtonBattleStages[i]);
+        SetStageCardHeight(ButtonGalleryStage);
+    }
+
+    static void SetStageCardHeight(Button button)
+    {
+        if (button == null)
+            return;
+        LayoutElement element = button.GetComponent<LayoutElement>();
+        if (element == null)
+            element = button.gameObject.AddComponent<LayoutElement>();
+        element.minHeight = StageCardHeightPreferred;
+        element.preferredHeight = StageCardHeightPreferred;
+    }
 
     // 下地は黒。白い枠はステージ一覧だけ。
     void ApplyStageChrome()
@@ -181,6 +200,8 @@ public class ControllerBattleStageClass : MonoBehaviour
             scrollRect.anchoredPosition = new Vector2(scrollRect.anchoredPosition.x, -253f);
             EnsureWhiteFrame(scroll);
         }
+
+        RaiseStageCards();
 
         LayoutStageFormation(panel);
         ThickenFloorSliders(panel);
@@ -869,10 +890,14 @@ public class ControllerBattleStageClass : MonoBehaviour
             }
             else
             {
-                label.text = StageNames[stageIndex];
+                int start = ControllerProduction.GetBattleFloorWindowStart(stageIndex);
+                int end = ControllerProduction.GetBattleFloorWindowEnd(stageIndex);
+                label.text = StageNames[stageIndex] + "\n" + start.ToString() + "〜" + end.ToString() + "階";
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.verticalOverflow = VerticalWrapMode.Overflow;
                 if (stageIndex == activeStage)
                     label.text += "\n出撃中";
-                else if (ControllerProduction.IsBattleStageCleared(stageIndex))
+                else if (ControllerProduction.GetHighestClearedBattleFloor(stageIndex) >= ControllerProduction.StageFloorCap(stageIndex))
                     label.text += "\nクリア";
             }
         }

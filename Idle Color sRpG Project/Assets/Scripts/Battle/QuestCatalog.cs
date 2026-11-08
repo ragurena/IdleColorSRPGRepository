@@ -31,7 +31,8 @@ public enum QuestRewardKind
     GrantPalette,
     BothSlots,
     LevelCap,
-    FusionAndPixelSlot
+    FusionAndPixelSlot,
+    TapAndPalette
 }
 
 // サブクエストを受け取ったとき、広告で生産枠を増やせる回数をどちらに足すか。
@@ -318,20 +319,43 @@ public static class QuestCatalog
         Enemy(215, 45000, QuestRewardKind.FusionEfficiency, 1),
         Enemy(225, 50000, QuestRewardKind.FusionEfficiency, 1),
 
-        // 合成
-        Fusion(  16,  10),
-        Fusion(  56,  25),
-        Fusion(  86,  50),
-        Fusion( 116,  75),
-        Fusion( 146, 100),
-        Fusion( 176, 150),
-        Fusion( 206, 200),
-        Fusion( 236, 250),
-        Fusion( 266, 300),
-        Fusion( 296, 350),
-        Fusion( 326, 400),
-        Fusion( 356, 450),
-        Fusion( 386, 500),
+        // 合成。枠は増やさず、生産できるピクセルを渡す。
+        Fusion(  16,  10,  50),
+        Fusion(  56,  25, 100),
+        Fusion(  86,  50, 150),
+        Fusion( 116,  75, 200),
+        Fusion( 146, 100, 250),
+        Fusion( 176, 150, 300),
+        Fusion( 206, 200, 350),
+        Fusion( 236, 250, 400),
+        Fusion( 266, 300, 450),
+        Fusion( 296, 350, 500),
+        Fusion( 326, 400, 550),
+        Fusion( 356, 450, 600),
+        Fusion( 386, 500, 650),
+        // 500回の次は100回ごと。1000回の次は250回ごと。ピクセルは1件ずつ50増やす。
+        // 番号は30刻み。1016と1046は読込クエストなので、5000回は1076。
+        Fusion( 416,  600,  700),
+        Fusion( 446,  700,  750),
+        Fusion( 476,  800,  800),
+        Fusion( 506,  900,  850),
+        Fusion( 536, 1000,  900),
+        Fusion( 566, 1250,  950),
+        Fusion( 596, 1500, 1000),
+        Fusion( 626, 1750, 1050),
+        Fusion( 656, 2000, 1100),
+        Fusion( 686, 2250, 1150),
+        Fusion( 716, 2500, 1200),
+        Fusion( 746, 2750, 1250),
+        Fusion( 776, 3000, 1300),
+        Fusion( 806, 3250, 1350),
+        Fusion( 836, 3500, 1400),
+        Fusion( 866, 3750, 1450),
+        Fusion( 896, 4000, 1500),
+        Fusion( 926, 4250, 1550),
+        Fusion( 956, 4500, 1600),
+        Fusion( 986, 4750, 1650),
+        Fusion(1076, 5000, 1700),
 
         // ステージのキャラを仲間にする
         Companion( 37,  6),
@@ -485,6 +509,8 @@ public static class QuestCatalog
                 slots = "ピクセル生成枠+" + UiNumber.Format(def.RewardAmount) + " または キャラ生成枠+" + UiNumber.Format(def.RewardAmount);
             body = "ボタンタップ生成 +10%\n" + slots;
         }
+        else if (def.Reward == QuestRewardKind.TapAndPalette)
+            body = "ボタンタップ生成 +10%\n生産できるピクセルをすべて" + UiNumber.Format(def.RewardAmount) + "個";
         else if (def.Reward == QuestRewardKind.UnlockFeature)
             body = FeatureUnlockText(def.RewardAmount);
         else if (def.Reward == QuestRewardKind.GrantPalette)
@@ -613,9 +639,9 @@ public static class QuestCatalog
         return def != null && (def.Reward == QuestRewardKind.ChooseSlots || def.Reward == QuestRewardKind.TapChooseSlot);
     }
 
-    static QuestDef Fusion(int id, long count)
+    static QuestDef Fusion(int id, long count, long pixels)
     {
-        return new QuestDef(id, "合成を" + UiNumber.Format(count) + "回する", QuestMetric.FusionCount, 0, count, QuestRewardKind.TapChooseSlot, 1, true);
+        return new QuestDef(id, "合成を" + UiNumber.Format(count) + "回する", QuestMetric.FusionCount, 0, count, QuestRewardKind.TapAndPalette, pixels, true);
     }
 
     static QuestDef Companion(int id, long count)

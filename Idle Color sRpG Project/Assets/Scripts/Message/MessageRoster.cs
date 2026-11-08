@@ -14,6 +14,7 @@ public static class MessageRoster
         Face("souga", "ソウガ", "souga_kaoaikon.png", false, PersonIds.ClassmateBlue, 64, 64, 192),
         Face("gensirou", "ゲンシロウ", "gensirou_kaoaikon.png", false, PersonIds.TeacherBlack, 96, 96, 96),
         Face("class", "クラス", "group_class.png", true, 0),
+        Face("present", "プレゼント", "group_present.png", true, 0),
     };
 
     public static MessageFace Find(string id)

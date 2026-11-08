@@ -52,6 +52,8 @@ public static class MessageRules
         }
         if (cond.Kind == MessageCondKind.OfferAccepted)
             return save != null && save.Has(save.DoneOf(TalkIdOfOffer(cond.Arg)), cond.Arg) ? 1 : 0;
+        if (cond.Kind == MessageCondKind.ProtagonistSpecialty)
+            return game.ProtagonistHasSpecialty((CharacterAttribute)cond.Arg) ? 1 : 0;
         MessageFace face = MessageRoster.Find(cond.Key);
         int personId = face != null ? face.PersonId : 0;
         if (cond.Kind == MessageCondKind.AffectionAtLeast)
@@ -123,6 +125,8 @@ public static class MessageRules
             return "キャラ" + cond.CharacterId.ToString() + "のレベル";
         if (cond.Kind == MessageCondKind.CompanionsAtLeast)
             return "仲間にした種類";
+        if (cond.Kind == MessageCondKind.ProtagonistSpecialty)
+            return "得意属性";
         return "";
     }
 

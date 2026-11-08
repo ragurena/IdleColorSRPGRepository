@@ -29,8 +29,11 @@ static class Constants
     public const int BATTLE_FORMATION_SIZE = 3;
     public const int BATTLE_STAGE_NUM = 5;
     public const int BATTLE_STAGE_GALLERY = 6;
+    // 一度に挑戦する幅。100階クリアで次の100階が開く。
     public const int BATTLE_STAGE_FLOOR_MAX = 100;
     public const int BATTLE_STAGE_FLOOR_STEP = 10;
+    // ギャラリー以外の到達上限。1〜100、101〜200、201〜300。
+    public const int BATTLE_STAGE_FLOOR_CAP = 300;
     public const int BATTLE_PERSON_SLOT_NUM = 3;
 }
 
@@ -2171,6 +2174,7 @@ public class ControllerProduction : MonoBehaviour
             return false;
         }
         UpdateRGBProductionScene();
+        RefreshMessages();
         SaveGame();
         ShowCharacterOwnedNum();
         if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
@@ -4679,7 +4683,7 @@ public class ControllerProduction : MonoBehaviour
     public static bool IsBattleFloorRange(int floorFrom, int floorTo)
     {
         int step = Constants.BATTLE_STAGE_FLOOR_STEP;
-        if (floorFrom < 1 || floorTo > Constants.BATTLE_STAGE_FLOOR_MAX || floorTo < floorFrom)
+        if (floorFrom < 1 || floorTo < floorFrom)
             return false;
         if ((floorFrom - 1) % step != 0)
             return false;
@@ -4784,28 +4788,53 @@ public class ControllerProduction : MonoBehaviour
         return ClearedBattleFloor[stageIndex];
     }
 
+    // ギャラリー以外は300階まで。ギャラリーは上限なし。
+    public static int StageFloorCap(int stageIndex)
+    {
+        if (stageIndex == Constants.BATTLE_STAGE_GALLERY)
+            return int.MaxValue;
+        return Constants.BATTLE_STAGE_FLOOR_CAP;
+    }
+
+    // 100階クリアで次の100階。ギャラリー以外は201〜300が最後。
     public int GetBattleFloorWindowStart(int stageIndex)
     {
-        if (stageIndex != Constants.BATTLE_STAGE_GALLERY)
-            return 1;
         int cleared = GetHighestClearedBattleFloor(stageIndex);
         if (cleared < 0)
             cleared = 0;
-        return (cleared / Constants.BATTLE_STAGE_FLOOR_MAX) * Constants.BATTLE_STAGE_FLOOR_MAX + 1;
+        int start = (cleared / Constants.BATTLE_STAGE_FLOOR_MAX) * Constants.BATTLE_STAGE_FLOOR_MAX + 1;
+        if (stageIndex == Constants.BATTLE_STAGE_GALLERY)
+            return start;
+        int last = ((Constants.BATTLE_STAGE_FLOOR_CAP - 1) / Constants.BATTLE_STAGE_FLOOR_MAX) * Constants.BATTLE_STAGE_FLOOR_MAX + 1;
+        if (start > last)
+            start = last;
+        return start;
     }
 
-    //クリア階の次の階が含まれる10階区切りの始まり。未クリアなら1階
+    public int GetBattleFloorWindowEnd(int stageIndex)
+    {
+        int end = GetBattleFloorWindowStart(stageIndex) + Constants.BATTLE_STAGE_FLOOR_MAX - 1;
+        int cap = StageFloorCap(stageIndex);
+        if (end > cap)
+            end = cap;
+        return end;
+    }
+
+    //クリア階の次の階が含まれる10階区切りの始まり。未クリアなら、今の100階の先頭。
     public int GetMaxBattleFloorFrom(int stageIndex)
     {
         int cleared = GetHighestClearedBattleFloor(stageIndex);
-        if (stageIndex != Constants.BATTLE_STAGE_GALLERY)
-            return MaxBattleFloorFrom(cleared);
-
         int windowStart = GetBattleFloorWindowStart(stageIndex);
         int relative = cleared - (windowStart - 1);
         if (relative < 0)
             relative = 0;
-        return windowStart - 1 + MaxBattleFloorFrom(relative);
+        int from = windowStart - 1 + MaxBattleFloorFrom(relative);
+        int lastBand = GetBattleFloorWindowEnd(stageIndex) - Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+        if (from > lastBand)
+            from = lastBand;
+        if (from < windowStart)
+            from = windowStart;
+        return from;
     }
 
     public static int MaxBattleFloorFrom(int clearedFloor)
@@ -4825,7 +4854,7 @@ public class ControllerProduction : MonoBehaviour
             return false;
         if (floor < 1)
             return false;
-        if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor > Constants.BATTLE_STAGE_FLOOR_MAX)
+        if (floor > StageFloorCap(stageIndex))
             return false;
         if (stageIndex == Constants.BATTLE_STAGE_GALLERY)
             NoteGalleryClear();
@@ -4856,10 +4885,12 @@ public class ControllerProduction : MonoBehaviour
 
         for (int stage = 1; stage <= Constants.BATTLE_STAGE_NUM; stage++)
         {
-            if (ClearedBattleFloor[stage] < 0 || ClearedBattleFloor[stage] > Constants.BATTLE_STAGE_FLOOR_MAX)
+            if (ClearedBattleFloor[stage] < 0)
                 ClearedBattleFloor[stage] = 0;
-            if (stage <= ClearedBattleStage)
+            if (stage <= ClearedBattleStage && ClearedBattleFloor[stage] < Constants.BATTLE_STAGE_FLOOR_MAX)
                 ClearedBattleFloor[stage] = Constants.BATTLE_STAGE_FLOOR_MAX;
+            if (ClearedBattleFloor[stage] > Constants.BATTLE_STAGE_FLOOR_CAP)
+                ClearedBattleFloor[stage] = Constants.BATTLE_STAGE_FLOOR_CAP;
         }
 
         if (ClearedBattleFloor[Constants.BATTLE_STAGE_GALLERY] < 0)
@@ -4908,7 +4939,7 @@ public class ControllerProduction : MonoBehaviour
     {
         int step = Constants.BATTLE_STAGE_FLOOR_STEP;
         int start = GetBattleFloorWindowStart(stageIndex);
-        int end = start + Constants.BATTLE_STAGE_FLOOR_MAX - 1;
+        int end = GetBattleFloorWindowEnd(stageIndex);
         if (floorFrom < start || floorTo > end || floorTo < floorFrom)
             return false;
         if ((floorFrom - start) % step != 0)
@@ -5987,7 +6018,8 @@ public class ControllerProduction : MonoBehaviour
     ////////////////////////////////////
     //Model?
 
-    // 黒ネコ系とグレイズ。StreamingAssets を書き換えても、一度コピーした画像と減色は残る。
+    // ここに書いたキャラだけ、元画像が新しいときにコピーと減色を作り直す。
+    // それ以外は StreamingAssets を書き換えても、一度コピーした画像と減色が残る。
     static readonly string[] KuronekoSeriesFiles =
     {
         "RBlackCat8.png",
@@ -5996,21 +6028,34 @@ public class ControllerProduction : MonoBehaviour
         "GrayCat8.png",
         "WhiteCat8.png",
     };
-    const string GrazeFile = "グレイズ_64.png";
+    static readonly string[] RecoloredFiles =
+    {
+        "グレイズ_64.png",
+        "ズンラゲ_64.png",
+        "ベリー_32.png",
+        "ベリル_64.png",
+    };
 
     static bool IsKuronekoSeries(string fileName)
     {
-        for (int i = 0; i < KuronekoSeriesFiles.Length; i++)
-        {
-            if (KuronekoSeriesFiles[i] == fileName)
-                return true;
-        }
-        return false;
+        return ListedFile(KuronekoSeriesFiles, fileName);
     }
 
     static bool RefreshesWhenSourceChanges(string fileName)
     {
-        return IsKuronekoSeries(fileName) || fileName == GrazeFile;
+        return IsKuronekoSeries(fileName) || ListedFile(RecoloredFiles, fileName);
+    }
+
+    static bool ListedFile(string[] names, string fileName)
+    {
+        if (names == null)
+            return false;
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (names[i] == fileName)
+                return true;
+        }
+        return false;
     }
 
     static void DeleteNormalizedCharacterImage(string fileName)
@@ -6043,7 +6088,7 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
-    // 未コピー、または黒ネコ系とグレイズで元画像の方が新しいときだけ上書きする。減色を消すと、次の生成で色とステータスを作り直す。
+    // 未コピー、または差し替え対象で元画像の方が新しいときだけ上書きする。減色を消すと、次の生成で色とステータスを作り直す。
     static bool ShouldCopyCharacterImage(string sourcePath, string fileName)
     {
         string dest = Application.persistentDataPath + "/Character/" + fileName;
@@ -6120,7 +6165,7 @@ public class ControllerProduction : MonoBehaviour
         string curCharacterName = roster[rosterIndex].FileName;
         string toPath = Application.persistentDataPath + "/Character/" + curCharacterName;
 
-        // すでにファイルが存在すればスキップ（毎回コピーする無駄を省く）。黒ネコ系とグレイズは中身が変わっていたら入れ替える。
+        // すでにファイルが存在すればスキップ（毎回コピーする無駄を省く）。差し替え対象は中身が変わっていたら入れ替える。
         bool refreshImage = RefreshesWhenSourceChanges(curCharacterName);
         if (File.Exists(toPath) && !refreshImage) continue;
 
@@ -10541,6 +10586,8 @@ public class ControllerProduction : MonoBehaviour
             NoteCharacterCompletions(after - before);
         if (workerIsPerson && after > before)
             person.AddCharacterCompletion(produced.OpaquePixelCount(), PersonBalance);
+        if (after > before && produced.AuthorPersonId > 0)
+            AddAuthoredCompletions(PersonAt(produced.AuthorPersonId), after - before);
         if (after > before)
             RefreshMessages();
     }
@@ -11910,6 +11957,11 @@ public class ControllerProduction : MonoBehaviour
             if (def.Reward == QuestRewardKind.TapChooseSlot)
                 BoostButtonTapAmounts();
         }
+        else if (def.Reward == QuestRewardKind.TapAndPalette)
+        {
+            BoostButtonTapAmounts();
+            GrantProduciblePixels(def.RewardAmount > 0 ? (ulong)def.RewardAmount : 0);
+        }
         else if (def.Reward == QuestRewardKind.ImportCap)
             RaiseImportCap(1);
         else if (def.Reward == QuestRewardKind.RgbAll)
@@ -13269,6 +13321,91 @@ public class ControllerProduction : MonoBehaviour
         get { return _messages; }
     }
 
+    public bool ProtagonistHasSpecialty(CharacterAttribute attribute)
+    {
+        PersonClass person = PersonAt(PersonIds.Protagonist);
+        return person != null && person.HasSpecialty(attribute);
+    }
+
+    const int SpecialtyImportCount = 5;
+    const long SpecialtyAuthorCompletions = 500;
+
+    bool GrantEarnedSpecialties()
+    {
+        PersonClass protagonist = PersonAt(PersonIds.Protagonist);
+        if (protagonist == null)
+            return false;
+        bool added = false;
+        added |= TryGrantSpecialty(protagonist, CharacterAttribute.Fire, PersonIds.ClassmateRed);
+        added |= TryGrantSpecialty(protagonist, CharacterAttribute.Grass, PersonIds.ClassmateGreen);
+        added |= TryGrantSpecialty(protagonist, CharacterAttribute.Water, PersonIds.ClassmateBlue);
+        added |= TryGrantSpecialty(protagonist, CharacterAttribute.Light, 0);
+        added |= TryGrantSpecialty(protagonist, CharacterAttribute.Dark, 0);
+        return added;
+    }
+
+    bool TryGrantSpecialty(PersonClass protagonist, CharacterAttribute attribute, int authorPersonId)
+    {
+        if (protagonist.HasSpecialty(attribute))
+            return false;
+        bool imported = ImportedAttributeCount(attribute) >= SpecialtyImportCount;
+        bool authored = false;
+        if (authorPersonId > 0)
+        {
+            PersonClass author = PersonAt(authorPersonId);
+            authored = author != null && author.AuthoredCompletions >= SpecialtyAuthorCompletions;
+        }
+        if (!imported && !authored)
+            return false;
+        return protagonist.AddSpecialty(attribute);
+    }
+
+    int ImportedAttributeCount(CharacterAttribute attribute)
+    {
+        CharacterType type = ToCharacterType(attribute);
+        if (type == CharacterType.None)
+            return 0;
+        int count = 0;
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character != null && character.ID >= ImportedCharacters.FirstId && character.CharacterType == type)
+                count++;
+        });
+        return count;
+    }
+
+    static CharacterType ToCharacterType(CharacterAttribute attribute)
+    {
+        switch (attribute)
+        {
+            case CharacterAttribute.Fire: return CharacterType.Fire;
+            case CharacterAttribute.Grass: return CharacterType.Grass;
+            case CharacterAttribute.Water: return CharacterType.Water;
+            case CharacterAttribute.Light: return CharacterType.Light;
+            case CharacterAttribute.Dark: return CharacterType.Dark;
+            default: return CharacterType.None;
+        }
+    }
+
+    static void AddAuthoredCompletions(PersonClass person, int gain)
+    {
+        if (person == null || gain <= 0)
+            return;
+        if (person.AuthoredCompletions > long.MaxValue - gain)
+            person.AuthoredCompletions = long.MaxValue;
+        else
+            person.AuthoredCompletions += gain;
+    }
+
+    void RefreshCatalogIfOpen()
+    {
+        if (ControllerCatalog == null || PanelCatalog == null)
+            return;
+        CanvasGroup group = PanelCatalog.GetComponent<CanvasGroup>();
+        if (group != null && group.alpha > 0f)
+            ControllerCatalog.Refresh();
+    }
+
     public void RefreshMessages()
     {
         if (_messages == null || _messageRefreshing)
@@ -13277,12 +13414,15 @@ public class ControllerProduction : MonoBehaviour
         _messageRefreshing = true;
         try
         {
+            bool granted = GrantEarnedSpecialties();
             added = _messages.CatchUp();
-            if (added)
+            if (added || granted)
             {
                 _messageUnsaved = true;
                 _messageDirtyUi = true;
             }
+            if (granted)
+                RefreshCatalogIfOpen();
         }
         finally
         {
@@ -13701,13 +13841,18 @@ public class ControllerProduction : MonoBehaviour
             return;
         long rewardAmount = gift.RewardAmount;
         int whole = rewardAmount > int.MaxValue ? int.MaxValue : (int)rewardAmount;
-        if (whole < 1 && gift.Reward != QuestRewardKind.RgbAll && gift.Reward != QuestRewardKind.GrantPalette)
+        if (whole < 1 && gift.Reward != QuestRewardKind.RgbAll && gift.Reward != QuestRewardKind.GrantPalette && gift.Reward != QuestRewardKind.TapAndPalette)
             whole = 1;
         if (gift.Reward == QuestRewardKind.ChooseSlots || gift.Reward == QuestRewardKind.TapChooseSlot)
         {
             AddProductionSlots(whole, gift.Choice != 2, gift.Choice != 1);
             if (gift.Reward == QuestRewardKind.TapChooseSlot)
                 BoostButtonTapAmounts();
+        }
+        else if (gift.Reward == QuestRewardKind.TapAndPalette)
+        {
+            BoostButtonTapAmounts();
+            GrantProduciblePixels(rewardAmount > 0 ? (ulong)rewardAmount : 0);
         }
         else if (gift.Reward == QuestRewardKind.ImportCap)
             RaiseImportCap(whole > 0 ? whole : 1);
@@ -13763,7 +13908,8 @@ public class ControllerProduction : MonoBehaviour
                     continue;
                 if (gifts[i].Kind == MessageGiftKind.Pixel)
                     RememberPixel(pixels, (int)gifts[i].R, (int)gifts[i].G, (int)gifts[i].B);
-                if (gifts[i].Kind == MessageGiftKind.QuestReward && gifts[i].Reward == QuestRewardKind.GrantPalette)
+                if (gifts[i].Kind == MessageGiftKind.QuestReward
+                    && (gifts[i].Reward == QuestRewardKind.GrantPalette || gifts[i].Reward == QuestRewardKind.TapAndPalette))
                     palette = true;
             }
         }

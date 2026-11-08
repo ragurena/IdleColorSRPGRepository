@@ -251,7 +251,7 @@ public sealed class MessageDirector
             return false;
         if (ChapterPresent(talk.Id, chapter))
             return false;
-        if (!EarlierChaptersPresent(talk, chapter))
+        if (!chapter.Independent && !EarlierChaptersPresent(talk, chapter))
             return false;
         if (!MessageRules.MeetAll(chapter.When, _game, _save, null, false))
             return false;

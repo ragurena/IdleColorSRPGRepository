@@ -28,6 +28,8 @@ public sealed class PersonClass
     public int BattleLevel = 1;
     public long BattleExp;
     public int Affection;
+    // 自分が作者のキャラが、キャラ生成で作られた回数。
+    public long AuthoredCompletions;
     int _loadedPixelLevel;
 
     public CharacterAttribute[] SpecialtyArray()
@@ -139,6 +141,21 @@ public sealed class PersonClass
         if (input.SpecialtyCount >= 5)
             input.Specialty4 = Specialties[4];
         return input;
+    }
+
+    public bool HasSpecialty(CharacterAttribute attribute)
+    {
+        return attribute != CharacterAttribute.None && Specialties.Contains(attribute);
+    }
+
+    public bool AddSpecialty(CharacterAttribute attribute)
+    {
+        if (HasSpecialty(attribute))
+            return false;
+        if (attribute == CharacterAttribute.None)
+            return false;
+        Specialties.Add(attribute);
+        return true;
     }
 
     public string SpecialtyText()
@@ -307,6 +324,8 @@ public sealed class PersonSaveData
             sw.WriteLine(prefix + "BattleExp," + person.BattleExp.ToString());
             if (person.Affection > 0)
                 sw.WriteLine(prefix + "Affection," + person.Affection.ToString());
+            if (person.AuthoredCompletions > 0)
+                sw.WriteLine(prefix + "AuthoredCompletions," + person.AuthoredCompletions.ToString(CultureInfo.InvariantCulture));
         }
         WriteSlots(sw, "PersonIDHelpProductionR", HelpR);
         WriteSlots(sw, "PersonIDHelpProductionG", HelpG);
@@ -437,6 +456,8 @@ public sealed class PersonSaveData
             person.BattleExp = longValue < 0 ? 0 : longValue;
         else if (field == "Affection" && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out numberValue))
             person.Affection = numberValue < 0 ? 0 : numberValue;
+        else if (field == "AuthoredCompletions" && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out longValue))
+            person.AuthoredCompletions = longValue < 0 ? 0 : longValue;
         else if (int.TryParse(value, out numberValue))
             return true;
         return true;

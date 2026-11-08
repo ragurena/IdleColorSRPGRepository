@@ -22,7 +22,8 @@ public enum MessageCondKind
     AffectionAtLeast,
     AuthoredLevelAtLeast,
     CharacterLevelAtLeast,
-    CompanionsAtLeast
+    CompanionsAtLeast,
+    ProtagonistSpecialty
 }
 
 public enum MessagePayKind
@@ -165,11 +166,19 @@ public sealed class MessageChapter
 {
     public readonly MessageCond[] When;
     public readonly MessageLine[] Lines;
+    // true のまとまりは、前のまとまりを待たずに届く。
+    public readonly bool Independent;
 
     public MessageChapter(MessageCond[] when, MessageLine[] lines)
+        : this(when, lines, false)
+    {
+    }
+
+    public MessageChapter(MessageCond[] when, MessageLine[] lines, bool independent)
     {
         When = when ?? new MessageCond[0];
         Lines = lines ?? new MessageLine[0];
+        Independent = independent;
     }
 }
 

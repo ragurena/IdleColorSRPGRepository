@@ -60,6 +60,23 @@ public class FloorItemDrop
     }
 }
 
+// 100階区切りのキャラドロップ。章1は1〜100階、章2は101〜200階、章3は201〜300階。
+public class CharacterChapterDrop
+{
+    public int Chapter;
+    public uint CharacterId;
+    public int ItemId;
+    public double Probability;
+
+    public CharacterChapterDrop(int chapter, uint characterId, int itemId, double probability)
+    {
+        Chapter = chapter;
+        CharacterId = characterId;
+        ItemId = itemId;
+        Probability = probability;
+    }
+}
+
 public static class EnemySpawner
 {
     // 最少は必ず出す。最少を超える分は、1体ごとに重みを100分率として判定し、外れた体は出さない。

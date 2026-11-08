@@ -68,6 +68,7 @@ public class ControllerBattleClass : MonoBehaviour
     bool _itemDropHomeSet;
     int _nextUnitId = 1;
     int _battleStageIndex;
+    StageBattleContent _stageContent;
     readonly List<string> _logs = new List<string>();
     readonly List<BattleUnit> _units = new List<BattleUnit>();
     readonly List<BattleUnit> _expPopUnits = new List<BattleUnit>();
@@ -198,6 +199,7 @@ public class ControllerBattleClass : MonoBehaviour
         StageBattleContent content = stageIndex == Constants.BATTLE_STAGE_GALLERY
             ? new StageBattleContent { StageIndex = stageIndex }
             : BattleStageCatalog.Get(stageIndex);
+        _stageContent = content;
         string stageName = ControllerBattleStageClass.GetStageName(stageIndex);
         var sink = new RewardSink(this);
         bool clearedStage = false;
@@ -353,6 +355,7 @@ public class ControllerBattleClass : MonoBehaviour
         _running = false;
         _stop = false;
         _battleStageIndex = 0;
+        _stageContent = null;
         _production.SyncAllyLivesFromBattle(_units);
         if (_production.GetActiveBattleStage() != 0)
             _production.LeaveBattle();
@@ -606,6 +609,21 @@ public class ControllerBattleClass : MonoBehaviour
     const int PixelVisualMax = 5;
 
     // 仲間になった敵は左へてくてく歩き、落ちたピクセルはその色の四角が3回跳ねて消える。
+    void GrantCharacterDrops(uint characterId)
+    {
+        if (_stageContent == null || _production == null || characterId == 0)
+            return;
+        var got = new List<int>();
+        _stageContent.RollCharacterDrops(_production.GetActiveBattleFloor(), characterId, new SystemBattleRandom(), got);
+        for (int i = 0; i < got.Count; i++)
+        {
+            _production.AddBattleItem(got[i], 1);
+            AddLog(ItemIds.DisplayName(got[i]) + " を入手");
+            _cueItem = true;
+            _cueItemId = got[i];
+        }
+    }
+
     IEnumerator PlayDefeatDrops(BattleUnit enemy)
     {
         CellView cell = CellOf(enemy);
@@ -1217,6 +1235,7 @@ public class ControllerBattleClass : MonoBehaviour
         _running = false;
         _stop = false;
         _battleStageIndex = 0;
+        _stageContent = null;
         if (_production != null)
             _production.SyncAllyLivesFromBattle(_units);
         _units.Clear();
@@ -2118,27 +2137,32 @@ public class ControllerBattleClass : MonoBehaviour
             back.SetSiblingIndex(desired);
     }
 
-    // 100階を満タンにする。緑がいまの階、その後ろの灰色が最高クリア階
+    // 今の100階を満タンにする。緑がいまの階、その後ろの灰色が最高クリア階
     void SetHeaderProgress(int floor)
     {
         int current = floor > 0 ? floor : 0;
         int reached = current;
+        int windowStart = 1;
         if (_production != null && _battleStageIndex > 0)
         {
+            windowStart = _production.GetBattleFloorWindowStart(_battleStageIndex);
             int cleared = _production.GetHighestClearedBattleFloor(_battleStageIndex);
             if (cleared > reached)
                 reached = cleared;
         }
-        _headerRate = HeaderRate(current);
-        _headerRecordRate = HeaderRate(reached);
+        _headerRate = HeaderRate(current, windowStart);
+        _headerRecordRate = HeaderRate(reached, windowStart);
         ApplyHeaderFill();
     }
 
-    static float HeaderRate(int floor)
+    static float HeaderRate(int floor, int windowStart)
     {
+        if (windowStart < 1)
+            windowStart = 1;
+        int local = floor - (windowStart - 1);
         float rate = 0f;
-        if (floor > 0)
-            rate = floor / (float)Constants.BATTLE_STAGE_FLOOR_MAX;
+        if (local > 0)
+            rate = local / (float)Constants.BATTLE_STAGE_FLOOR_MAX;
         if (rate < 0f)
             rate = 0f;
         if (rate > 1f)
@@ -3001,6 +3025,7 @@ public class ControllerBattleClass : MonoBehaviour
         {
             _view._production.NoteEnemyDefeat();
             _view._production.MarkCatalogDefeated(characterId);
+            _view.GrantCharacterDrops(characterId);
         }
 
         public void NoteAllyFainted(uint characterId)
