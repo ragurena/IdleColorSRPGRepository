@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-// クエストの下のボタンから開く設定。バトル速度の上限、広告を見る前の確認、画面の自動消灯を選ぶ。
+// クエストの下のボタンから開く設定。バトル速度の上限、広告を見る前の確認、画面の自動消灯、バトル後の画面を選ぶ。
 public sealed class SettingsBoard
 {
     static readonly int[] Caps = { 2, 4, 8, 16 };
@@ -14,14 +14,17 @@ public sealed class SettingsBoard
     Action<int> _onCap;
     Action<bool> _onAdConfirm;
     Action<bool> _onKeepAwake;
+    Action<bool> _onReturnToStage;
     Action _onSave;
     Action _onDeleteSave;
     int _cap = 16;
     bool _adConfirm = true;
     bool _keepAwake = true;
+    bool _returnToStage = true;
     readonly Button[] _choices = new Button[Caps.Length];
     readonly Button[] _adChoices = new Button[2];
     readonly Button[] _awakeChoices = new Button[2];
+    readonly Button[] _returnChoices = new Button[2];
     Text _saveStatus;
 
     public bool IsOpen
@@ -30,12 +33,13 @@ public sealed class SettingsBoard
     }
 
     // RELEASE_REMOVE_TEST_GRANTS: リリース用ビルドの前に、このテストボタンと呼び出しを消す。
-    public void Build(Transform parent, Font font, Action<int> onCap, Action<bool> onAdConfirm, Action<bool> onKeepAwake, Action onSave, Action onDeleteSave, Action onAddRgb, Action onAddPixels, Action onAddOwned)
+    public void Build(Transform parent, Font font, Action<int> onCap, Action<bool> onAdConfirm, Action<bool> onKeepAwake, Action<bool> onReturnToStage, Action onSave, Action onDeleteSave, Action onAddRgb, Action onAddPixels, Action onAddOwned)
     {
         _font = font;
         _onCap = onCap;
         _onAdConfirm = onAdConfirm;
         _onKeepAwake = onKeepAwake;
+        _onReturnToStage = onReturnToStage;
         _onSave = onSave;
         _onDeleteSave = onDeleteSave;
         _root = new GameObject("PanelSettings", typeof(RectTransform), typeof(Image));
@@ -118,8 +122,28 @@ public sealed class SettingsBoard
         awakeOff.onClick.AddListener(() => SelectKeepAwake(false));
         _awakeChoices[1] = awakeOff;
 
+        Text returnLabel = CreateText("TextSettingsReturnStage", _root.transform, 26, TextAnchor.MiddleCenter);
+        returnLabel.text = "バトル終了時バトル設定画面にする";
+        StretchTop(returnLabel.rectTransform, 24f, 24f, 820f, 56f);
+
+        Button returnOn = CreateButton("ButtonSettingsReturnStageOn", _root.transform, "ON", Idle);
+        PlaceRow(returnOn.GetComponent<RectTransform>(), 0, 2, 884f, 96f);
+        Text returnOnLabel = returnOn.GetComponentInChildren<Text>();
+        if (returnOnLabel != null)
+            returnOnLabel.fontSize = 28;
+        returnOn.onClick.AddListener(() => SelectReturnToStage(true));
+        _returnChoices[0] = returnOn;
+
+        Button returnOff = CreateButton("ButtonSettingsReturnStageOff", _root.transform, "OFF", Idle);
+        PlaceRow(returnOff.GetComponent<RectTransform>(), 1, 2, 884f, 96f);
+        Text returnOffLabel = returnOff.GetComponentInChildren<Text>();
+        if (returnOffLabel != null)
+            returnOffLabel.fontSize = 28;
+        returnOff.onClick.AddListener(() => SelectReturnToStage(false));
+        _returnChoices[1] = returnOff;
+
         Button save = CreateButton("ButtonSettingsSave", _root.transform, "セーブ", new Color(0.25f, 0.45f, 0.75f, 1f));
-        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 828f, 96f);
+        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 1004f, 96f);
         Text saveLabel = save.GetComponentInChildren<Text>();
         if (saveLabel != null)
             saveLabel.fontSize = 28;
@@ -130,7 +154,7 @@ public sealed class SettingsBoard
         });
 
         Button deleteSave = CreateButton("ButtonSettingsDeleteSave", _root.transform, "セーブ削除", new Color(0.75f, 0.28f, 0.24f, 1f));
-        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 828f, 96f);
+        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 1004f, 96f);
         Text deleteLabel = deleteSave.GetComponentInChildren<Text>();
         if (deleteLabel != null)
             deleteLabel.fontSize = 28;
@@ -143,7 +167,7 @@ public sealed class SettingsBoard
         _saveStatus = CreateText("TextSettingsSaveStatus", _root.transform, 22, TextAnchor.MiddleCenter);
         _saveStatus.text = "";
         _saveStatus.color = new Color(0.78f, 0.80f, 0.84f, 1f);
-        StretchTop(_saveStatus.rectTransform, 24f, 24f, 940f, 48f);
+        StretchTop(_saveStatus.rectTransform, 24f, 24f, 1116f, 48f);
 
         // RELEASE_REMOVE_TEST_GRANTS: 設定画面下部のテストボタン。リリース用ビルドの前に消す。
         Text testLabel = CreateText("TextSettingsTest", _root.transform, 22, TextAnchor.MiddleCenter);
@@ -157,16 +181,18 @@ public sealed class SettingsBoard
         Paint();
         PaintAdConfirm();
         PaintKeepAwake();
+        PaintReturnToStage();
         _root.SetActive(false);
     }
 
-    public void Open(int cap, bool adConfirm, bool keepAwake)
+    public void Open(int cap, bool adConfirm, bool keepAwake, bool returnToStage)
     {
         if (_root == null)
             return;
         _cap = Normalize(cap);
         _adConfirm = adConfirm;
         _keepAwake = keepAwake;
+        _returnToStage = returnToStage;
         _root.SetActive(true);
         Transform overlay = _root.transform.parent;
         if (overlay != null && overlay.parent != null)
@@ -175,6 +201,7 @@ public sealed class SettingsBoard
         Paint();
         PaintAdConfirm();
         PaintKeepAwake();
+        PaintReturnToStage();
         SetSaveStatus("");
     }
 
@@ -250,6 +277,28 @@ public sealed class SettingsBoard
                 continue;
             Image image = choice.GetComponent<Image>();
             bool selected = i == 0 ? _keepAwake : !_keepAwake;
+            if (image != null)
+                image.color = selected ? Selected : Idle;
+        }
+    }
+
+    void SelectReturnToStage(bool enabled)
+    {
+        _returnToStage = enabled;
+        PaintReturnToStage();
+        if (_onReturnToStage != null)
+            _onReturnToStage(_returnToStage);
+    }
+
+    void PaintReturnToStage()
+    {
+        for (int i = 0; i < _returnChoices.Length; i++)
+        {
+            Button choice = _returnChoices[i];
+            if (choice == null)
+                continue;
+            Image image = choice.GetComponent<Image>();
+            bool selected = i == 0 ? _returnToStage : !_returnToStage;
             if (image != null)
                 image.color = selected ? Selected : Idle;
         }

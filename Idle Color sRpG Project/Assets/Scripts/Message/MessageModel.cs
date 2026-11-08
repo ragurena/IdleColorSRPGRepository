@@ -562,6 +562,7 @@ public sealed class MessageMoment
     public int PixelSlots;
     public int CharacterSlots;
     public int ImportCap;
+    public int ImportCapHalf;
     public bool FusionUnlocked;
     public int FusionEfficiency;
     public int[] Affection = new int[0];

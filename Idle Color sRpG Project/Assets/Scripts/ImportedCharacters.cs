@@ -160,14 +160,25 @@ public static class ImportedCharacters
     }
 
     public static int ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
+    // 0 か 1。1 のとき、表示上の上限は ImportCap + 0.5。読み込める体数は ImportCap。
+    public static int ImportCapHalf;
 
-    public static void SetImportCap(int cap)
+    public static void SetImportCap(int cap, int half = 0)
     {
         if (cap < Constants.IMPORT_CHARACTER_CAP_INITIAL)
             cap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
         if (cap > ImportSizeRules.MaxCount)
             cap = ImportSizeRules.MaxCount;
         ImportCap = cap;
+        ImportCapHalf = cap >= ImportSizeRules.MaxCount || half <= 0 ? 0 : 1;
+    }
+
+    public static string CapLabel()
+    {
+        string text = UiNumber.Format(ImportCap);
+        if (ImportCapHalf > 0)
+            text += ".5";
+        return text;
     }
 
     public static bool RejectImportCount(out string message)

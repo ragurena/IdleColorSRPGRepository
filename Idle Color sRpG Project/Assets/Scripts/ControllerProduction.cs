@@ -139,6 +139,10 @@ public class ControllerProduction : MonoBehaviour
     int BattleSpeed = 1;
     int BattleSpeedCap = 16;
     bool AdWatchConfirm = true;
+    // バトルが終わったあと、バトルのステージ画面を開く。OFF のときは RGB 生産へ戻る
+    bool ReturnToBattleStage = true;
+    // バトルログの代わりに、攻撃を受ける列のステータスを出す
+    bool ShowBattleFrontStatus;
     // ステージ1の50階をクリアすると使える。出撃が終わっても残す
     bool BattleRepeat;
     int ClearedBattleStage = 0;
@@ -802,6 +806,8 @@ public class ControllerProduction : MonoBehaviour
             BattleSpeed,
             BattleSpeedCap,
             AdWatchConfirm,
+            ReturnToBattleStage,
+            ShowBattleFrontStatus,
             BattleRepeat,
             ClearedBattleStage,
             ClearedBattleFloor,
@@ -1012,6 +1018,8 @@ public class ControllerProduction : MonoBehaviour
                     ref BattleSpeed,
                     ref BattleSpeedCap,
                     ref AdWatchConfirm,
+                    ref ReturnToBattleStage,
+                    ref ShowBattleFrontStatus,
                     ref BattleRepeat,
                     ref ClearedBattleStage,
                     ref ClearedBattleFloor,
@@ -1137,6 +1145,8 @@ public class ControllerProduction : MonoBehaviour
         BattleSpeed = 1;
         BattleSpeedCap = 16;
         AdWatchConfirm = true;
+        ReturnToBattleStage = true;
+        ShowBattleFrontStatus = false;
         BattleRepeat = false;
         ClearedBattleStage = 0;
         ApplyCharacterLevelCap();
@@ -1536,12 +1546,20 @@ public class ControllerProduction : MonoBehaviour
 
     public void ReturnFromBattle()
     {
+        if (!ReturnToBattleStage)
+        {
+            PushButtonSelectSceneRGBProduction();
+            return;
+        }
         if (PanelBattleStage == null)
             return;
 
         ShowPanel(PanelBattleStage);
         if (ControllerBattleStage != null)
+        {
             ControllerBattleStage.Refresh();
+            ControllerBattleStage.ShowBattleEndedNote();
+        }
 
         NotShowPanel(PanelRGBProduction);
         NotShowPanel(PanelPixelProduction);
@@ -2571,6 +2589,8 @@ public class ControllerProduction : MonoBehaviour
 
     void NotShowBattleStagePanel()
     {
+        if (ControllerBattleStage != null)
+            ControllerBattleStage.ClearBattleEndedNote();
         if (PanelBattleStage != null)
             NotShowPanel(PanelBattleStage);
     }
@@ -4762,6 +4782,26 @@ public class ControllerProduction : MonoBehaviour
     public void SetAdWatchConfirm(bool confirm)
     {
         AdWatchConfirm = confirm;
+    }
+
+    public bool GetReturnToBattleStage()
+    {
+        return ReturnToBattleStage;
+    }
+
+    public void SetReturnToBattleStage(bool enabled)
+    {
+        ReturnToBattleStage = enabled;
+    }
+
+    public bool GetShowBattleFrontStatus()
+    {
+        return ShowBattleFrontStatus;
+    }
+
+    public void SetShowBattleFrontStatus(bool show)
+    {
+        ShowBattleFrontStatus = show;
     }
 
     public bool GetBattleRepeat()
@@ -10534,7 +10574,8 @@ public class ControllerProduction : MonoBehaviour
                 workers.RemoveAt(i);
                 continue;
             }
-            bool blink = shown.PersonId == 0 && shown.CharacterId != 0 && OwnsNone(shown.CharacterId);
+            bool blink = shown.PersonId == 0 && shown.CharacterId != 0 && OwnsNone(shown.CharacterId)
+                && !IsPixelColorCharacter(shown);
             CanvasGroup group = shown.GetComponent<CanvasGroup>();
             if (!blink)
             {
@@ -10550,6 +10591,11 @@ public class ControllerProduction : MonoBehaviour
             }
             group.alpha = alpha;
         }
+    }
+
+    static bool IsPixelColorCharacter(ShownProductionWorker shown)
+    {
+        return shown != null && shown.name.Contains("ButtonCharacterColor");
     }
 
     bool OwnsNone(uint id)
@@ -11913,7 +11959,7 @@ public class ControllerProduction : MonoBehaviour
         record.Claimed = true;
         record.Choice = choice;
         NoteQuestAdBonus(def);
-        ImportedCharacters.SetImportCap(Quests.ImportCap);
+        ApplyStoredImportCap();
         RefreshUnlockedProductionSlots();
         ApplyMainFeatureLocks();
         if (ControllerBattleStage != null)
@@ -11963,7 +12009,7 @@ public class ControllerProduction : MonoBehaviour
             GrantProduciblePixels(def.RewardAmount > 0 ? (ulong)def.RewardAmount : 0);
         }
         else if (def.Reward == QuestRewardKind.ImportCap)
-            RaiseImportCap(1);
+            RaiseImportCapHalves(1);
         else if (def.Reward == QuestRewardKind.RgbAll)
         {
             ulong add = def.RewardAmount > 0 ? (ulong)def.RewardAmount : 0;
@@ -11973,7 +12019,7 @@ public class ControllerProduction : MonoBehaviour
         }
         else if (def.Reward == QuestRewardKind.CharacterBundle)
         {
-            RaiseImportCap(1);
+            RaiseImportCapHalves(1);
             AddProductionSlots(1, true, true);
         }
         else if (def.Reward == QuestRewardKind.FusionUnlock)
@@ -12132,12 +12178,70 @@ public class ControllerProduction : MonoBehaviour
     {
         if (amount < 1)
             return;
-        long next = (long)Quests.ImportCap + amount;
+        RaiseImportCapHalves(amount * 2);
+    }
+
+    // 1 で読み込み上限 +0.5。2 で枠が1つ増える。
+    void RaiseImportCapHalves(int halves)
+    {
+        if (halves < 1)
+            return;
+        long total = (long)Quests.ImportCap * 2 + Quests.ImportCapHalf + halves;
+        long max = (long)ImportSizeRules.MaxCount * 2;
+        long min = (long)Constants.IMPORT_CHARACTER_CAP_INITIAL * 2;
+        if (total > max)
+            total = max;
+        if (total < min)
+            total = min;
+        Quests.ImportCap = (int)(total / 2);
+        Quests.ImportCapHalf = (int)(total % 2);
+        Quests.HasImport = true;
+        Quests.HasImportCapHalf = true;
+    }
+
+    void ApplyStoredImportCap()
+    {
+        ImportedCharacters.SetImportCap(Quests.ImportCap, Quests.ImportCapHalf);
+    }
+
+    // 以前はクエスト1件で +1 だった。受け取り済みは +0.5 で数え直す。
+    void MigrateImportCapReward()
+    {
+        int claims = CountClaimedImportRewards();
+        int oldCap = Constants.IMPORT_CHARACTER_CAP_INITIAL + claims;
+        if (oldCap > ImportSizeRules.MaxCount)
+            oldCap = ImportSizeRules.MaxCount;
+        int extra = Quests.ImportCap - oldCap;
+        if (extra < 0)
+            extra = 0;
+        int half = claims % 2;
+        long next = (long)Constants.IMPORT_CHARACTER_CAP_INITIAL + claims / 2 + extra;
         if (next > ImportSizeRules.MaxCount)
+        {
             next = ImportSizeRules.MaxCount;
+            half = 0;
+        }
         if (next < Constants.IMPORT_CHARACTER_CAP_INITIAL)
             next = Constants.IMPORT_CHARACTER_CAP_INITIAL;
         Quests.ImportCap = (int)next;
+        Quests.ImportCapHalf = half;
+        Quests.HasImport = true;
+        Quests.HasImportCapHalf = true;
+    }
+
+    int CountClaimedImportRewards()
+    {
+        int count = 0;
+        QuestDef[] all = QuestCatalog.All;
+        for (int i = 0; i < all.Length; i++)
+        {
+            QuestDef def = all[i];
+            if (def.Reward != QuestRewardKind.ImportCap && def.Reward != QuestRewardKind.CharacterBundle)
+                continue;
+            if (IsQuestClaimed(def))
+                count++;
+        }
+        return count;
     }
 
     void EnsureQuestDefaults()
@@ -12146,7 +12250,7 @@ public class ControllerProduction : MonoBehaviour
         ApplyFusionCountCap();
         if (Quests.DefaultsApplied)
         {
-            ImportedCharacters.SetImportCap(Quests.ImportCap);
+            ApplyStoredImportCap();
             return;
         }
         if (!Quests.HasTotalR)
@@ -12172,8 +12276,14 @@ public class ControllerProduction : MonoBehaviour
             Quests.ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
         if (Quests.ImportCap > ImportSizeRules.MaxCount)
             Quests.ImportCap = ImportSizeRules.MaxCount;
+        if (!Quests.HasImportCapHalf)
+            MigrateImportCapReward();
+        if (Quests.ImportCapHalf != 1)
+            Quests.ImportCapHalf = 0;
+        if (Quests.ImportCap >= ImportSizeRules.MaxCount)
+            Quests.ImportCapHalf = 0;
         Quests.DefaultsApplied = true;
-        ImportedCharacters.SetImportCap(Quests.ImportCap);
+        ApplyStoredImportCap();
         ReconcileProductionSlots();
         LatchQuests();
         RebuildAllCharacterStats();
@@ -13452,7 +13562,7 @@ public class ControllerProduction : MonoBehaviour
 
     public void RefreshAfterMessage()
     {
-        ImportedCharacters.SetImportCap(Quests.ImportCap);
+        ApplyStoredImportCap();
         FusionBonus.ExtraPercent = Quests.FusionEfficiency;
         RebuildAllCharacterStats();
         ApplyFusionButtonLock();
@@ -13657,7 +13767,11 @@ public class ControllerProduction : MonoBehaviour
                 if (gift.Reward == QuestRewardKind.FusionAndPixelSlot)
                     slots |= SlotClips(1, 1);
                 if (gift.Reward == QuestRewardKind.ImportCap)
-                    importCap |= Quests.ImportCap + (gift.RewardAmount > 0 ? gift.RewardAmount : 1) > ImportSizeRules.MaxCount;
+                {
+                    long add = gift.RewardAmount > 0 ? gift.RewardAmount : 1;
+                    long halves = (long)Quests.ImportCap * 2 + Quests.ImportCapHalf + add * 2;
+                    importCap |= halves > (long)ImportSizeRules.MaxCount * 2;
+                }
                 if (gift.Reward == QuestRewardKind.CharacterBundle)
                     importCap |= Quests.ImportCap >= ImportSizeRules.MaxCount;
             }
@@ -13718,6 +13832,7 @@ public class ControllerProduction : MonoBehaviour
         moment.PixelSlots = Slots.PixelSlots;
         moment.CharacterSlots = Slots.CharacterSlots;
         moment.ImportCap = Quests.ImportCap;
+        moment.ImportCapHalf = Quests.ImportCapHalf;
         moment.FusionUnlocked = Quests.FusionUnlocked;
         moment.FusionEfficiency = Quests.FusionEfficiency;
         moment.Affection = new int[People != null ? People.Length : 0];
@@ -13755,6 +13870,7 @@ public class ControllerProduction : MonoBehaviour
         Slots.PixelSlots = moment.PixelSlots;
         Slots.CharacterSlots = moment.CharacterSlots;
         Quests.ImportCap = moment.ImportCap;
+        Quests.ImportCapHalf = moment.ImportCapHalf == 1 ? 1 : 0;
         Quests.FusionUnlocked = moment.FusionUnlocked;
         Quests.FusionEfficiency = moment.FusionEfficiency;
         if (People != null && moment.Affection != null)
@@ -13865,7 +13981,7 @@ public class ControllerProduction : MonoBehaviour
         }
         else if (gift.Reward == QuestRewardKind.CharacterBundle)
         {
-            RaiseImportCap(1);
+            RaiseImportCapHalves(1);
             AddProductionSlots(1, true, true);
         }
         else if (gift.Reward == QuestRewardKind.FusionUnlock)

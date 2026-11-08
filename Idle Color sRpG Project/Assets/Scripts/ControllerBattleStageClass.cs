@@ -36,6 +36,13 @@ public class ControllerBattleStageClass : MonoBehaviour
     [SerializeField] Button ButtonBattleRepeat;
     Button ButtonGalleryStage;
     Text TextBattleStageDetail;
+    Text _battleEndedNote;
+    bool _battleEndedNoteOn;
+    Text _partyErrorNote;
+    string _partyErrorText = "";
+    bool _detailLayoutStored;
+    Vector2 _detailPos;
+    Vector2 _detailSize;
 
     struct StageEnemyPortrait
     {
@@ -62,7 +69,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     Color ColorButtonNormal = new Color(1.0f, 1.0f, 1.0f, 1.0f);
     Color ColorButtonSelected = new Color(1.0f, 0.85f, 0.4f, 1.0f);
-    Color ColorStageLocked = new Color(0.55f, 0.55f, 0.55f, 1.0f);
+    Color ColorStageLocked = new Color(0.22f, 0.22f, 0.22f, 1.0f);
     Color ColorCellEmpty = new Color(0.2f, 0.2f, 0.2f, 1.0f);
     Color ColorSortie = new Color(0.12f, 0.72f, 0.22f, 1f);
     Color ColorRepeatOn = new Color(0.35f, 0.95f, 0.38f, 1f);
@@ -811,8 +818,123 @@ public class ControllerBattleStageClass : MonoBehaviour
         return CurrentSetIndex;
     }
 
+    public void ShowBattleEndedNote()
+    {
+        _battleEndedNoteOn = true;
+        ApplyDetailFootnote();
+    }
+
+    public void ClearBattleEndedNote()
+    {
+        if (!_battleEndedNoteOn && (_battleEndedNote == null || !_battleEndedNote.gameObject.activeSelf))
+            return;
+        _battleEndedNoteOn = false;
+        ApplyDetailFootnote();
+    }
+
+    void ApplyPartyError(string message)
+    {
+        _partyErrorText = message ?? "";
+        ApplyDetailFootnote();
+    }
+
+    // ステージ詳細の下。セットのエラーとバトル終了の注記は同じ場所なので、エラーを優先する
+    void ApplyDetailFootnote()
+    {
+        if (TextBattleStageDetail == null)
+            return;
+        RectTransform detail = TextBattleStageDetail.rectTransform;
+        if (!_detailLayoutStored)
+        {
+            _detailPos = detail.anchoredPosition;
+            _detailSize = detail.sizeDelta;
+            _detailLayoutStored = true;
+        }
+        bool errorOn = !string.IsNullOrEmpty(_partyErrorText);
+        bool endedOn = _battleEndedNoteOn && !errorOn;
+        const float noteHeight = 64f;
+        if (errorOn || endedOn)
+        {
+            detail.sizeDelta = new Vector2(_detailSize.x, Mathf.Max(48f, _detailSize.y - noteHeight));
+            detail.anchoredPosition = new Vector2(_detailPos.x, _detailPos.y + noteHeight * 0.5f);
+        }
+        else
+        {
+            detail.sizeDelta = _detailSize;
+            detail.anchoredPosition = _detailPos;
+        }
+        EnsureBattleEndedNote();
+        EnsurePartyErrorNote();
+        if (_battleEndedNote != null)
+            _battleEndedNote.gameObject.SetActive(endedOn);
+        if (_partyErrorNote != null)
+        {
+            _partyErrorNote.text = _partyErrorText;
+            _partyErrorNote.gameObject.SetActive(errorOn);
+            if (errorOn)
+                _partyErrorNote.transform.SetAsLastSibling();
+        }
+    }
+
+    void EnsureBattleEndedNote()
+    {
+        if (TextBattleStageDetail == null)
+            return;
+        if (_battleEndedNote == null)
+        {
+            GameObject obj = new GameObject("TextBattleEndedNote", typeof(RectTransform));
+            obj.transform.SetParent(TextBattleStageDetail.transform.parent, false);
+            Text text = obj.AddComponent<Text>();
+            text.font = TextBattleStageDetail.font;
+            text.fontSize = 22;
+            text.alignment = TextAnchor.UpperCenter;
+            text.color = new Color(1f, 0.164f, 0.164f, 1f);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.raycastTarget = false;
+            text.text = "（バトルが終了したため遷移しました、設定よりOFFにできます）";
+            _battleEndedNote = text;
+            obj.SetActive(false);
+        }
+        PlaceDetailFootnote(_battleEndedNote.rectTransform);
+        _battleEndedNote.transform.SetAsLastSibling();
+    }
+
+    void EnsurePartyErrorNote()
+    {
+        if (TextBattleStageDetail == null)
+            return;
+        if (_partyErrorNote == null)
+        {
+            GameObject obj = new GameObject("TextBattlePartyError", typeof(RectTransform));
+            obj.transform.SetParent(TextBattleStageDetail.transform.parent, false);
+            Text text = obj.AddComponent<Text>();
+            text.font = TextBattleStageDetail.font;
+            text.fontSize = 22;
+            text.alignment = TextAnchor.UpperCenter;
+            text.color = new Color(1f, 0.164f, 0.164f, 1f);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.raycastTarget = false;
+            _partyErrorNote = text;
+            obj.SetActive(false);
+        }
+        PlaceDetailFootnote(_partyErrorNote.rectTransform);
+    }
+
+    void PlaceDetailFootnote(RectTransform rect)
+    {
+        rect.anchorMin = TextBattleStageDetail.rectTransform.anchorMin;
+        rect.anchorMax = TextBattleStageDetail.rectTransform.anchorMax;
+        rect.pivot = new Vector2(0.5f, 0f);
+        float bottom = _detailPos.y - _detailSize.y * 0.5f;
+        rect.anchoredPosition = new Vector2(_detailPos.x + _detailSize.x * 0.5f, bottom);
+        rect.sizeDelta = new Vector2(_detailSize.x, 64f);
+    }
+
     public void Open(int keepSetIndex = 0)
     {
+        ClearBattleEndedNote();
         int activeStage = ControllerProduction.GetActiveBattleStage();
         if (activeStage != 0)
             CurrentStageIndex = activeStage;
@@ -874,11 +996,12 @@ public class ControllerBattleStageClass : MonoBehaviour
             Text label = ButtonBattleStages[i].GetComponentInChildren<Text>();
 
             bool lockedLook = !unlocked && stageIndex != activeStage;
+            KeepLockedColor(ButtonBattleStages[i]);
             if (lockedLook)
                 ButtonBattleStages[i].image.color = ColorStageLocked;
             else
                 ButtonBattleStages[i].image.color = (stageIndex == CurrentStageIndex) ? ColorButtonSelected : ColorButtonNormal;
-            ApplyStageButtonBackground(ButtonBattleStages[i], stageIndex, label);
+            ApplyStageButtonBackground(ButtonBattleStages[i], stageIndex, label, lockedLook);
             if (label == null)
                 continue;
             if (lockedLook)
@@ -927,6 +1050,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         int memberNum = 0;
         bool setEmpty = true;
+        bool anyOwned = false;
         ulong totalHP = 0;
         ulong totalATK = 0;
         ulong totalDEF = 0;
@@ -964,6 +1088,12 @@ public class ControllerBattleStageClass : MonoBehaviour
                     continue;
 
                 CharacterClass member = ImportedCharacters.FindAny(CharactersAll, characterId);
+                if (member != null)
+                {
+                    member.EnsureStock();
+                    if (member.Stock.Total > 0)
+                        anyOwned = true;
+                }
                 if (member == null || member.Stats == null || member.Stats[0] == null)
                     continue;
                 memberNum++;
@@ -984,6 +1114,12 @@ public class ControllerBattleStageClass : MonoBehaviour
         }
 
         SetPartyBlink(setEmpty);
+        if (setEmpty)
+            ApplyPartyError("セット" + CurrentSetIndex.ToString() + "にキャラがいません");
+        else if (!anyOwned)
+            ApplyPartyError("セット" + CurrentSetIndex.ToString() + "のキャラの所持数がすべて0です");
+        else
+            ApplyPartyError("");
 
         bool withdrawMode = activeSet != 0 && (activeStage == 0 || activeStage == CurrentStageIndex);
         if (ButtonSortieBattleStage != null)
@@ -1186,6 +1322,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         if (!open && !sortieing)
         {
+            KeepLockedColor(ButtonGalleryStage);
             ButtonGalleryStage.image.color = ColorStageLocked;
             if (label == null)
                 return;
@@ -1229,12 +1366,23 @@ public class ControllerBattleStageClass : MonoBehaviour
         label.verticalOverflow = VerticalWrapMode.Truncate;
     }
 
-    // 各ステージカードの右下に、出る敵を並べる。大きさはカードの高さの3分の2から、さらに3割小さい。
-    void ApplyStageButtonBackground(Button button, int stageIndex, Text label)
+    static void KeepLockedColor(Button button)
     {
         if (button == null)
             return;
-        Sprite sprite = BattleStageCatalog.BackgroundSprite(stageIndex);
+        ColorBlock colors = button.colors;
+        if (colors.disabledColor == Color.white)
+            return;
+        colors.disabledColor = Color.white;
+        button.colors = colors;
+    }
+
+    // 各ステージカードの右下に、出る敵を並べる。大きさはカードの高さの3分の2から、さらに3割小さい。
+    void ApplyStageButtonBackground(Button button, int stageIndex, Text label, bool locked = false)
+    {
+        if (button == null)
+            return;
+        Sprite sprite = locked ? null : BattleStageCatalog.BackgroundSprite(stageIndex);
         Image face = EnsureStageFace(button);
         bool show = sprite != null;
         face.gameObject.SetActive(show);

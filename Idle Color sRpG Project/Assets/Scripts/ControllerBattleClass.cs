@@ -30,6 +30,13 @@ public class ControllerBattleClass : MonoBehaviour
     float _headerRecordRate;
     Text _resource;
     Text _logText;
+    bool _showFrontStatus;
+    RectTransform _frontHost;
+    GameObject _frontBody;
+    Text _frontEmpty;
+    Text _frontToggleLabel;
+    readonly FrontSlot[] _frontSlots = new FrontSlot[3];
+    readonly List<BattleUnit> _frontUnits = new List<BattleUnit>();
     Button _fastButton;
     Button _withdrawButton;
     QuestBoard _questBoard;
@@ -77,6 +84,17 @@ public class ControllerBattleClass : MonoBehaviour
     CellView[,] _allies;
     CellView[,] _enemies;
     Image[] _battlePeople;
+
+    class FrontSlot
+    {
+        public GameObject Root;
+        public Image Portrait;
+        public Text Info;
+        public Slider Hp;
+        public Text HpText;
+        public Slider Exp;
+        public Text ExpText;
+    }
 
     class CellView
     {
@@ -679,7 +697,7 @@ public class ControllerBattleClass : MonoBehaviour
 
         Image item = null;
         int itemHops = 3;
-        Vector2 feet = new Vector2(origin.x, origin.y - 35f);
+        Vector2 feet = DropAnchor(new Vector2(origin.x, origin.y - 35f));
         float itemTime = 0f;
         if (_cueItem)
         {
@@ -687,8 +705,8 @@ public class ControllerBattleClass : MonoBehaviour
             if (item != null)
             {
                 itemHops = ItemHopCount(_cueItemId);
-                itemTime = ItemHopDuration();
-                RememberDrop(item.gameObject, itemTime + 0.15f);
+                itemTime = ItemHopDuration() + ItemSuckDuration();
+                RememberDrop(item.gameObject, itemTime + 0.4f);
             }
         }
 
@@ -728,7 +746,7 @@ public class ControllerBattleClass : MonoBehaviour
                 }
             }
             if (item != null)
-                PlaceItemHop(item, feet, itemTime <= 0f ? 1f : elapsed / itemTime, itemHops);
+                PlaceItemFlight(item, feet, elapsed, ItemHopDuration(), ItemSuckDuration(), itemHops);
             yield return null;
         }
 
@@ -740,7 +758,7 @@ public class ControllerBattleClass : MonoBehaviour
         if (itemIds == null || itemIds.Count == 0 || _root == null)
             yield break;
         Vector2 home = _itemDropHomeSet ? _itemDropHome : EnemySideHome();
-        Vector2 feet = new Vector2(home.x, home.y - 35f);
+        Vector2 feet = DropAnchor(new Vector2(home.x, home.y - 35f));
         var icons = new List<Image>();
         var hops = new List<int>();
         for (int i = 0; i < itemIds.Count; i++)
@@ -754,9 +772,11 @@ public class ControllerBattleClass : MonoBehaviour
         if (icons.Count == 0)
             yield break;
 
-        float duration = ItemHopDuration();
-        float stagger = duration * 0.16f;
-        float total = duration + stagger * (icons.Count - 1);
+        float hop = ItemHopDuration();
+        float suck = ItemSuckDuration();
+        float flight = hop + suck;
+        float stagger = hop * 0.16f;
+        float total = flight + stagger * (icons.Count - 1);
         float elapsed = 0f;
         while (elapsed < total && !_stop)
         {
@@ -766,7 +786,7 @@ public class ControllerBattleClass : MonoBehaviour
                 if (icons[i] == null)
                     continue;
                 float local = elapsed - stagger * i;
-                PlaceItemHop(icons[i], feet, duration <= 0f ? 1f : local / duration, hops[i]);
+                PlaceItemFlight(icons[i], feet, local, hop, suck, hops[i]);
             }
             yield return null;
         }
@@ -782,7 +802,8 @@ public class ControllerBattleClass : MonoBehaviour
         Sprite sprite = ItemImages.SpriteOf(itemId);
         if (sprite == null || _root == null)
             return null;
-        Image icon = CreateImage("DropItem", _root.transform, Color.white);
+        Transform parent = _questOverlay != null ? _questOverlay : _root.transform;
+        Image icon = CreateImage("DropItem", parent, Color.white);
         icon.sprite = sprite;
         icon.preserveAspect = true;
         icon.raycastTarget = false;
@@ -815,6 +836,120 @@ public class ControllerBattleClass : MonoBehaviour
         return duration;
     }
 
+    float ItemSuckDuration()
+    {
+        float duration = ScaledSeconds(0.42f);
+        if (duration < 0.18f)
+            duration = 0.18f;
+        return duration;
+    }
+
+    const float ItemHopTravel = 112f;
+    Coroutine _itemPulse;
+
+    // 跳ねたあと、アイテム一覧ボタンへ縮みながら入って消える。
+    void PlaceItemFlight(Image icon, Vector2 feet, float elapsed, float hopTime, float suckTime, int hops)
+    {
+        if (icon == null)
+            return;
+        if (elapsed < hopTime)
+        {
+            PlaceItemHop(icon, feet, hopTime <= 0f ? 1f : elapsed / hopTime, hops);
+            return;
+        }
+        float u = suckTime <= 0f ? 1f : (elapsed - hopTime) / suckTime;
+        bool arrived = u >= 1f;
+        if (u > 1f)
+            u = 1f;
+        PlaceItemSuck(icon, feet + new Vector2(ItemHopTravel, 0f), ItemPocket(), u);
+        if (arrived && icon.gameObject.activeSelf)
+        {
+            icon.gameObject.SetActive(false);
+            NudgeItemButton();
+        }
+    }
+
+    static void PlaceItemSuck(Image icon, Vector2 from, Vector2 pocket, float u)
+    {
+        if (icon == null)
+            return;
+        if (u < 0f)
+            u = 0f;
+        if (u > 1f)
+            u = 1f;
+        float move = u * u;
+        Vector2 pos = Vector2.Lerp(from, pocket, move);
+        pos.y += Mathf.Sin(u * Mathf.PI) * 28f;
+        float scale = Mathf.Lerp(0.84f, 0.16f, move);
+        icon.rectTransform.anchoredPosition = pos;
+        icon.rectTransform.localScale = new Vector3(scale, scale, 1f);
+        icon.color = Color.white;
+    }
+
+    Vector2 DropAnchor(Vector2 panelPoint)
+    {
+        if (_root == null)
+            return panelPoint;
+        RectTransform panel = _root.GetComponent<RectTransform>();
+        Transform parent = _questOverlay != null ? _questOverlay : _root.transform;
+        RectTransform space = parent as RectTransform;
+        if (panel == null || space == null || space == panel)
+            return panelPoint;
+        Vector2 anchor = new Vector2(
+            (0.5f - panel.pivot.x) * panel.rect.width,
+            (0.5f - panel.pivot.y) * panel.rect.height);
+        Vector3 world = panel.TransformPoint(new Vector3(anchor.x + panelPoint.x, anchor.y + panelPoint.y, 0f));
+        return AnchoredFromWorld(space, world);
+    }
+
+    Vector2 ItemPocket()
+    {
+        RectTransform space = (_questOverlay != null ? _questOverlay : _root.transform) as RectTransform;
+        RectTransform button = _questOverlay != null ? _questOverlay.Find("ButtonItemList") as RectTransform : null;
+        if (space == null || button == null)
+            return new Vector2(430f, -220f);
+        return AnchoredFromWorld(space, button.TransformPoint(button.rect.center));
+    }
+
+    static Vector2 AnchoredFromWorld(RectTransform space, Vector3 world)
+    {
+        Vector3 local = space.InverseTransformPoint(world);
+        Vector2 anchor = new Vector2(
+            (0.5f - space.pivot.x) * space.rect.width,
+            (0.5f - space.pivot.y) * space.rect.height);
+        return new Vector2(local.x - anchor.x, local.y - anchor.y);
+    }
+
+    void NudgeItemButton()
+    {
+        if (_itemPulse != null)
+            StopCoroutine(_itemPulse);
+        _itemPulse = StartCoroutine(PulseItemButton());
+    }
+
+    IEnumerator PulseItemButton()
+    {
+        RectTransform button = _questOverlay != null ? _questOverlay.Find("ButtonItemList") as RectTransform : null;
+        if (button == null)
+            yield break;
+        float duration = 0.18f;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float u = elapsed / duration;
+            if (u > 1f)
+                u = 1f;
+            float scale = 1f + Mathf.Sin(u * Mathf.PI) * 0.14f;
+            if (button != null)
+                button.localScale = new Vector3(scale, scale, 1f);
+            yield return null;
+        }
+        if (button != null)
+            button.localScale = Vector3.one;
+        _itemPulse = null;
+    }
+
     static int ItemHopCount(int itemId)
     {
         return (itemId / 8) % 2 == 0 ? 3 : 2;
@@ -844,7 +979,7 @@ public class ControllerBattleClass : MonoBehaviour
         icon.color = color;
     }
 
-    // 足元から右後ろへ、2回か3回跳ねて、最後に縮みながら消える。
+    // 足元から右へ、2回か3回跳ねて着地する。収納はそのあと。
     static void SampleItemHop(float u, int hops, out float along, out float rise, out float scale, out float alpha)
     {
         if (hops < 2)
@@ -854,7 +989,7 @@ public class ControllerBattleClass : MonoBehaviour
         float[] share = hops == 2 ? new float[] { 0.56f, 0.44f } : new float[] { 0.40f, 0.33f, 0.27f };
         float[] height = hops == 2 ? new float[] { 72f, 30f } : new float[] { 70f, 36f, 16f };
         float[] endX = hops == 2 ? new float[] { 0.64f, 1f } : new float[] { 0.46f, 0.78f, 1f };
-        const float travel = 112f;
+        const float travel = ItemHopTravel;
         float start = 0f;
         float prevX = 0f;
         along = 0f;
@@ -889,12 +1024,6 @@ public class ControllerBattleClass : MonoBehaviour
                 float squash = Mathf.Lerp(1f, 0.84f, land);
                 if (scale > squash)
                     scale = squash;
-            }
-            if (i == hops - 1 && local > 0.42f)
-            {
-                float fade = (local - 0.42f) / 0.58f;
-                alpha = 1f - fade;
-                scale *= Mathf.Lerp(1f, 0.45f, fade);
             }
             return;
         }
@@ -1339,6 +1468,7 @@ public class ControllerBattleClass : MonoBehaviour
         DrawSide(_enemies, false);
         if (_production != null)
             ShowBattlePeople(_production.GetActiveBattlePartySet());
+        PaintFrontStatus();
     }
 
     void DrawSide(CellView[,] cells, bool ally)
@@ -1696,6 +1826,7 @@ public class ControllerBattleClass : MonoBehaviour
         RefreshQuestBanner();
         if (_production != null)
             ShowBattlePeople(_production.GetActiveBattlePartySet());
+        PaintFrontStatus();
     }
 
     void BuildUi()
@@ -1767,6 +1898,7 @@ public class ControllerBattleClass : MonoBehaviour
 
         PlaceTextPlate(_header);
         PlaceTextPlate(_logText);
+        BuildFrontStatus();
         BuildQuestAccess();
         StartCoroutine(FitTextPlates());
     }
@@ -1846,6 +1978,8 @@ public class ControllerBattleClass : MonoBehaviour
         {
             RectTransform log = _logText.rectTransform;
             float logH = log.sizeDelta.y;
+            if (logH < 128f)
+                logH = 128f;
             const float logDrop = 32f;
             float logTop = gridBottom - gap - logDrop;
             float logBottom = logTop - logH;
@@ -1863,6 +1997,8 @@ public class ControllerBattleClass : MonoBehaviour
 
         PlaceTextPlate(_header);
         PlaceTextPlate(_logText);
+        InsetLogForToggle();
+        FitFrontStatus();
     }
 
     // クエストのバーは、消したセーブボタンの空きへ上げる。撤退・速度・ステージ名は、バーがあった高さへ上げる
@@ -2098,6 +2234,291 @@ public class ControllerBattleClass : MonoBehaviour
         return any;
     }
 
+    // ログの左上。押すと、攻撃を受ける味方の列のステータスとログを入れ替える
+    void BuildFrontStatus()
+    {
+        if (_frontHost != null || _logText == null)
+            return;
+
+        GameObject hostObject = new GameObject("BattleFrontStatus");
+        hostObject.transform.SetParent(_logText.transform.parent, false);
+        _frontHost = hostObject.AddComponent<RectTransform>();
+
+        Button button = CreateButton("ButtonBattleLogMode", "前列", new Color(0.30f, 0.34f, 0.42f, 1f), _frontHost);
+        RectTransform buttonRect = button.GetComponent<RectTransform>();
+        buttonRect.anchorMin = new Vector2(0f, 0f);
+        buttonRect.anchorMax = new Vector2(0f, 1f);
+        buttonRect.pivot = new Vector2(0f, 0.5f);
+        buttonRect.offsetMin = new Vector2(4f, 2f);
+        buttonRect.offsetMax = new Vector2(92f, -2f);
+        _frontToggleLabel = button.GetComponentInChildren<Text>();
+        if (_frontToggleLabel != null)
+            _frontToggleLabel.fontSize = 20;
+        button.onClick.AddListener(PushFrontToggle);
+
+        GameObject body = new GameObject("FrontStatusBody");
+        body.transform.SetParent(_frontHost, false);
+        RectTransform bodyRect = body.AddComponent<RectTransform>();
+        bodyRect.anchorMin = Vector2.zero;
+        bodyRect.anchorMax = Vector2.one;
+        bodyRect.offsetMin = new Vector2(96f, 2f);
+        bodyRect.offsetMax = new Vector2(-4f, -2f);
+        body.AddComponent<RectMask2D>();
+        _frontBody = body;
+
+        _frontEmpty = CreateText("TextFrontEmpty", body.transform, 20, TextAnchor.MiddleCenter);
+        Stretch(_frontEmpty.rectTransform);
+        _frontEmpty.text = "攻撃を受ける列はいません";
+        _frontEmpty.raycastTarget = false;
+        _frontEmpty.gameObject.SetActive(false);
+
+        for (int i = 0; i < _frontSlots.Length; i++)
+            _frontSlots[i] = CreateFrontSlot(body.transform, i);
+
+        _showFrontStatus = _production != null && _production.GetShowBattleFrontStatus();
+        ApplyFrontMode();
+    }
+
+    FrontSlot CreateFrontSlot(Transform parent, int index)
+    {
+        FrontSlot slot = new FrontSlot();
+        GameObject root = new GameObject("FrontSlot" + index.ToString());
+        root.transform.SetParent(parent, false);
+        RectTransform rect = root.AddComponent<RectTransform>();
+        float width = 1f / _frontSlots.Length;
+        rect.anchorMin = new Vector2(index * width, 0f);
+        rect.anchorMax = new Vector2((index + 1) * width, 1f);
+        rect.offsetMin = new Vector2(2f, 0f);
+        rect.offsetMax = new Vector2(-2f, 0f);
+        slot.Root = root;
+
+        Image portrait = CreateImage("Portrait", root.transform, Color.white);
+        portrait.preserveAspect = true;
+        portrait.raycastTarget = false;
+        RectTransform portraitRect = portrait.rectTransform;
+        portraitRect.anchorMin = new Vector2(0f, 0.5f);
+        portraitRect.anchorMax = new Vector2(0f, 0.5f);
+        portraitRect.pivot = new Vector2(0f, 0.5f);
+        portraitRect.anchoredPosition = Vector2.zero;
+        portraitRect.sizeDelta = new Vector2(36f, 36f);
+        slot.Portrait = portrait;
+
+        Text info = CreateText("Info", root.transform, 16, TextAnchor.MiddleLeft);
+        info.horizontalOverflow = HorizontalWrapMode.Wrap;
+        info.verticalOverflow = VerticalWrapMode.Truncate;
+        info.resizeTextForBestFit = true;
+        info.resizeTextMinSize = 13;
+        info.resizeTextMaxSize = 16;
+        info.raycastTarget = false;
+        RectTransform infoRect = info.rectTransform;
+        infoRect.anchorMin = new Vector2(0f, 1f);
+        infoRect.anchorMax = new Vector2(1f, 1f);
+        infoRect.pivot = new Vector2(0f, 1f);
+        infoRect.offsetMin = new Vector2(40f, -26f);
+        infoRect.offsetMax = new Vector2(-2f, 0f);
+        slot.Info = info;
+
+        slot.Hp = CreateGauge("Hp", root.transform, new Color(0.28f, 0.05f, 0.05f, 1f), new Color(0.92f, 0.16f, 0.14f, 1f));
+        PlaceFrontBar(slot.Hp.GetComponent<RectTransform>(), 28f, 11f);
+        slot.HpText = CreateFrontValue(slot.Hp.transform);
+
+        slot.Exp = CreateGauge("Exp", root.transform, new Color(0.05f, 0.22f, 0.08f, 1f), new Color(0.25f, 0.82f, 0.28f, 1f));
+        PlaceFrontBar(slot.Exp.GetComponent<RectTransform>(), 39f, 11f);
+        slot.ExpText = CreateFrontValue(slot.Exp.transform);
+
+        root.SetActive(false);
+        return slot;
+    }
+
+    static void PlaceFrontBar(RectTransform rect, float top, float height)
+    {
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.offsetMin = new Vector2(40f, -(top + height));
+        rect.offsetMax = new Vector2(-2f, -top);
+    }
+
+    Text CreateFrontValue(Transform bar)
+    {
+        Text text = CreateText("Value", bar, 11, TextAnchor.MiddleCenter);
+        text.raycastTarget = false;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        Stretch(text.rectTransform);
+        Outline outline = text.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        text.transform.SetAsLastSibling();
+        return text;
+    }
+
+    void PushFrontToggle()
+    {
+        _showFrontStatus = !_showFrontStatus;
+        ApplyFrontMode();
+        if (_production == null)
+            return;
+        _production.SetShowBattleFrontStatus(_showFrontStatus);
+        _production.SaveGame();
+    }
+
+    void ApplyFrontMode()
+    {
+        if (_logText != null)
+            _logText.enabled = !_showFrontStatus;
+        if (_frontBody != null)
+            _frontBody.SetActive(_showFrontStatus);
+        if (_frontToggleLabel != null)
+            _frontToggleLabel.text = _showFrontStatus ? "ログ" : "前列";
+        if (_showFrontStatus)
+            PaintFrontStatus();
+    }
+
+    void InsetLogForToggle()
+    {
+        if (_logText == null)
+            return;
+        RectTransform log = _logText.rectTransform;
+        const float inset = 96f;
+        log.anchoredPosition = new Vector2(log.anchoredPosition.x + inset * 0.5f, log.anchoredPosition.y);
+        float width = log.sizeDelta.x - inset;
+        if (width < 80f)
+            width = 80f;
+        log.sizeDelta = new Vector2(width, log.sizeDelta.y);
+    }
+
+    void FitFrontStatus()
+    {
+        if (_frontHost == null || _logText == null)
+            return;
+        RectTransform log = _logText.rectTransform;
+        Transform plate = log.parent.Find("Image" + log.gameObject.name + "Back");
+        RectTransform source = plate as RectTransform;
+        if (source == null)
+            source = log;
+        if (_frontHost.parent != source.parent)
+            _frontHost.SetParent(source.parent, false);
+        _frontHost.anchorMin = source.anchorMin;
+        _frontHost.anchorMax = source.anchorMax;
+        _frontHost.pivot = source.pivot;
+        _frontHost.anchoredPosition = source.anchoredPosition;
+        _frontHost.sizeDelta = source.sizeDelta;
+        _frontHost.SetAsLastSibling();
+    }
+
+    void PaintFrontStatus()
+    {
+        if (!_showFrontStatus || _frontBody == null)
+            return;
+        CollectFrontAllies();
+        bool any = _frontUnits.Count > 0;
+        if (_frontEmpty != null)
+            _frontEmpty.gameObject.SetActive(!any);
+        for (int i = 0; i < _frontSlots.Length; i++)
+        {
+            FrontSlot slot = _frontSlots[i];
+            if (slot == null || slot.Root == null)
+                continue;
+            if (i >= _frontUnits.Count)
+            {
+                slot.Root.SetActive(false);
+                continue;
+            }
+            slot.Root.SetActive(true);
+            PaintFrontSlot(slot, _frontUnits[i]);
+        }
+    }
+
+    void CollectFrontAllies()
+    {
+        _frontUnits.Clear();
+        int frontX = 0;
+        bool found = false;
+        for (int i = 0; i < _units.Count; i++)
+        {
+            BattleUnit unit = _units[i];
+            if (unit == null || !unit.IsAlly || !unit.IsLiving())
+                continue;
+            if (!found || unit.X > frontX)
+            {
+                frontX = unit.X;
+                found = true;
+            }
+        }
+        if (!found)
+            return;
+        for (int i = 0; i < _units.Count; i++)
+        {
+            BattleUnit unit = _units[i];
+            if (unit != null && unit.IsAlly && unit.IsLiving() && unit.X == frontX)
+                _frontUnits.Add(unit);
+        }
+        _frontUnits.Sort(CompareFrontRow);
+    }
+
+    static int CompareFrontRow(BattleUnit a, BattleUnit b)
+    {
+        if (a == null && b == null)
+            return 0;
+        if (a == null)
+            return 1;
+        if (b == null)
+            return -1;
+        return b.Y.CompareTo(a.Y);
+    }
+
+    void PaintFrontSlot(FrontSlot slot, BattleUnit unit)
+    {
+        Sprite sprite = SpriteOf(unit.CharacterId);
+        if (slot.Portrait != null)
+        {
+            slot.Portrait.sprite = sprite;
+            slot.Portrait.enabled = sprite != null;
+        }
+
+        CharacterClass character = _production != null ? _production.GetCharacter(unit.CharacterId) : null;
+        long level = character != null ? (long)character.Level : unit.Level;
+        long full = 0;
+        long eight = 0;
+        long half = 0;
+        if (character != null)
+        {
+            character.EnsureStock();
+            full = character.Stock.Full;
+            eight = character.Stock.Eight;
+            half = character.Stock.Half;
+        }
+        if (slot.Info != null)
+        {
+            slot.Info.text = "Lv" + UiNumber.Format(level)
+                + "    ×1: " + UiNumber.Format(full)
+                + "  ×0.8: " + UiNumber.Format(eight)
+                + "  ×0.5: " + UiNumber.Format(half);
+        }
+
+        SetGauge(slot.Hp, unit.Hp, unit.HpMax);
+        if (slot.HpText != null)
+            slot.HpText.text = UiNumber.Format(unit.Hp) + "/" + UiNumber.Format(unit.HpMax);
+
+        long exp = 0;
+        long need = 1;
+        if (character != null)
+        {
+            exp = (long)character.Exp;
+            need = (long)character.ExpMax;
+            if (need < 1 && _config != null)
+                need = _config.ExpToNext((long)character.Level, character.OpaquePixelCount());
+        }
+        else if (_config != null)
+            need = _config.ExpToNext(unit.Level, unit.OpaquePixels);
+        if (need < 1)
+            need = 1;
+        SetGauge(slot.Exp, exp, need);
+        if (slot.ExpText != null)
+            slot.ExpText.text = UiNumber.Format(exp) + "/" + UiNumber.Format(need);
+    }
+
     // 背景画像と文字の間。板は文字と同じ大きさにして、隣のボタンやマスには被せない
     void PlaceTextPlate(Text text)
     {
@@ -2276,7 +2697,7 @@ public class ControllerBattleClass : MonoBehaviour
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
         _settings = new SettingsBoard();
-        _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, ApplyKeepAwake, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
+        _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, ApplyKeepAwake, ApplyReturnToBattleStage, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
         _messages = new MessageBoard();
         _messages.Build(_questOverlay, _font, _production);
         _items = new ItemBoard();
@@ -2439,7 +2860,7 @@ public class ControllerBattleClass : MonoBehaviour
                 _messages.Close();
             if (_items != null && _items.IsOpen)
                 _items.Close();
-            _settings.Open(SpeedCap(), AdWatchConfirm(), ScreenAwake.Enabled);
+            _settings.Open(SpeedCap(), AdWatchConfirm(), ScreenAwake.Enabled, ReturnToBattleStage());
         }
     }
 
@@ -2606,6 +3027,19 @@ public class ControllerBattleClass : MonoBehaviour
     void ApplyKeepAwake(bool keep)
     {
         ScreenAwake.Enabled = keep;
+    }
+
+    bool ReturnToBattleStage()
+    {
+        return _production == null || _production.GetReturnToBattleStage();
+    }
+
+    void ApplyReturnToBattleStage(bool enabled)
+    {
+        if (_production == null)
+            return;
+        _production.SetReturnToBattleStage(enabled);
+        _production.SaveGame();
     }
 
     void PushSettingsSave()

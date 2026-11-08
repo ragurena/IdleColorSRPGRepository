@@ -17,6 +17,8 @@ public class ControllerFusionClass : MonoBehaviour
     bool _fusionFxPlaying;
     const float FrameThin = 3f;
     const float FrameSelected = 8f;
+    static readonly Color CellBackground = Color.black;
+    static readonly Color CellBackgroundSelected = new Color(0.2f, 0.2f, 0.2f, 1f);
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
     readonly List<CellEntry> _cells = new List<CellEntry>();
 
@@ -122,7 +124,9 @@ public class ControllerFusionClass : MonoBehaviour
             CellEntry cell = _cells[i];
             if (cell.Background == null)
                 continue;
-            EnsureWhiteFrame(cell.Background.transform, cell.Id == _selectedId ? FrameSelected : FrameThin);
+            bool selected = cell.Id == _selectedId;
+            cell.Background.color = selected ? CellBackgroundSelected : CellBackground;
+            EnsureWhiteFrame(cell.Background.transform, selected ? FrameSelected : FrameThin);
         }
         ShowDetail();
     }
@@ -152,8 +156,9 @@ public class ControllerFusionClass : MonoBehaviour
     {
         GameObject cell = new GameObject("FusionCell" + character.ID, typeof(RectTransform));
         cell.transform.SetParent(_content, false);
+        bool selected = character.ID == _selectedId;
         Image background = cell.AddComponent<Image>();
-        background.color = Color.black;
+        background.color = selected ? CellBackgroundSelected : CellBackground;
         Button button = cell.AddComponent<Button>();
         button.targetGraphic = background;
         ColorBlock colors = button.colors;
@@ -193,7 +198,7 @@ public class ControllerFusionClass : MonoBehaviour
         label.supportRichText = true;
         label.text = CellText(character);
 
-        EnsureWhiteFrame(cell.transform, character.ID == _selectedId ? FrameSelected : FrameThin);
+        EnsureWhiteFrame(cell.transform, selected ? FrameSelected : FrameThin);
         return new CellEntry { Id = character.ID, Background = background, Picture = image, Label = label };
     }
 

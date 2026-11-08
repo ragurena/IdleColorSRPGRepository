@@ -120,6 +120,8 @@ public sealed class QuestSave
     public bool FusionUnlocked;
     public int FusionEfficiency;
     public int ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
+    // 0 か 1。1 は、次の受け取りで枠が1つ増える 0.5。
+    public int ImportCapHalf;
     public bool DefaultsApplied;
     public bool HasTotalR;
     public bool HasTotalG;
@@ -131,6 +133,7 @@ public sealed class QuestSave
     public bool HasFusionUnlocked;
     public bool HasFusionEfficiency;
     public bool HasImport;
+    public bool HasImportCapHalf;
     public int LevelCap = BattleBalanceConfig.InitialLevelCap;
     public bool HasLevelCap;
     public int FusionCap = FusionBonus.InitialCap;
@@ -149,6 +152,7 @@ public sealed class QuestSave
         FusionUnlocked = false;
         FusionEfficiency = 0;
         ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
+        ImportCapHalf = 0;
         DefaultsApplied = false;
         HasTotalR = false;
         HasTotalG = false;
@@ -160,6 +164,7 @@ public sealed class QuestSave
         HasFusionUnlocked = false;
         HasFusionEfficiency = false;
         HasImport = false;
+        HasImportCapHalf = false;
         LevelCap = BattleBalanceConfig.InitialLevelCap;
         HasLevelCap = false;
         FusionCap = FusionBonus.InitialCap;
@@ -487,11 +492,11 @@ public static class QuestCatalog
                 body = "ピクセル生成枠+" + UiNumber.Format(def.RewardAmount) + " または キャラ生成枠+" + UiNumber.Format(def.RewardAmount);
         }
         else if (def.Reward == QuestRewardKind.ImportCap)
-            body = "キャラ読込上限 +1";
+            body = "キャラ読込上限 +0.5";
         else if (def.Reward == QuestRewardKind.RgbAll)
             body = "R・G・B すべて +" + UiNumber.Format(def.RewardAmount);
         else if (def.Reward == QuestRewardKind.CharacterBundle)
-            body = "キャラ読込上限 +1、ピクセル生成枠 +1、キャラ生成枠 +1";
+            body = "キャラ読込上限 +0.5、ピクセル生成枠 +1、キャラ生成枠 +1";
         else if (def.Reward == QuestRewardKind.FusionUnlock)
             body = "合成機能開放";
         else if (def.Reward == QuestRewardKind.FusionEfficiency)

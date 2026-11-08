@@ -46,6 +46,8 @@ public class SaveClass// : MonoBehaviour
         int BattleSpeed,
         int BattleSpeedCap,
         bool AdWatchConfirm,
+        bool ReturnToBattleStage,
+        bool ShowBattleFrontStatus,
         bool BattleRepeat,
         int ClearedBattleStage,
         int[] ClearedBattleFloor,
@@ -300,6 +302,8 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("BattleSpeed," + BattleSpeed.ToString());
         sw.WriteLine("BattleSpeedCap," + BattleSpeedCap.ToString());
         sw.WriteLine("AdWatchConfirm," + (AdWatchConfirm ? "true" : "false"));
+        sw.WriteLine("ReturnToBattleStage," + (ReturnToBattleStage ? "true" : "false"));
+        sw.WriteLine("ShowBattleFrontStatus," + (ShowBattleFrontStatus ? "true" : "false"));
         sw.WriteLine("BattleRepeat," + (BattleRepeat ? "true" : "false"));
         sw.WriteLine("ClearedBattleStage," + ClearedBattleStage.ToString());
         if (ClearedBattleFloor != null)
@@ -440,6 +444,8 @@ public class SaveClass// : MonoBehaviour
         ref int BattleSpeed,
         ref int BattleSpeedCap,
         ref bool AdWatchConfirm,
+        ref bool ReturnToBattleStage,
+        ref bool ShowBattleFrontStatus,
         ref bool BattleRepeat,
         ref int ClearedBattleStage,
         ref int[] ClearedBattleFloor,
@@ -880,6 +886,18 @@ public class SaveClass// : MonoBehaviour
             }
 
             else
+            if (values[0].Equals("ReturnToBattleStage"))
+            {
+                ReturnToBattleStage = values[1].Equals("true");
+            }
+
+            else
+            if (values[0].Equals("ShowBattleFrontStatus"))
+            {
+                ShowBattleFrontStatus = values[1].Equals("true");
+            }
+
+            else
             if (values[0].Equals("BattleRepeat"))
             {
                 BattleRepeat = values[1].Equals("true");
@@ -1165,6 +1183,7 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("FusionUnlocked," + (quests.FusionUnlocked ? "true" : "false"));
         sw.WriteLine("FusionEfficiency," + quests.FusionEfficiency.ToString());
         sw.WriteLine("ImportCharacterCap," + quests.ImportCap.ToString());
+        sw.WriteLine("ImportCharacterCapHalf," + quests.ImportCapHalf.ToString());
         sw.WriteLine("CharacterLevelCap," + quests.LevelCap.ToString());
         sw.WriteLine("CharacterFusionCap," + quests.FusionCap.ToString());
         QuestDef[] all = QuestCatalog.All;
@@ -1261,6 +1280,15 @@ public class SaveClass// : MonoBehaviour
                 throw new FormatException("ImportCharacterCap");
             quests.ImportCap = number;
             quests.HasImport = true;
+            return true;
+        }
+        if (key == "ImportCharacterCapHalf")
+        {
+            int number;
+            if (!int.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+                throw new FormatException("ImportCharacterCapHalf");
+            quests.ImportCapHalf = number == 1 ? 1 : 0;
+            quests.HasImportCapHalf = true;
             return true;
         }
         if (key == "CharacterLevelCap")

@@ -74,7 +74,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
             int cap = ImportedCharacters.ImportCap;
             bool full = count >= cap;
             Color ink = full ? new Color(1f, 0.38f, 0.34f, 1f) : Color.white;
-            _count.text = "読み込み " + UiNumber.Format(count) + " / " + UiNumber.Format(cap);
+            _count.text = "読み込み " + UiNumber.Format(count) + " / " + ImportedCharacters.CapLabel();
             _count.color = ink;
             if (_capNote != null)
                 _capNote.color = ink;
