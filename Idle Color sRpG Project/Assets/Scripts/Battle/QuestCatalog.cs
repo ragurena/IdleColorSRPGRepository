@@ -211,23 +211,32 @@ public static class QuestCatalog
         // 階層繰り返しの開放
         MainQuest(30, "黒猫を仲間にしながら、チュートリアルを10階クリアする", QuestMetric.StageFloor, 1, 10, QuestRewardKind.UnlockFeature, MainFeature.FloorRepeat),
         // 作者の開放
-        MainQuest(35, "キャラを10体以上生成する", QuestMetric.CharacterCompletions, 0, 10, QuestRewardKind.UnlockFeature, MainFeature.Author),
+        MainQuest(35, "敵を100体倒す", QuestMetric.EnemyDefeats, 0, 100, QuestRewardKind.UnlockFeature, MainFeature.Author),
         // 合成機能開放
-        MainQuest(40, "敵を100体倒す", QuestMetric.EnemyDefeats, 0, 100, QuestRewardKind.FusionUnlock, 0),
-        // スライムの森とチグサとバトル１の開放、ピクセル生成枠+1、キャラ生成枠+1
+        MainQuest(40, "キャラを10体以上生成する", QuestMetric.CharacterCompletions, 0, 10, QuestRewardKind.FusionUnlock, 0),
+        // スライムの森の開放、ピクセル生成枠+1、キャラ生成枠+1
         MainQuest(45, "「チュートリアル」ステージの100階をクリアする", QuestMetric.StageFloor, 1, 100, QuestRewardKind.BothSlots, 1),
-        // キャラ読み込みの開放
+        // チグサとバトル１の開放、キャラ読み込みの開放
         MainQuest(55, "「チュートリアル」ステージの200階をクリアする", QuestMetric.StageFloor, 1, 200, QuestRewardKind.UnlockFeature, MainFeature.Import),
         // 回復の開放
         MainQuest(65, "「チュートリアル」ステージの300階をクリアする", QuestMetric.StageFloor, 1, 300, QuestRewardKind.UnlockFeature, MainFeature.Recovery),
 
-        // ステージクリア。
+        // ステージクリア。100階、200階、300階。同じステージは100階をクリアすると次が出る。
         // ピクセル生成枠+1、キャラ生成枠+1。広告でピクセル生成+0.5、キャラ生成+0.3。
-        // 追加の引数はレベル上限、合成上限+。スライムの森は次のステージ開放を出さない。
-        Stage(5200, 2, 100, 0, 10), // 合成上限+10回
-        Stage(5300, 3, 100, 60, 10), // レベル上限60、合成上限+10回、モアとバトル１の開放
-        Stage(5400, 4, 100, 70, 10), // レベル上限70、合成上限+10回、次のステージの開放
+        // レベル上限と合成上限は、100階クリアごとに5上がる。この引数では付けない。
+        // 次のステージ開放は100階だけ。スライムの森は出さない。
+        Stage(5200, 2, 100),
+        Stage(5220, 2, 200),
+        Stage(5230, 2, 300),
+        Stage(5300, 3, 100), // モアとバトル１の開放
+        Stage(5320, 3, 200),
+        Stage(5330, 3, 300),
+        Stage(5400, 4, 100), // 次のステージの開放
+        Stage(5420, 4, 200),
+        Stage(5430, 4, 300),
         Stage(5500, 5, 100),
+        Stage(5520, 5, 200),
+        Stage(5530, 5, 300),
 
         // ギャラリークリア。
         // ピクセル生成枠+1、キャラ生成枠+1。広告でピクセル生成+0.5、キャラ生成+0.3。
@@ -275,10 +284,10 @@ public static class QuestCatalog
         Rgb(5102, 2, "B", 50000000, QuestRewardKind.RgbAll,  90000),
 
         // ピクセル生成。R・G・Bをすべて、行の最後の数だけ。広告でピクセル生成+0.5。
-        Pixel( 5013,   250,    1000),
-        Pixel( 5023,   500,    2000),
-        Pixel( 5033,   750,    3000),
-        Pixel( 5043,  1000,    4000),
+        Pixel( 5013,   250,    5000),
+        Pixel( 5023,   500,    5000),
+        Pixel( 5033,   750,    5000),
+        Pixel( 5043,  1000,    5000),
         Pixel( 5053,  1500,    5000),
         Pixel( 5063,  2000,    6000),
         Pixel( 5073,  2500,    7000),
@@ -560,6 +569,13 @@ public static class QuestCatalog
             string capText = "レベル上限 " + def.LevelCap.ToString();
             body = body.Length == 0 ? capText : body + "\n" + capText;
         }
+        if (GrantsLevelCapStep(def))
+        {
+            string capText = "レベル上限 +" + BattleBalanceConfig.LevelCapPerHundredFloors.ToString();
+            body = body.Length == 0 ? capText : body + "\n" + capText;
+            string fusionText = "合成上限 +" + FusionBonus.CapPerHundredFloors.ToString() + "回";
+            body = body + "\n" + fusionText;
+        }
         if (def.FusionCap > 0)
         {
             string capText = "合成上限 +" + def.FusionCap.ToString() + "回";
@@ -616,6 +632,16 @@ public static class QuestCatalog
         return label;
     }
 
+    // 100階、200階、300階…のクリア。レベル上限が5上がる。
+    public static bool GrantsLevelCapStep(QuestDef def)
+    {
+        if (def == null || def.Metric != QuestMetric.StageFloor)
+            return false;
+        if (def.Target < Constants.BATTLE_STAGE_FLOOR_MAX)
+            return false;
+        return def.Target % Constants.BATTLE_STAGE_FLOOR_MAX == 0;
+    }
+
     static QuestDef Stage(int id, int stage, long floor, int levelCap = 0, int fusionCap = 0)
     {
         string name = ControllerBattleStageClass.GetStageName(stage);
@@ -628,13 +654,18 @@ public static class QuestCatalog
             return "";
         if (def.Arg == 1)
         {
-            if (def.Target != Constants.BATTLE_STAGE_FLOOR_MAX)
-                return "";
-            return "次のステージ「" + ControllerBattleStageClass.GetStageName(2) + "」「" + ControllerBattleStageClass.GetStageName(3) + "」の開放";
+            if (def.Target == Constants.BATTLE_STAGE_FLOOR_MAX)
+                return "次のステージ「" + ControllerBattleStageClass.GetStageName(2) + "」の開放";
+            if (def.Target == Constants.BATTLE_STAGE_FLOOR_MAX * 2)
+                return "次のステージ「" + ControllerBattleStageClass.GetStageName(3) + "」の開放";
+            return "";
         }
         if (def.Main)
             return "";
-        // チグサとバトル１はチュートリアルクリアで開く。スライムの森では重ねて出さない。
+        // 次のステージは100階クリアで開く。200階と300階では重ねて出さない。
+        if (def.Target != Constants.BATTLE_STAGE_FLOOR_MAX)
+            return "";
+        // チグサとバトル１はチュートリアル200階で開く。スライムの森では重ねて出さない。
         if (def.Arg == 2)
             return "";
         int next = def.Arg + 1;

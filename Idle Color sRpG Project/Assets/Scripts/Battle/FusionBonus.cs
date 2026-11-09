@@ -3,8 +3,9 @@
 public static class FusionBonus
 {
     public const long PercentPerFusion = 5;
-    // 1体あたりの合成回数。最初は10回で、クエストが RaiseFusionCountCap で上げる。
-    public const int InitialCap = 10;
+    // 1体あたりの合成回数。最初は5。100階をクリアするたびに5上がる。
+    public const int InitialCap = 5;
+    public const int CapPerHundredFloors = 5;
     public const int CapCeiling = 9999;
     public static int MaxCount = InitialCap;
 

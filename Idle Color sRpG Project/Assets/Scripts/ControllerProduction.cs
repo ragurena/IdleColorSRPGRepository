@@ -419,6 +419,9 @@ public class ControllerProduction : MonoBehaviour
         //ImportedCharacters.FindAny(CharactersAll, (uint)(1)).MakeCharacter(Application.dataPath + "/Resources/" + "Character/RedSlime8" + ".png", 1, "LittleRedSlime");
         string acceptedVersion;
         bool acceptedSave = TryRestoreSave(out acceptedVersion);
+        if (ClearedBattleStage < 0 || ClearedBattleStage > Constants.BATTLE_STAGE_NUM)
+            ClearedBattleStage = 0;
+        NormalizeClearedBattleFloors();
         ApplyCharacterLevelCap();
         ApplyFusionCountCap();
         bool rebuildImages = acceptedSave
@@ -449,9 +452,6 @@ public class ControllerProduction : MonoBehaviour
             ActiveBattleFloorFrom = 0;
             ActiveBattleFloorTo = 0;
         }
-        if (ClearedBattleStage < 0 || ClearedBattleStage > Constants.BATTLE_STAGE_NUM)
-            ClearedBattleStage = 0;
-        NormalizeClearedBattleFloors();
         DropFormerStarterOwnership(acceptedVersion);
         if (acceptedSave && SaveClass.IsOlderThan(acceptedVersion, "0.0.6"))
             SaveGame();
@@ -4969,11 +4969,17 @@ public class ControllerProduction : MonoBehaviour
             return false;
         if (stageIndex == Constants.BATTLE_STAGE_GALLERY)
             NoteGalleryClear();
+        int previous = ClearedBattleFloor[stageIndex];
         bool advanced = false;
-        if (floor > ClearedBattleFloor[stageIndex])
+        if (floor > previous)
         {
             ClearedBattleFloor[stageIndex] = floor;
             advanced = true;
+        }
+        if (advanced && HundredFloorBlocks(floor) > HundredFloorBlocks(previous))
+        {
+            ApplyCharacterLevelCap();
+            ApplyFusionCountCap();
         }
         RefreshMessages();
         return advanced;
@@ -5116,7 +5122,7 @@ public class ControllerProduction : MonoBehaviour
     }
 
     // ステージ1は最初から開放。
-    // チュートリアルをクリアすると、スライムの森とチグサとバトル１が開く。
+    // チュートリアル100階でスライムの森、200階でチグサとバトル１が開く。
     // 4以降は、1つ前のステージをクリアしているときだけ開放。
     public bool IsBattleStageUnlocked(int stageIndex)
     {
@@ -5124,8 +5130,10 @@ public class ControllerProduction : MonoBehaviour
             return false;
         if (stageIndex == 1)
             return true;
-        if (stageIndex == 2 || stageIndex == 3)
+        if (stageIndex == 2)
             return IsBattleStageCleared(1);
+        if (stageIndex == 3)
+            return GetHighestClearedBattleFloor(1) >= Constants.BATTLE_STAGE_FLOOR_MAX * 2;
         return IsBattleStageCleared(stageIndex - 1);
     }
 
@@ -12178,9 +12186,15 @@ public class ControllerProduction : MonoBehaviour
         FusionBonus.MaxCount = count;
     }
 
+    // 初期値に、クリア済みの100階を5ずつ足す。クエストの合成上限+は、その上に足す。
     void ApplyFusionCountCap()
     {
-        int cap = FusionBonus.InitialCap;
+        long cap = FusionBonus.InitialCap;
+        cap += (long)ClearedHundredFloorBlocks() * FusionBonus.CapPerHundredFloors;
+        if (cap > FusionBonus.CapCeiling)
+            cap = FusionBonus.CapCeiling;
+        int floorCap = cap > int.MaxValue ? int.MaxValue : (int)cap;
+        cap = floorCap;
         QuestDef[] all = QuestCatalog.All;
         for (int i = 0; i < all.Length; i++)
         {
@@ -12189,7 +12203,7 @@ public class ControllerProduction : MonoBehaviour
                 continue;
             if (!StageClearGrantsLevelCap(def) && !IsQuestClaimed(def))
                 continue;
-            long next = (long)cap + def.FusionCap;
+            long next = cap + def.FusionCap;
             if (next > FusionBonus.CapCeiling)
                 next = FusionBonus.CapCeiling;
             if (next > int.MaxValue)
@@ -12200,16 +12214,20 @@ public class ControllerProduction : MonoBehaviour
             cap = FusionBonus.InitialCap;
         if (cap > FusionBonus.CapCeiling)
             cap = FusionBonus.CapCeiling;
-        Quests.FusionCap = cap;
+        int result = cap > int.MaxValue ? int.MaxValue : (int)cap;
+        Quests.FusionCap = result;
         Quests.HasFusionCap = true;
-        FusionBonus.MaxCount = cap;
+        FusionBonus.MaxCount = result;
     }
 
+    // 初期値に、クリア済みの100階を5ずつ足す。クエストがそれより高い値を出しているときは、その値まで上げる。
     void ApplyCharacterLevelCap()
     {
         if (BattleBalance == null)
             BattleBalance = BattleBalanceConfig.CreateDefault();
-        int cap = BattleBalanceConfig.InitialLevelCap;
+        long cap = BattleBalanceConfig.InitialLevelCap;
+        long added = (long)ClearedHundredFloorBlocks() * BattleBalanceConfig.LevelCapPerHundredFloors;
+        cap += added;
         if (cap > BattleBalanceConfig.LevelCapCeiling)
             cap = BattleBalanceConfig.LevelCapCeiling;
         QuestDef[] all = QuestCatalog.All;
@@ -12221,10 +12239,39 @@ public class ControllerProduction : MonoBehaviour
             if (StageClearGrantsLevelCap(all[i]) || IsQuestClaimed(all[i]))
                 cap = offered;
         }
-        Quests.LevelCap = cap;
+        if (cap < BattleBalanceConfig.InitialLevelCap)
+            cap = BattleBalanceConfig.InitialLevelCap;
+        if (cap > BattleBalanceConfig.LevelCapCeiling)
+            cap = BattleBalanceConfig.LevelCapCeiling;
+        Quests.LevelCap = (int)cap;
         Quests.HasLevelCap = true;
         BattleBalance.MaxLevel = cap;
         RebuildAllCharacterStats();
+    }
+
+    int ClearedHundredFloorBlocks()
+    {
+        if (ClearedBattleFloor == null)
+            return 0;
+        int blocks = 0;
+        int last = Constants.BATTLE_STAGE_GALLERY;
+        if (last >= ClearedBattleFloor.Length)
+            last = ClearedBattleFloor.Length - 1;
+        for (int stage = 1; stage <= last; stage++)
+        {
+            int floor = ClearedBattleFloor[stage];
+            if (floor >= Constants.BATTLE_STAGE_FLOOR_CAP && stage != Constants.BATTLE_STAGE_GALLERY)
+                floor = Constants.BATTLE_STAGE_FLOOR_CAP;
+            blocks += HundredFloorBlocks(floor);
+        }
+        return blocks;
+    }
+
+    static int HundredFloorBlocks(int floor)
+    {
+        if (floor < Constants.BATTLE_STAGE_FLOOR_MAX)
+            return 0;
+        return floor / Constants.BATTLE_STAGE_FLOOR_MAX;
     }
 
     static int LevelCapOffer(QuestDef def)
