@@ -482,13 +482,12 @@ public class ControllerBattleClass : MonoBehaviour
         if (ids.Count == 0 || rng == null)
             return picks;
 
-        int level = floor < 1 ? 1 : floor;
-        int upper = 3;
-        if (_config != null && _config.MaxUnits < upper)
-            upper = _config.MaxUnits;
-        if (upper < 1)
-            upper = 1;
-        int count = rng.NextInt(1, upper + 1);
+        int level = EnemySpawner.GalleryLevel(floor);
+        int count = EnemySpawner.GalleryCount(floor);
+        if (_config != null && count > _config.MaxUnits)
+            count = _config.MaxUnits;
+        if (count < 1)
+            count = 1;
         for (int i = 0; i < count; i++)
         {
             uint id = ids[rng.NextInt(0, ids.Count)];
@@ -1534,11 +1533,12 @@ public class ControllerBattleClass : MonoBehaviour
         }
         if (level < 1)
             level = 1;
-        long cap = _config != null ? _config.MaxLevel : 0;
-        string levelText = UiNumber.LevelText("Lv " + UiNumber.Format(level), level, cap);
+        string body = "Lv " + UiNumber.Format(level);
         if (!unit.IsAlly)
-            return levelText;
+            return body;
 
+        long cap = _config != null ? _config.MaxLevel : 0;
+        string levelText = UiNumber.LevelText(body, level, cap);
         int lives = unit.Lives;
         if (lives < 0)
             lives = 0;
@@ -3508,6 +3508,11 @@ public class ControllerBattleClass : MonoBehaviour
             _view._cueG = g;
             _view._cueB = b;
             _view._cuePixelCount = count;
+        }
+
+        public bool CanReceiveExp(BattleUnit ally)
+        {
+            return _view._production != null && _view._production.CanGainBattleExp(ally, _view._config);
         }
 
         public void GrantExp(BattleUnit ally, long exp)

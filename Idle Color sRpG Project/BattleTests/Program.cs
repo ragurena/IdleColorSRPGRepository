@@ -35,9 +35,21 @@ sealed class RecordingSink : IBattleRewardSink
         Calls.Add("pixel");
     }
 
+    public readonly List<long> ExpGrants = new List<long>();
+    public readonly List<int> ExpUnitIds = new List<int>();
+    public int BlockExpUnitId = -1;
+
     public void GrantExp(BattleUnit ally, long exp)
     {
         Calls.Add("exp");
+        ExpGrants.Add(exp);
+        if (ally != null)
+            ExpUnitIds.Add(ally.UnitId);
+    }
+
+    public bool CanReceiveExp(BattleUnit ally)
+    {
+        return ally == null || ally.UnitId != BlockExpUnitId;
     }
 
     public void GrantItem(int itemId, int count)
@@ -95,6 +107,7 @@ static class Program
         TestComplement();
         TestRewards(config);
         TestCharmRecruit(config);
+        TestExpShareSkipsFull(config);
         TestTurnOrder(config);
         TestTargeting();
         TestKnockout(config);
@@ -282,6 +295,34 @@ static class Program
         Check(sink.Calls.Contains("recruit") == false, "charm does not chain");
     }
 
+    // レベル上限かつ経験値満タンの味方は人数に入れず、残りで割る。
+    static void TestExpShareSkipsFull(BattleBalanceConfig config)
+    {
+        var rng = new FixedRandom();
+        rng.DoubleValue = 1;
+        var sink = new RecordingSink();
+        sink.BlockExpUnitId = 2;
+        BattleUnit openA = Unit(1, true, 10, 2, 1);
+        BattleUnit full = Unit(2, true, 10, 1, 1);
+        BattleUnit openB = Unit(3, true, 10, 3, 1);
+        BattleUnit enemy = Unit(4, false, 10, 1, 1);
+        enemy.OpaquePixels = 10;
+        enemy.Size = 8;
+        enemy.Level = 1;
+        var units = new List<BattleUnit> { openA, full, openB };
+        BattleDefeatProcessor.Process(openA, enemy, units, config, rng, sink);
+        Check(sink.ExpUnitIds.Count == 2, "full ally is not a recipient");
+        Check(sink.ExpUnitIds.Contains(2) == false, "full ally gets no exp");
+        Check(sink.ExpGrants.Count == 2 && sink.ExpGrants[0] == 3 && sink.ExpGrants[1] == 3, "exp split by two");
+
+        sink.Calls.Clear();
+        sink.ExpGrants.Clear();
+        sink.ExpUnitIds.Clear();
+        sink.BlockExpUnitId = -1;
+        BattleDefeatProcessor.Process(openA, enemy, units, config, rng, sink);
+        Check(sink.ExpGrants.Count == 3 && sink.ExpGrants[0] == 2, "all three still share");
+    }
+
     static void TestTurnOrder(BattleBalanceConfig config)
     {
         var units = new List<BattleUnit>
@@ -371,6 +412,34 @@ static class Program
         Check(stage.GetBand(1).Entries[1].Level == 1, "band level per character");
         Check(stage.GetBand(1).Entries[0].Weight == 50, "band weight");
         Check(stage.FindBoss(100).Level == 10, "boss level");
+        CheckGalleryLevels();
+    }
+
+    static void CheckGalleryLevels()
+    {
+        int[] first = { 1, 1, 2, 2, 3, 3, 4, 4, 5, 5 };
+        int[] second = { 2, 2, 3, 3, 4, 4, 5, 5, 6, 6 };
+        int[] late = { 10, 10, 11, 11, 12, 12, 13, 13, 14, 14 };
+        int[] next = { 11, 11, 12, 12, 13, 13, 14, 14, 15, 15 };
+        bool match = EnemySpawner.GalleryLevel(0) == 1;
+        for (int i = 0; i < 10; i++)
+        {
+            if (EnemySpawner.GalleryLevel(i + 1) != first[i])
+                match = false;
+            if (EnemySpawner.GalleryLevel(i + 11) != second[i])
+                match = false;
+            if (EnemySpawner.GalleryLevel(i + 91) != late[i])
+                match = false;
+            if (EnemySpawner.GalleryLevel(i + 101) != next[i])
+                match = false;
+        }
+        Check(match, "gallery levels");
+        Check(EnemySpawner.GalleryCount(1) == 1 && EnemySpawner.GalleryCount(20) == 1, "gallery count 1");
+        Check(EnemySpawner.GalleryCount(21) == 2 && EnemySpawner.GalleryCount(30) == 2, "gallery count 2");
+        Check(EnemySpawner.GalleryCount(81) == 8 && EnemySpawner.GalleryCount(90) == 8, "gallery count 8");
+        Check(EnemySpawner.GalleryCount(91) == 9 && EnemySpawner.GalleryCount(100) == 9, "gallery count 9");
+        Check(EnemySpawner.GalleryCount(101) == 1 && EnemySpawner.GalleryCount(120) == 1, "gallery count repeats");
+        Check(EnemySpawner.GalleryCount(191) == 9 && EnemySpawner.GalleryCount(200) == 9, "gallery count 200");
     }
 
     static void TestFusion()

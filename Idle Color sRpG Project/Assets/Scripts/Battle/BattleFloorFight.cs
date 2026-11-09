@@ -12,6 +12,8 @@ public interface IBattleRewardSink
     void GrantRgb(CharacterAttribute attribute, long amount);
     void GrantPixels(int r, int g, int b, long count);
     void GrantExp(BattleUnit ally, long exp);
+    // レベル上限で経験値が満タンの味方は false。割り振り人数から外す。
+    bool CanReceiveExp(BattleUnit ally);
     void GrantItem(int itemId, int count);
     void Recruit(uint characterId);
     void NoteDefeated(uint characterId);
@@ -252,23 +254,22 @@ public static class BattleDefeatProcessor
         exp = BattleRewardCalculator.ExpGainForSize(exp, enemy.Size);
         exp = BattleRewardCalculator.ExpGainForLevel(exp, enemy.Level);
         exp = BattleRewardCalculator.ExpReward(exp);
-        int survivors = 0;
+        int recipients = 0;
         if (units != null)
         {
             for (int i = 0; i < units.Count; i++)
             {
-                BattleUnit ally = units[i];
-                if (ally.IsAlly && ally.IsLiving())
-                    survivors++;
+                if (ReceivesExpShare(units[i], sink))
+                    recipients++;
             }
         }
-        long share = BattleRewardCalculator.ExpShare(exp, survivors);
+        long share = BattleRewardCalculator.ExpShare(exp, recipients);
         if (units != null && share > 0)
         {
             for (int i = 0; i < units.Count; i++)
             {
                 BattleUnit ally = units[i];
-                if (!ally.IsAlly || !ally.IsLiving())
+                if (!ReceivesExpShare(ally, sink))
                     continue;
                 sink.GrantExp(ally, share);
             }
@@ -286,5 +287,11 @@ public static class BattleDefeatProcessor
             sink.EndForcedRecruit();
 
         sink.NoteDefeated(enemy.CharacterId);
+    }
+
+    // 生き残っていて、まだ経験値を受け取れる味方だけを割り振る。
+    static bool ReceivesExpShare(BattleUnit ally, IBattleRewardSink sink)
+    {
+        return ally != null && ally.IsAlly && ally.IsLiving() && sink.CanReceiveExp(ally);
     }
 }

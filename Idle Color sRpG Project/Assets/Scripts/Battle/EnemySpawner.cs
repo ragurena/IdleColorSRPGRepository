@@ -79,6 +79,30 @@ public class CharacterChapterDrop
 
 public static class EnemySpawner
 {
+    // ギャラリーの敵レベル。10階が1帯で、帯ごとに開始レベルが1上がる。
+    // 帯の中は2階ずつ同じレベルで、5段階上がる。
+    // 1〜10階は 1,1,2,2,3,3,4,4,5,5。11〜20階は 2,2,3,3,4,4,5,5,6,6。
+    public static int GalleryLevel(int floor)
+    {
+        if (floor < 1)
+            floor = 1;
+        int band = (floor - 1) / 10;
+        int pair = ((floor - 1) % 10) / 2;
+        return band + 1 + pair;
+    }
+
+    // ギャラリーの出現数。100階ごとに同じ並びを繰り返す。
+    // 1〜10階と11〜20階は1体。21〜30階から10階ごとに1体増え、91〜100階は9体。
+    public static int GalleryCount(int floor)
+    {
+        if (floor < 1)
+            floor = 1;
+        int band = ((floor - 1) % 100) / 10;
+        if (band < 1)
+            return 1;
+        return band;
+    }
+
     // 最少は必ず出す。最少を超える分は、1体ごとに重みを100分率として判定し、外れた体は出さない。
     // 重み1は1%、33は33%。空きマスがあっても、外れた分で最多までは埋めない。
     public static List<EnemySpawnEntry> Roll(IReadOnlyList<EnemySpawnEntry> entries, int maxUnits, IBattleRandom rng)

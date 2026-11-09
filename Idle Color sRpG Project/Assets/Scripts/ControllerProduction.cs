@@ -5659,6 +5659,37 @@ public class ControllerProduction : MonoBehaviour
         return forecast;
     }
 
+    // レベル上限に達していて、経験値もそれ以上入らないとき false。
+    public bool CanGainBattleExp(BattleUnit unit, BattleBalanceConfig config)
+    {
+        if (unit == null || !unit.IsAlly)
+            return false;
+        CharacterClass character = GetCharacter(unit.CharacterId);
+        if (character == null || character.ID != unit.CharacterId)
+            return false;
+        if (config == null)
+            config = GetBattleBalance();
+        if (config == null)
+            return true;
+        long level = (long)character.Level;
+        if (level < 1)
+            level = 1;
+        if (level < config.MaxLevel)
+            return true;
+        long expMax = (long)character.ExpMax;
+        if (expMax < 1)
+            expMax = config.ExpToNext(level, character.OpaquePixelCount());
+        if (expMax < 1)
+            expMax = 1;
+        long room = expMax - 1;
+        if (room < 0)
+            room = 0;
+        long exp = (long)character.Exp;
+        if (exp < 0)
+            exp = 0;
+        return exp < room;
+    }
+
     public int GrantBattleExp(BattleUnit unit, long gain, BattleBalanceConfig config)
     {
         if (unit == null || !unit.IsAlly || config == null)

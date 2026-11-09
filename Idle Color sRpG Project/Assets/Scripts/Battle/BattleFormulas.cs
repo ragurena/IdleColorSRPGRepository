@@ -151,10 +151,11 @@ public static class BattleRewardCalculator
         return BattleMath.CeilDivPositive(totalExp, 2);
     }
 
-    // 倒したときの経験値を、その時点で生き残っている味方の人数で割る。端数は切り上げ。
-    public static long ExpShare(long totalExp, int survivorCount)
+    // 倒したときの経験値を、まだ受け取れる味方の人数で割る。端数は切り上げ。
+    // レベル上限で経験値が満タンの味方は人数に入れない。
+    public static long ExpShare(long totalExp, int recipientCount)
     {
-        return BattleMath.CeilDivPositive(totalExp, survivorCount);
+        return BattleMath.CeilDivPositive(totalExp, recipientCount);
     }
 
     public static double ExpOrbDropProbability(long luc, BattleBalanceConfig config)
