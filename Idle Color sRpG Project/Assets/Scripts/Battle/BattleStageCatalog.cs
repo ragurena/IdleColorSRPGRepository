@@ -99,6 +99,12 @@ public static class BattleStageCatalog
     // そのステージに一度でも出る敵。帯の並び順で、同じキャラは1回だけ。
     public static void CollectEnemyIds(int stageIndex, List<uint> ids)
     {
+        CollectEnemyIds(stageIndex, 1, Constants.BATTLE_STAGE_FLOOR_CAP, ids);
+    }
+
+    // floorFrom〜floorTo に出る敵。書いていない帯は、戦闘と同じく100階前の並びを使う。ボスも含む。
+    public static void CollectEnemyIds(int stageIndex, int floorFrom, int floorTo, List<uint> ids)
+    {
         if (ids == null)
             return;
         ids.Clear();
@@ -109,9 +115,21 @@ public static class BattleStageCatalog
         if (content == null || content.StageIndex != stageIndex)
             return;
 
-        for (int band = 0; band < content.Bands.Length; band++)
+        if (floorFrom < 1)
+            floorFrom = 1;
+        if (floorTo < floorFrom)
+            floorTo = floorFrom;
+        int step = Constants.BATTLE_STAGE_FLOOR_STEP;
+        if (step < 1)
+            step = 1;
+        int firstBand = (floorFrom - 1) / step;
+        int lastBand = (floorTo - 1) / step;
+        for (int band = firstBand; band <= lastBand; band++)
         {
-            FloorBandSpawn spawn = content.Bands[band];
+            int floor = band * step + 1;
+            if (floor < floorFrom)
+                floor = floorFrom;
+            FloorBandSpawn spawn = content.GetBand(floor);
             if (spawn == null || spawn.Entries == null)
                 continue;
             for (int i = 0; i < spawn.Entries.Count; i++)
@@ -122,6 +140,8 @@ public static class BattleStageCatalog
         {
             BossFloorSpawn boss = content.Bosses[i];
             if (boss == null || boss.CharacterId == 0 || boss.MaxCount < 1)
+                continue;
+            if (boss.Floor < floorFrom || boss.Floor > floorTo)
                 continue;
             if (!ids.Contains(boss.CharacterId))
                 ids.Add(boss.CharacterId);
@@ -323,8 +343,8 @@ public static class BattleStageCatalog
         stage.Bands[29] = Band(E(16, 40, 63, 1, 2), E(17, 40, 33, 1, 2), E(18, 40, 33, 1, 2), E(19, 19, 50, 1, 3), E(20, 20, 50, 1, 1));
 
         //この並びは 階、キャラID、レベル、最少、最多 です。
-        Boss(stage, 50, 19, 15, 1, 2);
-        Boss(stage, 100, 20, 25, 1, 1);
+        Boss(stage, 200, 19, 15, 1, 2);
+        Boss(stage, 300, 20, 25, 1, 1);
         Shards(stage);
         return stage;
     }

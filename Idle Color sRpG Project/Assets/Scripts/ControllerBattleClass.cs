@@ -30,9 +30,17 @@ public class ControllerBattleClass : MonoBehaviour
     float _headerRecordRate;
     Text _resource;
     Text _logText;
+    RectTransform _logClip;
     bool _showFrontStatus;
     RectTransform _frontHost;
     GameObject _frontBody;
+    RectTransform _frontPlate;
+    Vector2 _frontPlatePos;
+    Vector2 _frontPlateSize;
+    bool _frontPlateSaved;
+    // マス下の経験値バーは24pxはみ出す。ログ上端はそこからさらに下。カード上端はその8px下。
+    const float FrontHostHeight = 100f;
+    const float FrontRaise = 14f;
     Text _frontEmpty;
     Text _frontToggleLabel;
     readonly FrontSlot[] _frontSlots = new FrontSlot[3];
@@ -306,7 +314,7 @@ public class ControllerBattleClass : MonoBehaviour
             for (int i = 0; i < drops.Count; i++)
             {
                 _production.AddBattleItem(drops[i], 1);
-                AddLog(ItemIds.DisplayName(drops[i]) + " を入手");
+                AddLog(BattleLogFormat.Drop(ItemIds.DisplayName(drops[i]) + " を入手"));
             }
             if (drops.Count > 0)
                 yield return PlayFloorItemDrops(drops);
@@ -636,7 +644,7 @@ public class ControllerBattleClass : MonoBehaviour
         for (int i = 0; i < got.Count; i++)
         {
             _production.AddBattleItem(got[i], 1);
-            AddLog(ItemIds.DisplayName(got[i]) + " を入手");
+            AddLog(BattleLogFormat.Drop(ItemIds.DisplayName(got[i]) + " を入手"));
             _cueItem = true;
             _cueItemId = got[i];
         }
@@ -1857,8 +1865,9 @@ public class ControllerBattleClass : MonoBehaviour
             _logText.font = _font;
             _logText.fontSize = 24;
             _logText.alignment = TextAnchor.UpperLeft;
+            _logText.supportRichText = true;
             _logText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _logText.verticalOverflow = VerticalWrapMode.Truncate;
+            _logText.verticalOverflow = VerticalWrapMode.Overflow;
             _logText.raycastTarget = false;
             _logText.resizeTextForBestFit = false;
         }
@@ -1881,8 +1890,9 @@ public class ControllerBattleClass : MonoBehaviour
             logRect.pivot = new Vector2(0.5f, 0f);
             logRect.anchoredPosition = new Vector2(0f, 24f);
             logRect.sizeDelta = new Vector2(1040f, 110f);
+            _logText.supportRichText = true;
             _logText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _logText.verticalOverflow = VerticalWrapMode.Truncate;
+            _logText.verticalOverflow = VerticalWrapMode.Overflow;
             _logText.raycastTarget = false;
         }
 
@@ -2296,52 +2306,51 @@ public class ControllerBattleClass : MonoBehaviour
         portrait.preserveAspect = true;
         portrait.raycastTarget = false;
         RectTransform portraitRect = portrait.rectTransform;
-        portraitRect.anchorMin = new Vector2(0f, 0.5f);
-        portraitRect.anchorMax = new Vector2(0f, 0.5f);
-        portraitRect.pivot = new Vector2(0f, 0.5f);
+        portraitRect.anchorMin = new Vector2(0f, 0f);
+        portraitRect.anchorMax = new Vector2(0f, 0f);
+        portraitRect.pivot = new Vector2(0f, 0f);
         portraitRect.anchoredPosition = Vector2.zero;
-        portraitRect.sizeDelta = new Vector2(36f, 36f);
+        portraitRect.sizeDelta = new Vector2(48f, 48f);
         slot.Portrait = portrait;
 
-        Text info = CreateText("Info", root.transform, 16, TextAnchor.MiddleLeft);
-        info.horizontalOverflow = HorizontalWrapMode.Wrap;
-        info.verticalOverflow = VerticalWrapMode.Truncate;
-        info.resizeTextForBestFit = true;
-        info.resizeTextMinSize = 13;
-        info.resizeTextMaxSize = 16;
+        Text info = CreateText("Info", root.transform, 20, TextAnchor.MiddleLeft);
+        info.supportRichText = true;
+        info.horizontalOverflow = HorizontalWrapMode.Overflow;
+        info.verticalOverflow = VerticalWrapMode.Overflow;
+        info.resizeTextForBestFit = false;
         info.raycastTarget = false;
         RectTransform infoRect = info.rectTransform;
         infoRect.anchorMin = new Vector2(0f, 1f);
         infoRect.anchorMax = new Vector2(1f, 1f);
         infoRect.pivot = new Vector2(0f, 1f);
-        infoRect.offsetMin = new Vector2(40f, -26f);
+        infoRect.offsetMin = new Vector2(2f, -30f);
         infoRect.offsetMax = new Vector2(-2f, 0f);
         slot.Info = info;
 
         slot.Hp = CreateGauge("Hp", root.transform, new Color(0.28f, 0.05f, 0.05f, 1f), new Color(0.92f, 0.16f, 0.14f, 1f));
-        PlaceFrontBar(slot.Hp.GetComponent<RectTransform>(), 28f, 11f);
-        slot.HpText = CreateFrontValue(slot.Hp.transform);
+        PlaceFrontBarFromBottom(slot.Hp.GetComponent<RectTransform>(), 18f, 24f);
+        slot.HpText = CreateFrontValue(slot.Hp.transform, 17);
 
         slot.Exp = CreateGauge("Exp", root.transform, new Color(0.05f, 0.22f, 0.08f, 1f), new Color(0.25f, 0.82f, 0.28f, 1f));
-        PlaceFrontBar(slot.Exp.GetComponent<RectTransform>(), 39f, 11f);
-        slot.ExpText = CreateFrontValue(slot.Exp.transform);
+        PlaceFrontBarFromBottom(slot.Exp.GetComponent<RectTransform>(), 0f, 18f);
+        slot.ExpText = CreateFrontValue(slot.Exp.transform, 14);
 
         root.SetActive(false);
         return slot;
     }
 
-    static void PlaceFrontBar(RectTransform rect, float top, float height)
+    static void PlaceFrontBarFromBottom(RectTransform rect, float bottom, float height)
     {
-        rect.anchorMin = new Vector2(0f, 1f);
-        rect.anchorMax = new Vector2(1f, 1f);
-        rect.pivot = new Vector2(0f, 1f);
-        rect.offsetMin = new Vector2(40f, -(top + height));
-        rect.offsetMax = new Vector2(-2f, -top);
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(0f, 0f);
+        rect.offsetMin = new Vector2(54f, bottom);
+        rect.offsetMax = new Vector2(-2f, bottom + height);
     }
 
-    Text CreateFrontValue(Transform bar)
+    Text CreateFrontValue(Transform bar, int size)
     {
-        Text text = CreateText("Value", bar, 11, TextAnchor.MiddleCenter);
+        Text text = CreateText("Value", bar, size, TextAnchor.MiddleCenter);
         text.raycastTarget = false;
         text.horizontalOverflow = HorizontalWrapMode.Overflow;
         text.verticalOverflow = VerticalWrapMode.Overflow;
@@ -2373,6 +2382,7 @@ public class ControllerBattleClass : MonoBehaviour
             _frontToggleLabel.text = _showFrontStatus ? "ログ" : "前列";
         if (_showFrontStatus)
             PaintFrontStatus();
+        ApplyFrontHeight();
     }
 
     void InsetLogForToggle()
@@ -2405,6 +2415,77 @@ public class ControllerBattleClass : MonoBehaviour
         _frontHost.anchoredPosition = source.anchoredPosition;
         _frontHost.sizeDelta = source.sizeDelta;
         _frontHost.SetAsLastSibling();
+        RememberFrontPlate(source);
+        ApplyFrontHeight();
+    }
+
+    void RememberFrontPlate(RectTransform source)
+    {
+        if (_frontPlateSaved || source == null)
+            return;
+        _frontPlate = source;
+        _frontPlatePos = source.anchoredPosition;
+        _frontPlateSize = source.sizeDelta;
+        _frontPlateSaved = true;
+    }
+
+    // ログも前列も、同じ高さと上端にする。
+    void ApplyFrontHeight()
+    {
+        if (!_frontPlateSaved || _frontPlate == null || _frontHost == null)
+            return;
+        float pivotY = _frontPlate.pivot.y;
+        float logTop = _frontPlatePos.y + _frontPlateSize.y * (1f - pivotY);
+        float height = FrontHostHeight;
+        float top = logTop + FrontRaise;
+        if (height > _frontPlateSize.y + FrontRaise)
+            height = _frontPlateSize.y + FrontRaise;
+        float posY = top - height * (1f - pivotY);
+        Vector2 pos = new Vector2(_frontPlatePos.x, posY);
+        Vector2 size = new Vector2(_frontPlateSize.x, height);
+        _frontPlate.anchoredPosition = pos;
+        _frontPlate.sizeDelta = size;
+        _frontHost.anchoredPosition = pos;
+        _frontHost.sizeDelta = size;
+        FitLogTextHeight(top, height);
+    }
+
+    void FitLogTextHeight(float top, float height)
+    {
+        if (_logText == null)
+            return;
+        EnsureLogClip();
+        RectTransform log = _logClip != null ? _logClip : _logText.rectTransform;
+        float pivotY = log.pivot.y;
+        float posY = top - height * (1f - pivotY);
+        log.anchoredPosition = new Vector2(log.anchoredPosition.x, posY);
+        log.sizeDelta = new Vector2(log.sizeDelta.x, height);
+        _logText.verticalOverflow = VerticalWrapMode.Overflow;
+    }
+
+    // 3行目は枠からはみ出ても、見えているところだけ出す。
+    void EnsureLogClip()
+    {
+        if (_logText == null || _logClip != null)
+            return;
+        RectTransform text = _logText.rectTransform;
+        Transform parent = text.parent;
+        GameObject clipObject = new GameObject("LogClip", typeof(RectTransform));
+        RectTransform clip = clipObject.GetComponent<RectTransform>();
+        clip.SetParent(parent, false);
+        clip.anchorMin = text.anchorMin;
+        clip.anchorMax = text.anchorMax;
+        clip.pivot = text.pivot;
+        clip.anchoredPosition = text.anchoredPosition;
+        clip.sizeDelta = text.sizeDelta;
+        clip.SetSiblingIndex(text.GetSiblingIndex());
+        clipObject.AddComponent<RectMask2D>();
+        text.SetParent(clip, false);
+        text.anchorMin = Vector2.zero;
+        text.anchorMax = Vector2.one;
+        text.offsetMin = Vector2.zero;
+        text.offsetMax = Vector2.zero;
+        _logClip = clip;
     }
 
     void PaintFrontStatus()
@@ -2468,6 +2549,11 @@ public class ControllerBattleClass : MonoBehaviour
         return b.Y.CompareTo(a.Y);
     }
 
+    static string FrontEmphasis(string number)
+    {
+        return "<b><size=26>" + number + "</size></b>";
+    }
+
     void PaintFrontSlot(FrontSlot slot, BattleUnit unit)
     {
         Sprite sprite = SpriteOf(unit.CharacterId);
@@ -2491,10 +2577,10 @@ public class ControllerBattleClass : MonoBehaviour
         }
         if (slot.Info != null)
         {
-            slot.Info.text = "Lv" + UiNumber.Format(level)
-                + "    ×1: " + UiNumber.Format(full)
-                + "  ×0.8: " + UiNumber.Format(eight)
-                + "  ×0.5: " + UiNumber.Format(half);
+            slot.Info.text = "Lv" + FrontEmphasis(UiNumber.Format(level))
+                + "    ×1: " + FrontEmphasis(UiNumber.Format(full))
+                + "  ×0.8: " + FrontEmphasis(UiNumber.Format(eight))
+                + "  ×0.5: " + FrontEmphasis(UiNumber.Format(half));
         }
 
         SetGauge(slot.Hp, unit.Hp, unit.HpMax);
@@ -3431,17 +3517,17 @@ public class ControllerBattleClass : MonoBehaviour
             int levels = _view._production.GrantBattleExp(ally, exp, _view._config);
             if (exp > 0)
             {
-                _view.AddLog(ally.Name + " 経験値 +" + UiNumber.Format(exp));
+                _view.AddLog(BattleLogFormat.Name(ally) + " 経験値 +" + UiNumber.Format(exp));
                 _view.QueueExpFloat(ally, exp);
             }
             if (levels > 0)
-                _view.AddLog(ally.Name + " レベル " + levels.ToString() + " 上昇");
+                _view.AddLog(BattleLogFormat.Name(ally) + " レベル " + levels.ToString() + " 上昇");
         }
 
         public void GrantItem(int itemId, int count)
         {
             _view._production.AddBattleItem(itemId, count);
-            _view.AddLog(ItemIds.DisplayName(itemId) + " を入手");
+            _view.AddLog(BattleLogFormat.Drop(ItemIds.DisplayName(itemId) + " を入手"));
             if (count > 0)
             {
                 _view._cueItem = true;
@@ -3469,7 +3555,7 @@ public class ControllerBattleClass : MonoBehaviour
             _view._production.AdmitHospitalSpirit(characterId);
             CharacterClass character = _view._production.GetCharacter(characterId);
             if (character != null)
-                _view.AddLog(character.Name + " を休憩所へ");
+                _view.AddLog(BattleLogFormat.Name(character) + " を回復へ");
         }
 
         public bool IsGuaranteedRecruit()

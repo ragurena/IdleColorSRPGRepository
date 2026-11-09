@@ -548,7 +548,7 @@ public class ControllerCatalogClass : MonoBehaviour
         group.interactable = false;
         group.blocksRaycasts = false;
 
-        _pageButtonLabel = CreatePageButton("ButtonCatalogPage", "人", new Vector2(420f, 610f), TogglePage);
+        _pageButtonLabel = CreatePageButton("ButtonCatalogPage", "作者", new Vector2(420f, 610f), TogglePage);
 
         _count = CreateText("TextCatalogCount", Panel.transform, 40, TextAnchor.MiddleCenter);
         Place(_count.rectTransform, -80f, 610f, 720f, 56f);
@@ -717,7 +717,7 @@ public class ControllerCatalogClass : MonoBehaviour
     {
         _page = page == 1 ? 1 : 0;
         if (_pageButtonLabel != null)
-            _pageButtonLabel.text = _page == 1 ? "キャラ" : "人";
+            _pageButtonLabel.text = _page == 1 ? "キャラ" : "作者";
         Refresh();
     }
 
@@ -738,7 +738,7 @@ public class ControllerCatalogClass : MonoBehaviour
                 _cells.Add(CreatePersonCell(person));
         }
         if (_count != null)
-            _count.text = "人 " + PersonIds.Count.ToString();
+            _count.text = "作者 " + PersonIds.Count.ToString();
         ShowDetail();
     }
 
@@ -802,7 +802,7 @@ public class ControllerCatalogClass : MonoBehaviour
                 _detail.alignment = TextAnchor.MiddleLeft;
                 _detail.fontSize = 28;
                 _detail.lineSpacing = 1f;
-                _detail.text = "人を選んでください";
+                _detail.text = "作者を選んでください";
             }
             return;
         }

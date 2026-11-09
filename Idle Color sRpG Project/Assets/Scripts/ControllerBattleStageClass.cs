@@ -55,7 +55,6 @@ public class ControllerBattleStageClass : MonoBehaviour
     readonly List<uint> StageEnemyIds = new List<uint>();
     readonly Dictionary<uint, Sprite> StageEnemySprites = new Dictionary<uint, Sprite>();
     readonly Dictionary<uint, Sprite> StageEnemySilhouettes = new Dictionary<uint, Sprite>();
-    bool StageEnemyPortraitsReady;
 
 
     Color StageButtonLabelColor = new Color(0.19607843f, 0.19607843f, 0.19607843f, 1f);
@@ -1455,9 +1454,8 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     void EnsureStageEnemyPortraits()
     {
-        if (StageEnemyPortraitsReady)
+        if (ControllerProduction == null)
             return;
-        StageEnemyPortraitsReady = true;
 
         const float pad = 8f;
         const float gap = 4f;
@@ -1471,7 +1469,13 @@ public class ControllerBattleStageClass : MonoBehaviour
             if (stageIndex > Constants.BATTLE_STAGE_NUM)
                 break;
 
-            BattleStageCatalog.CollectEnemyIds(stageIndex, StageEnemyIds);
+            int floorFrom = ControllerProduction.GetBattleFloorWindowStart(stageIndex);
+            int floorTo = ControllerProduction.GetBattleFloorWindowEnd(stageIndex);
+            BattleStageCatalog.CollectEnemyIds(stageIndex, floorFrom, floorTo, StageEnemyIds);
+            if (StagePortraitsMatch(stageIndex, StageEnemyIds))
+                continue;
+
+            RemoveStagePortraits(stageIndex);
             float size = StageCardHeight(button) * 2f / 3f * 0.7f;
             float rowWidth = StageEnemyIds.Count * size + Mathf.Max(0, StageEnemyIds.Count - 1) * gap;
             float x = -(pad + rowWidth);
@@ -1500,6 +1504,32 @@ public class ControllerBattleStageClass : MonoBehaviour
             label.alignment = TextAnchor.MiddleCenter;
             label.rectTransform.offsetMin = new Vector2(0f, label.rectTransform.offsetMin.y);
             label.rectTransform.offsetMax = new Vector2(0f, label.rectTransform.offsetMax.y);
+        }
+    }
+
+    bool StagePortraitsMatch(int stageIndex, List<uint> ids)
+    {
+        int seen = 0;
+        for (int i = 0; i < StageEnemyPortraits.Count; i++)
+        {
+            if (StageEnemyPortraits[i].StageIndex != stageIndex)
+                continue;
+            if (seen >= ids.Count || StageEnemyPortraits[i].CharacterId != ids[seen])
+                return false;
+            seen++;
+        }
+        return seen == ids.Count;
+    }
+
+    void RemoveStagePortraits(int stageIndex)
+    {
+        for (int i = StageEnemyPortraits.Count - 1; i >= 0; i--)
+        {
+            if (StageEnemyPortraits[i].StageIndex != stageIndex)
+                continue;
+            if (StageEnemyPortraits[i].Image != null)
+                Destroy(StageEnemyPortraits[i].Image.gameObject);
+            StageEnemyPortraits.RemoveAt(i);
         }
     }
 

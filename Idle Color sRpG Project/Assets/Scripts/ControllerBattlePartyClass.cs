@@ -83,6 +83,27 @@ public class ControllerBattlePartyClass : MonoBehaviour
         if (TextBattlePartyTotal != null)
             TextBattlePartyTotal.gameObject.SetActive(false);
         EnsureStageButton(panelObject.transform);
+        PlaceClearButton(panelObject.transform);
+    }
+
+    // ステージボタンと同じ高さで、横だけパネルの中央へ置く。
+    void PlaceClearButton(Transform panel)
+    {
+        if (ButtonClearBattleParty == null || panel == null)
+            return;
+        RectTransform rect = ButtonClearBattleParty.GetComponent<RectTransform>();
+        Vector2 size = rect.sizeDelta;
+        if (size.x < 40f)
+            size.x = 160f;
+        if (size.y < 40f)
+            size.y = 160f;
+        rect.SetParent(panel, false);
+        rect.anchorMin = new Vector2(0.5f, 0f);
+        rect.anchorMax = new Vector2(0.5f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = new Vector2(0f, 88f);
+        rect.SetAsLastSibling();
     }
 
     void EnsureStageButton(Transform panel)
@@ -426,9 +447,12 @@ public class ControllerBattlePartyClass : MonoBehaviour
                 text.resizeTextForBestFit = true;
                 text.resizeTextMinSize = 10;
                 text.resizeTextMaxSize = 28;
-                text.text = "人";
+                text.text = "作者";
                 text.raycastTarget = false;
             }
+            Text existingLabel = buttonObject.GetComponentInChildren<Text>();
+            if (existingLabel != null && (existingLabel.text == "人" || existingLabel.text.Length == 0))
+                existingLabel.text = "作者";
             int captured = slot;
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => ControllerProduction.PushButtonSelectCharacter(PERSON_BUTTON_PREFIX + captured.ToString()));
@@ -445,6 +469,8 @@ public class ControllerBattlePartyClass : MonoBehaviour
 
     void PlacePersonSlots()
     {
+        if (ControllerProduction == null || !ControllerProduction.IsMainFeatureOpen(MainFeature.Author))
+            return;
         Button sample = ButtonCells[1, 1];
         if (sample == null || ButtonPeople[1] == null)
             return;
@@ -530,13 +556,30 @@ public class ControllerBattlePartyClass : MonoBehaviour
         return local;
     }
 
+    public void ApplyAuthorLock()
+    {
+        bool open = ControllerProduction != null && ControllerProduction.IsMainFeatureOpen(MainFeature.Author);
+        for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
+        {
+            Button button = ButtonPeople[slot];
+            if (button != null)
+                button.gameObject.SetActive(open);
+        }
+        if (open)
+            PlacePersonSlots();
+    }
+
     int RefreshPeople(bool isActiveSet)
     {
         int count = 0;
+        bool open = ControllerProduction != null && ControllerProduction.IsMainFeatureOpen(MainFeature.Author);
         for (int slot = 1; slot <= Constants.BATTLE_PERSON_SLOT_NUM; slot++)
         {
             Button button = ButtonPeople[slot];
             if (button == null)
+                continue;
+            button.gameObject.SetActive(open);
+            if (!open)
                 continue;
             button.interactable = !isActiveSet;
             uint personId = ControllerProduction.GetBattlePartyPerson(CurrentSetIndex, slot);
@@ -549,7 +592,7 @@ public class ControllerBattlePartyClass : MonoBehaviour
                 Text empty = button.GetComponentInChildren<Text>();
                 if (empty != null)
                 {
-                    empty.text = "人";
+                    empty.text = "作者";
                     empty.color = Color.white;
                 }
                 continue;

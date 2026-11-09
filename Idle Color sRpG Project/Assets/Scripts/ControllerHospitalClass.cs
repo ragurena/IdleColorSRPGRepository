@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 休憩所。ベッドカードと待機列は、合成画面と同じ白枠と文字で組む。
+// 回復。ベッドカードと待機列は、合成画面と同じ白枠と文字で組む。
 public class ControllerHospitalClass : MonoBehaviour
 {
     const float SpiritAlpha = 0.7f;

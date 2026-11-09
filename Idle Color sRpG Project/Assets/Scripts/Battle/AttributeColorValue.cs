@@ -118,3 +118,58 @@ public static class AttributeColorValue
         }
     }
 }
+
+public static class BattleLogFormat
+{
+    public static string Name(BattleUnit unit)
+    {
+        if (unit == null)
+            return "";
+        return Colored(unit.Name, unit.Attribute);
+    }
+
+    public static string Name(CharacterClass character)
+    {
+        if (character == null)
+            return "";
+        return Colored(character.Name, BattleCharacterFactory.ToAttribute(character.CharacterType));
+    }
+
+    // 味方は左、敵は右。矢印は攻撃した側から受ける側へ向ける。
+    public static string Attack(BattleUnit actor, BattleUnit target, string tail)
+    {
+        if (actor == null)
+            return tail ?? "";
+        if (target == null)
+            return Name(actor) + (tail ?? "");
+        BattleUnit ally = actor.IsAlly ? actor : target;
+        BattleUnit enemy = actor.IsAlly ? target : actor;
+        string arrow = actor.IsAlly ? " → " : " ← ";
+        return Name(ally) + arrow + Name(enemy) + (tail ?? "");
+    }
+
+    public static string Drop(string text)
+    {
+        return "<color=#5CFF78>" + text + "</color>";
+    }
+
+    static string Colored(string name, CharacterAttribute attribute)
+    {
+        if (string.IsNullOrEmpty(name))
+            name = AttributeColorValue.DisplayName(attribute);
+        return "<color=" + AttributeColor(attribute) + ">" + name + "</color>";
+    }
+
+    static string AttributeColor(CharacterAttribute attribute)
+    {
+        switch (attribute)
+        {
+            case CharacterAttribute.Fire: return "#FF4A3A";
+            case CharacterAttribute.Grass: return "#3DDC5A";
+            case CharacterAttribute.Water: return "#4C8CFF";
+            case CharacterAttribute.Light: return "#FFE14A";
+            case CharacterAttribute.Dark: return "#C06BFF";
+            default: return "#E0E0E6";
+        }
+    }
+}

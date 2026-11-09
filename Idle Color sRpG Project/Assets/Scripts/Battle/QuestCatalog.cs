@@ -53,6 +53,9 @@ public static class MainFeature
     public const int Battle = 4;
     public const int BattleSpeed = 5;
     public const int FloorRepeat = 6;
+    public const int Recovery = 7;
+    public const int Author = 8;
+    public const int Import = 9;
 }
 
 public sealed class QuestDef
@@ -193,199 +196,225 @@ public static class QuestCatalog
 {
     public static readonly QuestDef[] All =
     {
-        // メインクエスト
-        MainQuest(1, "スライムをRGB生産に配置し、R・G・Bをそれぞれ10,000以上所持する", QuestMetric.RgbHeld, 0, 10000, QuestRewardKind.UnlockFeature, MainFeature.PixelScreen),
-        MainQuest(2, "黒(0,0,0)を1,000個以上調色する", QuestMetric.BlackPixels, 0, 1000, QuestRewardKind.UnlockFeature, MainFeature.PixelTargets),
-        MainQuest(3, "赤・緑・青を各30個以上調色する", QuestMetric.PrimaryPixels, 0, 30, QuestRewardKind.UnlockFeature, MainFeature.CharacterScreen),
-        MainQuest(4, "R・G・Bミニスライムをそれぞれ1体以上作成する", QuestMetric.MiniSlimes, 0, 2, QuestRewardKind.UnlockFeature, MainFeature.Battle),
-        MainQuest(5, "「チュートリアル」ステージの3階をクリアする", QuestMetric.StageFloor, 1, 3, QuestRewardKind.UnlockFeature, MainFeature.BattleSpeed),
-        MainQuest(6, "黒猫を仲間にしながら、チュートリアルを10階クリアする", QuestMetric.StageFloor, 1, 10, QuestRewardKind.UnlockFeature, MainFeature.FloorRepeat),
-        MainQuest(7, "キャラを10体以上生成する", QuestMetric.CharacterCompletions, 0, 10, QuestRewardKind.GrantPalette, 50),
+        // メインクエスト。IDは5刻み。間の番号は、あとから挟むために空けてある。
+        // 広告報酬はなし。
+        // ピクセル生成の開放
+        MainQuest(5, "スライムをRGB生産に配置し、R・G・Bをそれぞれ10,000以上所持する", QuestMetric.RgbHeld, 0, 10000, QuestRewardKind.UnlockFeature, MainFeature.PixelScreen),
+        // ピクセル生成の対象枠の開放 
+        MainQuest(10, "黒(0,0,0)を1,000個以上調色する", QuestMetric.BlackPixels, 0, 1000, QuestRewardKind.UnlockFeature, MainFeature.PixelTargets), 
+        // キャラ生成の開放
+        MainQuest(15, "赤・緑・青を各30個以上調色する", QuestMetric.PrimaryPixels, 0, 30, QuestRewardKind.UnlockFeature, MainFeature.CharacterScreen),
+        // バトルの開放
+        MainQuest(20, "R・G・Bミニスライムをそれぞれ1体以上作成する", QuestMetric.MiniSlimes, 0, 2, QuestRewardKind.UnlockFeature, MainFeature.Battle),
+        // バトル倍速の開放
+        MainQuest(25, "「チュートリアル」ステージの3階をクリアする", QuestMetric.StageFloor, 1, 3, QuestRewardKind.UnlockFeature, MainFeature.BattleSpeed),
+        // 階層繰り返しの開放
+        MainQuest(30, "黒猫を仲間にしながら、チュートリアルを10階クリアする", QuestMetric.StageFloor, 1, 10, QuestRewardKind.UnlockFeature, MainFeature.FloorRepeat),
+        // 作者の開放
+        MainQuest(35, "キャラを10体以上生成する", QuestMetric.CharacterCompletions, 0, 10, QuestRewardKind.UnlockFeature, MainFeature.Author),
+        // 合成機能開放
+        MainQuest(40, "敵を100体倒す", QuestMetric.EnemyDefeats, 0, 100, QuestRewardKind.FusionUnlock, 0),
+        // スライムの森とチグサとバトル１の開放、ピクセル生成枠+1、キャラ生成枠+1
+        MainQuest(45, "「チュートリアル」ステージの100階をクリアする", QuestMetric.StageFloor, 1, 100, QuestRewardKind.BothSlots, 1),
+        // キャラ読み込みの開放
+        MainQuest(55, "「チュートリアル」ステージの200階をクリアする", QuestMetric.StageFloor, 1, 200, QuestRewardKind.UnlockFeature, MainFeature.Import),
+        // 回復の開放
+        MainQuest(65, "「チュートリアル」ステージの300階をクリアする", QuestMetric.StageFloor, 1, 300, QuestRewardKind.UnlockFeature, MainFeature.Recovery),
 
-        // ステージクリア
-        Stage(100, 1, 100),
-        Stage(200, 2, 100, 0, 10),
-        Stage(300, 3, 100, 60, 10),
-        Stage(400, 4, 100, 70, 10),
-        Stage(500, 5, 100),
+        // ステージクリア。
+        // ピクセル生成枠+1、キャラ生成枠+1。広告でピクセル生成+0.5、キャラ生成+0.3。
+        // 追加の引数はレベル上限、合成上限+。スライムの森は次のステージ開放を出さない。
+        Stage(5200, 2, 100, 0, 10), // 合成上限+10回
+        Stage(5300, 3, 100, 60, 10), // レベル上限60、合成上限+10回、モアとバトル１の開放
+        Stage(5400, 4, 100, 70, 10), // レベル上限70、合成上限+10回、次のステージの開放
+        Stage(5500, 5, 100),
 
-        // ギャラリークリア
-        Gallery( 219, 100),
-        Gallery( 429, 200),
-        Gallery( 639, 300),
-        Gallery( 849, 400),
-        Gallery(1059, 500),
+        // ギャラリークリア。
+        // ピクセル生成枠+1、キャラ生成枠+1。広告でピクセル生成+0.5、キャラ生成+0.3。
+        Gallery( 5219, 100),
+        Gallery( 5429, 200),
+        Gallery( 5639, 300),
+        Gallery( 5849, 400),
+        Gallery(6059, 500),
 
-        // RGB生産
-        Rgb( 10, 0, "R",   250000),
-        Rgb( 20, 0, "R",   500000),
-        Rgb( 30, 0, "R",   750000),
-        Rgb( 40, 0, "R",  1000000),
-        Rgb( 50, 0, "R",  2500000),
-        Rgb( 60, 0, "R",  5000000),
-        Rgb( 70, 0, "R",  7500000),
-        Rgb( 80, 0, "R", 10000000),
-        Rgb( 90, 0, "R", 25000000),
-        Rgb(100, 0, "R", 50000000),
+        // RGB生産。広告でピクセル生成+0.5。
+        // Rはキャラ読込上限+0.5。
+        Rgb( 5010, 0, "R",   250000),
+        Rgb( 5020, 0, "R",   500000),
+        Rgb( 5030, 0, "R",   750000),
+        Rgb( 5040, 0, "R",  1000000),
+        Rgb( 5050, 0, "R",  2500000),
+        Rgb( 5060, 0, "R",  5000000),
+        Rgb( 5070, 0, "R",  7500000),
+        Rgb( 5080, 0, "R", 10000000),
+        Rgb( 5090, 0, "R", 25000000),
+        Rgb(5100, 0, "R", 50000000),
 
-        Rgb( 11, 1, "G",   250000, QuestRewardKind.GrantPalette,  50),
-        Rgb( 21, 1, "G",   500000, QuestRewardKind.GrantPalette, 100),
-        Rgb( 31, 1, "G",   750000, QuestRewardKind.GrantPalette, 150),
-        Rgb( 41, 1, "G",  1000000, QuestRewardKind.GrantPalette, 200),
-        Rgb( 51, 1, "G",  2500000, QuestRewardKind.GrantPalette, 250),
-        Rgb( 61, 1, "G",  5000000, QuestRewardKind.GrantPalette, 300),
-        Rgb( 71, 1, "G",  7500000, QuestRewardKind.GrantPalette, 350),
-        Rgb( 81, 1, "G", 10000000, QuestRewardKind.GrantPalette, 400),
-        Rgb( 91, 1, "G", 25000000, QuestRewardKind.GrantPalette, 450),
-        Rgb(101, 1, "G", 50000000, QuestRewardKind.GrantPalette, 500),
+        // Gは生産できるピクセルをすべて、行の最後の数だけ。
+        Rgb( 5011, 1, "G",   250000, QuestRewardKind.GrantPalette,  50),
+        Rgb( 5021, 1, "G",   500000, QuestRewardKind.GrantPalette, 100),
+        Rgb( 5031, 1, "G",   750000, QuestRewardKind.GrantPalette, 150),
+        Rgb( 5041, 1, "G",  1000000, QuestRewardKind.GrantPalette, 200),
+        Rgb( 5051, 1, "G",  2500000, QuestRewardKind.GrantPalette, 250),
+        Rgb( 5061, 1, "G",  5000000, QuestRewardKind.GrantPalette, 300),
+        Rgb( 5071, 1, "G",  7500000, QuestRewardKind.GrantPalette, 350),
+        Rgb( 5081, 1, "G", 10000000, QuestRewardKind.GrantPalette, 400),
+        Rgb( 5091, 1, "G", 25000000, QuestRewardKind.GrantPalette, 450),
+        Rgb(5101, 1, "G", 50000000, QuestRewardKind.GrantPalette, 500),
 
-        Rgb( 12, 2, "B",   250000, QuestRewardKind.RgbAll,   5000),
-        Rgb( 22, 2, "B",   500000, QuestRewardKind.RgbAll,  10000),
-        Rgb( 32, 2, "B",   750000, QuestRewardKind.RgbAll,  20000),
-        Rgb( 42, 2, "B",  1000000, QuestRewardKind.RgbAll,  30000),
-        Rgb( 52, 2, "B",  2500000, QuestRewardKind.RgbAll,  40000),
-        Rgb( 62, 2, "B",  5000000, QuestRewardKind.RgbAll,  50000),
-        Rgb( 72, 2, "B",  7500000, QuestRewardKind.RgbAll,  60000),
-        Rgb( 82, 2, "B", 10000000, QuestRewardKind.RgbAll,  70000),
-        Rgb( 92, 2, "B", 25000000, QuestRewardKind.RgbAll,  80000),
-        Rgb(102, 2, "B", 50000000, QuestRewardKind.RgbAll,  90000),
+        // BはR・G・Bをすべて、行の最後の数だけ。
+        Rgb( 5012, 2, "B",   250000, QuestRewardKind.RgbAll,   5000),
+        Rgb( 5022, 2, "B",   500000, QuestRewardKind.RgbAll,  10000),
+        Rgb( 5032, 2, "B",   750000, QuestRewardKind.RgbAll,  20000),
+        Rgb( 5042, 2, "B",  1000000, QuestRewardKind.RgbAll,  30000),
+        Rgb( 5052, 2, "B",  2500000, QuestRewardKind.RgbAll,  40000),
+        Rgb( 5062, 2, "B",  5000000, QuestRewardKind.RgbAll,  50000),
+        Rgb( 5072, 2, "B",  7500000, QuestRewardKind.RgbAll,  60000),
+        Rgb( 5082, 2, "B", 10000000, QuestRewardKind.RgbAll,  70000),
+        Rgb( 5092, 2, "B", 25000000, QuestRewardKind.RgbAll,  80000),
+        Rgb(5102, 2, "B", 50000000, QuestRewardKind.RgbAll,  90000),
 
-        // ピクセル生成
-        Pixel( 13,   250,    1000),
-        Pixel( 23,   500,    2000),
-        Pixel( 33,   750,    3000),
-        Pixel( 43,  1000,    4000),
-        Pixel( 53,  1500,    5000),
-        Pixel( 63,  2000,    6000),
-        Pixel( 73,  2500,    7000),
-        Pixel( 83,  3000,    8000),
-        Pixel( 93,  3500,    9000),
-        Pixel(103,  4000,   10000),
-        Pixel(113,  4500,   10000),
-        Pixel(123,  4500,   10000),
-        Pixel(133,  5000,   10000),
-        Pixel(143,  6000,   10000),
-        Pixel(153,  7000,   10000),
-        Pixel(163,  8000,   10000),
-        Pixel(173,  9000,   10000),
-        Pixel(183, 10000,   10000),
-        Pixel(193, 12000,   10000),
-        Pixel(203, 14000,   10000),
-        Pixel(213, 16000,   10000),
-        Pixel(223, 18000,   10000),
-        Pixel(233, 20000,   10000),
+        // ピクセル生成。R・G・Bをすべて、行の最後の数だけ。広告でピクセル生成+0.5。
+        Pixel( 5013,   250,    1000),
+        Pixel( 5023,   500,    2000),
+        Pixel( 5033,   750,    3000),
+        Pixel( 5043,  1000,    4000),
+        Pixel( 5053,  1500,    5000),
+        Pixel( 5063,  2000,    6000),
+        Pixel( 5073,  2500,    7000),
+        Pixel( 5083,  3000,    8000),
+        Pixel( 5093,  3500,    9000),
+        Pixel(5103,  4000,   10000),
+        Pixel(5113,  4500,   10000),
+        Pixel(5123,  4500,   10000),
+        Pixel(5133,  5000,   10000),
+        Pixel(5143,  6000,   10000),
+        Pixel(5153,  7000,   10000),
+        Pixel(5163,  8000,   10000),
+        Pixel(5173,  9000,   10000),
+        Pixel(5183, 10000,   10000),
+        Pixel(5193, 12000,   10000),
+        Pixel(5203, 14000,   10000),
+        Pixel(5213, 16000,   10000),
+        Pixel(5223, 18000,   10000),
+        Pixel(5233, 20000,   10000),
 
-        // キャラ生成
-        Character(  14,  100, 1),
-        Character(  34,  250),
-        Character(  54,  500),
-        Character(  74,  750),
-        Character(  94, 1000, 1),
-        Character( 114, 1250),
-        Character( 134, 1500),
-        Character( 154, 1750),
-        Character( 174, 2000),
-        Character( 194, 2250),
-        Character( 214, 2500),
-        Character( 234, 2750),
-        Character( 254, 3000),
-        Character( 274, 3500),
-        Character( 294, 4000),
-        Character( 314, 4500),
-        Character( 334, 5000, 1),
-        Character( 354, 6000),
-        Character( 374, 7000),
-        Character( 394, 8000),
-        Character( 414, 9000),
-        Character( 434, 10000, 1),
-        Character( 454, 100000, 1),
+        // キャラ生成。キャラ読込上限+0.5。第3引数がある行は縁結びのお守りをその数。広告でキャラ生成+0.3。
+        Character(  5054,  100, 1),
+        Character(  5074,  250),
+        Character(  5094,  500),
+        Character( 5114,  750),
+        Character( 5134, 1000, 1),
+        Character( 5154, 1250),
+        Character( 5174, 1500),
+        Character( 5194, 1750),
+        Character( 5214, 2000),
+        Character( 5234, 2250),
+        Character( 5254, 2500),
+        Character( 5274, 2750),
+        Character( 5294, 3000),
+        Character( 5314, 3500),
+        Character( 5334, 4000),
+        Character( 5354, 4500),
+        Character( 5374, 5000, 1),
+        Character( 5394, 6000),
+        Character( 5414, 7000),
+        Character( 5434, 8000),
+        Character( 5454, 9000),
+        Character( 5474, 10000, 1),
+        Character( 5494, 100000, 1),
 
-        // 敵を倒す
-        Enemy( 15,   100, QuestRewardKind.FusionUnlock, 0),
-        Enemy( 25,   250, QuestRewardKind.FusionEfficiency, 1),
-        Enemy( 35,   500, QuestRewardKind.FusionEfficiency, 1),
-        Enemy( 45,   750, QuestRewardKind.FusionEfficiency, 1),
-        Enemy( 55,  1000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy( 65,  1500, QuestRewardKind.FusionEfficiency, 1),
-        Enemy( 75,  2000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy( 85,  3000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy( 95,  4000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(105,  5000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(115,  7500, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(125, 10000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(135, 12500, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(145, 15000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(155, 17500, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(165, 20000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(175, 25000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(185, 30000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(195, 35000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(205, 40000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(215, 45000, QuestRewardKind.FusionEfficiency, 1),
-        Enemy(225, 50000, QuestRewardKind.FusionEfficiency, 1),
+        // 敵を倒す。
+        // 100体はメインクエスト。
+        // 合成効率+1%。広告でキャラ生成+0.3。
+        Enemy( 5025,   250, QuestRewardKind.FusionEfficiency, 1),
+        Enemy( 5035,   500, QuestRewardKind.FusionEfficiency, 1),
+        Enemy( 5045,   750, QuestRewardKind.FusionEfficiency, 1),
+        Enemy( 5055,  1000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy( 5065,  1500, QuestRewardKind.FusionEfficiency, 1),
+        Enemy( 5075,  2000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy( 5085,  3000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy( 5095,  4000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5105,  5000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5115,  7500, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5125, 10000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5135, 12500, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5145, 15000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5155, 17500, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5165, 20000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5175, 25000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5185, 30000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5195, 35000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5205, 40000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5215, 45000, QuestRewardKind.FusionEfficiency, 1),
+        Enemy(5225, 50000, QuestRewardKind.FusionEfficiency, 1),
 
-        // 合成。枠は増やさず、生産できるピクセルを渡す。
-        Fusion(  16,  10,  50),
-        Fusion(  56,  25, 100),
-        Fusion(  86,  50, 150),
-        Fusion( 116,  75, 200),
-        Fusion( 146, 100, 250),
-        Fusion( 176, 150, 300),
-        Fusion( 206, 200, 350),
-        Fusion( 236, 250, 400),
-        Fusion( 266, 300, 450),
-        Fusion( 296, 350, 500),
-        Fusion( 326, 400, 550),
-        Fusion( 356, 450, 600),
-        Fusion( 386, 500, 650),
+        // 合成。
+        // ボタンタップ生成+10%、生産できるピクセルをすべて行の最後の数だけ。
+        // 枠は増やさない。広告でキャラ生成+0.3。
+        Fusion(  5016,  10,  50),
+        Fusion(  5056,  25, 100),
+        Fusion(  5086,  50, 150),
+        Fusion( 5116,  75, 200),
+        Fusion( 5146, 100, 250),
+        Fusion( 5176, 150, 300),
+        Fusion( 5206, 200, 350),
+        Fusion( 5236, 250, 400),
+        Fusion( 5266, 300, 450),
+        Fusion( 5296, 350, 500),
+        Fusion( 5326, 400, 550),
+        Fusion( 5356, 450, 600),
+        Fusion( 5386, 500, 650),
         // 500回の次は100回ごと。1000回の次は250回ごと。ピクセルは1件ずつ50増やす。
-        // 番号は30刻み。1016と1046は読込クエストなので、5000回は1076。
-        Fusion( 416,  600,  700),
-        Fusion( 446,  700,  750),
-        Fusion( 476,  800,  800),
-        Fusion( 506,  900,  850),
-        Fusion( 536, 1000,  900),
-        Fusion( 566, 1250,  950),
-        Fusion( 596, 1500, 1000),
-        Fusion( 626, 1750, 1050),
-        Fusion( 656, 2000, 1100),
-        Fusion( 686, 2250, 1150),
-        Fusion( 716, 2500, 1200),
-        Fusion( 746, 2750, 1250),
-        Fusion( 776, 3000, 1300),
-        Fusion( 806, 3250, 1350),
-        Fusion( 836, 3500, 1400),
-        Fusion( 866, 3750, 1450),
-        Fusion( 896, 4000, 1500),
-        Fusion( 926, 4250, 1550),
-        Fusion( 956, 4500, 1600),
-        Fusion( 986, 4750, 1650),
-        Fusion(1076, 5000, 1700),
+        // 番号は30刻み。5000回は6076。読込は10016と10046で、ここには重ならない。
+        Fusion( 5416,  600,  700),
+        Fusion( 5446,  700,  750),
+        Fusion( 5476,  800,  800),
+        Fusion( 5506,  900,  850),
+        Fusion( 5536, 1000,  900),
+        Fusion( 5566, 1250,  950),
+        Fusion( 5596, 1500, 1000),
+        Fusion( 5626, 1750, 1050),
+        Fusion( 5656, 2000, 1100),
+        Fusion( 5686, 2250, 1150),
+        Fusion( 5716, 2500, 1200),
+        Fusion( 5746, 2750, 1250),
+        Fusion( 5776, 3000, 1300),
+        Fusion( 5806, 3250, 1350),
+        Fusion( 5836, 3500, 1400),
+        Fusion( 5866, 3750, 1450),
+        Fusion( 5896, 4000, 1500),
+        Fusion( 5926, 4250, 1550),
+        Fusion( 5956, 4500, 1600),
+        Fusion( 5986, 4750, 1650),
+        Fusion(6076, 5000, 1700),
 
-        // ステージのキャラを仲間にする
-        Companion( 37,  6),
-        Companion(157,  8),
-        Companion(257, 10),
-        Companion(357, 15),
-        Companion(457, 20),
-        Companion(557, 25),
+        // ステージのキャラを仲間にする。
+        // ピクセル生成枠+1かキャラ生成枠+1を選ぶ。広告でピクセル生成+0.5、キャラ生成+0.3。
+        Companion( 5037,  6),
+        Companion(5157,  8),
+        Companion(5257, 10),
+        Companion(5357, 15),
+        Companion(5457, 20),
+        Companion(5557, 25),
 
-        // キャラを読込
-        Import(1016,   8, 1),
-        Import(1026,   8, 3),
-        Import(1036,   8, 9),
-        Import(1046,  16, 1),
-        Import(1056,  16, 3),
-        Import(1066,  16, 9),
-        Import(1116,  32, 1),
-        Import(1126,  32, 3),
-        Import(1136,  32, 9),
-        Import(1216,  64, 1),
-        Import(1226,  64, 3),
-        Import(1236,  64, 9),
-        Import(1316, 128, 1),
-        Import(1326, 128, 3),
-        Import(1336, 128, 9),
+        // キャラを読込。
+        // 合成効率+1%、ピクセル生成枠+1。広告でピクセル生成+0.5、キャラ生成+0.3。
+        Import(10016,   8, 1),
+        Import(10026,   8, 3),
+        Import(10036,   8, 9),
+        Import(10046,  16, 1),
+        Import(10056,  16, 3),
+        Import(10066,  16, 9),
+        Import(10116,  32, 1),
+        Import(10126,  32, 3),
+        Import(10136,  32, 9),
+        Import(10216,  64, 1),
+        Import(10226,  64, 3),
+        Import(10236,  64, 9),
+        Import(10316, 128, 1),
+        Import(10326, 128, 3),
+        Import(10336, 128, 9),
     };
 
     public static QuestDef Find(int id)
@@ -595,10 +624,16 @@ public static class QuestCatalog
 
     static string StageUnlockText(QuestDef def)
     {
-        if (def == null || def.Main || def.Metric != QuestMetric.StageFloor)
+        if (def == null || def.Metric != QuestMetric.StageFloor)
             return "";
         if (def.Arg == 1)
+        {
+            if (def.Target != Constants.BATTLE_STAGE_FLOOR_MAX)
+                return "";
             return "次のステージ「" + ControllerBattleStageClass.GetStageName(2) + "」「" + ControllerBattleStageClass.GetStageName(3) + "」の開放";
+        }
+        if (def.Main)
+            return "";
         // チグサとバトル１はチュートリアルクリアで開く。スライムの森では重ねて出さない。
         if (def.Arg == 2)
             return "";
@@ -631,7 +666,7 @@ public static class QuestCatalog
     static QuestDef Character(int id, long count, int charmCount = 0)
     {
         int itemId = charmCount > 0 ? ItemIds.EnmusubiOmamori : 0;
-        return new QuestDef(id, "キャラを" + UiNumber.Format(count) + "体生成", QuestMetric.CharacterCompletions, 0, count, QuestRewardKind.CharacterBundle, 1, true, false, 0, 0, itemId, charmCount);
+        return new QuestDef(id, "キャラを" + UiNumber.Format(count) + "体生成", QuestMetric.CharacterCompletions, 0, count, QuestRewardKind.ImportCap, 1, true, false, 0, 0, itemId, charmCount);
     }
 
     static QuestDef Enemy(int id, long count, QuestRewardKind reward, long amount)
@@ -678,6 +713,12 @@ public static class QuestCatalog
             return "バトル倍速の開放";
         if (feature == MainFeature.FloorRepeat)
             return "階層繰り返しの開放";
+        if (feature == MainFeature.Recovery)
+            return "回復の開放";
+        if (feature == MainFeature.Author)
+            return "作者の開放";
+        if (feature == MainFeature.Import)
+            return "キャラ読み込みの開放";
         return "";
     }
 }

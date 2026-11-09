@@ -8,6 +8,17 @@ public class ControllerFusionClass : MonoBehaviour
     ControllerProduction _production;
     Font _font;
     Text _detail;
+    RectTransform _detailRows;
+    Text _lineCount;
+    Text _lineCost;
+    Text _lineRate;
+    Text _lineNote;
+    readonly Text[] _stockLabel = new Text[4];
+    readonly Text[] _stockNow = new Text[4];
+    readonly Text[] _stockArrow = new Text[4];
+    readonly Text[] _stockNext = new Text[4];
+    float _detailTextW;
+    const float DetailRowH = 30f;
     Image _detailImage;
     Text _detailName;
     Button _fuseButton;
@@ -263,7 +274,12 @@ public class ControllerFusionClass : MonoBehaviour
             if (_detailName != null)
                 _detailName.text = "";
             if (_detail != null)
+            {
+                _detail.gameObject.SetActive(true);
                 _detail.text = "キャラを選んでください";
+            }
+            if (_detailRows != null)
+                _detailRows.gameObject.SetActive(false);
             return;
         }
         if (_detailImage != null)
@@ -289,15 +305,100 @@ public class ControllerFusionClass : MonoBehaviour
         string countLine = UiNumber.LevelText(UiNumber.Format(count) + "/" + UiNumber.Format(cap) + "回", count, cap);
         long nowPercent = FusionBonus.Percent(count);
         long nextPercent = FusionBonus.Percent(atCap ? count : count + 1);
-        _detail.supportRichText = true;
-        _detail.text = countLine + "\n"
-            + "次は " + cost.ToString() + "体で合成\n"
-            + "+" + nowPercent.ToString() + "% → +" + nextPercent.ToString() + "%\n"
-            + "所持 " + lives.ToString() + " → " + nextLives.ToString();
+        _detail.gameObject.SetActive(false);
+        if (_detailRows != null)
+            _detailRows.gameObject.SetActive(true);
+        character.EnsureStock();
+        OwnedStock after = character.Stock;
+        int spend = cost > int.MaxValue ? int.MaxValue : (int)cost;
+        if (spend < 0)
+            spend = 0;
+        after.Consume(spend, true);
+        if (_lineCount != null)
+        {
+            _lineCount.supportRichText = true;
+            _lineCount.text = countLine;
+        }
+        if (_lineCost != null)
+            _lineCost.text = "次は " + cost.ToString() + "体で合成";
+        if (_lineRate != null)
+            _lineRate.text = "+" + nowPercent.ToString() + "% → +" + nextPercent.ToString() + "%";
+        long[] nowCounts = { lives, character.Stock.Full, character.Stock.Eight, character.Stock.Half };
+        long[] nextCounts = { nextLives, after.Full, after.Eight, after.Half };
+        for (int i = 0; i < 4; i++)
+        {
+            if (_stockNow[i] != null)
+                _stockNow[i].text = nowCounts[i].ToString();
+            if (_stockNext[i] != null)
+                _stockNext[i].text = nextCounts[i].ToString();
+        }
+        string note = "";
         if (atCap)
-            _detail.text += "\n合成上限です";
+            note = "合成上限です";
         else if (!canFuse)
-            _detail.text += "\n所持が足りないため合成できません";
+            note = "所持が足りないため合成できません";
+        if (_lineNote != null)
+        {
+            _lineNote.text = note;
+            _lineNote.gameObject.SetActive(note.Length > 0);
+        }
+        LayoutDetail(note);
+    }
+
+    // 所持と倍率3行は、矢印と数字の列を揃える。空行は所持の直後。
+    void LayoutDetail(string note)
+    {
+        if (_detailRows == null)
+            return;
+        float noteH = 0f;
+        if (!string.IsNullOrEmpty(note))
+            noteH = note.Length > 8 ? DetailRowH * 2f : DetailRowH;
+        float block = DetailRowH * 8f + noteH;
+        float y = block * 0.5f - DetailRowH * 0.5f;
+        PlaceDetailLine(_lineCount, y, 0f, _detailTextW);
+        y -= DetailRowH;
+        PlaceDetailLine(_lineCost, y, 0f, _detailTextW);
+        y -= DetailRowH;
+        PlaceDetailLine(_lineRate, y, 0f, _detailTextW);
+        y -= DetailRowH;
+        PlaceStockRow(0, y);
+        y -= DetailRowH;
+        y -= DetailRowH;
+        PlaceStockRow(1, y);
+        y -= DetailRowH;
+        PlaceStockRow(2, y);
+        y -= DetailRowH;
+        PlaceStockRow(3, y);
+        if (_lineNote != null && noteH > 0f)
+        {
+            float noteY = y - DetailRowH * 0.5f - noteH * 0.5f;
+            PlaceDetailLine(_lineNote, noteY, 0f, _detailTextW);
+            _lineNote.rectTransform.sizeDelta = new Vector2(_detailTextW, noteH);
+        }
+    }
+
+    void PlaceStockRow(int index, float y)
+    {
+        float left = -_detailTextW * 0.5f;
+        const float labelW = 80f;
+        const float numW = 44f;
+        const float arrowW = 20f;
+        const float gap = 4f;
+        float x = left;
+        PlaceDetailLine(_stockLabel[index], y, x + labelW * 0.5f, labelW);
+        x += labelW + gap;
+        PlaceDetailLine(_stockNow[index], y, x + numW * 0.5f, numW);
+        x += numW + gap;
+        PlaceDetailLine(_stockArrow[index], y, x + arrowW * 0.5f, arrowW);
+        x += arrowW + gap;
+        PlaceDetailLine(_stockNext[index], y, x + numW * 0.5f, numW);
+    }
+
+    void PlaceDetailLine(Text text, float y, float x, float width)
+    {
+        if (text == null)
+            return;
+        Place(text.rectTransform, x, y, width, DetailRowH);
     }
 
     static long ToLong(ulong value)
@@ -382,10 +483,36 @@ public class ControllerFusionClass : MonoBehaviour
         _detailName.horizontalOverflow = HorizontalWrapMode.Wrap;
         _detailName.verticalOverflow = VerticalWrapMode.Truncate;
 
+        // 肖像の上下にはみ出す量を同じにして、行は枠の中央に置く。
+        _detailTextW = textW;
         _detail = CreateText("TextFusionDetail", detailRoot.transform, 24, TextAnchor.MiddleLeft);
-        Place(_detail.rectTransform, textX, 0f, textW, 270f);
+        Place(_detail.rectTransform, textX, 36f, textW, 240f);
         _detail.horizontalOverflow = HorizontalWrapMode.Wrap;
-        _detail.verticalOverflow = VerticalWrapMode.Truncate;
+        _detail.verticalOverflow = VerticalWrapMode.Overflow;
+        _detail.lineSpacing = 0.9f;
+
+        GameObject rows = new GameObject("FusionDetailLines", typeof(RectTransform));
+        rows.transform.SetParent(detailRoot.transform, false);
+        _detailRows = rows.GetComponent<RectTransform>();
+        Place(_detailRows, textX, 36f, textW, 240f);
+        _detailRows.gameObject.SetActive(false);
+        _lineCount = CreateDetailLine("Count", TextAnchor.MiddleLeft, true);
+        _lineCost = CreateDetailLine("Cost", TextAnchor.MiddleLeft, true);
+        _lineRate = CreateDetailLine("Rate", TextAnchor.MiddleLeft, true);
+        string[] stockLabels = { "所持", "×1:", "×0.8:", "×0.5:" };
+        for (int i = 0; i < 4; i++)
+        {
+            _stockLabel[i] = CreateDetailLine("StockLabel" + i.ToString(), TextAnchor.MiddleLeft, false);
+            _stockLabel[i].text = stockLabels[i];
+            _stockNow[i] = CreateDetailLine("StockNow" + i.ToString(), TextAnchor.MiddleRight, false);
+            _stockArrow[i] = CreateDetailLine("StockArrow" + i.ToString(), TextAnchor.MiddleCenter, false);
+            _stockArrow[i].text = "→";
+            _stockNext[i] = CreateDetailLine("StockNext" + i.ToString(), TextAnchor.MiddleRight, false);
+        }
+        _lineNote = CreateDetailLine("Note", TextAnchor.UpperLeft, true);
+        _lineNote.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _lineNote.verticalOverflow = VerticalWrapMode.Overflow;
+        _lineNote.gameObject.SetActive(false);
         _stats = CharacterStatGraph.Create(
             detailRoot.transform,
             "FusionStatGraph",
@@ -484,6 +611,14 @@ public class ControllerFusionClass : MonoBehaviour
         text.alignment = alignment;
         text.color = Color.white;
         text.raycastTarget = false;
+        return text;
+    }
+
+    Text CreateDetailLine(string name, TextAnchor alignment, bool wrap)
+    {
+        Text text = CreateText(name, _detailRows, 24, alignment);
+        text.horizontalOverflow = wrap ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
         return text;
     }
 

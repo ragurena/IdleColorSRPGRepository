@@ -132,7 +132,7 @@ public sealed class BattleFloorFight
         if (target == null)
         {
             ResolveIfSideMissing();
-            result.Log = actor.Name + " は対象がいない";
+            result.Log = BattleLogFormat.Name(actor) + " は対象がいない";
             result.Outcome = Outcome;
             return result;
         }
@@ -167,11 +167,11 @@ public sealed class BattleFloorFight
         else if (typeWeakness)
             weaknessMark = " タイプ";
         if (knockout == KnockoutResult.Revived)
-            result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " 。所持で復活";
+            result.Log = BattleLogFormat.Attack(actor, target, " に " + damage + weaknessMark + " 。所持で復活");
         else if (knockout == KnockoutResult.Defeated)
-            result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " 。戦闘不能";
+            result.Log = BattleLogFormat.Attack(actor, target, " に " + damage + weaknessMark + " 。戦闘不能");
         else
-            result.Log = actor.Name + " → " + target.Name + " に " + damage + weaknessMark + " （HP " + target.Hp + "）";
+            result.Log = BattleLogFormat.Attack(actor, target, " に " + damage + weaknessMark + " （HP " + target.Hp + "）");
         result.Outcome = Outcome;
         return result;
     }

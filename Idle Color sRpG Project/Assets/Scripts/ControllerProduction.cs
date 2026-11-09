@@ -91,10 +91,18 @@ public class ControllerProduction : MonoBehaviour
     Text CatalogArrowBadgeText;
     static Sprite CatalogBadgeCircle;
     GameObject ButtonImportCharacter;
+    Button ButtonImport;
+    Color ImportButtonImageColor = Color.white;
+    Color ImportButtonTextColor = Color.white;
+    bool ImportButtonColorsStored;
     Button ButtonFusion;
     Color FusionButtonImageColor = Color.white;
     Color FusionButtonTextColor = Color.white;
     bool FusionButtonColorsStored;
+    Button ButtonHospital;
+    Color HospitalButtonImageColor = Color.white;
+    Color HospitalButtonTextColor = Color.white;
+    bool HospitalButtonColorsStored;
     readonly Dictionary<string, Color> FeatureButtonImageColors = new Dictionary<string, Color>();
     readonly Dictionary<string, Color> FeatureButtonTextColors = new Dictionary<string, Color>();
     BattleBalanceConfig BattleBalance = BattleBalanceConfig.CreateDefault();
@@ -141,8 +149,8 @@ public class ControllerProduction : MonoBehaviour
     bool AdWatchConfirm = true;
     // バトルが終わったあと、バトルのステージ画面を開く。OFF のときは RGB 生産へ戻る
     bool ReturnToBattleStage = true;
-    // バトルログの代わりに、攻撃を受ける列のステータスを出す
-    bool ShowBattleFrontStatus;
+    // バトルログの代わりに、攻撃を受ける列のステータスを出す。最初は前列
+    bool ShowBattleFrontStatus = true;
     // ステージ1の50階をクリアすると使える。出撃が終わっても残す
     bool BattleRepeat;
     int ClearedBattleStage = 0;
@@ -1146,7 +1154,7 @@ public class ControllerProduction : MonoBehaviour
         BattleSpeedCap = 16;
         AdWatchConfirm = true;
         ReturnToBattleStage = true;
-        ShowBattleFrontStatus = false;
+        ShowBattleFrontStatus = true;
         BattleRepeat = false;
         ClearedBattleStage = 0;
         ApplyCharacterLevelCap();
@@ -1609,6 +1617,8 @@ public class ControllerProduction : MonoBehaviour
 
     public void PushButtonSelectSceneImport()
     {
+        if (!IsMainFeatureOpen(MainFeature.Import))
+            return;
         if (PanelImport == null)
             return;
 
@@ -1637,6 +1647,8 @@ public class ControllerProduction : MonoBehaviour
 
     public void PushButtonSelectSceneHospital()
     {
+        if (!IsMainFeatureOpen(MainFeature.Recovery))
+            return;
         if (PanelHospital == null)
             return;
 
@@ -1810,6 +1822,8 @@ public class ControllerProduction : MonoBehaviour
         {
             importButton.onClick.RemoveListener(PushButtonSelectSceneImport);
             importButton.onClick.AddListener(PushButtonSelectSceneImport);
+            ButtonImport = importButton;
+            ApplyImportButtonLock();
         }
         EnsureHospitalSceneButton(bar.transform, importButton);
 
@@ -2090,7 +2104,7 @@ public class ControllerProduction : MonoBehaviour
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
             text.raycastTarget = false;
-            text.text = "休憩所";
+            text.text = "回復";
             RectTransform textRect = text.rectTransform;
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
@@ -2100,7 +2114,7 @@ public class ControllerProduction : MonoBehaviour
 
         Text label = buttonObject.GetComponentInChildren<Text>();
         if (label != null)
-            label.text = "休憩所";
+            label.text = "回復";
         if (created)
         {
             Image image = buttonObject.GetComponent<Image>();
@@ -2136,6 +2150,33 @@ public class ControllerProduction : MonoBehaviour
             return;
         button.onClick.RemoveListener(PushButtonSelectSceneHospital);
         button.onClick.AddListener(PushButtonSelectSceneHospital);
+        ButtonHospital = button;
+        ApplyHospitalButtonLock();
+    }
+
+    // チュートリアル200階のクエストを受け取ると、回復が押せる。倒れたキャラの回復自体は、開く前も進む。
+    void ApplyHospitalButtonLock()
+    {
+        if (ButtonHospital == null)
+            return;
+
+        Image image = ButtonHospital.GetComponent<Image>();
+        Text label = ButtonHospital.GetComponentInChildren<Text>();
+        if (!HospitalButtonColorsStored)
+        {
+            if (image != null)
+                HospitalButtonImageColor = image.color;
+            if (label != null)
+                HospitalButtonTextColor = label.color;
+            HospitalButtonColorsStored = true;
+        }
+
+        bool open = IsMainFeatureOpen(MainFeature.Recovery);
+        ButtonHospital.interactable = open;
+        if (image != null)
+            image.color = open ? HospitalButtonImageColor : new Color(0.45f, 0.45f, 0.45f, HospitalButtonImageColor.a);
+        if (label != null)
+            label.color = open ? HospitalButtonTextColor : new Color(0.62f, 0.62f, 0.62f, HospitalButtonTextColor.a);
     }
 
     static Transform FindHospitalSceneButton(Transform bar)
@@ -2472,6 +2513,31 @@ public class ControllerProduction : MonoBehaviour
         ApplyFusionButtonLock();
     }
 
+    // チュートリアル200階のクエストを受け取ると、読み込みが押せる。
+    void ApplyImportButtonLock()
+    {
+        if (ButtonImport == null)
+            return;
+
+        Image image = ButtonImport.GetComponent<Image>();
+        Text label = ButtonImport.GetComponentInChildren<Text>();
+        if (!ImportButtonColorsStored)
+        {
+            if (image != null)
+                ImportButtonImageColor = image.color;
+            if (label != null)
+                ImportButtonTextColor = label.color;
+            ImportButtonColorsStored = true;
+        }
+
+        bool open = IsMainFeatureOpen(MainFeature.Import);
+        ButtonImport.interactable = open;
+        if (image != null)
+            image.color = open ? ImportButtonImageColor : new Color(0.45f, 0.45f, 0.45f, ImportButtonImageColor.a);
+        if (label != null)
+            label.color = open ? ImportButtonTextColor : new Color(0.62f, 0.62f, 0.62f, ImportButtonTextColor.a);
+    }
+
     // 敵を50体倒すクエストを受け取ると、合成が押せる。
     void ApplyFusionButtonLock()
     {
@@ -2607,6 +2673,11 @@ public class ControllerProduction : MonoBehaviour
         ShowPanel(PanelSelectCharacter);
         if (ControllerBattlePartyClass.IsPersonButton(ButtonCharacterTmp))
         {
+            if (!IsMainFeatureOpen(MainFeature.Author))
+            {
+                NotShowPanel(PanelSelectCharacter);
+                return;
+            }
             int slot = ControllerBattlePartyClass.PersonSlot(ButtonCharacterTmp);
             ControllerCharacterSelect.ShowPanelSelectBattlePerson(ButtonCharacterTmp,
                 (int)GetBattlePartyPerson(ControllerBattleParty.GetCurrentSetIndex(), slot));
@@ -11673,6 +11744,7 @@ public class ControllerProduction : MonoBehaviour
             if (IsQuestListed(all[i]))
                 dest.Add(all[i]);
         }
+        PinnedMainQuestId = FirstOpenMainQuestId();
         dest.Sort(CompareVisibleQuests);
     }
 
@@ -12445,12 +12517,38 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
+    int PinnedMainQuestId;
+
+    // 未受け取りの最初のメインクエストは、IDに関係なく一覧の先頭。
+    int FirstOpenMainQuestId()
+    {
+        QuestDef[] all = QuestCatalog.All;
+        int best = 0;
+        for (int i = 0; i < all.Length; i++)
+        {
+            QuestDef def = all[i];
+            if (def == null || !def.Main || !IsQuestListed(def))
+                continue;
+            if (best == 0 || def.Id < best)
+                best = def.Id;
+        }
+        return best;
+    }
+
     int CompareVisibleQuests(QuestDef a, QuestDef b)
     {
+        int pin = PinRank(a) - PinRank(b);
+        if (pin != 0)
+            return pin;
         int rank = QuestRank(a) - QuestRank(b);
         if (rank != 0)
             return rank;
         return a.Id - b.Id;
+    }
+
+    int PinRank(QuestDef def)
+    {
+        return def != null && def.Id == PinnedMainQuestId ? 0 : 1;
     }
 
     int QuestRank(QuestDef def)
@@ -12538,6 +12636,10 @@ public class ControllerProduction : MonoBehaviour
         SetFeatureButton("ButtonSelectScenePixelProduction", IsMainFeatureOpen(MainFeature.PixelScreen));
         SetFeatureButton("ButtonSelectSceneCharacterProduction", IsMainFeatureOpen(MainFeature.CharacterScreen));
         SetFeatureButton("ButtonSelectSceneBattleStage", IsMainFeatureOpen(MainFeature.Battle));
+        ApplyHospitalButtonLock();
+        ApplyImportButtonLock();
+        if (ControllerBattleParty != null)
+            ControllerBattleParty.ApplyAuthorLock();
         if (ControllerBattle != null)
             ControllerBattle.RefreshFeatureLocks();
     }

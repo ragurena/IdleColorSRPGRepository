@@ -33,6 +33,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     bool _workerTabsReady;
     Sprite _previewSprite;
     readonly List<Sprite> _listSprites = new List<Sprite>();
+    bool _statLineHomeSaved;
+    bool _paintStatsPlaced;
+    StatLineHome _statLine1;
+    StatLineHome _statLine2;
+    StatLineHome _statLine3;
 
 
 
@@ -133,7 +138,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (ButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
             CharacterClass painter = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterID);
-            ShowPaintStats(painter == null ? 0 : painter.PixelsPerCycle());
+            ShowPaintStats(painter == null ? 0 : painter.PixelsPerCycle(), ProducedStatRate(ButtonTmp, false, painter == null ? 0 : painter.ID, 0));
         }
         else
         if (ButtonTmp.name.Contains("ButtonCharacterProducedCharacter"))
@@ -173,6 +178,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     //バトル編成のマスから呼ばれたキャラクターセレクトパネルの表示
     public void ShowPanelSelectCharacterBattleParty(Button ButtonTmp, uint argCurrentCharacterID)
     {
+        RestoreStatLineHome();
         HideWorkerTabs();
         GameObject[] tag1_Objects;
         tag1_Objects = GameObject.FindGameObjectsWithTag("SelectCharacter");
@@ -444,6 +450,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
     //キャラクターセレクトパネルの表示
     public void ShowPanelSelectCharacter(Button ButtonTmp)
     {
+        RestoreStatLineHome();
         //選択ボタンと外すボタンのenable設定
         GameObject[] tag1_Objects;
         tag1_Objects = GameObject.FindGameObjectsWithTag("SelectCharacter");
@@ -589,7 +596,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             {
                 ShowCharacterPreview(CharactersIDProductionCharacter[ProductionCharacterIndex]);
                 CharacterClass painter = ImportedCharacters.FindAny(CharactersAll, (uint)CharactersIDProductionCharacter[ProductionCharacterIndex]);
-                ShowPaintStats(painter == null ? 0 : painter.PixelsPerCycle());
+                ShowPaintStats(painter == null ? 0 : painter.PixelsPerCycle(), ProducedStatRate(ButtonTmp, false, painter == null ? 0 : painter.ID, 0));
 
                 //外すボタンのenable設定
                 foreach (GameObject gameObject in tag1_Objects)
@@ -807,7 +814,9 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         if (argButtonTmp.name.Contains("ButtonCharacterProductionCharacter"))
         {
             CharacterClass shown = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
-            ShowRgbAmount(GameObjectCharacterButton.GetComponentInChildren<Text>(), shown == null ? 0 : shown.PixelsPerCycle(), Color.black);
+            ulong pixels = shown == null ? 0 : shown.PixelsPerCycle();
+            string rate = ProducedStatNumber(argButtonTmp, false, shown == null ? 0 : shown.ID, 0);
+            ShowRateCaption(GameObjectCharacterButton.GetComponentInChildren<Text>(), UiNumber.Format(pixels), rate);
         }
         else
         if (argButtonTmp.name.Contains("ButtonHospitalNurseCard"))
@@ -860,6 +869,25 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         label.resizeTextMaxSize = 36;
         label.horizontalOverflow = HorizontalWrapMode.Overflow;
         label.verticalOverflow = VerticalWrapMode.Overflow;
+    }
+
+    static string RateRichText(string rate)
+    {
+        string rateColor = "#000000";
+        if (rate == "1")
+            rateColor = "#2A5534";
+        else if (rate == "0.5")
+            rateColor = "#DC5555";
+        else if (rate == "0.8")
+            rateColor = "#6A2424";
+        return "<color=" + rateColor + ">" + rate + "</color>";
+    }
+
+    static void ShowRateCaption(Text label, string pixels, string rate)
+    {
+        ShowListCaption(label, "<color=#000000>" + pixels + "</color>\u3000" + RateRichText(rate), Color.white);
+        if (label != null)
+            label.supportRichText = true;
     }
 
     static void ShowRgbAmount(Text label, ulong amount, Color color)
@@ -1196,16 +1224,182 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         TextSelectCharacter3.color = Color.black;
     }
 
-    void ShowPaintStats(long perSecond)
+    void ShowPaintStats(long perSecond, string statRate)
     {
         if (perSecond < 0)
             perSecond = 0;
-        TextSelectCharacter1.text = "";
+        PlacePaintStatLines();
+        string lines = "Pixel/sec : " + UiNumber.Format(perSecond);
+        if (!string.IsNullOrEmpty(statRate))
+            lines += "\n" + statRate;
+        TextSelectCharacter1.text = lines;
         TextSelectCharacter1.color = Color.black;
-        TextSelectCharacter2.text = "Pixel/sec : " + UiNumber.Format(perSecond);
+        TextSelectCharacter2.text = "";
         TextSelectCharacter2.color = Color.black;
         TextSelectCharacter3.text = "";
         TextSelectCharacter3.color = Color.black;
+    }
+
+    // 3行分の範囲の中央に、2行を上下の余白が同じになるように置く。
+    void PlacePaintStatLines()
+    {
+        RememberStatLineHome();
+        if (!_statLineHomeSaved || TextSelectCharacter1 == null)
+            return;
+        if (_paintStatsPlaced)
+            return;
+        RestoreStatLineHome();
+        RectTransform line = TextSelectCharacter1.rectTransform;
+        Transform parent = line.parent;
+        if (parent == null)
+            return;
+        float top = float.MinValue;
+        float bottom = float.MaxValue;
+        float left = float.MaxValue;
+        float right = float.MinValue;
+        IncludeStatLine(TextSelectCharacter1, parent, ref top, ref bottom, ref left, ref right);
+        IncludeStatLine(TextSelectCharacter2, parent, ref top, ref bottom, ref left, ref right);
+        IncludeStatLine(TextSelectCharacter3, parent, ref top, ref bottom, ref left, ref right);
+        if (top <= bottom || right <= left)
+            return;
+        Rect parentRect = ((RectTransform)parent).rect;
+        line.anchorMin = Vector2.zero;
+        line.anchorMax = Vector2.one;
+        line.offsetMin = new Vector2(left - parentRect.xMin, bottom - parentRect.yMin);
+        line.offsetMax = new Vector2(right - parentRect.xMax, top - parentRect.yMax);
+        TextSelectCharacter1.alignment = MiddleAlignment(_statLine1.alignment);
+        TextSelectCharacter1.horizontalOverflow = HorizontalWrapMode.Overflow;
+        TextSelectCharacter1.verticalOverflow = VerticalWrapMode.Overflow;
+        TextSelectCharacter1.resizeTextForBestFit = false;
+        TextSelectCharacter1.lineSpacing = 1f;
+        _paintStatsPlaced = true;
+    }
+
+    static void IncludeStatLine(Text text, Transform parent, ref float top, ref float bottom, ref float left, ref float right)
+    {
+        if (text == null)
+            return;
+        Vector3[] corners = new Vector3[4];
+        text.rectTransform.GetWorldCorners(corners);
+        for (int i = 0; i < corners.Length; i++)
+        {
+            Vector3 local = parent.InverseTransformPoint(corners[i]);
+            if (local.y > top)
+                top = local.y;
+            if (local.y < bottom)
+                bottom = local.y;
+            if (local.x < left)
+                left = local.x;
+            if (local.x > right)
+                right = local.x;
+        }
+    }
+
+    static TextAnchor MiddleAlignment(TextAnchor alignment)
+    {
+        if (alignment == TextAnchor.UpperLeft || alignment == TextAnchor.MiddleLeft || alignment == TextAnchor.LowerLeft)
+            return TextAnchor.MiddleLeft;
+        if (alignment == TextAnchor.UpperRight || alignment == TextAnchor.MiddleRight || alignment == TextAnchor.LowerRight)
+            return TextAnchor.MiddleRight;
+        return TextAnchor.MiddleCenter;
+    }
+
+    void RememberStatLineHome()
+    {
+        if (_statLineHomeSaved)
+            return;
+        _statLine1 = StatLineHome.Capture(TextSelectCharacter1);
+        _statLine2 = StatLineHome.Capture(TextSelectCharacter2);
+        _statLine3 = StatLineHome.Capture(TextSelectCharacter3);
+        _statLineHomeSaved = _statLine1.saved;
+    }
+
+    void RestoreStatLineHome()
+    {
+        RememberStatLineHome();
+        if (!_paintStatsPlaced)
+            return;
+        _statLine1.Apply(TextSelectCharacter1);
+        _statLine2.Apply(TextSelectCharacter2);
+        _statLine3.Apply(TextSelectCharacter3);
+        _paintStatsPlaced = false;
+    }
+
+    struct StatLineHome
+    {
+        public bool saved;
+        public Vector2 anchorMin;
+        public Vector2 anchorMax;
+        public Vector2 pivot;
+        public Vector2 anchoredPosition;
+        public Vector2 sizeDelta;
+        public TextAnchor alignment;
+        public HorizontalWrapMode horizontalOverflow;
+        public VerticalWrapMode verticalOverflow;
+        public bool resizeTextForBestFit;
+        public float lineSpacing;
+
+        public static StatLineHome Capture(Text text)
+        {
+            StatLineHome home = new StatLineHome();
+            if (text == null)
+                return home;
+            RectTransform rect = text.rectTransform;
+            home.saved = true;
+            home.anchorMin = rect.anchorMin;
+            home.anchorMax = rect.anchorMax;
+            home.pivot = rect.pivot;
+            home.anchoredPosition = rect.anchoredPosition;
+            home.sizeDelta = rect.sizeDelta;
+            home.alignment = text.alignment;
+            home.horizontalOverflow = text.horizontalOverflow;
+            home.verticalOverflow = text.verticalOverflow;
+            home.resizeTextForBestFit = text.resizeTextForBestFit;
+            home.lineSpacing = text.lineSpacing;
+            return home;
+        }
+
+        public void Apply(Text text)
+        {
+            if (!saved || text == null)
+                return;
+            RectTransform rect = text.rectTransform;
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.pivot = pivot;
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = sizeDelta;
+            text.alignment = alignment;
+            text.horizontalOverflow = horizontalOverflow;
+            text.verticalOverflow = verticalOverflow;
+            text.resizeTextForBestFit = resizeTextForBestFit;
+            text.lineSpacing = lineSpacing;
+        }
+    }
+
+    // この担当で完成したとき、作られるキャラに付く所持倍率。
+    string ProducedStatNumber(Button source, bool workerIsPerson, uint workerCharacterId, int personId)
+    {
+        uint producedId = 0;
+        int index = source == null ? -1 : ControllerProduction.ProductionSlotIndex(source.name);
+        if (index >= 0 && CharactersIDProducedCharacter != null && index < CharactersIDProducedCharacter.Length)
+            producedId = CharactersIDProducedCharacter[index];
+        CharacterClass produced = producedId == 0 ? null : ImportedCharacters.FindAny(CharactersAll, producedId);
+        bool self = !workerIsPerson && produced != null && workerCharacterId == produced.ID;
+        bool author = workerIsPerson && produced != null && produced.AuthorPersonId == personId;
+        OwnedTier tier = PersonFormulas.CompletionTier(workerIsPerson, self, author);
+        PersonBalanceConfig config = PersonBalance == null ? PersonBalanceConfig.CreateDefault() : PersonBalance;
+        double rate = config.StockHalf;
+        if (tier == OwnedTier.Full)
+            rate = config.StockFull;
+        else if (tier == OwnedTier.Eight)
+            rate = config.StockEight;
+        return rate.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    string ProducedStatRate(Button source, bool workerIsPerson, uint workerCharacterId, int personId)
+    {
+        return "ステータス倍率:" + ProducedStatNumber(source, workerIsPerson, workerCharacterId, personId);
     }
 
     void ShowNurseStats(int milliseconds)
@@ -1267,11 +1461,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     public void ShowPanelSelectBattlePerson(Button source, int currentPersonId)
     {
+        RestoreStatLineHome();
         SelectedPersonId = 0;
         CharacterIDTmp = 0;
         HideWorkerTabs();
         ClearCharacterList();
-        TextSelectCharacter1.text = "人";
+        TextSelectCharacter1.text = "作者";
         TextSelectCharacter2.text = "";
         TextSelectCharacter3.text = "";
         TextSelectCharacter1.color = Color.black;
@@ -1301,7 +1496,16 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             WorkerTabs.SetActive(true);
         SetWorkerToggleShown(true);
         SetSceneWorkerTabsActive(true);
+        LabelAuthorTab();
         Button captured = source;
+        if (!AuthorsOpen())
+        {
+            if (_personTab != null)
+                _personTab.gameObject.SetActive(false);
+            SetWorkerToggleShown(false);
+            ShowCharacterTab(captured);
+            return;
+        }
         if (_workerToggle != null)
         {
             ForEachWorkerToggle(button =>
@@ -1325,10 +1529,37 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     void ToggleWorkerKind(Button source)
     {
+        if (!AuthorsOpen())
+        {
+            ShowCharacterTab(source);
+            return;
+        }
         if (_showingCharacters)
             ShowPersonTab(source);
         else
             ShowCharacterTab(source);
+    }
+
+    bool AuthorsOpen()
+    {
+        ControllerProduction production = GetComponent<ControllerProduction>();
+        return production != null && production.IsMainFeatureOpen(MainFeature.Author);
+    }
+
+    void LabelAuthorTab()
+    {
+        if (_personTab != null)
+        {
+            Text label = _personTab.GetComponentInChildren<Text>();
+            if (label != null)
+                label.text = "作者";
+        }
+        ForEachWorkerToggle(button =>
+        {
+            Text label = button.GetComponentInChildren<Text>();
+            if (label != null && label.text.Contains("人"))
+                label.text = label.text.Replace("人", "作者");
+        });
     }
 
     void FindOrCreateWorkerTabs(Transform panel)
@@ -1365,7 +1596,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             tabs.anchoredPosition = new Vector2(0f, -8f);
             tabs.sizeDelta = new Vector2(-24f, 64f);
             CreateTab(WorkerTabs.transform, "ButtonWorkerTabCharacter", "キャラ", new Vector2(-160f, 0f), null);
-            CreateTab(WorkerTabs.transform, "ButtonWorkerTabPerson", "人", new Vector2(160f, 0f), null);
+            CreateTab(WorkerTabs.transform, "ButtonWorkerTabPerson", "作者", new Vector2(160f, 0f), null);
         }
         _characterTab = WorkerTabs.transform.Find("ButtonWorkerTabCharacter").GetComponent<Button>();
         _personTab = WorkerTabs.transform.Find("ButtonWorkerTabPerson").GetComponent<Button>();
@@ -1513,6 +1744,11 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     void ShowPersonTab(Button source)
     {
+        if (!AuthorsOpen())
+        {
+            ShowCharacterTab(source);
+            return;
+        }
         ClearCharacterList();
         for (int id = 1; id <= PersonIds.Count; id++)
             CreatePersonButton(id, source);
@@ -1551,7 +1787,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             long perSecond = PersonPaintPerSecond(person, source);
             if (perSecond < 0)
                 perSecond = 0;
-            ShowRgbAmount(label, (ulong)perSecond, Color.black);
+            string rate = ProducedStatNumber(source, true, 0, person.Id);
+            ShowRateCaption(label, UiNumber.Format(perSecond), rate);
         }
         else if (label != null && ControllerProduction.IsHospitalNurseButton(source))
         {
@@ -1648,7 +1885,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         }
         if (IsCharacterWorkerButton(source))
         {
-            ShowPaintStats(PersonPaintPerSecond(person, source));
+            ShowPaintStats(PersonPaintPerSecond(person, source), ProducedStatRate(source, true, 0, person.Id));
             SetRemoveEnabled(true);
             return;
         }
@@ -1755,7 +1992,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             return UiNumber.Format(person.PixelAmount(r, g, b, PersonBalance)) + " px";
         }
         if (source != null && source.name.Contains("ButtonCharacterProductionCharacter"))
-            return UiNumber.Format(person.CharacterAmount(false, PersonBalance)) + " /秒";
+            return UiNumber.Format(person.CharacterAmount(false, PersonBalance)) + "\u3000" + ProducedStatNumber(source, true, 0, person.Id);
         if (source != null && ControllerProduction.IsHospitalNurseButton(source))
         {
             ControllerProduction production = GetComponent<ControllerProduction>();
