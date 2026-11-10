@@ -75,6 +75,8 @@ public class ControllerProduction : MonoBehaviour
     ControllerHospitalClass ControllerHospital;
     GameObject PanelHospital;
     readonly HospitalState Hospital = new HospitalState();
+    public readonly IdleRewardState Idle = new IdleRewardState();
+    IdleRewardBoard _idleBoard;
     bool _hospitalBusy;
     readonly List<GameObject> SelectScenePage1Buttons = new List<GameObject>();
     readonly List<GameObject> SelectScenePage2Buttons = new List<GameObject>();
@@ -565,6 +567,7 @@ public class ControllerProduction : MonoBehaviour
             ControllerBattle.Hide();
         ResumeSortie();
         RefreshCharacterStopPixels();
+        FinishIdleLoad();
 
         _autosaveElapsed = 0f;
         _autosaveReady = true;
@@ -696,8 +699,13 @@ public class ControllerProduction : MonoBehaviour
 
                 bool PCF = false;
                 bool painted = false;
+                long slowedPaint = ScaleIdle(paintRate, IdleRewardState.BankPaint);
+                if (slowedPaint < 0)
+                    slowedPaint = 0;
+                if (slowedPaint > uint.MaxValue)
+                    slowedPaint = uint.MaxValue;
                 ProductionCharacter(Trigger.Update, i,
-                    (uint)paintRate, out PCF, out _, out painted);
+                    (uint)slowedPaint, out PCF, out _, out painted);
                 if (painted || PCF)
                     UpdateProductionCharacterProgressImage(i);
                 if (PCF)
@@ -826,7 +834,8 @@ public class ControllerProduction : MonoBehaviour
             _messages != null ? _messages.Save : null,
             RgbRowOrder,
             EnmusubiArmed,
-            Hospital
+            Hospital,
+            Idle
             );
         if (saved)
         {
@@ -950,6 +959,7 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonDeleteSave()
     {
         SaveFiles.DeleteManaged();
+        ImportedCharacters.DeleteStoredFiles();
         SaveBlocked = true;
         SaveFailureNotified = true;
         HideSaveNotice();
@@ -1039,6 +1049,7 @@ public class ControllerProduction : MonoBehaviour
                     ref RgbRowOrder,
                     ref EnmusubiArmed,
                     Hospital,
+                    Idle,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -1562,11 +1573,13 @@ public class ControllerProduction : MonoBehaviour
         if (PanelBattleStage == null)
             return;
 
+        bool alreadyOpen = IsBattleStagePanelOpen();
         ShowPanel(PanelBattleStage);
         if (ControllerBattleStage != null)
         {
             ControllerBattleStage.Refresh();
-            ControllerBattleStage.ShowBattleEndedNote();
+            if (!alreadyOpen)
+                ControllerBattleStage.ShowBattleEndedNote();
         }
 
         NotShowPanel(PanelRGBProduction);
@@ -2651,6 +2664,14 @@ public class ControllerProduction : MonoBehaviour
         SaveGame();
         if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
             ControllerCatalog.Refresh();
+    }
+
+    bool IsBattleStagePanelOpen()
+    {
+        if (PanelBattleStage == null)
+            return false;
+        CanvasGroup group = PanelBattleStage.GetComponent<CanvasGroup>();
+        return group != null && group.alpha > 0f;
     }
 
     void NotShowBattleStagePanel()
@@ -5329,25 +5350,7 @@ public class ControllerProduction : MonoBehaviour
     // RELEASE_REMOVE_TEST_GRANTS: 階調の全色に足す。バイト全通りに足すとセーブが膨らむ。
     public void DebugGrantAllPixels(ulong amount)
     {
-        if (CurPixels == null || amount == 0 || GameConfig.GRADATION_LEVELS <= 0)
-            return;
-        if (amount > (ulong)long.MaxValue)
-            amount = (ulong)long.MaxValue;
-        int[] colors = GradationColors();
-        for (int r = 0; r < colors.Length; r++)
-        {
-            for (int g = 0; g < colors.Length; g++)
-            {
-                for (int b = 0; b < colors.Length; b++)
-                    AddBattlePixels(colors[r], colors[g], colors[b], (long)amount);
-            }
-        }
-        if (CharactersIDProductionPixel != null)
-        {
-            for (int i = 1; i < CharactersIDProductionPixel.Length; i++)
-                UpdateSliderPixelProduction(i);
-        }
-        RefreshPixelListCounts();
+        GrantGradationPixels(amount);
     }
 
     // RELEASE_REMOVE_TEST_GRANTS: 登録済みのモンスター全員に足す。上限は所持数の最大。
@@ -5440,6 +5443,7 @@ public class ControllerProduction : MonoBehaviour
         if (sum > int.MaxValue)
             sum = int.MaxValue;
         ItemCounts[itemId] = (int)sum;
+        Idle.NoteOrb(itemId);
         if (ControllerBattle != null)
             ControllerBattle.RefreshItemBoard();
     }
@@ -5897,6 +5901,75 @@ public class ControllerProduction : MonoBehaviour
         return step.Returned > 0;
     }
 
+    public bool HasRestingHospitalPatients()
+    {
+        return Hospital != null && Hospital.BedPatientCount > 0;
+    }
+
+    public void WatchAdToRecoverHospital()
+    {
+        if (_adBusy || _hospitalAdPending || !HasRestingHospitalPatients())
+            return;
+        if (AdWatchConfirm)
+        {
+            ShowConfirm("広告が流れますよろしいですか？", PlayHospitalRecoverAd);
+            return;
+        }
+        PlayHospitalRecoverAd();
+    }
+
+    ulong[] _hospitalAdPatients;
+    bool _hospitalAdPending;
+
+    void PlayHospitalRecoverAd()
+    {
+        if (_adBusy || _hospitalAdPending || Hospital == null || Hospital.BedPatientCount < 1)
+            return;
+        _hospitalAdPatients = Hospital.CopyBedPatientIds();
+        if (_hospitalAdPatients == null || _hospitalAdPatients.Length == 0)
+            return;
+#if UNITY_ANDROID || UNITY_EDITOR
+        _adBusy = true;
+        _hospitalAdPending = true;
+        if (!AdService.TryShowRewarded(FinishHospitalRecoverAd, FailHospitalRecoverAd))
+        {
+            _adBusy = false;
+            _hospitalAdPending = false;
+            _hospitalAdPatients = null;
+        }
+#else
+        _hospitalAdPatients = null;
+        Debug.LogWarning("広告はAndroidで表示します。");
+#endif
+    }
+
+    void FinishHospitalRecoverAd()
+    {
+        if (!_hospitalAdPending)
+            return;
+        _hospitalAdPending = false;
+        _adBusy = false;
+        ulong[] ids = _hospitalAdPatients;
+        _hospitalAdPatients = null;
+        Idle.NoteAdSuccess();
+        if (Hospital != null && ids != null && ids.Length > 0)
+        {
+            int returned = Hospital.InstantRecover(ids, HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+            if (returned > 0)
+                ShowCharacterOwnedNum();
+        }
+        SaveGame();
+        if (ControllerHospital != null)
+            ControllerHospital.RefreshIfVisible();
+    }
+
+    void FailHospitalRecoverAd()
+    {
+        _hospitalAdPending = false;
+        _adBusy = false;
+        _hospitalAdPatients = null;
+    }
+
     public void ReleaseHospitalNurse(uint characterId)
     {
         if (Hospital == null || characterId == 0 || !IsHospitalNurse(characterId))
@@ -6068,17 +6141,107 @@ public class ControllerProduction : MonoBehaviour
     void OnApplicationPause(bool paused)
     {
         if (paused)
+        {
+            Idle.MarkBackground(HospitalState.NowUnixMs());
             AdvanceHospital(true);
+        }
         else
+        {
             AdvanceHospital(false);
+            if (_idleBoard != null)
+                _idleBoard.OfferSavedOffline();
+        }
     }
 
     void OnApplicationFocus(bool focused)
     {
         if (!focused)
+        {
+            Idle.MarkBackground(HospitalState.NowUnixMs());
             AdvanceHospital(true);
+        }
         else
+        {
             AdvanceHospital(false);
+            if (_idleBoard != null)
+                _idleBoard.OfferSavedOffline();
+        }
+    }
+
+    void OnApplicationQuit()
+    {
+        Idle.MarkBackground(HospitalState.NowUnixMs());
+        AdvanceHospital(true);
+    }
+
+    void FinishIdleLoad()
+    {
+        Idle.SeedPurchases(Slots.IapPlus1, Slots.IapPlus3, Slots.IapPlus5, Slots.IapPlus10);
+        Idle.SeedOrbs(ItemCounts);
+        if (Idle.LastInputUnixMs <= 0)
+            Idle.LastInputUnixMs = HospitalState.NowUnixMs();
+        if (_idleBoard == null)
+        {
+            _idleBoard = gameObject.AddComponent<IdleRewardBoard>();
+            _idleBoard.Initialize(this);
+        }
+        _idleBoard.OfferSavedOffline();
+    }
+
+    public long ScaleIdle(long amount, int bank)
+    {
+        return Idle.Scale(amount, bank);
+    }
+
+    public void GrantIdleWatchReward()
+    {
+        Idle.NoteAdSuccess();
+        Idle.Limited = false;
+        Idle.LastInputUnixMs = HospitalState.NowUnixMs();
+        AddBattleItem(Idle.MaxSeenOrb(), 10);
+        GrantGradationPixels(100);
+        SaveGame();
+    }
+
+    public void GrantOfflineReward(IdlePayout payout)
+    {
+        if (payout.OrbSizes != null && payout.OrbEach > 0)
+        {
+            for (int i = 0; i < payout.OrbSizes.Count; i++)
+                AddBattleItem(payout.OrbSizes[i], payout.OrbEach);
+        }
+        if (payout.Red > 0)
+            GainRgb(ref CurR, MaxR, (ulong)payout.Red, 0);
+        if (payout.Green > 0)
+            GainRgb(ref CurG, MaxG, (ulong)payout.Green, 1);
+        if (payout.Blue > 0)
+            GainRgb(ref CurB, MaxB, (ulong)payout.Blue, 2);
+        if (payout.AllPixels > 0)
+            GrantGradationPixels((ulong)payout.AllPixels);
+        UpdateRGBProductionScene();
+    }
+
+    public void GrantGradationPixels(ulong amount)
+    {
+        if (CurPixels == null || amount == 0 || GameConfig.GRADATION_LEVELS <= 0)
+            return;
+        if (amount > (ulong)long.MaxValue)
+            amount = (ulong)long.MaxValue;
+        int[] colors = GradationColors();
+        for (int r = 0; r < colors.Length; r++)
+        {
+            for (int g = 0; g < colors.Length; g++)
+            {
+                for (int b = 0; b < colors.Length; b++)
+                    AddBattlePixels(colors[r], colors[g], colors[b], (long)amount);
+            }
+        }
+        if (CharactersIDProductionPixel != null)
+        {
+            for (int i = 1; i < CharactersIDProductionPixel.Length; i++)
+                UpdateSliderPixelProduction(i);
+        }
+        RefreshPixelListCounts();
     }
 
     // 所持が1以上のキャラだけ出撃扱いにして、生産から外す。所持0はバトルに出ないので担当のまま。
@@ -6409,6 +6572,11 @@ public class ControllerProduction : MonoBehaviour
             return pixelPerson == null && CharactersIDProductionPixel[argIndex] == 0;
 
         ushort Progress = PixelTickProgress(argIndex, argTrigger, pixelPerson, pixelWorker);
+        if (argTrigger == Trigger.Update)
+        {
+            long slowed = ScaleIdle(Progress, IdleRewardState.BankPixel);
+            Progress = slowed < 0 ? (ushort)0 : slowed > ushort.MaxValue ? ushort.MaxValue : (ushort)slowed;
+        }
         if (argTrigger != Trigger.Update && argTrigger != Trigger.User)
         {
             Debug.Log("NG !!!!!!!!!!!!!!!!!!!!!!!");
@@ -10619,6 +10787,7 @@ public class ControllerProduction : MonoBehaviour
                 long amount = person.RgbAmount(channel, PersonBalance);
                 if (amount < 0)
                     amount = 0;
+                amount = ScaleIdle(amount, channel);
                 person.AddRgbProduced(channel, amount, PersonBalance);
                 if (sum > ulong.MaxValue - (ulong)amount)
                     sum = ulong.MaxValue;
@@ -10631,6 +10800,8 @@ public class ControllerProduction : MonoBehaviour
             if (characters != null && i < characters.Length)
             {
                 ulong produced = HelpCreates(characters[i], channel);
+                long scaled = ScaleIdle(produced > (ulong)long.MaxValue ? long.MaxValue : (long)produced, channel);
+                produced = scaled < 0 ? 0 : (ulong)scaled;
                 sum += produced;
                 if (onSlot != null && produced > 0)
                     onSlot(i, produced, false);
@@ -12564,6 +12735,9 @@ public class ControllerProduction : MonoBehaviour
     {
         if (def == null)
             return false;
+        if (def.Metric == QuestMetric.ImportedOfSize && ImportSizeRules.IsComingSoon(def.Arg)
+            && !IsQuestCleared(def) && !IsQuestClaimed(def))
+            return false;
         if (def.Main)
         {
             if (IsQuestClaimed(def))
@@ -13035,6 +13209,7 @@ public class ControllerProduction : MonoBehaviour
             Slots.IapPlus5 = true;
         else
             Slots.IapPlus10 = true;
+        Idle.NotePurchase();
         AddProductionSlots(amount, true, true);
         RefreshUnlockedProductionSlots();
         SaveGame();
@@ -13112,6 +13287,7 @@ public class ControllerProduction : MonoBehaviour
             () =>
             {
                 _adBusy = false;
+                Idle.NoteAdSuccess();
                 GrantAdSlot(pixel);
             },
             () => { _adBusy = false; }))

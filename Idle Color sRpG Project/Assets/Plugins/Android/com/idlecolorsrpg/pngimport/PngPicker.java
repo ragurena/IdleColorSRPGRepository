@@ -30,11 +30,16 @@ public class PngPicker {
     public static class PngPickerFragment extends Fragment {
         private String receiverName = "PngFilePickerReceiver";
         private boolean pendingOpen;
+        private long launchAt;
+        private int instantCancelRetries;
+        private boolean legacyPicker;
         private static final int REQUEST = 61008;
 
         public void open(String name) {
             receiverName = name;
             pendingOpen = true;
+            instantCancelRetries = 0;
+            legacyPicker = false;
             if (isResumed())
                 scheduleLaunch();
         }
@@ -46,28 +51,38 @@ public class PngPicker {
                 scheduleLaunch();
         }
 
-        // 断片を足した直後に startActivityForResult すると、Android は選択画面を出さず
-        // すぐにキャンセルとして返す。1回目のタップが「ファイルを選びませんでした」になる。
-        // 再開後、次の周回で開く。
+        // Adding the fragment and opening the picker in the same turn makes Android
+        // return cancel immediately. Wait, and if that still happens, open once more.
         private void scheduleLaunch() {
             pendingOpen = false;
-            new Handler(Looper.getMainLooper()).post(new Runnable() {
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     if (!isAdded()) {
                         pendingOpen = true;
                         return;
                     }
-                    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                    intent.setType("image/png");
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    launchAt = System.currentTimeMillis();
                     try {
-                        startActivityForResult(intent, REQUEST);
+                        String action = legacyPicker ? Intent.ACTION_GET_CONTENT : Intent.ACTION_OPEN_DOCUMENT;
+                        startActivityForResult(openIntent(action), REQUEST);
                     } catch (Exception exception) {
-                        UnityPlayer.UnitySendMessage(receiverName, "OnPickedPath", "");
+                        try {
+                            startActivityForResult(openIntent(Intent.ACTION_GET_CONTENT), REQUEST);
+                        } catch (Exception again) {
+                            UnityPlayer.UnitySendMessage(receiverName, "OnPickedPath", "");
+                        }
                     }
                 }
-            });
+            }, 400);
+        }
+
+        private Intent openIntent(String action) {
+            Intent intent = new Intent(action);
+            intent.setType("image/png");
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            return intent;
         }
 
         @Override
@@ -76,9 +91,21 @@ public class PngPicker {
             if (requestCode != REQUEST)
                 return;
             if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
+                long elapsed = System.currentTimeMillis() - launchAt;
+                if (instantCancelRetries < 1 && elapsed >= 0 && elapsed < 800) {
+                    instantCancelRetries++;
+                    legacyPicker = true;
+                    pendingOpen = true;
+                    scheduleLaunch();
+                    return;
+                }
+                instantCancelRetries = 0;
+            legacyPicker = false;
                 UnityPlayer.UnitySendMessage(receiverName, "OnPickedPath", "");
                 return;
             }
+            instantCancelRetries = 0;
+            legacyPicker = false;
             String path = copyToCache(data.getData());
             UnityPlayer.UnitySendMessage(receiverName, "OnPickedPath", path == null ? "" : path);
         }

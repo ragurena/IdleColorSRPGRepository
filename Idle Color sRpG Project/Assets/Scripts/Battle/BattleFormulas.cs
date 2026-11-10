@@ -114,22 +114,44 @@ public static class BattleRewardCalculator
         return BattleMath.CeilToLong(opaquePixels * (double)attributeValue * multiplier);
     }
 
-    // 一辺8はそのまま。2倍になるごとに3で割る。16は3、32は9、64は27、128は81。端数は切り上げ。
+    // 一辺8はそのまま。2倍になるごとに2.8で掛け、小数第1位未満は切り捨てる。16は2.8、32は7.8、64は21.9、128は61.4。経験値を割った端数は切り上げ。
     public static long ExpGainForSize(long baseExp, int size)
     {
-        return BattleMath.CeilDivPositive(baseExp, ExpSizeDivisor(size));
+        if (baseExp <= 0)
+            return 0;
+        decimal divisor = ExpSizeDivisorDecimal(size);
+        if (divisor <= 1m)
+            return baseExp;
+        decimal raw = baseExp / divisor;
+        if (raw >= long.MaxValue)
+            return long.MaxValue;
+        return (long)decimal.Ceiling(raw);
     }
 
-    public static long ExpSizeDivisor(int size)
+    public static double ExpSizeDivisor(int size)
     {
-        long divisor = 1;
+        return (double)ExpSizeDivisorDecimal(size);
+    }
+
+    static decimal ExpSizeDivisorDecimal(int size)
+    {
+        int steps = ExpSizeSteps(size);
+        decimal divisor = 1m;
+        for (int i = 0; i < steps; i++)
+            divisor *= 2.8m;
+        return decimal.Floor(divisor * 10m) / 10m;
+    }
+
+    static int ExpSizeSteps(int size)
+    {
+        int steps = 0;
         int span = 8;
-        while (size > span && span <= int.MaxValue / 2 && divisor <= long.MaxValue / 3)
+        while (size > span && span <= int.MaxValue / 2)
         {
             span *= 2;
-            divisor *= 3;
+            steps++;
         }
-        return divisor;
+        return steps;
     }
 
     // 基礎経験値に、基礎経験値 ×（レベル－1）/ 100 を足す。レベル1以下は基礎のまま。端数は切り上げ。

@@ -21,6 +21,7 @@ public class ControllerHospitalClass : MonoBehaviour
     RectTransform _waitScrollRect;
     RectTransform _waitContent;
     Text _waitEmpty;
+    Button _recoverAd;
     int _builtBeds = -1;
     string _waitSignature = "";
     readonly List<CardView> _cards = new List<CardView>();
@@ -104,6 +105,12 @@ public class ControllerHospitalClass : MonoBehaviour
         PaintWaiting(hospital);
         if (_waitEmpty != null)
             _waitEmpty.gameObject.SetActive(waiting == 0);
+        if (_recoverAd != null && _production != null)
+        {
+            bool ready = hospital.BedPatientCount > 0;
+            _production.StyleRepresentativeButton(_recoverAd, new Color(0.42f, 1f, 0.22f, 1f), ready);
+            _recoverAd.interactable = ready;
+        }
     }
 
     void EnsureCards(int beds)
@@ -554,7 +561,23 @@ public class ControllerHospitalClass : MonoBehaviour
         EnsureWhiteFrame(waitScroll.transform, 3f);
         _waitEmpty = CreateText(waitScroll.transform, "TextHospitalWaitEmpty", "待機していません", 32, TextAnchor.MiddleCenter);
         Stretch(_waitEmpty.rectTransform);
+        _recoverAd = CreateButton(Panel.transform, "ButtonHospitalRecoverAd", "広告視聴で回復中のキャラを即時回復させる", Vector2.zero, new Vector2(1000f, 112f), false);
+        _recoverAd.onClick.AddListener(PushRecoverAd);
+        Text recoverLabel = _recoverAd.GetComponentInChildren<Text>();
+        if (recoverLabel != null)
+        {
+            recoverLabel.fontSize = 30;
+            recoverLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            recoverLabel.verticalOverflow = VerticalWrapMode.Overflow;
+        }
         PlaceRegions();
+    }
+
+    void PushRecoverAd()
+    {
+        if (_production == null)
+            return;
+        _production.WatchAdToRecoverHospital();
     }
 
     // キャラリストはパネル上端へ寄せ、カードリストはその下からメニューの直前まで伸ばす。
@@ -583,12 +606,19 @@ public class ControllerHospitalClass : MonoBehaviour
                 bottom = aboveBar;
         }
 
+        const float recoverHeight = 112f;
+        const float recoverGap = 12f;
+        if (_recoverAd != null)
+            PlaceRect(_recoverAd.GetComponent<RectTransform>(), 0f, bottom + recoverHeight * 0.5f, 1000f, recoverHeight);
+        float cardBottom = bottom + recoverHeight + recoverGap;
         float waitTop = top;
         float waitBottom = waitTop - WaitListHeight;
         float cardTop = waitBottom - gap;
-        float cardHeight = cardTop - bottom;
+        float cardHeight = cardTop - cardBottom;
+        if (cardHeight < 200f)
+            return;
         PlaceRect(_waitScrollRect, 0f, (waitTop + waitBottom) * 0.5f, 1040f, WaitListHeight);
-        PlaceRect(_cardScrollRect, 0f, (cardTop + bottom) * 0.5f, 1040f, cardHeight);
+        PlaceRect(_cardScrollRect, 0f, (cardTop + cardBottom) * 0.5f, 1040f, cardHeight);
     }
 
     RectTransform CreateViewport(Transform parent)

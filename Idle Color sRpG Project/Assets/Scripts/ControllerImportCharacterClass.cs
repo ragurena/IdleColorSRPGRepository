@@ -32,6 +32,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
     RectTransform _content;
     bool _picking;
     bool _showingRebirth;
+    Coroutine _readPick;
     ImportRebirthPlayer _rebirth;
     readonly List<GameObject> _cells = new List<GameObject>();
 
@@ -144,28 +145,48 @@ public class ControllerImportCharacterClass : MonoBehaviour
     void OnPicked(string path)
     {
         _picking = false;
+        if (_readPick != null)
+            StopCoroutine(_readPick);
+        _readPick = StartCoroutine(ReadPicked(path));
+    }
+
+    System.Collections.IEnumerator ReadPicked(string path)
+    {
         if (_production == null)
-            return;
+            yield break;
         if (path == null)
         {
             SetMessage("この環境ではファイルを選べません。", false);
-            return;
+            yield break;
         }
         if (string.IsNullOrEmpty(path))
         {
             SetMessage("ファイルを選びませんでした。", false);
-            return;
+            yield break;
         }
 
-        byte[] bytes;
-        try
+        byte[] bytes = null;
+        for (int attempt = 0; attempt < 8; attempt++)
         {
-            bytes = File.ReadAllBytes(path);
+            try
+            {
+                if (File.Exists(path))
+                    bytes = File.ReadAllBytes(path);
+            }
+            catch (System.Exception)
+            {
+                bytes = null;
+            }
+            if (bytes != null && bytes.Length >= 8)
+                break;
+            bytes = null;
+            yield return new WaitForSecondsRealtime(0.08f);
         }
-        catch (IOException)
+
+        if (bytes == null)
         {
             SetMessage("ファイルを読めませんでした。", false);
-            return;
+            yield break;
         }
 
         string message;
@@ -173,7 +194,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         if (!prepared)
         {
             SetMessage(message, false);
-            return;
+            yield break;
         }
 
         ShowConfirm(NameFromFile(path));

@@ -10,6 +10,7 @@ public class BattleFloatText : MonoBehaviour
     const float StackGap = 16f;
     const float ExpRight = 22f;
     const float ExpBelow = 6f;
+    const float NudgeRight = 12f;
     const string LayerName = "BattleFloatLayer";
 
     static Font _font;
@@ -51,7 +52,7 @@ public class BattleFloatText : MonoBehaviour
         fx.Begin(cell, layer, damage, amount, stack, font, cellId);
     }
 
-    // マスより手前、ステージ切替の幕より奥。クエスト画面はバトルの外なので、この数値より手前に残る。
+    // キャラとレベル表示より手前。クエストを開いているあいだは、その画面をいちばん手前に戻す。
     static RectTransform FloatLayer(RectTransform cell)
     {
         Transform battle = cell.parent;
@@ -76,19 +77,10 @@ public class BattleFloatText : MonoBehaviour
         if (layer == null)
             return null;
 
-        int firstOverlay = battle.childCount;
-        Transform wipe = battle.Find("StageWipe");
-        Transform dim = battle.Find("StageDim");
-        if (wipe != null)
-            firstOverlay = Mathf.Min(firstOverlay, wipe.GetSiblingIndex());
-        if (dim != null)
-            firstOverlay = Mathf.Min(firstOverlay, dim.GetSiblingIndex());
-        int target = firstOverlay;
-        if (layer.GetSiblingIndex() < firstOverlay)
-            target = firstOverlay - 1;
-        if (target < 0)
-            target = 0;
-        layer.SetSiblingIndex(target);
+        layer.SetAsLastSibling();
+        Transform quest = battle.Find("PanelQuestAccess");
+        if (quest != null)
+            quest.SetAsLastSibling();
         return layer;
     }
 
@@ -115,8 +107,8 @@ public class BattleFloatText : MonoBehaviour
         _rect.sizeDelta = new Vector2(220f, 48f);
         Rect area = cell.rect;
         Vector2 onCell = damage
-            ? new Vector2(area.xMax, (area.yMin + area.yMax) * 0.5f)
-            : new Vector2(area.xMax + ExpRight, area.yMin - ExpBelow);
+            ? new Vector2(area.xMax + NudgeRight, (area.yMin + area.yMax) * 0.5f)
+            : new Vector2(area.xMax + ExpRight + NudgeRight, area.yMin - ExpBelow);
         onCell.y += stack * StackGap;
         Vector3 world = cell.TransformPoint(onCell);
         _origin = layer.InverseTransformPoint(world);

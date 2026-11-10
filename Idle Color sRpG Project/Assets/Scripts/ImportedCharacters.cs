@@ -6,18 +6,26 @@ using System.Text;
 using UnityEngine;
 
 // 自作キャラの大きさ制限。あとから条件を変えるときは、この表だけを直す。
-// ClearedStage は、そのステージをクリアしたあとに開く。0 は最初から開ける。
+// ClearedStage は、そのステージの100階をクリアしたあとに開く。0 は最初から開ける。
+// ComingSoon は、条件が決まるまで読み込めない。
 public struct ImportSizeUnlock
 {
     public int Size;
     public int ClearedStage;
     public string StageName;
+    public bool ComingSoon;
 
     public ImportSizeUnlock(int size, int clearedStage, string stageName)
     {
         Size = size;
         ClearedStage = clearedStage;
         StageName = stageName;
+        ComingSoon = false;
+    }
+
+    public static ImportSizeUnlock Later(int size)
+    {
+        return new ImportSizeUnlock(size, 0, "") { ComingSoon = true };
     }
 }
 
@@ -30,9 +38,20 @@ public static class ImportSizeRules
         new ImportSizeUnlock(8, 0, ""),
         new ImportSizeUnlock(16, 0, ""),
         new ImportSizeUnlock(32, 1, "チュートリアル"),
-        new ImportSizeUnlock(64, 2, "スライムの森"),
-        new ImportSizeUnlock(128, 3, "チグサとバトル１"),
+        new ImportSizeUnlock(64, 3, "チグサとバトル１の100階"),
+        ImportSizeUnlock.Later(128),
+        ImportSizeUnlock.Later(256),
     };
+
+    public static bool IsComingSoon(int size)
+    {
+        for (int i = 0; i < Unlocks.Length; i++)
+        {
+            if (Unlocks[i].Size == size)
+                return Unlocks[i].ComingSoon;
+        }
+        return false;
+    }
 
     public static string Describe(int clearedStage)
     {
@@ -42,13 +61,15 @@ public static class ImportSizeRules
     public static string Describe(System.Func<int, bool> isStageCleared)
     {
         StringBuilder text = new StringBuilder();
-        text.Append("1辺が 8、16、32、64、128 の正方形 PNG のみ読み込み可能です。");
+        text.Append("1辺が " + SizeList() + " の正方形 PNG のみ読み込み可能です。");
         for (int i = 0; i < Unlocks.Length; i++)
         {
             ImportSizeUnlock unlock = Unlocks[i];
             text.Append("\n");
             text.Append(unlock.Size.ToString());
-            if (SizeOpened(unlock, isStageCleared))
+            if (unlock.ComingSoon)
+                text.Append(" … Coming Soon……");
+            else if (SizeOpened(unlock, isStageCleared))
                 text.Append(" … 開放");
             else
                 text.Append(" … 未開放（" + unlock.StageName + "をクリアすると開放されます）");
@@ -70,15 +91,31 @@ public static class ImportSizeRules
         {
             if (Unlocks[i].Size != width)
                 continue;
+            if (Unlocks[i].ComingSoon)
+                return width.ToString() + " は未開放です。Coming Soon……";
             if (!SizeOpened(Unlocks[i], isStageCleared))
                 return width.ToString() + " は未開放です。" + Unlocks[i].StageName + "をクリアすると開きます。";
             return null;
         }
-        return "一辺は 8、16、32、64、128 のいずれかにしてください。今は " + width.ToString() + " です。";
+        return "一辺は " + SizeList() + " のいずれかにしてください。今は " + width.ToString() + " です。";
+    }
+
+    static string SizeList()
+    {
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < Unlocks.Length; i++)
+        {
+            if (i > 0)
+                text.Append("、");
+            text.Append(Unlocks[i].Size.ToString());
+        }
+        return text.ToString();
     }
 
     static bool SizeOpened(ImportSizeUnlock unlock, System.Func<int, bool> isStageCleared)
     {
+        if (unlock.ComingSoon)
+            return false;
         if (unlock.ClearedStage <= 0)
             return true;
         return isStageCleared != null && isStageCleared(unlock.ClearedStage);
@@ -920,6 +957,21 @@ public static class ImportedCharacters
         if (File.Exists(streaming))
             return streaming;
         return "";
+    }
+
+    public static void DeleteStoredFiles()
+    {
+        string directory = Application.persistentDataPath + "/Character/Custom";
+        if (!Directory.Exists(directory))
+            return;
+        try
+        {
+            Directory.Delete(directory, true);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError("自作キャラの画像を消せませんでした。 " + exception.Message);
+        }
     }
 
     static void DeleteImportFiles(uint id)

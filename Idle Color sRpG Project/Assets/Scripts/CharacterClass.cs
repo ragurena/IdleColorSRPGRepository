@@ -300,7 +300,7 @@ public class CharacterClass //: MonoBehaviour
         Debug.Log("argImagePath : " + argImagePath);
 
         string normalizedPath = NormalizedImagePath(argImagePath);
-        if (!string.IsNullOrEmpty(normalizedPath) && File.Exists(normalizedPath))
+        if (NormalizedIsCurrent(argImagePath, normalizedPath))
         {
             ImagePath = LoadNormalizedImage(normalizedPath);
             if (ImagePath == null)
@@ -431,6 +431,23 @@ public class CharacterClass //: MonoBehaviour
         return true;
     }
 
+    // 減色済みが元画像より古いときは、前の読み込みの絵なので使わない。
+    static bool NormalizedIsCurrent(string sourcePath, string normalizedPath)
+    {
+        if (string.IsNullOrEmpty(normalizedPath) || !File.Exists(normalizedPath))
+            return false;
+        if (string.IsNullOrEmpty(sourcePath) || !File.Exists(sourcePath))
+            return true;
+        try
+        {
+            return File.GetLastWriteTimeUtc(normalizedPath) >= File.GetLastWriteTimeUtc(sourcePath);
+        }
+        catch (System.Exception)
+        {
+            return false;
+        }
+    }
+
     string NormalizedImagePath(string argImagePath)
     {
         if (string.IsNullOrWhiteSpace(argImagePath))
@@ -489,7 +506,7 @@ public class CharacterClass //: MonoBehaviour
         }
 
         string existingPath = NormalizedImagePath(argImagePath);
-        if (!string.IsNullOrEmpty(existingPath) && File.Exists(existingPath))
+        if (NormalizedIsCurrent(argImagePath, existingPath))
             return LoadNormalizedImage(existingPath);
 
         //ポスタリゼーションし、アルファを二値化する。元画像は書き換えない
@@ -612,9 +629,18 @@ public class CharacterClass //: MonoBehaviour
 
         Color[] ImageColor = ImageTexture2D.GetPixels(0, 0, ImageTexture2D.width, ImageTexture2D.height);
 
+        // LUC は島の数。それ以外の基礎値は、最も大きい島のピクセルだけを数える。
+        uint islandCount;
+        uint largestIslandSize;
+        bool[] body;
+        CountOpaqueIslands(ImageColor, ImageTexture2D.width, ImageTexture2D.height, out islandCount, out largestIslandSize, out body);
+
         uint RPixelValues = 0;
         uint GPixelValues = 0;
         uint BPixelValues = 0;
+        uint bodyR = 0;
+        uint bodyG = 0;
+        uint bodyB = 0;
         uint RPixels = 0;
         uint GPixels = 0;
         uint BPixels = 0;
@@ -627,92 +653,71 @@ public class CharacterClass //: MonoBehaviour
         APixels = 0;
         uint NoneRGBPixels = 0;
         ListExistsColors.Clear();
+        List<ExistColor> bodyColors = new List<ExistColor>();
 
 
         for (int x = 0; x < ImageTexture2D.width; x++)
         {
             for (int y = 0; y < ImageTexture2D.height; y++)
             {
-                //Debug.Log("ImageColor[" + x + "][" + y + "] : " + ImageColor[x + y * ImageTexture2D.width]);
+                int index = x + y * ImageTexture2D.width;
+                Color source = ImageColor[index];
 
-                if (ImageColor[x + y * ImageTexture2D.width].a != 0.0)
-                {
-                    Color pixel = ImageColor[x + y * ImageTexture2D.width];
-                    pixel.r = ColorUnit(ColorByte(pixel.r));
-                    pixel.g = ColorUnit(ColorByte(pixel.g));
-                    pixel.b = ColorUnit(ColorByte(pixel.b));
-                    ExistColor same = null;
-                    for (int i = 0; i < ListExistsColors.Count; i++)
-                    {
-                        ExistColor entry = ListExistsColors[i];
-                        if (entry != null && ColorByte(entry.Color.r) == ColorByte(pixel.r) && ColorByte(entry.Color.g) == ColorByte(pixel.g) && ColorByte(entry.Color.b) == ColorByte(pixel.b))
-                        {
-                            same = entry;
-                            break;
-                        }
-                    }
-                    if (same != null)
-                        same.Num++;
-                    else
-                        ListExistsColors.Add(new ExistColor(pixel, 1));
-                }
+                // 読み込みで消費する RGB は、画像全体の合計のまま。
+                RPixelValues += (uint)ColorByte(source.r);
+                GPixelValues += (uint)ColorByte(source.g);
+                BPixelValues += (uint)ColorByte(source.b);
 
-                //RGBの各合計値を算出
-                RPixelValues += (uint)ColorByte(ImageColor[x + y * ImageTexture2D.width].r);
-                GPixelValues += (uint)ColorByte(ImageColor[x + y * ImageTexture2D.width].g);
-                BPixelValues += (uint)ColorByte(ImageColor[x + y * ImageTexture2D.width].b);
+                if (source.a != 0.0)
+                    AddColorCount(ListExistsColors, source);
 
-                //透過,R,G,Bのピクセル数を算出
-                if (ImageColor[x + y * ImageTexture2D.width].a == 0.0)
+                if (source.a == 0.0)
                 {
                     APixels++;
+                    continue;
+                }
+                if (body == null || index >= body.Length || body[index] == false)
+                    continue;
+
+                AddColorCount(bodyColors, source);
+                bodyR += (uint)ColorByte(source.r);
+                bodyG += (uint)ColorByte(source.g);
+                bodyB += (uint)ColorByte(source.b);
+
+                float brightness = (source.r + source.g + source.b) * 255f / 3f;
+                int channelR = ColorByte(source.r);
+                int channelG = ColorByte(source.g);
+                int channelB = ColorByte(source.b);
+                int stepR = AttributeColorValue.ChannelStep(channelR);
+                int stepG = AttributeColorValue.ChannelStep(channelG);
+                int stepB = AttributeColorValue.ChannelStep(channelB);
+                long stepSum = (long)stepR + stepG + stepB;
+                hpSteps += stepSum;
+
+                if (source.r > source.g && source.r > source.b)
+                {
+                    RPixels++;
+                    atkFire += stepR;
+                }
+                else if (source.g > source.r && source.g > source.b)
+                {
+                    GPixels++;
+                    atkGrass += stepG;
+                }
+                else if (source.b > source.r && source.b > source.g)
+                {
+                    BPixels++;
+                    atkWater += stepB;
                 }
                 else
                 {
-                    float brightness =
-                        (ImageColor[x + y * ImageTexture2D.width].r +
-                         ImageColor[x + y * ImageTexture2D.width].g +
-                         ImageColor[x + y * ImageTexture2D.width].b) * 255f / 3f;
-                    int channelR = ColorByte(ImageColor[x + y * ImageTexture2D.width].r);
-                    int channelG = ColorByte(ImageColor[x + y * ImageTexture2D.width].g);
-                    int channelB = ColorByte(ImageColor[x + y * ImageTexture2D.width].b);
-                    int stepR = AttributeColorValue.ChannelStep(channelR);
-                    int stepG = AttributeColorValue.ChannelStep(channelG);
-                    int stepB = AttributeColorValue.ChannelStep(channelB);
-                    long stepSum = (long)stepR + stepG + stepB;
-                    hpSteps += stepSum;
-
-                    if ((ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].g) &&
-                        (ImageColor[x + y * ImageTexture2D.width].r > ImageColor[x + y * ImageTexture2D.width].b))
-                    {
-                        RPixels++;
-                        atkFire += stepR;
-                    }
-                    else
-                    if ((ImageColor[x + y * ImageTexture2D.width].g > ImageColor[x + y * ImageTexture2D.width].r) &&
-                        (ImageColor[x + y * ImageTexture2D.width].g > ImageColor[x + y * ImageTexture2D.width].b))
-                    {
-                        GPixels++;
-                        atkGrass += stepG;
-                    }
-                    else
-                    if ((ImageColor[x + y * ImageTexture2D.width].b > ImageColor[x + y * ImageTexture2D.width].r) &&
-                        (ImageColor[x + y * ImageTexture2D.width].b > ImageColor[x + y * ImageTexture2D.width].g))
-                    {
-                        BPixels++;
-                        atkWater += stepB;
-                    }
-                    else
-                    {
-                        NoneRGBPixels++;
-                    }
-
-                    if (brightness > 128f)
-                        atkLight += stepSum;
-                    else
-                        atkDark += BattleMath.CeilDivPositive(stepSum, 3);
+                    NoneRGBPixels++;
                 }
 
+                if (brightness > 128f)
+                    atkLight += stepSum;
+                else
+                    atkDark += BattleMath.CeilDivPositive(stepSum, 3);
             }
         }
         SumPixelR = RPixelValues;
@@ -735,18 +740,18 @@ public class CharacterClass //: MonoBehaviour
         ListExistsColors = tmpList;
 
 
-        //属性決め
-        if (RPixelValues > GPixelValues && RPixelValues > BPixelValues)
+        //属性決め。最大の島の色だけで比べる。
+        if (bodyR > bodyG && bodyR > bodyB)
         {
             CharacterType = CharacterType.Fire;
         }
         else
-        if (GPixelValues > RPixelValues && GPixelValues > BPixelValues)
+        if (bodyG > bodyR && bodyG > bodyB)
         {
             CharacterType = CharacterType.Grass;
         }
         else
-        if (BPixelValues > RPixelValues && BPixelValues > GPixelValues)
+        if (bodyB > bodyR && bodyB > bodyG)
         {
             CharacterType = CharacterType.Water;
         }
@@ -760,7 +765,7 @@ public class CharacterClass //: MonoBehaviour
             else
             {
                 float averageBrightness =
-                    (RPixelValues + GPixelValues + BPixelValues) / (float)(opaquePixels * 3);
+                    (bodyR + bodyG + bodyB) / (float)(opaquePixels * 3);
                 CharacterType = averageBrightness > 128f
                     ? CharacterType.Light
                     : CharacterType.Dark;
@@ -793,33 +798,31 @@ public class CharacterClass //: MonoBehaviour
                 atkSteps = 0;
                 break;
         }
-        // ATK = 属性に合うピクセルの階調番号の合計 / 一辺。DEF = 不透明数 / 一辺。端数は切り上げ。
+        // ATK = 最大の島で、属性に合うピクセルの階調番号の合計 / 一辺。DEF = その島のピクセル数 / 一辺。端数は切り上げ。
         Stats[1].ATK = (ulong)BattleMath.CeilDivPositive(atkSteps, side);
         Stats[1].DEF = (ulong)BattleMath.CeilDivPositive(opaqueCount, side);
 
-        //運の算出に使う、不透明ピクセルの4連結の島
-        uint islandCount;
-        uint largestIslandSize;
-        CountOpaqueIslands(ImageColor, ImageTexture2D.width, ImageTexture2D.height, out islandCount, out largestIslandSize);
-
-        //体力 = 階調番号 R+G+B の合計 / 辺の段数。8は1、16は2、32は3、64は4。端数は切り上げ。
+        //体力 = 最大の島の階調番号 R+G+B の合計 / 辺の段数。8は1、16は2、32は3、64は4。端数は切り上げ。
         long hp = BattleMath.CeilDivPositive(hpSteps, HpSideDivisor(side));
         if (hp < 1)
             hp = 1;
         Stats[1].HPMax = (ulong)hp;
         Stats[1].HPCur = Stats[1].HPMax;
 
-        //素早さの算出
-        //SPD = APixels;
-        int opaqueRatio = (int)(((float)APixels / (ImageTexture2D.width * ImageTexture2D.height)) * 100f);
-        Stats[1].SPD = (byte)ClampSpd(opaqueRatio);
+        //素早さ。最大の島以外（透過と、離れた島）が画像に占める割合。
+        int area = ImageTexture2D.width * ImageTexture2D.height;
+        int outsideBody = area - (int)largestIslandSize;
+        if (outsideBody < 0)
+            outsideBody = 0;
+        int outsideRatio = area > 0 ? (int)(((float)outsideBody / area) * 100f) : 0;
+        Stats[1].SPD = (byte)ClampSpd(outsideRatio);
 
-        //諧調数の算出
+        //諧調数の算出。最大の島にある色だけ。
         {
             GradationNum = 0;
 
-            GradationNum = (uint)ListExistsColors.Count();
-            foreach(ExistColor E in ListExistsColors)
+            GradationNum = (uint)bodyColors.Count;
+            foreach(ExistColor E in bodyColors)
             {
                 Debug.Log("諧調 : r" + ColorByte(E.Color.r) + " g" + ColorByte(E.Color.g) + " b" + ColorByte(E.Color.b));
             }
@@ -862,21 +865,21 @@ public class CharacterClass //: MonoBehaviour
         Stats[1].RCreates = RPixels;
         Stats[1].GCreates = GPixels;
         Stats[1].BCreates = BPixels;
-        SetRepresentativeColors();
+        SetRepresentativeColors(bodyColors);
 
         return true;
     }
 
-    void SetRepresentativeColors()
+    void SetRepresentativeColors(List<ExistColor> colors)
     {
         WeaknessType = ToCharacterType(AttributeWeakness.Of(ToBattleAttribute(CharacterType)));
 
         ExistColor best = null;
-        if (ListExistsColors != null)
+        if (colors != null)
         {
-            for (int i = 0; i < ListExistsColors.Count; i++)
+            for (int i = 0; i < colors.Count; i++)
             {
-                ExistColor color = ListExistsColors[i];
+                ExistColor color = colors[i];
                 if (best == null || color.Num > best.Num)
                     best = color;
             }
@@ -1259,13 +1262,23 @@ public class CharacterClass //: MonoBehaviour
         return (ushort)ColorByte(value);
     }
 
-    void CountOpaqueIslands(Color[] imageColor, int width, int height, out uint islandCount, out uint largestIslandSize)
+    // 不透明ピクセルの上下左右4連結。同じ大きさの島が複数あるときは、下の段から、同じ段なら左から見て先の島。
+    void CountOpaqueIslands(Color[] imageColor, int width, int height, out uint islandCount, out uint largestIslandSize, out bool[] largestIsland)
     {
         islandCount = 0;
         largestIslandSize = 0;
-        bool[] visited = new bool[width * height];
+        int area = width * height;
+        if (area < 0)
+            area = 0;
+        largestIsland = new bool[area];
+        if (imageColor == null || width < 1 || height < 1 || imageColor.Length < area)
+            return;
+
+        bool[] visited = new bool[area];
         int[] dx = { 1, -1, 0, 0 };
         int[] dy = { 0, 0, 1, -1 };
+        List<int> best = new List<int>();
+        List<int> current = new List<int>();
 
         for (int y = 0; y < height; y++)
         {
@@ -1276,7 +1289,7 @@ public class CharacterClass //: MonoBehaviour
                     continue;
 
                 islandCount++;
-                uint size = 0;
+                current.Clear();
                 Stack<int> stack = new Stack<int>();
                 stack.Push(start);
                 visited[start] = true;
@@ -1284,7 +1297,7 @@ public class CharacterClass //: MonoBehaviour
                 while (stack.Count > 0)
                 {
                     int i = stack.Pop();
-                    size++;
+                    current.Add(i);
                     int cx = i % width;
                     int cy = i / width;
                     for (int d = 0; d < 4; d++)
@@ -1301,10 +1314,38 @@ public class CharacterClass //: MonoBehaviour
                     }
                 }
 
-                if (size > largestIslandSize)
-                    largestIslandSize = size;
+                if (current.Count > best.Count)
+                {
+                    List<int> swap = best;
+                    best = current;
+                    current = swap;
+                }
             }
         }
+
+        for (int i = 0; i < best.Count; i++)
+            largestIsland[best[i]] = true;
+        largestIslandSize = (uint)best.Count;
+    }
+
+    static void AddColorCount(List<ExistColor> colors, Color pixel)
+    {
+        pixel.r = ColorUnit(ColorByte(pixel.r));
+        pixel.g = ColorUnit(ColorByte(pixel.g));
+        pixel.b = ColorUnit(ColorByte(pixel.b));
+        int r = ColorByte(pixel.r);
+        int g = ColorByte(pixel.g);
+        int b = ColorByte(pixel.b);
+        for (int i = 0; i < colors.Count; i++)
+        {
+            ExistColor entry = colors[i];
+            if (entry != null && ColorByte(entry.Color.r) == r && ColorByte(entry.Color.g) == g && ColorByte(entry.Color.b) == b)
+            {
+                entry.Num++;
+                return;
+            }
+        }
+        colors.Add(new ExistColor(pixel, 1));
     }
 
 }

@@ -3493,6 +3493,8 @@ public class ControllerBattleClass : MonoBehaviour
         {
             if (_view._battleStageIndex == Constants.BATTLE_STAGE_GALLERY && amount > 0)
                 amount = (amount + 1) / 2;
+            if (_view._production != null)
+                amount = _view._production.ScaleIdle(amount, IdleRewardState.BankBattleRgb);
             _view._production.AddBattleRgb(attribute, amount);
         }
 
@@ -3500,6 +3502,8 @@ public class ControllerBattleClass : MonoBehaviour
         {
             if (_view._battleStageIndex == Constants.BATTLE_STAGE_GALLERY && count > 0)
                 count = (count + 1) / 2;
+            if (_view._production != null)
+                count = _view._production.ScaleIdle(count, IdleRewardState.BankBattlePixel);
             _view._production.AddBattlePixels(r, g, b, count);
             if (count <= 0)
                 return;
@@ -3519,6 +3523,8 @@ public class ControllerBattleClass : MonoBehaviour
         {
             if (_view._battleStageIndex == Constants.BATTLE_STAGE_GALLERY && exp > 0)
                 exp = (exp + 1) / 2;
+            if (_view._production != null)
+                exp = _view._production.ScaleIdle(exp, IdleRewardState.BankBattleExp);
             int levels = _view._production.GrantBattleExp(ally, exp, _view._config);
             if (exp > 0)
             {

@@ -72,6 +72,20 @@ public sealed class HospitalState
         get { return _patients.Count; }
     }
 
+    public int BedPatientCount
+    {
+        get
+        {
+            int count = 0;
+            for (int i = 0; i < _patients.Count; i++)
+            {
+                if (_patients[i].Bed != 0)
+                    count++;
+            }
+            return count;
+        }
+    }
+
     public static long NowUnixMs()
     {
         return (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
@@ -266,6 +280,43 @@ public sealed class HospitalState
         FillEmptyBeds(nowMs);
         CatchUp(nowMs, tryReturn);
         return patient.Id;
+    }
+
+    public ulong[] CopyBedPatientIds()
+    {
+        int count = BedPatientCount;
+        ulong[] ids = new ulong[count];
+        int n = 0;
+        for (int i = 0; i < _patients.Count; i++)
+        {
+            if (_patients[i].Bed == 0)
+                continue;
+            ids[n] = _patients[i].Id;
+            n++;
+        }
+        return ids;
+    }
+
+    // 指定した患者だけ、ベッドにいるときだけその場で回復完了にする。
+    public int InstantRecover(ulong[] ids, long nowMs, Func<uint, bool> tryReturn)
+    {
+        if (nowMs < 0)
+            nowMs = 0;
+        int returned = CatchUp(nowMs, tryReturn);
+        if (ids == null)
+            return returned;
+        for (int i = 0; i < ids.Length; i++)
+        {
+            HospitalPatient patient = FindPatient(ids[i]);
+            if (patient == null || patient.Bed == 0)
+                continue;
+            if (patient.OpaquePixels > 0)
+                patient.HealedPixels = patient.OpaquePixels;
+            patient.LastCalcUnixMs = nowMs;
+            Complete(patient);
+        }
+        returned += FlushPending(tryReturn);
+        return returned;
     }
 
     public int CatchUp(long nowMs, Func<uint, bool> tryReturn)
