@@ -94,19 +94,8 @@ public class ControllerProduction : MonoBehaviour
     static Sprite CatalogBadgeCircle;
     GameObject ButtonImportCharacter;
     Button ButtonImport;
-    Color ImportButtonImageColor = Color.white;
-    Color ImportButtonTextColor = Color.white;
-    bool ImportButtonColorsStored;
     Button ButtonFusion;
-    Color FusionButtonImageColor = Color.white;
-    Color FusionButtonTextColor = Color.white;
-    bool FusionButtonColorsStored;
     Button ButtonHospital;
-    Color HospitalButtonImageColor = Color.white;
-    Color HospitalButtonTextColor = Color.white;
-    bool HospitalButtonColorsStored;
-    readonly Dictionary<string, Color> FeatureButtonImageColors = new Dictionary<string, Color>();
-    readonly Dictionary<string, Color> FeatureButtonTextColors = new Dictionary<string, Color>();
     BattleBalanceConfig BattleBalance = BattleBalanceConfig.CreateDefault();
     Dictionary<int, int> ItemCounts = new Dictionary<int, int>();
     bool EnmusubiArmed;
@@ -1856,6 +1845,255 @@ public class ControllerProduction : MonoBehaviour
         }
 
         ShowSelectScenePage(0);
+        StyleSceneBarButtons();
+    }
+
+    void StyleSceneBarButtons()
+    {
+        GameObject bar = GameObject.Find("PanelSelectScene");
+        if (bar == null)
+            return;
+        for (int i = 0; i < bar.transform.childCount; i++)
+        {
+            Button button = bar.transform.GetChild(i).GetComponent<Button>();
+            if (button == null)
+                continue;
+            StyleSceneNavButton(button, button.interactable);
+        }
+    }
+
+    // 生産のスピードボタンと同じグラデ。下の画面移動とページの矢印は白で塗る。
+    void StyleSceneNavButton(Button button, bool open)
+    {
+        if (button == null)
+            return;
+        button.interactable = open;
+        RgbButtonPressGlow glow = button.GetComponent<RgbButtonPressGlow>();
+        if (glow != null)
+            glow.UseTint = false;
+        StylePixelSpeedButton(button.transform, Color.white);
+        if (!open)
+            EnsureButtonNeon(button.transform, Color.white, false, false);
+        RestoreCatalogBadgeInk(button.transform);
+        PlaceSceneIcon(button, open);
+    }
+
+    static readonly string[] SceneIconFiles =
+    {
+        "RGB生産_1024x1024.png",
+        "ピクセル生産_1024x1024.png",
+        "キャラ生産_1024x1024.png",
+        "合成_1024x1024.png",
+        "バトル_1024x1024.png",
+        "回復_1024x1024.png",
+    };
+
+    public static Sprite ProductionPlaceIcon(Place place)
+    {
+        if (place == Place.CreateR || place == Place.CreateG || place == Place.CreateB)
+            return SceneIconSprite("RGB生産_1024x1024.png");
+        if (place == Place.CreatePixel)
+            return SceneIconSprite("ピクセル生産_1024x1024.png");
+        if (place == Place.CreateCharacter)
+            return SceneIconSprite("キャラ生産_1024x1024.png");
+        if (place == Place.Hospital)
+            return SceneIconSprite("回復_1024x1024.png");
+        if (place == Place.Battle)
+            return SceneIconSprite("バトル_1024x1024.png");
+        return null;
+    }
+    static readonly Dictionary<string, Sprite> SceneIconSprites = new Dictionary<string, Sprite>();
+
+    static string SceneIconFile(string buttonName)
+    {
+        if (buttonName == "ButtonSelectSceneRGBProduction")
+            return "RGB生産_1024x1024.png";
+        if (buttonName == "ButtonSelectScenePixelProduction")
+            return "ピクセル生産_1024x1024.png";
+        if (buttonName == "ButtonSelectSceneCharacterProduction")
+            return "キャラ生産_1024x1024.png";
+        if (buttonName == "ButtonFusionScene")
+            return "合成_1024x1024.png";
+        if (buttonName == "ButtonSelectSceneBattleStage")
+            return "バトル_1024x1024.png";
+        if (buttonName == "ButtonSelectSceneRestArea" || buttonName.Contains("Hospital"))
+            return "回復_1024x1024.png";
+        return null;
+    }
+
+    static void CopySceneIconsFolder(string sourceDirectory)
+    {
+        if (string.IsNullOrEmpty(sourceDirectory) || !Directory.Exists(sourceDirectory))
+            return;
+        string destDir = Path.Combine(Application.persistentDataPath, "icon");
+        if (!Directory.Exists(destDir))
+            Directory.CreateDirectory(destDir);
+        string[] files = Directory.GetFiles(sourceDirectory, "*.png", SearchOption.TopDirectoryOnly);
+        for (int i = 0; i < files.Length; i++)
+            File.Copy(files[i], Path.Combine(destDir, Path.GetFileName(files[i])), true);
+    }
+
+    IEnumerator CopySceneIconsAndroid()
+    {
+        string destDir = Path.Combine(Application.persistentDataPath, "icon");
+        if (!Directory.Exists(destDir))
+            Directory.CreateDirectory(destDir);
+        for (int i = 0; i < SceneIconFiles.Length; i++)
+        {
+            string fileName = SceneIconFiles[i];
+            string path = Application.streamingAssetsPath + "/icon/" + fileName;
+            using (UnityWebRequest www = UnityWebRequest.Get(path))
+            {
+                yield return www.SendWebRequest();
+                if (www.result == UnityWebRequest.Result.Success)
+                    File.WriteAllBytes(Path.Combine(destDir, fileName), www.downloadHandler.data);
+            }
+        }
+    }
+
+    static Sprite SceneIconSprite(string fileName)
+    {
+        Sprite cached;
+        if (SceneIconSprites.TryGetValue(fileName, out cached) && cached != null)
+            return cached;
+        string persistent = Path.Combine(Application.persistentDataPath, "icon", fileName);
+        string streaming = Path.Combine(Application.streamingAssetsPath, "icon", fileName);
+        string path = File.Exists(persistent) ? persistent : null;
+        if (path == null && File.Exists(streaming))
+            path = streaming;
+        if (path == null)
+            return null;
+        byte[] bytes;
+        try
+        {
+            bytes = File.ReadAllBytes(path);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+        Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!texture.LoadImage(bytes))
+        {
+            Destroy(texture);
+            return null;
+        }
+        texture.filterMode = FilterMode.Bilinear;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        SceneIconSprites[fileName] = sprite;
+        return sprite;
+    }
+
+    void PlaceSceneIcon(Button button, bool open)
+    {
+        string fileName = SceneIconFile(button.name);
+        if (fileName == null)
+            return;
+        Sprite sprite = SceneIconSprite(fileName);
+        Transform existing = button.transform.Find("SceneIcon");
+        if (sprite == null)
+        {
+            if (existing != null)
+                existing.gameObject.SetActive(false);
+            return;
+        }
+
+        Image icon = existing != null ? existing.GetComponent<Image>() : null;
+        if (icon == null)
+        {
+            GameObject obj = new GameObject("SceneIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(button.transform, false);
+            icon = obj.GetComponent<Image>();
+            icon.raycastTarget = false;
+            icon.preserveAspect = true;
+        }
+        icon.sprite = sprite;
+        icon.color = open ? Color.white : new Color(0.55f, 0.55f, 0.55f, 1f);
+        icon.gameObject.SetActive(true);
+
+        RectTransform buttonRect = button.GetComponent<RectTransform>();
+        float height = buttonRect != null ? buttonRect.rect.height : 0f;
+        float width = buttonRect != null ? buttonRect.rect.width : 0f;
+        if (height < 48f && buttonRect != null)
+            height = buttonRect.sizeDelta.y;
+        if (width < 48f && buttonRect != null)
+            width = buttonRect.sizeDelta.x;
+        if (height < 48f)
+            height = 128f;
+        if (width < 48f)
+            width = 160f;
+        float iconSize = height * 0.58f;
+        float textH = 28f;
+        float gap = 2f;
+        float block = iconSize + gap + textH;
+        float iconY = block * 0.5f - iconSize * 0.5f;
+        float textY = -block * 0.5f + textH * 0.5f;
+
+        RectTransform rect = icon.rectTransform;
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0f, iconY);
+        rect.sizeDelta = new Vector2(iconSize, iconSize);
+
+        Text label = SceneButtonLabel(button);
+        if (label != null)
+        {
+            RectTransform textRect = label.rectTransform;
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.anchoredPosition = new Vector2(0f, textY);
+            textRect.sizeDelta = new Vector2(width - 4f, textH);
+            label.supportRichText = false;
+            label.resizeTextForBestFit = false;
+            label.fontSize = 20;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+            label.gameObject.SetActive(true);
+            if (button.name == "ButtonSelectSceneRGBProduction")
+                label.text = "RGB生産";
+            StyleGaugeTextGlow(label, Color.white);
+            label.transform.SetAsLastSibling();
+        }
+        Transform badge = button.transform.Find("ImageCatalogBadge");
+        if (badge != null)
+            badge.SetAsLastSibling();
+    }
+
+    static Text SceneButtonLabel(Button button)
+    {
+        Text[] labels = button.GetComponentsInChildren<Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            Transform parent = labels[i].transform.parent;
+            if (parent != null && parent.name == "ImageCatalogBadge")
+                continue;
+            return labels[i];
+        }
+        return null;
+    }
+
+    static void RestoreCatalogBadgeInk(Transform button)
+    {
+        Transform badge = button.Find("ImageCatalogBadge");
+        if (badge == null)
+            return;
+        Text label = badge.GetComponentInChildren<Text>(true);
+        if (label == null)
+            return;
+        label.color = Color.white;
+        GaugeTextGlow glow = label.GetComponent<GaugeTextGlow>();
+        if (glow == null)
+            return;
+        glow.Glow = new Color(0f, 0f, 0f, 0f);
+        glow.Spread = 0f;
+        label.SetVerticesDirty();
     }
 
     static void SilenceSceneSwitch(Button button)
@@ -2173,23 +2411,8 @@ public class ControllerProduction : MonoBehaviour
         if (ButtonHospital == null)
             return;
 
-        Image image = ButtonHospital.GetComponent<Image>();
-        Text label = ButtonHospital.GetComponentInChildren<Text>();
-        if (!HospitalButtonColorsStored)
-        {
-            if (image != null)
-                HospitalButtonImageColor = image.color;
-            if (label != null)
-                HospitalButtonTextColor = label.color;
-            HospitalButtonColorsStored = true;
-        }
-
         bool open = IsMainFeatureOpen(MainFeature.Recovery);
-        ButtonHospital.interactable = open;
-        if (image != null)
-            image.color = open ? HospitalButtonImageColor : new Color(0.45f, 0.45f, 0.45f, HospitalButtonImageColor.a);
-        if (label != null)
-            label.color = open ? HospitalButtonTextColor : new Color(0.62f, 0.62f, 0.62f, HospitalButtonTextColor.a);
+        StyleSceneNavButton(ButtonHospital, open);
     }
 
     static Transform FindHospitalSceneButton(Transform bar)
@@ -2532,23 +2755,8 @@ public class ControllerProduction : MonoBehaviour
         if (ButtonImport == null)
             return;
 
-        Image image = ButtonImport.GetComponent<Image>();
-        Text label = ButtonImport.GetComponentInChildren<Text>();
-        if (!ImportButtonColorsStored)
-        {
-            if (image != null)
-                ImportButtonImageColor = image.color;
-            if (label != null)
-                ImportButtonTextColor = label.color;
-            ImportButtonColorsStored = true;
-        }
-
         bool open = IsMainFeatureOpen(MainFeature.Import);
-        ButtonImport.interactable = open;
-        if (image != null)
-            image.color = open ? ImportButtonImageColor : new Color(0.45f, 0.45f, 0.45f, ImportButtonImageColor.a);
-        if (label != null)
-            label.color = open ? ImportButtonTextColor : new Color(0.62f, 0.62f, 0.62f, ImportButtonTextColor.a);
+        StyleSceneNavButton(ButtonImport, open);
     }
 
     // 敵を50体倒すクエストを受け取ると、合成が押せる。
@@ -2557,23 +2765,8 @@ public class ControllerProduction : MonoBehaviour
         if (ButtonFusion == null)
             return;
 
-        Image image = ButtonFusion.GetComponent<Image>();
-        Text label = ButtonFusion.GetComponentInChildren<Text>();
-        if (!FusionButtonColorsStored)
-        {
-            if (image != null)
-                FusionButtonImageColor = image.color;
-            if (label != null)
-                FusionButtonTextColor = label.color;
-            FusionButtonColorsStored = true;
-        }
-
         bool open = Quests.FusionUnlocked;
-        ButtonFusion.interactable = open;
-        if (image != null)
-            image.color = open ? FusionButtonImageColor : new Color(0.45f, 0.45f, 0.45f, FusionButtonImageColor.a);
-        if (label != null)
-            label.color = open ? FusionButtonTextColor : new Color(0.62f, 0.62f, 0.62f, FusionButtonTextColor.a);
+        StyleSceneNavButton(ButtonFusion, open);
     }
 
     public bool TryFuse(uint characterId)
@@ -6203,6 +6396,21 @@ public class ControllerProduction : MonoBehaviour
         SaveGame();
     }
 
+    public IdlePayout BuildOfflinePayout(int cycles, int multiplier)
+    {
+        return IdleRewardState.BuildPayout(cycles, multiplier, Idle.SeenOrbs,
+            ToPayoutAmount(IncreaseValueR),
+            ToPayoutAmount(IncreaseValueG),
+            ToPayoutAmount(IncreaseValueB));
+    }
+
+    static long ToPayoutAmount(ulong value)
+    {
+        if (value > (ulong)long.MaxValue)
+            return long.MaxValue;
+        return (long)value;
+    }
+
     public void GrantOfflineReward(IdlePayout payout)
     {
         if (payout.OrbSizes != null && payout.OrbEach > 0)
@@ -6345,6 +6553,7 @@ public class ControllerProduction : MonoBehaviour
     {
         "グレイズ_64.png",
         "ズンラゲ_64.png",
+        "ミケ_32.png",
         "ベリー_32.png",
         "ベリル_64.png",
     };
@@ -6455,6 +6664,7 @@ public class ControllerProduction : MonoBehaviour
         }
         PersonPortraits.CopyFromFolder(Application.streamingAssetsPath + "/human");
         ItemImages.CopyFromFolder(Application.streamingAssetsPath + "/item");
+        CopySceneIconsFolder(Application.streamingAssetsPath + "/icon");
 
 #elif UNITY_IPHONE
     Debug.Log("UNITY_IPHONE");
@@ -6468,6 +6678,7 @@ public class ControllerProduction : MonoBehaviour
     }
     PersonPortraits.CopyFromFolder(Application.dataPath + "/Raw" + "/human");
     ItemImages.CopyFromFolder(Application.dataPath + "/Raw" + "/item");
+    CopySceneIconsFolder(Application.dataPath + "/Raw" + "/icon");
 
 #elif UNITY_ANDROID
     Debug.Log("UNITY_ANDROID");
@@ -6507,6 +6718,7 @@ public class ControllerProduction : MonoBehaviour
     }
     yield return CopyHumanAndroid();
     yield return CopyItemAndroid();
+    yield return CopySceneIconsAndroid();
 #endif
 
         Debug.Log("MakeFile End");
@@ -6921,6 +7133,7 @@ public class ControllerProduction : MonoBehaviour
 
         ApplyRgbRowOrder();
         EnsureRgbOrderButton();
+        EnsureRgbAutoAssignButton();
     }
 
     void ApplyRgbRowOrder()
@@ -7051,6 +7264,207 @@ public class ControllerProduction : MonoBehaviour
 
         existing.SetAsLastSibling();
         RefreshRgbOrderButton();
+    }
+
+    // 右上。空きのRGB枠だけを、所持が少ない色から埋める。
+    void EnsureRgbAutoAssignButton()
+    {
+        if (PanelRGBProduction == null)
+            return;
+        Transform existing = PanelRGBProduction.transform.Find("RgbAutoAssignButton");
+        if (existing == null)
+        {
+            GameObject obj = new GameObject("RgbAutoAssignButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            obj.transform.SetParent(PanelRGBProduction.transform, false);
+            RectTransform rect = obj.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-12f, -6f);
+            rect.sizeDelta = new Vector2(220f, 76f);
+
+            Image image = obj.GetComponent<Image>();
+            image.color = Color.white;
+            image.raycastTarget = true;
+            Button button = obj.GetComponent<Button>();
+            button.targetGraphic = image;
+            Navigation navigation = button.navigation;
+            navigation.mode = Navigation.Mode.None;
+            button.navigation = navigation;
+            button.onClick.AddListener(PushButtonAutoAssignRgb);
+
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(obj.transform, false);
+            RectTransform textRect = textObject.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(8f, 4f);
+            textRect.offsetMax = new Vector2(-8f, -4f);
+            Text label = textObject.AddComponent<Text>();
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (label.font == null)
+                label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            label.text = "自動割当";
+            label.fontSize = 32;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+            label.raycastTarget = false;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            Outline outline = textObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.02f, 0.02f, 0.03f, 0.92f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            existing = obj.transform;
+        }
+
+        existing.SetAsLastSibling();
+        Button styled = existing.GetComponent<Button>();
+        if (styled != null)
+            StyleRepresentativeButton(styled, Color.white, true);
+    }
+
+    public void PushButtonAutoAssignRgb()
+    {
+        List<CharacterClass> free = new List<CharacterClass>();
+        CollectFreeRgbWorkers(free);
+        bool changed = false;
+        while (free.Count > 0)
+        {
+            int channel = LowestOpenRgbChannel();
+            if (channel < 0)
+                break;
+            int best = BestRgbWorker(free, channel);
+            int slot = FirstEmptyRgbSlot(channel);
+            if (best < 0 || slot < 1)
+                break;
+            AssignRgbWorker(channel, slot, free[best]);
+            free.RemoveAt(best);
+            changed = true;
+        }
+        if (!changed)
+            return;
+        UpdateRGBProductionHelpCharacter();
+        SaveGame();
+    }
+
+    void CollectFreeRgbWorkers(List<CharacterClass> free)
+    {
+        HashSet<uint> busy = new HashSet<uint>();
+        AddBusyWorkers(busy, CharactersIDHelpProductionR);
+        AddBusyWorkers(busy, CharactersIDHelpProductionG);
+        AddBusyWorkers(busy, CharactersIDHelpProductionB);
+        AddBusyWorkers(busy, CharactersIDProductionPixel);
+        AddBusyWorkers(busy, CharactersIDProductionCharacter);
+        HashSet<uint> seen = new HashSet<uint>();
+        if (CharactersAll != null)
+        {
+            for (int i = 0; i < CharactersAll.Length; i++)
+                TryAddFreeRgbWorker(CharactersAll[i], busy, seen, free);
+        }
+        ImportedCharacters.ForEach(character => TryAddFreeRgbWorker(character, busy, seen, free));
+    }
+
+    static void AddBusyWorkers(HashSet<uint> busy, uint[] ids)
+    {
+        if (ids == null)
+            return;
+        for (int i = 1; i < ids.Length; i++)
+        {
+            if (ids[i] != 0)
+                busy.Add(ids[i]);
+        }
+    }
+
+    void TryAddFreeRgbWorker(CharacterClass character, HashSet<uint> busy, HashSet<uint> seen, List<CharacterClass> free)
+    {
+        if (character == null || character.ID == 0 || character.OwnedNumMax == 0)
+            return;
+        if (!seen.Add(character.ID) || busy.Contains(character.ID) || IsHospitalNurse(character.ID))
+            return;
+        Place place = character.Whereabouts;
+        if (place == Place.Battle || place == Place.Hospital
+            || place == Place.CreateR || place == Place.CreateG || place == Place.CreateB
+            || place == Place.CreatePixel || place == Place.CreateCharacter)
+            return;
+        free.Add(character);
+    }
+
+    // 空き枠がある色のうち、今の所持が一番少ない色。同じ所持なら R、G、B の順。
+    int LowestOpenRgbChannel()
+    {
+        int best = -1;
+        ulong bestStock = 0;
+        for (int channel = 0; channel < 3; channel++)
+        {
+            if (FirstEmptyRgbSlot(channel) < 1)
+                continue;
+            ulong stock = channel == 1 ? CurG : channel == 2 ? CurB : CurR;
+            if (best < 0 || stock < bestStock)
+            {
+                best = channel;
+                bestStock = stock;
+            }
+        }
+        return best;
+    }
+
+    int FirstEmptyRgbSlot(int channel)
+    {
+        uint[] people = channel == 1 ? PersonIdHelpProductionG : channel == 2 ? PersonIdHelpProductionB : PersonIdHelpProductionR;
+        uint[] characters = channel == 1 ? CharactersIDHelpProductionG : channel == 2 ? CharactersIDHelpProductionB : CharactersIDHelpProductionR;
+        for (int i = 1; i <= Constants.CHARACTERS_HELP_PRODUCTION_NUM; i++)
+        {
+            bool person = people != null && i < people.Length && people[i] != 0;
+            bool character = characters != null && i < characters.Length && characters[i] != 0;
+            if (!person && !character)
+                return i;
+        }
+        return 0;
+    }
+
+    static int BestRgbWorker(List<CharacterClass> free, int channel)
+    {
+        int best = -1;
+        ulong bestAmount = 0;
+        uint bestId = uint.MaxValue;
+        for (int i = 0; i < free.Count; i++)
+        {
+            ulong amount = RgbCreatesOf(free[i], channel);
+            uint id = free[i].ID;
+            if (best < 0 || amount > bestAmount || (amount == bestAmount && id < bestId))
+            {
+                best = i;
+                bestAmount = amount;
+                bestId = id;
+            }
+        }
+        return best;
+    }
+
+    static ulong RgbCreatesOf(CharacterClass character, int channel)
+    {
+        if (character == null || character.Stats == null || character.Stats[0] == null)
+            return 0;
+        if (channel == 1)
+            return character.Stats[0].GCreates;
+        if (channel == 2)
+            return character.Stats[0].BCreates;
+        return character.Stats[0].RCreates;
+    }
+
+    void AssignRgbWorker(int channel, int index, CharacterClass character)
+    {
+        uint[] ids = channel == 1 ? CharactersIDHelpProductionG : channel == 2 ? CharactersIDHelpProductionB : CharactersIDHelpProductionR;
+        if (ids == null || index < 1 || index >= ids.Length || character == null)
+            return;
+        ids[index] = character.ID;
+        if (channel == 1)
+            character.Whereabouts = Place.CreateG;
+        else if (channel == 2)
+            character.Whereabouts = Place.CreateB;
+        else
+            character.Whereabouts = Place.CreateR;
     }
 
     void RefreshRgbOrderButton()
@@ -7369,8 +7783,6 @@ public class ControllerProduction : MonoBehaviour
         image.type = Image.Type.Simple;
         image.color = Color.white;
         image.preserveAspect = false;
-        if (FeatureButtonImageColors.ContainsKey(button.name))
-            FeatureButtonImageColors[button.name] = Color.white;
 
         ColorBlock colors = button.colors;
         colors.normalColor = Color.white;
@@ -10386,12 +10798,20 @@ public class ControllerProduction : MonoBehaviour
             FitOwnedStockLabel(createdLabel, "所持 " + character.StockText(true), IsOwnedAtCap(character));
             EnsureOwnedAttributeGlow(characterButton.transform, character);
             CatalogNewMark.Apply(characterButton.transform, character);
-            if (character.Whereabouts == Place.CreateR ||
+            bool assignedWorker = IsHospitalNurse(character.ID) || character.Whereabouts == Place.Hospital
+                || character.Whereabouts == Place.CreateR || character.Whereabouts == Place.CreateG
+                || character.Whereabouts == Place.CreateB || character.Whereabouts == Place.CreatePixel
+                || character.Whereabouts == Place.CreateCharacter;
+            if (IsHospitalNurse(character.ID) || character.Whereabouts == Place.Hospital)
+                ControllerCharacterSelectClass.AddFaintWarningMark(characterButton, Place.Hospital);
+            else if (character.Whereabouts == Place.CreateR ||
                 character.Whereabouts == Place.CreateG ||
                 character.Whereabouts == Place.CreateB ||
                 character.Whereabouts == Place.CreatePixel ||
                 character.Whereabouts == Place.CreateCharacter)
-                ControllerCharacterSelectClass.AddFaintWarningMark(characterButton);
+                ControllerCharacterSelectClass.AddFaintWarningMark(characterButton, character.Whereabouts);
+            if (assignedWorker)
+                ControllerCharacterSelectClass.DarkenAssignedPortrait(characterButton);
             KeptOwnedListIds.Add(characterButton.transform.GetInstanceID());
             shown++;
             added = true;
@@ -12907,24 +13327,7 @@ public class ControllerProduction : MonoBehaviour
         Button button = child.GetComponent<Button>();
         if (button == null)
             return;
-
-        Image image = button.GetComponent<Image>();
-        Text label = button.GetComponentInChildren<Text>();
-        if (!FeatureButtonImageColors.ContainsKey(name))
-        {
-            if (image != null)
-                FeatureButtonImageColors[name] = image.color;
-            if (label != null)
-                FeatureButtonTextColors[name] = label.color;
-        }
-
-        button.interactable = open;
-        Color imageColor;
-        if (image != null && FeatureButtonImageColors.TryGetValue(name, out imageColor))
-            image.color = open ? imageColor : new Color(0.45f, 0.45f, 0.45f, imageColor.a);
-        Color textColor;
-        if (label != null && FeatureButtonTextColors.TryGetValue(name, out textColor))
-            label.color = open ? textColor : new Color(0.62f, 0.62f, 0.62f, textColor.a);
+        StyleSceneNavButton(button, open);
     }
 
     static readonly int[] ProducibleChannels = { 0, 32, 64, 96, 128, 160, 192, 224, 255 };

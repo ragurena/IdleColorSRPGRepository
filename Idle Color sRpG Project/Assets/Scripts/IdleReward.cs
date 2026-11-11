@@ -117,7 +117,8 @@ public sealed class IdleRewardState
         return elapsedMs >= capMs / 2L;
     }
 
-    public static IdlePayout BuildPayout(int cycles, int multiplier, IReadOnlyList<int> seenOrbs)
+    // tapR/G/B は、その色を1回タップしたときの増加量。10分ごとに10回分。
+    public static IdlePayout BuildPayout(int cycles, int multiplier, IReadOnlyList<int> seenOrbs, long tapR, long tapG, long tapB)
     {
         IdlePayout payout = new IdlePayout();
         if (cycles < 0)
@@ -127,9 +128,9 @@ public sealed class IdleRewardState
         long times = Mul(cycles, multiplier);
         payout.Cycles = cycles;
         payout.Multiplier = multiplier;
-        payout.Red = Mul(times, 500L);
-        payout.Green = payout.Red;
-        payout.Blue = payout.Red;
+        payout.Red = Mul(times, Mul(tapR, 10L));
+        payout.Green = Mul(times, Mul(tapG, 10L));
+        payout.Blue = Mul(times, Mul(tapB, 10L));
         payout.AllPixels = Mul(times, 10L);
         payout.OrbEach = times > int.MaxValue ? int.MaxValue : (int)times;
         if (seenOrbs != null)

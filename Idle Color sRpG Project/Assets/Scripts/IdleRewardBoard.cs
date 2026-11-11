@@ -224,7 +224,7 @@ public class IdleRewardBoard : MonoBehaviour
                 + "報酬計算上限：" + IdleRewardState.FormatSpan((long)cap * 60000L) + "\n\n"
                 + "以下のオフライン報酬を獲得しました！";
         }
-        IdlePayout payout = IdleRewardState.BuildPayout(cycles, 1, _game.Idle.SeenOrbs);
+        IdlePayout payout = _game.BuildOfflinePayout(cycles, 1);
         FillOfflineList(payout);
         if (_offlineAd != null)
             _offlineAd.gameObject.SetActive(ad);
@@ -280,7 +280,7 @@ public class IdleRewardBoard : MonoBehaviour
         _offlineClaimed = true;
         long elapsed = _game.Idle.OfferElapsedMs;
         int cycles = IdleRewardState.RewardCycles(elapsed, _game.Idle.OfflineCapMinutes());
-        IdlePayout payout = IdleRewardState.BuildPayout(cycles, multiplier, _game.Idle.SeenOrbs);
+        IdlePayout payout = _game.BuildOfflinePayout(cycles, multiplier);
         _game.Idle.ClaimedBackgroundUnixMs = stamp;
         _game.Idle.BackgroundUnixMs = 0;
         _game.Idle.OfferElapsedMs = 0;
@@ -571,7 +571,8 @@ public class IdleRewardBoard : MonoBehaviour
         _offlineList = list.GetComponent<RectTransform>();
         _offlineList.anchorMin = new Vector2(0f, 0f);
         _offlineList.anchorMax = new Vector2(1f, 1f);
-        _offlineList.offsetMin = new Vector2(16f, 200f);
+        // 下端132・高さ84の広告ボタンより上に余白を残す。一覧はその分だけ上に寄る。
+        _offlineList.offsetMin = new Vector2(16f, 248f);
         _offlineList.offsetMax = new Vector2(-16f, -250f);
         _offlineAd = WideButton("ButtonOfflineWatchAd", card, "広告を見て放置報酬を3倍受け取る", new Color(0.25f, 0.45f, 0.75f, 1f), 132f);
         _offlineClose = WideButton("ButtonOfflineClose", card, "広告を見ずに閉じる", new Color(0.45f, 0.45f, 0.48f, 1f), 36f);

@@ -764,8 +764,17 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             Debug.LogWarning($"{argCharacterIndex}番目のキャラの画像パスが空のため、スプライトを生成できませんでした。");
         }
 
-        // 確定したスプライトをセットする
-        GameObjectCharacterButton.GetComponentInChildren<Image>().sprite = characterSprite;
+        // 確定したスプライトをセットする。Sliced のままだとドット絵が潰れて消える。
+        Image portrait = GameObjectCharacterButton.GetComponent<Image>();
+        if (portrait == null)
+            portrait = GameObjectCharacterButton.GetComponentInChildren<Image>();
+        if (portrait != null)
+        {
+            portrait.sprite = characterSprite;
+            portrait.type = Image.Type.Simple;
+            portrait.preserveAspect = true;
+            portrait.enabled = true;
+        }
         if (createdSprite)
             _listSprites.Add(characterSprite);
 
@@ -842,17 +851,221 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             || (ControllerBattlePartyClass.IsCellButton(argButtonTmp) && GetComponent<ControllerProduction>() != null && GetComponent<ControllerProduction>().IsHospitalNurse((uint)argCharacterIndex)))
         {
             GrayOutCharacterButton(GameObjectCharacterButton);
+            if (warnIfUsedInOtherProduction && IsNurseOnAnotherCard((uint)argCharacterIndex, argButtonTmp))
+                AddFaintWarningMark(GameObjectCharacterButton, Place.Hospital);
             CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
+            if (buttonCharacter.Whereabouts == Place.Battle)
+                AddPlaceIcon(GameObjectCharacterButton, Place.Battle);
+            RaiseNewMark(GameObjectCharacterButton);
             return;
         }
 
+        bool assignedWorker = false;
+        Place assignment = Place.None;
         if (warnIfUsedInOtherProduction && IsUsedInOtherProduction((uint)argCharacterIndex, argButtonTmp))
-            AddFaintWarningMark(GameObjectCharacterButton);
+        {
+            CharacterClass busy = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
+            assignment = busy != null ? busy.Whereabouts : Place.None;
+            assignedWorker = true;
+        }
+        else if (warnIfUsedInOtherProduction && IsNurseOnAnotherCard((uint)argCharacterIndex, argButtonTmp))
+        {
+            assignment = Place.Hospital;
+            assignedWorker = true;
+        }
+        else if (warnIfUsedInOtherProduction && IsCurrentAssignment((uint)argCharacterIndex, argButtonTmp))
+        {
+            CharacterClass current = ImportedCharacters.FindAny(CharactersAll, (uint)argCharacterIndex);
+            if (current != null && IsProductionPlace(current.Whereabouts))
+                assignment = current.Whereabouts;
+            assignedWorker = true;
+        }
+        if (assignedWorker)
+            DarkenAssignedPortrait(GameObjectCharacterButton);
+        if (assignment == Place.None && buttonCharacter.Whereabouts == Place.Battle)
+            assignment = Place.Battle;
 
         //クリックイベントを追加
         uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
         GameObjectCharacterButton.GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
         CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
+        if (assignment != Place.None)
+            AddAssignmentMark(GameObjectCharacterButton, CharacterID, assignment);
+    }
+
+    // 生産に入っている顔へ、何を作っているかを乗せる。
+    // 手前から、文字かチップ、生産アイコン、キャラの絵。
+    void AddAssignmentMark(GameObject buttonObject, uint characterId, Place place)
+    {
+        if (IsProductionPlace(place) || place == Place.Battle)
+            AddPlaceIcon(buttonObject, place);
+        if (place == Place.CreateR || place == Place.CreateG || place == Place.CreateB)
+            AddRgbMark(buttonObject, place);
+        else if (place == Place.CreatePixel)
+            AddPixelColorMark(buttonObject, PixelColorOf(characterId));
+        else if (place == Place.CreateCharacter)
+            AddProducedCharacterMark(buttonObject, ProducedCharacterOf(characterId));
+        else if (place != Place.Battle)
+            AddFaintWarningMark(buttonObject, place);
+        RaiseNewMark(buttonObject);
+    }
+
+    static void RaiseNewMark(GameObject buttonObject)
+    {
+        if (buttonObject == null)
+            return;
+        Transform newMark = buttonObject.transform.Find("CatalogNewMark");
+        if (newMark != null && newMark.gameObject.activeSelf)
+            newMark.SetAsLastSibling();
+    }
+
+    static void AddPlaceIcon(GameObject buttonObject, Place place)
+    {
+        Sprite sprite = ControllerProduction.ProductionPlaceIcon(place);
+        if (sprite == null)
+            return;
+        RectTransform rect = CreateCenterMark(buttonObject, new Vector2(96f, 96f));
+        Image image = rect.gameObject.AddComponent<Image>();
+        image.sprite = sprite;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        image.color = Color.white;
+    }
+
+    Color PixelColorOf(uint characterId)
+    {
+        if (CharactersIDProductionPixel == null || ColorProductionPixel == null)
+            return Color.black;
+        int count = CharactersIDProductionPixel.Length;
+        if (ColorProductionPixel.Length < count)
+            count = ColorProductionPixel.Length;
+        for (int i = 1; i < count; i++)
+        {
+            if (CharactersIDProductionPixel[i] == characterId)
+                return ColorProductionPixel[i];
+        }
+        return Color.black;
+    }
+
+    uint ProducedCharacterOf(uint characterId)
+    {
+        if (CharactersIDProductionCharacter == null || CharactersIDProducedCharacter == null)
+            return 0;
+        int count = CharactersIDProductionCharacter.Length;
+        if (CharactersIDProducedCharacter.Length < count)
+            count = CharactersIDProducedCharacter.Length;
+        for (int i = 1; i < count; i++)
+        {
+            if (CharactersIDProductionCharacter[i] == characterId)
+                return CharactersIDProducedCharacter[i];
+        }
+        return 0;
+    }
+
+    static void AddRgbMark(GameObject buttonObject, Place place)
+    {
+        string letter = "R";
+        Color color = new Color(1f, 0.18f, 0.18f, 1f);
+        if (place == Place.CreateG)
+        {
+            letter = "G";
+            color = new Color(0.15f, 0.9f, 0.2f, 1f);
+        }
+        else if (place == Place.CreateB)
+        {
+            letter = "B";
+            color = new Color(0.3f, 0.45f, 1f, 1f);
+        }
+        Text mark = CreateCenterText(buttonObject, letter, color);
+        if (mark == null)
+            return;
+        mark.fontSize = 46;
+    }
+
+    void AddPixelColorMark(GameObject buttonObject, Color color)
+    {
+        RectTransform rect = CreateCenterMark(buttonObject, new Vector2(40f, 40f));
+        Image chip = rect.gameObject.AddComponent<Image>();
+        chip.raycastTarget = false;
+        chip.color = new Color(color.r, color.g, color.b, 1f);
+        ControllerProduction.StyleColorChip(chip);
+        rect.SetAsLastSibling();
+    }
+
+    void AddProducedCharacterMark(GameObject buttonObject, uint producedId)
+    {
+        CharacterClass produced = producedId == 0 ? null : ImportedCharacters.FindAny(CharactersAll, producedId);
+        Texture2D texture = produced != null ? produced.ImageTexture2D : null;
+        if (texture == null || produced.Size < 1)
+            return;
+
+        Sprite sprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, produced.Size, produced.Size),
+            new Vector2(0.5f, 0.5f),
+            produced.Size);
+        ControllerProduction.MarkRuntime(sprite);
+        _listSprites.Add(sprite);
+
+        RectTransform plate = CreateCenterMark(buttonObject, new Vector2(64f, 64f));
+        Image backing = plate.gameObject.AddComponent<Image>();
+        backing.color = new Color(0f, 0f, 0f, 0.85f);
+        backing.raycastTarget = false;
+
+        RectTransform faceRect = CreateCenterMark(buttonObject, new Vector2(56f, 56f));
+        Image face = faceRect.gameObject.AddComponent<Image>();
+        face.sprite = sprite;
+        face.type = Image.Type.Simple;
+        face.preserveAspect = true;
+        face.raycastTarget = false;
+        face.color = Color.white;
+        faceRect.SetAsLastSibling();
+    }
+
+    static Text CreateCenterText(GameObject buttonObject, string letter, Color color)
+    {
+        RectTransform rect = CreateCenterMark(buttonObject, new Vector2(72f, 72f));
+        Text source = null;
+        Text[] labels = buttonObject.GetComponentsInChildren<Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            if (labels[i].gameObject.name == "Text")
+            {
+                source = labels[i];
+                break;
+            }
+        }
+        Text mark = rect.gameObject.AddComponent<Text>();
+        mark.font = source != null && source.font != null
+            ? source.font
+            : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        mark.text = letter;
+        mark.fontStyle = FontStyle.Bold;
+        mark.fontSize = 32;
+        mark.alignment = TextAnchor.MiddleCenter;
+        mark.color = color;
+        mark.raycastTarget = false;
+        mark.horizontalOverflow = HorizontalWrapMode.Overflow;
+        mark.verticalOverflow = VerticalWrapMode.Overflow;
+        Outline outline = rect.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.95f);
+        outline.effectDistance = new Vector2(1.6f, -1.6f);
+        rect.SetAsLastSibling();
+        return mark;
+    }
+
+    static RectTransform CreateCenterMark(GameObject buttonObject, Vector2 size)
+    {
+        GameObject markObject = new GameObject("ProductionWarning", typeof(RectTransform));
+        markObject.transform.SetParent(buttonObject.transform, false);
+        RectTransform rect = markObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = size;
+        return rect;
     }
 
     // 一覧の顔の下に、短い文字を同じ大きさで出す。
@@ -964,6 +1177,38 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         return !IsCharacterInSourceSlot(characterId, sourceButton);
     }
 
+    bool IsNurseOnAnotherCard(uint characterId, Button sourceButton)
+    {
+        ControllerProduction production = GetComponent<ControllerProduction>();
+        if (production == null || !production.IsHospitalNurse(characterId))
+            return false;
+        if (!ControllerProduction.IsHospitalNurseButton(sourceButton))
+            return true;
+        return production.HospitalNurseCard(characterId) != ControllerProduction.HospitalNurseCardIndex(sourceButton.name);
+    }
+
+    bool IsCurrentAssignment(uint characterId, Button sourceButton)
+    {
+        if (IsCharacterInSourceSlot(characterId, sourceButton))
+            return true;
+        ControllerProduction production = GetComponent<ControllerProduction>();
+        if (production == null || !production.IsHospitalNurse(characterId) || !ControllerProduction.IsHospitalNurseButton(sourceButton))
+            return false;
+        return production.HospitalNurseCard(characterId) == ControllerProduction.HospitalNurseCardIndex(sourceButton.name);
+    }
+
+    public static void DarkenAssignedPortrait(GameObject buttonObject)
+    {
+        if (buttonObject == null)
+            return;
+        Image image = buttonObject.GetComponent<Image>();
+        if (image == null)
+            image = buttonObject.GetComponentInChildren<Image>();
+        if (image == null || image.gameObject.name == "ProductionWarning")
+            return;
+        image.color = new Color(0.7f, 0.7f, 0.7f, 1f);
+    }
+
     bool IsCharacterInSourceSlot(uint characterId, Button sourceButton)
     {
         if (sourceButton == null)
@@ -1045,18 +1290,43 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         });
     }
 
-    public static void AddFaintWarningMark(GameObject buttonObject)
+    public static void AddFaintWarningMark(GameObject buttonObject, Place place)
     {
-        Text source = buttonObject.GetComponentInChildren<Text>();
-        GameObject markObject = new GameObject("ProductionWarning", typeof(RectTransform));
+        Sprite sprite = ControllerProduction.ProductionPlaceIcon(place);
+        if (sprite == null)
+        {
+            AddFaintWarningText(buttonObject);
+            return;
+        }
+
+        GameObject markObject = new GameObject("ProductionWarning", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         markObject.transform.SetParent(buttonObject.transform, false);
         RectTransform rect = markObject.GetComponent<RectTransform>();
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
+        rect.anchorMin = new Vector2(0.18f, 0.18f);
+        rect.anchorMax = new Vector2(0.82f, 0.82f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
+        Image image = markObject.GetComponent<Image>();
+        image.sprite = sprite;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        float alpha = place == Place.Hospital ? 1f : 0.72f;
+        image.color = new Color(1f, 1f, 1f, alpha);
+        markObject.transform.SetAsLastSibling();
+    }
 
-        Text mark = markObject.AddComponent<Text>();
+    static void AddFaintWarningText(GameObject buttonObject)
+    {
+        Text source = buttonObject.GetComponentInChildren<Text>();
+        GameObject textObject = new GameObject("ProductionWarning", typeof(RectTransform));
+        textObject.transform.SetParent(buttonObject.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        Text mark = textObject.AddComponent<Text>();
         mark.font = source != null && source.font != null
             ? source.font
             : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -1070,7 +1340,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         mark.resizeTextMinSize = 24;
         mark.resizeTextMaxSize = 80;
 
-        Outline outline = markObject.AddComponent<Outline>();
+        Outline outline = textObject.AddComponent<Outline>();
         outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
         outline.effectDistance = new Vector2(2.5f, 2.5f);
     }
