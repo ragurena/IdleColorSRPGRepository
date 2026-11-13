@@ -13,6 +13,13 @@ public sealed class ItemBoard
     static readonly Color Ink = new Color(0.12f, 0.14f, 0.18f, 1f);
     static readonly Color SubInk = new Color(0.28f, 0.30f, 0.34f, 1f);
 
+    sealed class OrbCell
+    {
+        public Image Plate;
+        public Text Level;
+        public Image ExpFill;
+    }
+
     ControllerProduction _game;
     Font _font;
     GameObject _root;
@@ -36,7 +43,7 @@ public sealed class ItemBoard
     readonly List<int> _ids = new List<int>();
     readonly List<uint> _characters = new List<uint>();
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
-    readonly Dictionary<uint, Image> _cells = new Dictionary<uint, Image>();
+    readonly Dictionary<uint, OrbCell> _cells = new Dictionary<uint, OrbCell>();
     int _itemId;
     int _quantity = 1;
     uint _characterId;
@@ -456,8 +463,8 @@ public sealed class ItemBoard
         {
             Image row = CreateImage("Row" + i.ToString(), _characterContent, new Color(1f, 1f, 1f, 0f));
             LayoutElement rowElement = row.gameObject.AddComponent<LayoutElement>();
-            rowElement.minHeight = 168f;
-            rowElement.preferredHeight = 168f;
+            rowElement.minHeight = 186f;
+            rowElement.preferredHeight = 186f;
             HorizontalLayoutGroup layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 8f;
             layout.childAlignment = TextAnchor.UpperLeft;
@@ -488,7 +495,6 @@ public sealed class ItemBoard
         button.transition = Selectable.Transition.None;
         uint id = characterId;
         button.onClick.AddListener(() => SelectCharacter(id));
-        _cells[characterId] = plate;
 
         Image icon = CreateImage("Icon", plate.transform, new Color(0.9f, 0.91f, 0.93f, 1f));
         icon.preserveAspect = true;
@@ -496,22 +502,50 @@ public sealed class ItemBoard
         Sprite sprite = SpriteOf(character);
         if (sprite != null)
             icon.sprite = sprite;
-        RectTransform iconRect = icon.rectTransform;
-        iconRect.anchorMin = new Vector2(0f, 1f);
-        iconRect.anchorMax = new Vector2(1f, 1f);
-        iconRect.pivot = new Vector2(0.5f, 1f);
-        iconRect.anchoredPosition = new Vector2(0f, -8f);
-        iconRect.sizeDelta = new Vector2(-16f, 104f);
+        PlaceIn(plate.transform, icon.rectTransform, 8f, 6f, 8f, 92f);
 
         Text name = CreateText("Name", plate.transform, 18, TextAnchor.MiddleCenter);
         name.text = character != null && !string.IsNullOrEmpty(character.Name) ? character.Name : "キャラ" + characterId.ToString();
         name.color = Ink;
-        RectTransform nameRect = name.rectTransform;
-        nameRect.anchorMin = new Vector2(0f, 0f);
-        nameRect.anchorMax = new Vector2(1f, 0f);
-        nameRect.pivot = new Vector2(0.5f, 0f);
-        nameRect.anchoredPosition = new Vector2(0f, 6f);
-        nameRect.sizeDelta = new Vector2(-8f, 40f);
+        PlaceIn(plate.transform, name.rectTransform, 4f, 100f, 4f, 40f);
+
+        Text level = CreateText("Level", plate.transform, 16, TextAnchor.MiddleCenter);
+        level.color = SubInk;
+        PlaceIn(plate.transform, level.rectTransform, 4f, 140f, 4f, 20f);
+
+        Image track = CreateImage("ExpTrack", plate.transform, new Color(0.78f, 0.8f, 0.84f, 1f));
+        track.raycastTarget = false;
+        PlaceIn(plate.transform, track.rectTransform, 12f, 162f, 12f, 12f);
+        Image fill = CreateImage("ExpFill", track.transform, new Color(0.28f, 0.62f, 0.36f, 1f));
+        fill.raycastTarget = false;
+
+        OrbCell cell = new OrbCell();
+        cell.Plate = plate;
+        cell.Level = level;
+        cell.ExpFill = fill;
+        PaintCellExp(cell, character);
+        _cells[characterId] = cell;
+    }
+
+    void PaintCellExp(OrbCell cell, CharacterClass character)
+    {
+        if (cell == null)
+            return;
+        long level = 1;
+        long exp = 0;
+        long expMax = 1;
+        if (character != null)
+        {
+            if (character.Level >= 1)
+                level = (long)character.Level;
+            exp = (long)character.Exp;
+            expMax = (long)character.ExpMax;
+            if (expMax < 1)
+                expMax = 1;
+        }
+        if (cell.Level != null)
+            cell.Level.text = "Lv " + UiNumber.Format(level);
+        SetBar(cell.ExpFill, exp, expMax);
     }
 
     void SelectQuantity(int count)
@@ -526,10 +560,10 @@ public sealed class ItemBoard
     void SelectCharacter(uint characterId)
     {
         _characterId = characterId;
-        foreach (KeyValuePair<uint, Image> pair in _cells)
+        foreach (KeyValuePair<uint, OrbCell> pair in _cells)
         {
-            if (pair.Value != null)
-                pair.Value.color = pair.Key == characterId ? SelectedCell : Color.white;
+            if (pair.Value != null && pair.Value.Plate != null)
+                pair.Value.Plate.color = pair.Key == characterId ? SelectedCell : Color.white;
         }
         PaintPreview();
     }
@@ -610,6 +644,9 @@ public sealed class ItemBoard
             PaintPreview();
             return;
         }
+        OrbCell used;
+        if (_cells.TryGetValue(_characterId, out used))
+            PaintCellExp(used, _game.GetCharacter(_characterId));
         int owned = _game.GetItemCount(_itemId);
         if (owned > 0 && _quantity > owned)
             _quantity = LargestQuantity(owned);
