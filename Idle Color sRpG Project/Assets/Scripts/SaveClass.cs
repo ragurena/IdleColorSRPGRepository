@@ -59,7 +59,8 @@ public class SaveClass// : MonoBehaviour
         int rgbRowOrder,
         bool EnmusubiArmed,
         HospitalState hospital,
-        IdleRewardState idle
+        IdleRewardState idle,
+        StoryState story
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -321,6 +322,8 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("EnmusubiArmed," + (EnmusubiArmed ? "true" : "false"));
         if (idle != null)
             idle.Write(sw);
+        if (story != null)
+            story.Write(sw);
         if (hospital != null)
             hospital.Write(sw);
 
@@ -461,6 +464,7 @@ public class SaveClass// : MonoBehaviour
         ref bool EnmusubiArmed,
         HospitalState hospital,
         IdleRewardState idle,
+        StoryState story,
         string sourcePath
         )
     {
@@ -527,6 +531,10 @@ public class SaveClass// : MonoBehaviour
             }
             else
             if (messages != null && messages.TryRead(values))
+            {
+            }
+            else
+            if (story != null && story.TryRead(values))
             {
             }
             else

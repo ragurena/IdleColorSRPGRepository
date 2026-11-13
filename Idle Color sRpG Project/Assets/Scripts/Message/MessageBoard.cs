@@ -21,6 +21,8 @@ public sealed class MessageBoard
     Text _inputText;
     Text _inputWarning;
     Button _send;
+    Text _sendLabel;
+    RectTransform _inputField;
     Button _jumpTop;
     Button _jumpBottom;
     string _talkId = "";
@@ -202,12 +204,12 @@ public sealed class MessageBoard
         warningRect.sizeDelta = new Vector2(-32f, 32f);
 
         Image field = CreateImage("ImageMessageField", bar.transform, new Color(0.86f, 0.88f, 0.9f, 1f));
-        RectTransform fieldRect = field.rectTransform;
-        fieldRect.anchorMin = new Vector2(0f, 0f);
-        fieldRect.anchorMax = new Vector2(1f, 0f);
-        fieldRect.pivot = new Vector2(0f, 0f);
-        fieldRect.offsetMin = new Vector2(16f, 24f);
-        fieldRect.offsetMax = new Vector2(-160f, 84f);
+        _inputField = field.rectTransform;
+        _inputField.anchorMin = new Vector2(0f, 0f);
+        _inputField.anchorMax = new Vector2(1f, 0f);
+        _inputField.pivot = new Vector2(0f, 0f);
+        _inputField.offsetMin = new Vector2(16f, 24f);
+        _inputField.offsetMax = new Vector2(-160f, 84f);
         _inputText = CreateText("Text", field.transform, 27, TextAnchor.MiddleLeft);
         _inputText.color = new Color(0.2f, 0.22f, 0.26f, 1f);
         _inputText.rectTransform.offsetMin = new Vector2(16f, 0f);
@@ -224,6 +226,7 @@ public sealed class MessageBoard
         sendRect.anchoredPosition = new Vector2(-16f, 24f);
         sendRect.sizeDelta = new Vector2(128f, 60f);
         _send.onClick.AddListener(PushSend);
+        _sendLabel = _send.GetComponentInChildren<Text>();
 
         _jumpTop.transform.SetAsLastSibling();
         _jumpBottom.transform.SetAsLastSibling();
@@ -557,6 +560,29 @@ public sealed class MessageBoard
 
     void PaintPrompt()
     {
+        bool claim = _game != null && _talkId == StoryState.PresentTalkId && _game.StoryUnclaimedPages() > 0;
+        if (claim)
+        {
+            if (_inputText != null)
+            {
+                _inputText.text = _game.StoryRewardPreview();
+                _inputText.color = new Color(0.12f, 0.14f, 0.18f, 1f);
+            }
+            if (_inputWarning != null)
+                _inputWarning.text = "";
+            PlaceSend(176f, -216f);
+            if (_sendLabel != null)
+                _sendLabel.text = "一括取得";
+            if (_send != null)
+            {
+                _send.interactable = true;
+                Image image = _send.GetComponent<Image>();
+                if (image != null)
+                    image.color = new Color(0.28f, 0.62f, 0.38f, 1f);
+            }
+            return;
+        }
+
         SendPrompt prompt = _game != null && _game.Messages != null ? _game.Messages.Prompt(_talkId) : new SendPrompt();
         if (_inputText != null)
         {
@@ -567,6 +593,9 @@ public sealed class MessageBoard
         }
         if (_inputWarning != null)
             _inputWarning.text = prompt.Warning ?? "";
+        PlaceSend(128f, -160f);
+        if (_sendLabel != null)
+            _sendLabel.text = "送信";
         if (_send != null)
         {
             _send.interactable = prompt.Enabled;
@@ -578,10 +607,30 @@ public sealed class MessageBoard
         }
     }
 
+    void PlaceSend(float width, float fieldRight)
+    {
+        if (_send != null)
+        {
+            RectTransform sendRect = _send.GetComponent<RectTransform>();
+            if (sendRect != null)
+                sendRect.sizeDelta = new Vector2(width, 60f);
+        }
+        if (_inputField != null)
+            _inputField.offsetMax = new Vector2(fieldRight, 84f);
+    }
+
     void PushSend()
     {
         if (_game == null || _game.Messages == null)
             return;
+        if (_talkId == StoryState.PresentTalkId && _game.StoryUnclaimedPages() > 0)
+        {
+            _game.ClaimStoryRewards();
+            FillTalk();
+            FillList();
+            _game.RefreshMessageButton();
+            return;
+        }
         bool sent = _game.Messages.TrySend(_talkId);
         if (_game.Messages.IsUnread(_talkId))
         {

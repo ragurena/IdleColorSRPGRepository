@@ -36,6 +36,8 @@ public sealed class MessageDirector
 
     public bool AnyVisible()
     {
+        if (_game != null && _game.StoryUnclaimedPages() > 0)
+            return true;
         MessageFace[] faces = MessageRoster.All;
         if (faces == null)
             return false;
@@ -65,6 +67,12 @@ public sealed class MessageDirector
                 count++;
             count += Save.PendingOf(face.Id).Count;
         }
+        if (_game != null && _game.StoryUnclaimedPages() > 0)
+        {
+            bool counted = IsUnread(StoryState.PresentTalkId) || Save.PendingOf(StoryState.PresentTalkId).Count > 0;
+            if (!counted)
+                count++;
+        }
         return count;
     }
 
@@ -81,7 +89,8 @@ public sealed class MessageDirector
                 continue;
             List<int> order = Save.OrderOf(face.Id);
             List<int> pending = Save.PendingOf(face.Id);
-            if (order.Count == 0 && pending.Count == 0)
+            bool storyReward = _game != null && face.Id == StoryState.PresentTalkId && _game.StoryUnclaimedPages() > 0;
+            if (order.Count == 0 && pending.Count == 0 && !storyReward)
                 continue;
             MessageTalk talk = MessageScripts.Find(face.Id);
             TalkRow row = new TalkRow();
@@ -337,6 +346,21 @@ public sealed class MessageDirector
     {
         ThreadLine view = new ThreadLine();
         view.LineId = lineId;
+        string storyText = _game != null && _game.Story != null ? _game.Story.MailText(lineId) : null;
+        if (storyText != null)
+        {
+            view.Kind = MessageLineKind.Text;
+            view.FromPlayer = false;
+            view.SpeakerId = StoryState.PresentTalkId;
+            view.Text = storyText;
+            MessageFace present = MessageRoster.Find(StoryState.PresentTalkId);
+            if (present != null)
+            {
+                view.SpeakerName = present.Name;
+                view.IconFile = present.IconFile;
+            }
+            return view;
+        }
         MessageQuest sendQuest = talk != null ? talk.FindQuestBySend(lineId) : null;
         if (sendQuest != null)
         {
@@ -398,6 +422,9 @@ public sealed class MessageDirector
 
     string PreviewOf(MessageTalk talk, int lineId)
     {
+        string storyText = _game != null && _game.Story != null ? _game.Story.MailText(lineId) : null;
+        if (storyText != null)
+            return MessageRules.Short(storyText);
         if (talk != null)
         {
             MessageQuest send = talk.FindQuestBySend(lineId);

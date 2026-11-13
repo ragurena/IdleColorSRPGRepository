@@ -76,6 +76,7 @@ public class ControllerProduction : MonoBehaviour
     GameObject PanelHospital;
     readonly HospitalState Hospital = new HospitalState();
     public readonly IdleRewardState Idle = new IdleRewardState();
+    public readonly StoryState Story = new StoryState();
     IdleRewardBoard _idleBoard;
     bool _hospitalBusy;
     readonly List<GameObject> SelectScenePage1Buttons = new List<GameObject>();
@@ -546,6 +547,10 @@ public class ControllerProduction : MonoBehaviour
         ApplyMainFeatureLocks();
         if (ControllerBattle != null)
             ControllerBattle.BringQuestForward();
+        if (Story != null && Story.CatchUp(this))
+            _messageUnsaved = true;
+        if (Story != null)
+            SyncStoryPageMails();
         RefreshMessages();
         SaveMessagesIfNeeded();
         if (ControllerBattle != null)
@@ -824,7 +829,8 @@ public class ControllerProduction : MonoBehaviour
             RgbRowOrder,
             EnmusubiArmed,
             Hospital,
-            Idle
+            Idle,
+            Story
             );
         if (saved)
         {
@@ -1039,6 +1045,7 @@ public class ControllerProduction : MonoBehaviour
                     ref EnmusubiArmed,
                     Hospital,
                     Idle,
+                    Story,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -1118,6 +1125,8 @@ public class ControllerProduction : MonoBehaviour
         EnmusubiArmed = false;
         if (_messages != null)
             _messages.Save.Clear();
+        if (Story != null)
+            Story.Clear();
 
         PersonClass[] freshPeople = PersonClass.CreateRoster();
         if (People != null && freshPeople != null)
@@ -5195,6 +5204,8 @@ public class ControllerProduction : MonoBehaviour
             ApplyCharacterLevelCap();
             ApplyFusionCountCap();
         }
+        if (Story != null)
+            Story.CatchUp(this);
         RefreshMessages();
         return advanced;
     }
@@ -6664,6 +6675,7 @@ public class ControllerProduction : MonoBehaviour
         }
         PersonPortraits.CopyFromFolder(Application.streamingAssetsPath + "/human");
         ItemImages.CopyFromFolder(Application.streamingAssetsPath + "/item");
+        StoryImages.CopyFromFolder(Application.streamingAssetsPath + "/story");
         CopySceneIconsFolder(Application.streamingAssetsPath + "/icon");
 
 #elif UNITY_IPHONE
@@ -6678,6 +6690,7 @@ public class ControllerProduction : MonoBehaviour
     }
     PersonPortraits.CopyFromFolder(Application.dataPath + "/Raw" + "/human");
     ItemImages.CopyFromFolder(Application.dataPath + "/Raw" + "/item");
+    StoryImages.CopyFromFolder(Application.dataPath + "/Raw" + "/story");
     CopySceneIconsFolder(Application.dataPath + "/Raw" + "/icon");
 
 #elif UNITY_ANDROID
@@ -6718,6 +6731,7 @@ public class ControllerProduction : MonoBehaviour
     }
     yield return CopyHumanAndroid();
     yield return CopyItemAndroid();
+    yield return CopyStoryAndroid();
     yield return CopySceneIconsAndroid();
 #endif
 
@@ -6766,6 +6780,27 @@ public class ControllerProduction : MonoBehaviour
                     File.WriteAllBytes(Path.Combine(destDir, fileName), www.downloadHandler.data);
                 else
                     Debug.LogError("アイテム画像のコピーに失敗しました。 " + fileName + " " + www.error);
+            }
+        }
+    }
+
+    IEnumerator CopyStoryAndroid()
+    {
+        string destDir = Application.persistentDataPath + "/story";
+        if (!Directory.Exists(destDir))
+            Directory.CreateDirectory(destDir);
+        string[] fileNames = StoryImages.FileNames();
+        for (int i = 0; i < fileNames.Length; i++)
+        {
+            string fileName = fileNames[i];
+            string path = Application.streamingAssetsPath + "/story/" + fileName;
+            using (UnityWebRequest www = UnityWebRequest.Get(path))
+            {
+                yield return www.SendWebRequest();
+                if (www.result == UnityWebRequest.Result.Success)
+                    File.WriteAllBytes(Path.Combine(destDir, fileName), www.downloadHandler.data);
+                else
+                    Debug.LogError("ストーリー画像のコピーに失敗しました。 " + fileName + " " + www.error);
             }
         }
     }
@@ -14273,6 +14308,157 @@ public class ControllerProduction : MonoBehaviour
         CanvasGroup group = PanelCatalog.GetComponent<CanvasGroup>();
         if (group != null && group.alpha > 0f)
             ControllerCatalog.Refresh();
+    }
+
+    public void CatchUpStory()
+    {
+        if (Story == null)
+            return;
+        bool changed = Story.CatchUp(this);
+        changed |= SyncStoryPageMails();
+        if (changed)
+            SaveGame();
+        RefreshStoryMarks();
+    }
+
+    public void RefreshStoryMarks()
+    {
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshStoryButton();
+    }
+
+    public void NoteStoryPage(int chapterId, StoryPageDef page)
+    {
+        if (Story == null || page == null)
+            return;
+        bool newlyRead;
+        bool changed = Story.View(chapterId, page, out newlyRead);
+        bool mailed = SyncStoryPageMails();
+        if (!changed && !mailed)
+            return;
+        RefreshStoryMarks();
+        if (newlyRead || mailed)
+            RefreshMessageButton();
+        SaveGame();
+    }
+
+    public bool SyncStoryPageMails()
+    {
+        if (Story == null)
+            return false;
+        Story.AddMissingPageMails();
+        return DeliverStoryMails(Story.MailLineIds());
+    }
+
+    public bool DeliverStoryMails(List<int> lineIds)
+    {
+        if (_messages == null || lineIds == null || lineIds.Count == 0)
+            return false;
+        List<int> order = _messages.Save.OrderOf(StoryState.PresentTalkId);
+        bool added = false;
+        for (int i = 0; i < lineIds.Count; i++)
+        {
+            int id = lineIds[i];
+            if (id <= 0 || order.Contains(id))
+                continue;
+            order.Add(id);
+            added = true;
+        }
+        if (added)
+            _messageUnsaved = true;
+        return added;
+    }
+
+    public int StoryUnclaimedPages()
+    {
+        return Story != null ? Story.UnclaimedCount() : 0;
+    }
+
+    public string StoryRewardPreview()
+    {
+        long pixels = (long)StoryUnclaimedPages() * StoryState.RewardCount;
+        if (pixels < 0)
+            pixels = 0;
+        return "全ピクセル × " + UiNumber.Format((ulong)pixels);
+    }
+
+    public bool ClaimStoryRewards()
+    {
+        if (Story == null || CurPixels == null)
+            return false;
+        if (Story.UnclaimedCount() <= 0)
+            return false;
+        StoryState backup = Story.Copy();
+        MessageSave messageBackup = _messages != null ? _messages.Save.Copy() : null;
+        int[] colors = GradationColors();
+        ulong[] before = CaptureGradationPixels(colors);
+        int claimed = Story.ClaimAll();
+        if (claimed <= 0)
+        {
+            Story.Replace(backup);
+            return false;
+        }
+        long each = (long)claimed * StoryState.RewardCount;
+        if (each < 0)
+            each = 0;
+        int lineId = Story.AddClaimMail(each);
+        DeliverStoryMails(new List<int> { lineId });
+        GrantGradationPixels((ulong)each);
+        if (!SaveGame())
+        {
+            Story.Replace(backup);
+            if (_messages != null && messageBackup != null)
+                _messages.Save.Replace(messageBackup);
+            RestoreGradationPixels(colors, before);
+            if (CharactersIDProductionPixel != null)
+            {
+                for (int i = 1; i < CharactersIDProductionPixel.Length; i++)
+                    UpdateSliderPixelProduction(i);
+            }
+            RefreshPixelListCounts();
+            if (ControllerBattle != null)
+                ControllerBattle.OnMessagesChanged(true);
+            return false;
+        }
+        if (ControllerBattle != null)
+            ControllerBattle.OnMessagesChanged(true);
+        return true;
+    }
+
+    ulong[] CaptureGradationPixels(int[] colors)
+    {
+        if (colors == null || colors.Length == 0 || CurPixels == null)
+            return new ulong[0];
+        ulong[] counts = new ulong[colors.Length * colors.Length * colors.Length];
+        int index = 0;
+        for (int r = 0; r < colors.Length; r++)
+        {
+            for (int g = 0; g < colors.Length; g++)
+            {
+                for (int b = 0; b < colors.Length; b++)
+                    counts[index++] = CurPixels[colors[r], colors[g], colors[b]];
+            }
+        }
+        return counts;
+    }
+
+    void RestoreGradationPixels(int[] colors, ulong[] counts)
+    {
+        if (colors == null || counts == null || CurPixels == null)
+            return;
+        int index = 0;
+        for (int r = 0; r < colors.Length; r++)
+        {
+            for (int g = 0; g < colors.Length; g++)
+            {
+                for (int b = 0; b < colors.Length; b++)
+                {
+                    if (index >= counts.Length)
+                        return;
+                    CurPixels[colors[r], colors[g], colors[b]] = counts[index++];
+                }
+            }
+        }
     }
 
     public void RefreshMessages()

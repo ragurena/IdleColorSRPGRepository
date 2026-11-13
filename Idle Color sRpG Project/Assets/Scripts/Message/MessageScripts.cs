@@ -28,6 +28,7 @@ public static class MessageScripts
                 Line.Say(82, "chigusa", "どういたしまして。"))),
 
         Talk("present", new MessageQuest[0],
+            // 100000以上の番号は、ストーリー報酬のログが使う。ここには付けない。
             Notice(new MessageCond[] { Cond.ProtagonistSpecialty(CharacterAttribute.Fire) },
                 Line.Say(1, "present", "火属性のキャラを5体読み込んだか、モアを作者とするキャラが500回以上生成されました。"),
                 Line.Say(2, "present", "条件を達成したので、主人公の得意属性に火が加わりました。")),

@@ -51,10 +51,12 @@ public class ControllerBattleClass : MonoBehaviour
         SettingsBoard _settings;
         MessageBoard _messages;
         ItemBoard _items;
+        StoryBoard _storyBoard;
         GameObject _messageButton;
         GameObject _charmIcon;
         GameObject _messageBadge;
         Text _messageBadgeText;
+        GameObject _storyBadge;
     Transform _questOverlay;
     GameObject _questBanner;
     Image _questBannerFill;
@@ -2119,6 +2121,7 @@ public class ControllerBattleClass : MonoBehaviour
             {
                 float itemY = above.anchoredPosition.y - above.sizeDelta.y * 0.5f - gap - items.sizeDelta.y * 0.5f;
                 items.anchoredPosition = new Vector2(above.anchoredPosition.x, itemY);
+                PlaceStoryButton(parent, items);
             }
         }
     }
@@ -2780,6 +2783,18 @@ public class ControllerBattleClass : MonoBehaviour
         }
         items.onClick.AddListener(ToggleItems);
 
+        Button story = CreateButton("ButtonStory", "ストーリー", new Color(0.28f, 0.32f, 0.55f, 1f), _questOverlay);
+        PlaceRect(story.GetComponent<RectTransform>(), battlePos.x + 430f, battlePos.y - 280f, 150f, 96f);
+        Text storyLabel = story.GetComponentInChildren<Text>();
+        if (storyLabel != null)
+        {
+            storyLabel.fontSize = 26;
+            storyLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            storyLabel.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+        story.onClick.AddListener(ToggleStory);
+        BuildStoryBadge(story.transform);
+
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
         _settings = new SettingsBoard();
@@ -2788,6 +2803,8 @@ public class ControllerBattleClass : MonoBehaviour
         _messages.Build(_questOverlay, _font, _production);
         _items = new ItemBoard();
         _items.Build(_questOverlay, _font, _production);
+        _storyBoard = new StoryBoard();
+        _storyBoard.Build(_questOverlay, _font, _production);
         RefreshMessageButton();
         BringQuestForward();
     }
@@ -2928,6 +2945,7 @@ public class ControllerBattleClass : MonoBehaviour
                 _messages.Close();
             if (_items != null && _items.IsOpen)
                 _items.Close();
+            CloseStory();
             _questBoard.Open();
         }
     }
@@ -2946,6 +2964,7 @@ public class ControllerBattleClass : MonoBehaviour
                 _messages.Close();
             if (_items != null && _items.IsOpen)
                 _items.Close();
+            CloseStory();
             _settings.Open(SpeedCap(), AdWatchConfirm(), ScreenAwake.Enabled, ReturnToBattleStage());
         }
     }
@@ -2964,16 +2983,18 @@ public class ControllerBattleClass : MonoBehaviour
             _messageButton.SetActive(show);
         PlaceItemButton();
         int badge = show && _production.Messages != null ? _production.Messages.BadgeCount() : 0;
-        if (_messageBadge == null)
-            return;
-        if (badge <= 0)
+        if (_messageBadge != null)
         {
-            _messageBadge.SetActive(false);
-            return;
+            if (badge <= 0)
+                _messageBadge.SetActive(false);
+            else
+            {
+                _messageBadge.SetActive(true);
+                if (_messageBadgeText != null)
+                    _messageBadgeText.text = badge.ToString();
+            }
         }
-        _messageBadge.SetActive(true);
-        if (_messageBadgeText != null)
-            _messageBadgeText.text = badge.ToString();
+        RefreshStoryButton();
     }
 
     void ToggleMessage()
@@ -2990,6 +3011,7 @@ public class ControllerBattleClass : MonoBehaviour
                 _settings.Close();
             if (_items != null && _items.IsOpen)
                 _items.Close();
+            CloseStory();
             _messages.Open();
         }
     }
@@ -3009,6 +3031,52 @@ public class ControllerBattleClass : MonoBehaviour
             return;
         float itemY = above.anchoredPosition.y - above.sizeDelta.y * 0.5f - gap - items.sizeDelta.y * 0.5f;
         items.anchoredPosition = new Vector2(above.anchoredPosition.x, itemY);
+        PlaceStoryButton(_questOverlay, items);
+    }
+
+    static void PlaceStoryButton(Transform parent, RectTransform above)
+    {
+        if (parent == null || above == null)
+            return;
+        RectTransform story = parent.Find("ButtonStory") as RectTransform;
+        if (story == null)
+            return;
+        const float gap = 12f;
+        float y = above.anchoredPosition.y - above.sizeDelta.y * 0.5f - gap - story.sizeDelta.y * 0.5f;
+        story.anchoredPosition = new Vector2(above.anchoredPosition.x, y);
+    }
+
+    void ToggleStory()
+    {
+        if (_storyBoard == null)
+            return;
+        if (_storyBoard.IsOpen)
+            _storyBoard.Close();
+        else
+        {
+            if (_questBoard != null && _questBoard.IsOpen)
+                _questBoard.Close();
+            if (_settings != null && _settings.IsOpen)
+                _settings.Close();
+            if (_messages != null && _messages.IsOpen)
+                _messages.Close();
+            if (_items != null && _items.IsOpen)
+                _items.Close();
+            _storyBoard.Open();
+        }
+    }
+
+    void CloseStory()
+    {
+        if (_storyBoard != null && _storyBoard.IsOpen)
+            _storyBoard.Close();
+    }
+
+    public void RefreshStoryButton()
+    {
+        bool show = _production != null && _production.Story != null && _production.Story.HasUnreadViewable(_production);
+        if (_storyBadge != null)
+            _storyBadge.SetActive(show);
     }
 
     void ToggleItems()
@@ -3025,6 +3093,7 @@ public class ControllerBattleClass : MonoBehaviour
                 _settings.Close();
             if (_messages != null && _messages.IsOpen)
                 _messages.Close();
+            CloseStory();
             _items.Open();
         }
     }
@@ -3086,6 +3155,21 @@ public class ControllerBattleClass : MonoBehaviour
         Stretch(_messageBadgeText.rectTransform);
         _messageBadgeText.raycastTarget = false;
         _messageBadge.SetActive(false);
+    }
+
+    void BuildStoryBadge(Transform story)
+    {
+        Image badge = CreateImage("ImageStoryBadge", story, new Color(0.86f, 0.16f, 0.16f, 1f));
+        badge.sprite = CircleSprite();
+        badge.raycastTarget = false;
+        RectTransform rect = badge.rectTransform;
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(-18f, -18f);
+        rect.sizeDelta = new Vector2(28f, 28f);
+        _storyBadge = badge.gameObject;
+        _storyBadge.SetActive(false);
     }
 
     void ApplySpeedCap(int cap)
