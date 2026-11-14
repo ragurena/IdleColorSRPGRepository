@@ -51,14 +51,56 @@ public sealed class IdleRewardState
 
     int CapMinutes(int baseMinutes, int perAd, int perPurchase)
     {
-        long ads = AdSuccessCount < 0 ? 0 : AdSuccessCount;
-        long buys = PurchaseSuccessCount < 0 ? 0 : PurchaseSuccessCount;
-        long total = baseMinutes;
-        total = AddCapped(total, Mul(ads, perAd));
-        total = AddCapped(total, Mul(buys, perPurchase));
+        long total = SumCapMinutes(baseMinutes, perAd, perPurchase, out _, out _, out _, out _);
         if (total > int.MaxValue)
             return int.MaxValue;
         return (int)total;
+    }
+
+    // 3時間20分（3時間+広告視聴回数2回20分+課金回数0回0分）
+    public string FormatActiveCapDetail()
+    {
+        return FormatCapDetail(ActiveBaseMinutes, ActivePerAdMinutes, ActivePerPurchaseMinutes);
+    }
+
+    public string FormatOfflineCapDetail()
+    {
+        return FormatCapDetail(OfflineBaseMinutes, OfflinePerAdMinutes, OfflinePerPurchaseMinutes);
+    }
+
+    string FormatCapDetail(int baseMinutes, int perAd, int perPurchase)
+    {
+        long total = SumCapMinutes(baseMinutes, perAd, perPurchase, out long ads, out long adMinutes, out long buys, out long buyMinutes);
+        return FormatMinutes(total)
+            + "\n（" + FormatMinutes(baseMinutes)
+            + "+広告視聴回数" + ads.ToString(CultureInfo.InvariantCulture) + "回" + FormatMinutes(adMinutes)
+            + "+課金回数" + buys.ToString(CultureInfo.InvariantCulture) + "回" + FormatMinutes(buyMinutes)
+            + "）";
+    }
+
+    long SumCapMinutes(int baseMinutes, int perAd, int perPurchase, out long ads, out long adMinutes, out long buys, out long buyMinutes)
+    {
+        ads = AdSuccessCount < 0 ? 0 : AdSuccessCount;
+        buys = PurchaseSuccessCount < 0 ? 0 : PurchaseSuccessCount;
+        adMinutes = Mul(ads, perAd);
+        buyMinutes = Mul(buys, perPurchase);
+        long total = AddCapped(baseMinutes, adMinutes);
+        return AddCapped(total, buyMinutes);
+    }
+
+    static string FormatMinutes(long minutes)
+    {
+        if (minutes < 0)
+            minutes = 0;
+        long hours = minutes / 60L;
+        long rest = minutes % 60L;
+        if (hours > 100000L)
+            return "100000時間以上";
+        if (hours > 0 && rest > 0)
+            return hours.ToString(CultureInfo.InvariantCulture) + "時間" + rest.ToString(CultureInfo.InvariantCulture) + "分";
+        if (hours > 0)
+            return hours.ToString(CultureInfo.InvariantCulture) + "時間";
+        return rest.ToString(CultureInfo.InvariantCulture) + "分";
     }
 
     public static int RewardCycles(long elapsedMs, int capMinutes)

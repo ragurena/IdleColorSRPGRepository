@@ -107,7 +107,7 @@ public class ControllerHospitalClass : MonoBehaviour
             _waitEmpty.gameObject.SetActive(waiting == 0);
         if (_recoverAd != null && _production != null)
         {
-            bool ready = hospital.BedPatientCount > 0;
+            bool ready = hospital.BedPatientCount > 0 || hospital.WaitingCount > 0;
             _production.StyleRepresentativeButton(_recoverAd, new Color(0.42f, 1f, 0.22f, 1f), ready);
             _recoverAd.interactable = ready;
         }
@@ -561,7 +561,7 @@ public class ControllerHospitalClass : MonoBehaviour
         EnsureWhiteFrame(waitScroll.transform, 3f);
         _waitEmpty = CreateText(waitScroll.transform, "TextHospitalWaitEmpty", "待機していません", 32, TextAnchor.MiddleCenter);
         Stretch(_waitEmpty.rectTransform);
-        _recoverAd = CreateButton(Panel.transform, "ButtonHospitalRecoverAd", "広告視聴で回復中のキャラを即時回復させる", Vector2.zero, new Vector2(1000f, 112f), false);
+        _recoverAd = CreateButton(Panel.transform, "ButtonHospitalRecoverAd", "広告視聴で回復中のキャラ+回復待ちの5キャラを即時回復させる", Vector2.zero, new Vector2(1000f, 112f), false);
         _recoverAd.onClick.AddListener(PushRecoverAd);
         Text recoverLabel = _recoverAd.GetComponentInChildren<Text>();
         if (recoverLabel != null)

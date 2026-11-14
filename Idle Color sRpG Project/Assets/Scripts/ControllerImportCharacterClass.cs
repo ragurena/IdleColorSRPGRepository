@@ -13,6 +13,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
     Text _sizes;
     Text _message;
     InputField _name;
+    bool _clampingName;
     GameObject _confirm;
     Image _confirmImage;
     Text _confirmPrompt;
@@ -352,9 +353,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         if (string.IsNullOrWhiteSpace(name))
             return "";
         name = name.Trim().Replace("\r", "").Replace("\n", "");
-        if (name.Length > 24)
-            name = name.Substring(0, 24);
-        return name;
+        return ImportNameRules.Clamp(name);
     }
 
     void SetMessage(string message, bool ok)
@@ -645,7 +644,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Place(prompt.rectTransform, 0f, -8f, 960f, 80f);
         prompt.horizontalOverflow = HorizontalWrapMode.Wrap;
         prompt.verticalOverflow = VerticalWrapMode.Overflow;
-        prompt.text = "名前を決めて読み込むと、この絵がキャラになります。\n違う名前も設定できます。";
+        prompt.text = "名前を決めて読み込むと、この絵がキャラになります。\n10文字以内です。アルファベットは0.5文字です。";
         _confirmPrompt = prompt;
 
         BuildImportCostRow(_confirm.transform);
@@ -706,11 +705,56 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _name.textComponent = text;
         _name.placeholder = placeholder;
         _name.lineType = InputField.LineType.SingleLine;
-        _name.characterLimit = 24;
+        _name.characterLimit = 0;
+        _name.onValidateInput = ValidateImportName;
+        _name.onValueChanged.AddListener(ClampImportName);
         _name.targetGraphic = background;
         _name.customCaretColor = true;
         _name.caretColor = Color.white;
         EnsureWhiteFrame(fieldObject.transform, FrameThin);
+    }
+
+    char ValidateImportName(string text, int index, char added)
+    {
+        if (added < ' ')
+            return '\0';
+        if (_name == null)
+            return added;
+        string current = text ?? "";
+        int start = Mathf.Min(_name.selectionAnchorPosition, _name.selectionFocusPosition);
+        int end = Mathf.Max(_name.selectionAnchorPosition, _name.selectionFocusPosition);
+        int insertAt = index;
+        if (start >= 0 && end > start && end <= current.Length)
+        {
+            current = current.Remove(start, end - start);
+            insertAt = start;
+        }
+        if (insertAt < 0)
+            insertAt = 0;
+        if (insertAt > current.Length)
+            insertAt = current.Length;
+        string next = current.Insert(insertAt, added.ToString());
+        if (!ImportNameRules.Fits(next))
+            return '\0';
+        return added;
+    }
+
+    void ClampImportName(string value)
+    {
+        if (_clampingName || _name == null)
+            return;
+        string clamped = ImportNameRules.Clamp(value ?? "");
+        if (clamped == value)
+            return;
+        _clampingName = true;
+        int caret = _name.caretPosition;
+        _name.text = clamped;
+        if (caret > clamped.Length)
+            caret = clamped.Length;
+        _name.caretPosition = caret;
+        _name.selectionAnchorPosition = caret;
+        _name.selectionFocusPosition = caret;
+        _clampingName = false;
     }
 
     void BuildScroll()

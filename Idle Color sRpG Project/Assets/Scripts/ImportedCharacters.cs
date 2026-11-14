@@ -29,6 +29,67 @@ public struct ImportSizeUnlock
     }
 }
 
+// 読み込みキャラの名前。アルファベットは0.5文字、それ以外は1文字。上限は10文字。
+public static class ImportNameRules
+{
+    public const int LimitUnits = 20;
+
+    public static bool IsAlphabet(char c)
+    {
+        if (c >= 'A' && c <= 'Z')
+            return true;
+        if (c >= 'a' && c <= 'z')
+            return true;
+        if (c >= 'Ａ' && c <= 'Ｚ')
+            return true;
+        if (c >= 'ａ' && c <= 'ｚ')
+            return true;
+        return false;
+    }
+
+    public static int Units(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return 0;
+        int units = 0;
+        for (int i = 0; i < name.Length; i++)
+        {
+            char c = name[i];
+            if (c == '\r' || c == '\n')
+                continue;
+            units += IsAlphabet(c) ? 1 : 2;
+        }
+        return units;
+    }
+
+    public static bool Fits(string name)
+    {
+        return Units(name) <= LimitUnits;
+    }
+
+    public static string Clamp(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return "";
+        int units = 0;
+        int keep = 0;
+        for (int i = 0; i < name.Length; i++)
+        {
+            char c = name[i];
+            if (c == '\r' || c == '\n')
+                continue;
+            int add = IsAlphabet(c) ? 1 : 2;
+            if (units + add > LimitUnits)
+                break;
+            units += add;
+            keep = i + 1;
+        }
+        if (keep >= name.Length)
+            return name;
+        return name.Substring(0, keep);
+    }
+}
+
 public static class ImportSizeRules
 {
     public const int MaxCount = 500;
@@ -287,6 +348,11 @@ public static class ImportedCharacters
             message = "名前を入れてください。";
             return false;
         }
+        if (!ImportNameRules.Fits(name))
+        {
+            message = "名前は10文字以内にしてください。";
+            return false;
+        }
         if (NameTaken(name))
         {
             message = "同じ名前は使えません。";
@@ -459,6 +525,11 @@ public static class ImportedCharacters
         if (name.Length == 0)
         {
             message = "名前を入れてください。";
+            return false;
+        }
+        if (!ImportNameRules.Fits(name))
+        {
+            message = "名前は10文字以内にしてください。";
             return false;
         }
         if (NameTaken(name))

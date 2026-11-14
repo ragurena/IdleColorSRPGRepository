@@ -1200,6 +1200,18 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("CharacterCompletionCount," + quests.CharacterCompletions.ToString());
         sw.WriteLine("GalleryClearCount," + quests.GalleryClears.ToString());
         sw.WriteLine("EnemyDefeatCount," + quests.EnemyDefeats.ToString());
+        if (quests.RecruitDefeats.Count > 0)
+        {
+            List<int> sizes = new List<int>(quests.RecruitDefeats.Keys);
+            sizes.Sort();
+            for (int i = 0; i < sizes.Count; i++)
+            {
+                ulong count = quests.RecruitDefeats[sizes[i]];
+                if (count == 0)
+                    continue;
+                sw.WriteLine("RecruitDefeat[" + sizes[i].ToString(CultureInfo.InvariantCulture) + "]," + count.ToString(CultureInfo.InvariantCulture));
+            }
+        }
         sw.WriteLine("FusionUnlocked," + (quests.FusionUnlocked ? "true" : "false"));
         sw.WriteLine("FusionEfficiency," + quests.FusionEfficiency.ToString());
         sw.WriteLine("ImportCharacterCap," + quests.ImportCap.ToString());
@@ -1274,6 +1286,15 @@ public class SaveClass// : MonoBehaviour
         {
             quests.EnemyDefeats = ReadUlong(values);
             quests.HasEnemy = true;
+            return true;
+        }
+        if (key.StartsWith("RecruitDefeat[") && key.EndsWith("]"))
+        {
+            string inside = key.Substring("RecruitDefeat[".Length, key.Length - "RecruitDefeat[".Length - 1);
+            int size;
+            if (!int.TryParse(inside, NumberStyles.Integer, CultureInfo.InvariantCulture, out size) || size < 1)
+                throw new FormatException("RecruitDefeat");
+            quests.RecruitDefeats[size] = ReadUlong(values);
             return true;
         }
         if (key == "FusionUnlocked")

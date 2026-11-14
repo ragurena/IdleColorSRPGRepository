@@ -69,6 +69,8 @@ public class ControllerBattleClass : MonoBehaviour
     static readonly Color HeaderRecordColor = new Color(0.40f, 0.41f, 0.44f, 1f);
     static readonly Color HeaderFillColor = new Color(0.22f, 0.50f, 0.26f, 1f);
     int _battleSpeed = 1;
+    // 画面をつけたままの放置ポップアップ中。選んでいた倍率は _battleSpeed に残し、進行だけ通常にする
+    bool _screenIdleSpeed;
     bool _running;
     bool _stop;
     bool _alliesVisible = true;
@@ -527,6 +529,8 @@ public class ControllerBattleClass : MonoBehaviour
 
     int BattleSpeed()
     {
+        if (_screenIdleSpeed)
+            return 1;
         int cap = SpeedCap();
         if (_battleSpeed == 2 || _battleSpeed == 4 || _battleSpeed == 8 || _battleSpeed == 16)
             return _battleSpeed <= cap ? _battleSpeed : cap;
@@ -1298,6 +1302,8 @@ public class ControllerBattleClass : MonoBehaviour
 
     void PushFast()
     {
+        if (_screenIdleSpeed)
+            return;
         if (_production == null || !_production.IsMainFeatureOpen(MainFeature.BattleSpeed))
             return;
         int cap = SpeedCap();
@@ -1311,6 +1317,23 @@ public class ControllerBattleClass : MonoBehaviour
             _production.SetBattleSpeed(_battleSpeed);
             _production.SaveGame();
         }
+    }
+
+    // 放置ポップアップを出しているあいだ、バトル進行を通常速度にする。セーブ上の倍率は変えない
+    public void HoldSpeedForScreenIdle()
+    {
+        if (_screenIdleSpeed)
+            return;
+        _screenIdleSpeed = true;
+        ApplySpeedButton();
+    }
+
+    public void ReleaseSpeedFromScreenIdle()
+    {
+        if (!_screenIdleSpeed)
+            return;
+        _screenIdleSpeed = false;
+        ApplySpeedButton();
     }
 
     public void ApplySavedSpeed(int speed)
@@ -1343,13 +1366,14 @@ public class ControllerBattleClass : MonoBehaviour
         if (label == null)
             return;
         label.color = open ? Color.white : new Color(0.62f, 0.62f, 0.62f, 1f);
-        if (_battleSpeed == 2)
+        int shown = _screenIdleSpeed ? 1 : _battleSpeed;
+        if (shown == 2)
             label.text = "2倍";
-        else if (_battleSpeed == 4)
+        else if (shown == 4)
             label.text = "4倍";
-        else if (_battleSpeed == 8)
+        else if (shown == 8)
             label.text = "8倍";
-        else if (_battleSpeed == 16)
+        else if (shown == 16)
             label.text = "16倍";
         else
             label.text = "通常";
@@ -3636,9 +3660,9 @@ public class ControllerBattleClass : MonoBehaviour
             _view._cueWalk = true;
         }
 
-        public void NoteDefeated(uint characterId)
+        public void NoteDefeated(uint characterId, int size)
         {
-            _view._production.NoteEnemyDefeat();
+            _view._production.NoteEnemyDefeat(size);
             _view._production.MarkCatalogDefeated(characterId);
             _view.GrantCharacterDrops(characterId);
         }
@@ -3653,9 +3677,9 @@ public class ControllerBattleClass : MonoBehaviour
                 _view.AddLog(BattleLogFormat.Name(character) + " を回復へ");
         }
 
-        public bool IsGuaranteedRecruit()
+        public bool IsGuaranteedRecruit(int size)
         {
-            return _view._production != null && _view._production.IsNextEnemyDefeatGuaranteedRecruit();
+            return _view._production != null && _view._production.IsNextEnemyDefeatGuaranteedRecruit(size);
         }
 
         public bool ForcesUnownedRecruit(uint characterId)

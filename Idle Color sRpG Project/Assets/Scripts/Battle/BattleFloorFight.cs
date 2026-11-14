@@ -16,9 +16,9 @@ public interface IBattleRewardSink
     bool CanReceiveExp(BattleUnit ally);
     void GrantItem(int itemId, int count);
     void Recruit(uint characterId);
-    void NoteDefeated(uint characterId);
+    void NoteDefeated(uint characterId, int size);
     void NoteAllyFainted(uint characterId);
-    bool IsGuaranteedRecruit();
+    bool IsGuaranteedRecruit(int size);
     // 縁結びのお守りが有効で、倒した敵をまだ所持していないとき true。
     bool ForcesUnownedRecruit(uint characterId);
     // その1体を仲間にしたら効果を切る。次のお守りは、プレイヤーが使うまで消費しない。
@@ -281,12 +281,12 @@ public static class BattleDefeatProcessor
 
         bool forced = sink.ForcesUnownedRecruit(enemy.CharacterId);
         double recruitProbability = BattleRewardCalculator.RecruitProbability(killer.Luc, killer.Obs, config);
-        if (forced || sink.IsGuaranteedRecruit() || (rng != null && rng.NextDouble() < recruitProbability))
+        if (forced || sink.IsGuaranteedRecruit(enemy.Size) || (rng != null && rng.NextDouble() < recruitProbability))
             sink.Recruit(enemy.CharacterId);
         if (forced)
             sink.EndForcedRecruit();
 
-        sink.NoteDefeated(enemy.CharacterId);
+        sink.NoteDefeated(enemy.CharacterId, enemy.Size);
     }
 
     // 生き残っていて、まだ経験値を受け取れる味方だけを割り振る。

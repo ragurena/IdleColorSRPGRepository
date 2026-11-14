@@ -27,6 +27,7 @@ public struct HospitalStep
 public sealed class HospitalState
 {
     public const int InitialBeds = 2;
+    public const int AdRecoverWaitCount = 5;
     public const int MaxBeds = 8;
     public const int MaxCards = (MaxBeds + 1) / 2;
 
@@ -297,7 +298,28 @@ public sealed class HospitalState
         return ids;
     }
 
-    // 指定した患者だけ、ベッドにいるときだけその場で回復完了にする。
+    // 回復中の全員と、待ちの先頭から最大5人。待ちは入った順。
+    public ulong[] CopyAdRecoverIds()
+    {
+        int bedCount = BedPatientCount;
+        List<HospitalPatient> waiting = new List<HospitalPatient>();
+        CopyWaiting(waiting);
+        int waitTake = waiting.Count < AdRecoverWaitCount ? waiting.Count : AdRecoverWaitCount;
+        ulong[] ids = new ulong[bedCount + waitTake];
+        int n = 0;
+        for (int i = 0; i < _patients.Count; i++)
+        {
+            if (_patients[i].Bed == 0)
+                continue;
+            ids[n] = _patients[i].Id;
+            n++;
+        }
+        for (int i = 0; i < waitTake; i++)
+            ids[n + i] = waiting[i].Id;
+        return ids;
+    }
+
+    // 指定した患者を、ベッドにいても待ちでもその場で回復完了にする。空いたベッドには残った待ちを入れる。
     public int InstantRecover(ulong[] ids, long nowMs, Func<uint, bool> tryReturn)
     {
         if (nowMs < 0)
@@ -308,13 +330,14 @@ public sealed class HospitalState
         for (int i = 0; i < ids.Length; i++)
         {
             HospitalPatient patient = FindPatient(ids[i]);
-            if (patient == null || patient.Bed == 0)
+            if (patient == null)
                 continue;
             if (patient.OpaquePixels > 0)
                 patient.HealedPixels = patient.OpaquePixels;
             patient.LastCalcUnixMs = nowMs;
             Complete(patient);
         }
+        FillEmptyBeds(nowMs);
         returned += FlushPending(tryReturn);
         return returned;
     }

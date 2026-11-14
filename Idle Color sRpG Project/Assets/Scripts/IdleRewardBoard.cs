@@ -78,6 +78,8 @@ public class IdleRewardBoard : MonoBehaviour
         NotePointer();
         if (_offlinePopup != null && _offlinePopup.activeSelf)
         {
+            if (_idlePopup != null && _idlePopup.activeSelf)
+                ReleaseScreenIdleSpeed();
             if (_idlePopup != null)
                 _idlePopup.SetActive(false);
             if (_banner != null)
@@ -151,6 +153,7 @@ public class IdleRewardBoard : MonoBehaviour
         if (_idleBody != null)
         {
             _idleBody.text = "長時間放置のため、生産や成長を10％にしています。\n"
+                + "放置上限：" + _game.Idle.FormatActiveCapDetail() + "\n"
                 + "広告を見たり、課金すると、放置できる時間が伸びます。";
         }
         int orb = _game != null && _game.Idle != null ? _game.Idle.MaxSeenOrb() : ItemIds.ExpOrb8;
@@ -164,6 +167,7 @@ public class IdleRewardBoard : MonoBehaviour
             _idleOrbName.text = ItemIds.DisplayName(orb);
         _idlePopup.SetActive(true);
         _idlePopup.transform.SetAsLastSibling();
+        HoldScreenIdleSpeed();
     }
 
     void WatchIdleAd()
@@ -208,6 +212,19 @@ public class IdleRewardBoard : MonoBehaviour
             _idlePopup.SetActive(false);
         if (_banner != null)
             _banner.gameObject.SetActive(false);
+        ReleaseScreenIdleSpeed();
+    }
+
+    void HoldScreenIdleSpeed()
+    {
+        if (_game != null)
+            _game.HoldBattleSpeedForScreenIdle();
+    }
+
+    void ReleaseScreenIdleSpeed()
+    {
+        if (_game != null)
+            _game.ReleaseBattleSpeedFromScreenIdle();
     }
 
     void ShowOffline(long elapsedMs, int cycles)
@@ -221,7 +238,7 @@ public class IdleRewardBoard : MonoBehaviour
         {
             _offlineBody.text = "おかえりなさい！\n"
                 + "アプリを閉じていた時間：" + IdleRewardState.FormatSpan(elapsedMs) + "\n"
-                + "報酬計算上限：" + IdleRewardState.FormatSpan((long)cap * 60000L) + "\n\n"
+                + "報酬計算上限：" + _game.Idle.FormatOfflineCapDetail() + "\n\n"
                 + "以下のオフライン報酬を獲得しました！";
         }
         IdlePayout payout = _game.BuildOfflinePayout(cycles, 1);
@@ -448,17 +465,17 @@ public class IdleRewardBoard : MonoBehaviour
         if (canvas == null)
             return;
         _idlePopup = Dim("IdleLimitPopup", canvas);
-        Transform card = Card(_idlePopup.transform, 860f, 760f);
+        Transform card = Card(_idlePopup.transform, 860f, 840f);
         _idleBody = CreateLabel("Body", card, 28, TextAnchor.UpperCenter);
-        PlaceTop(_idleBody.rectTransform, 28f, 120f);
+        PlaceTop(_idleBody.rectTransform, 28f, 200f);
         Text lead = CreateLabel("Lead", card, 28, TextAnchor.MiddleCenter);
         lead.text = "広告を最後まで見ると";
-        PlaceTop(lead.rectTransform, 156f, 48f);
-        BuildIdleRewardRow(card, 214f, true);
-        BuildIdleRewardRow(card, 330f, false);
+        PlaceTop(lead.rectTransform, 236f, 48f);
+        BuildIdleRewardRow(card, 294f, true);
+        BuildIdleRewardRow(card, 410f, false);
         Text gain = CreateLabel("Gain", card, 28, TextAnchor.MiddleCenter);
         gain.text = "を取得します";
-        PlaceTop(gain.rectTransform, 442f, 48f);
+        PlaceTop(gain.rectTransform, 522f, 48f);
         Button watch = WideButton("ButtonIdleWatchAd", card, "広告を見る", new Color(0.25f, 0.45f, 0.75f, 1f), 150f);
         Button close = WideButton("ButtonIdleClose", card, "広告を見ずに再開する", new Color(0.45f, 0.45f, 0.48f, 1f), 48f);
         watch.onClick.AddListener(WatchIdleAd);
@@ -558,14 +575,14 @@ public class IdleRewardBoard : MonoBehaviour
         if (canvas == null)
             return;
         _offlinePopup = Dim("OfflineRewardPopup", canvas);
-        Transform card = Card(_offlinePopup.transform, 880f, 980f);
+        Transform card = Card(_offlinePopup.transform, 880f, 1040f);
         _offlineBody = CreateLabel("Body", card, 26, TextAnchor.UpperCenter);
         RectTransform body = _offlineBody.rectTransform;
         body.anchorMin = new Vector2(0f, 1f);
         body.anchorMax = new Vector2(1f, 1f);
         body.pivot = new Vector2(0.5f, 1f);
         body.anchoredPosition = new Vector2(0f, -24f);
-        body.sizeDelta = new Vector2(-48f, 220f);
+        body.sizeDelta = new Vector2(-48f, 280f);
         GameObject list = new GameObject("List", typeof(RectTransform));
         list.transform.SetParent(card, false);
         _offlineList = list.GetComponent<RectTransform>();
@@ -573,7 +590,7 @@ public class IdleRewardBoard : MonoBehaviour
         _offlineList.anchorMax = new Vector2(1f, 1f);
         // 下端132・高さ84の広告ボタンより上に余白を残す。一覧はその分だけ上に寄る。
         _offlineList.offsetMin = new Vector2(16f, 248f);
-        _offlineList.offsetMax = new Vector2(-16f, -250f);
+        _offlineList.offsetMax = new Vector2(-16f, -310f);
         _offlineAd = WideButton("ButtonOfflineWatchAd", card, "広告を見て放置報酬を3倍受け取る", new Color(0.25f, 0.45f, 0.75f, 1f), 132f);
         _offlineClose = WideButton("ButtonOfflineClose", card, "広告を見ずに閉じる", new Color(0.45f, 0.45f, 0.48f, 1f), 36f);
         _offlineAd.onClick.AddListener(WatchOfflineAd);

@@ -196,12 +196,35 @@ public static class BattleRewardCalculator
         return BattleMath.Clamp01((luc + obs) * config.RecruitRatePerPoint, config.RecruitRateCap);
     }
 
-    // 倒した累計が 10、50、または 100 以上の 100 刻みなら、その1体は必ず仲間にする。
-    public static bool IsGuaranteedRecruitCount(ulong defeatCount)
+    // サイズ8は10・50・100体ごと。16は20・100・200体ごと。32は30・150・300体ごと。
+    // 64は40・200・400体ごと。128は50・250・500体ごと。256は60・300・600体ごと。
+    // サイズが倍になるたびに、区切りは100体ずつ増える。
+    public static int RecruitSizeScale(int size)
     {
-        if (defeatCount == 10 || defeatCount == 50)
+        if (size < 8)
+            size = 8;
+        int scale = 1;
+        int band = 8;
+        while (band < size && band <= 262144)
+        {
+            int next = band * 2;
+            if (next > size || next <= band)
+                break;
+            band = next;
+            scale++;
+        }
+        return scale;
+    }
+
+    public static bool IsGuaranteedRecruitCount(ulong defeatCount, int size)
+    {
+        int scale = RecruitSizeScale(size);
+        ulong early = (ulong)(10 * scale);
+        ulong middle = (ulong)(50 * scale);
+        ulong interval = (ulong)(100 * scale);
+        if (defeatCount == early || defeatCount == middle)
             return true;
-        return defeatCount >= 100 && defeatCount % 100 == 0;
+        return interval > 0 && defeatCount >= interval && defeatCount % interval == 0;
     }
 
     // 赤緑青はその色へ。光と闇は合計が取得量と一致するよう R, G, B に分ける。

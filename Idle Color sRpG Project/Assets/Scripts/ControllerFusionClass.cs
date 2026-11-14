@@ -198,22 +198,92 @@ public class ControllerFusionClass : MonoBehaviour
         spriteObject.transform.SetAsLastSibling();
         CatalogNewMark.Apply(picture.transform, character);
 
+        Text nameLabel = CreateText("Name", cell.transform, NameMaxSize, TextAnchor.MiddleCenter);
+        RectTransform nameRect = nameLabel.rectTransform;
+        nameRect.anchorMin = new Vector2(0f, 0.35f);
+        nameRect.anchorMax = new Vector2(1f, 0.48f);
+        nameRect.offsetMin = new Vector2(8f, 0f);
+        nameRect.offsetMax = new Vector2(-8f, -2f);
+        nameLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+        nameLabel.verticalOverflow = VerticalWrapMode.Overflow;
+        nameLabel.supportRichText = false;
+        string characterName = character.Name ?? "";
+        nameLabel.text = characterName;
+        FitCellName(nameLabel, characterName);
+
         Text label = CreateText("Label", cell.transform, 24, TextAnchor.UpperCenter);
         RectTransform labelRect = label.rectTransform;
         labelRect.anchorMin = new Vector2(0f, 0f);
-        labelRect.anchorMax = new Vector2(1f, 0.48f);
-        labelRect.offsetMin = new Vector2(10f, 10f);
-        labelRect.offsetMax = new Vector2(-10f, -2f);
+        labelRect.anchorMax = new Vector2(1f, 0.35f);
+        labelRect.offsetMin = new Vector2(8f, 6f);
+        labelRect.offsetMax = new Vector2(-8f, 0f);
         label.horizontalOverflow = HorizontalWrapMode.Wrap;
         label.verticalOverflow = VerticalWrapMode.Overflow;
         label.supportRichText = true;
-        label.text = CellText(character);
+        label.text = CellStats(character);
 
         EnsureWhiteFrame(cell.transform, selected ? FrameSelected : FrameThin);
         return new CellEntry { Id = character.ID, Background = background, Picture = image, Label = label };
     }
 
-    static string CellText(CharacterClass character)
+    const int NameMaxSize = 24;
+    const int NameMinSize = 12;
+    const float CellNameWidth = 172f;
+
+    void FitCellName(Text label, string name)
+    {
+        if (label == null)
+            return;
+        int size = NameMaxSize;
+        if (label.font != null && !string.IsNullOrEmpty(name))
+            size = FitSingleLineSize(label, name, CellNameWidth, NameMaxSize, NameMinSize);
+        label.fontSize = size;
+    }
+
+    static int FitSingleLineSize(Text label, string text, float maxWidth, int maxSize, int minSize)
+    {
+        if (maxSize < minSize)
+            maxSize = minSize;
+        if (maxWidth < 8f)
+            return minSize;
+        if (LabelWidth(label, text, maxSize) <= 0.5f)
+            return maxSize;
+        int low = minSize;
+        int high = maxSize;
+        int best = minSize;
+        while (low <= high)
+        {
+            int mid = (low + high) / 2;
+            float width = LabelWidth(label, text, mid);
+            if (width > 0.5f && width <= maxWidth)
+            {
+                best = mid;
+                low = mid + 1;
+            }
+            else
+                high = mid - 1;
+        }
+        return best;
+    }
+
+    static float LabelWidth(Text label, string text, int fontSize)
+    {
+        TextGenerationSettings settings = label.GetGenerationSettings(new Vector2(4096f, 256f));
+        settings.fontSize = fontSize;
+        settings.horizontalOverflow = HorizontalWrapMode.Overflow;
+        settings.verticalOverflow = VerticalWrapMode.Overflow;
+        settings.generateOutOfBounds = true;
+        settings.resizeTextForBestFit = false;
+        settings.updateBounds = true;
+        float unit = label.pixelsPerUnit;
+        if (unit < 0.01f)
+            unit = 1f;
+        settings.scaleFactor = unit;
+        float raw = label.cachedTextGeneratorForLayout.GetPreferredWidth(text, settings);
+        return raw / unit;
+    }
+
+    static string CellStats(CharacterClass character)
     {
         long lives = ToLong(character.OwnedNumCur);
         long count = ToLong(character.FusionCount);
@@ -224,7 +294,7 @@ public class ControllerFusionClass : MonoBehaviour
         string change = lives.ToString() + " → " + after.ToString();
         if (after <= 1)
             change = "<color=#ff2a2a>" + change + "</color>";
-        return character.Name + "\n" + fusion + "\n" + change;
+        return fusion + "\n" + change;
     }
 
     void ShowDetail()

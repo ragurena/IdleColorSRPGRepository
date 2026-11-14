@@ -120,6 +120,7 @@ public sealed class QuestSave
     public ulong CharacterCompletions;
     public long GalleryClears;
     public ulong EnemyDefeats;
+    public readonly Dictionary<int, ulong> RecruitDefeats = new Dictionary<int, ulong>();
     public bool FusionUnlocked;
     public int FusionEfficiency;
     public int ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
@@ -152,6 +153,7 @@ public sealed class QuestSave
         CharacterCompletions = 0;
         GalleryClears = 0;
         EnemyDefeats = 0;
+        RecruitDefeats.Clear();
         FusionUnlocked = false;
         FusionEfficiency = 0;
         ImportCap = Constants.IMPORT_CHARACTER_CAP_INITIAL;
@@ -173,6 +175,24 @@ public sealed class QuestSave
         FusionCap = FusionBonus.InitialCap;
         HasFusionCap = false;
         Records.Clear();
+    }
+
+    public ulong RecruitDefeatsOf(int size)
+    {
+        ulong count;
+        if (size < 1 || !RecruitDefeats.TryGetValue(size, out count))
+            return 0;
+        return count;
+    }
+
+    public void NoteRecruitDefeat(int size)
+    {
+        if (size < 1)
+            size = 8;
+        ulong count = RecruitDefeatsOf(size);
+        if (count >= ulong.MaxValue)
+            return;
+        RecruitDefeats[size] = count + 1;
     }
 
     public bool TryGet(int id, out QuestRecord record)

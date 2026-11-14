@@ -2970,18 +2970,27 @@ public class ControllerProduction : MonoBehaviour
         button.onClick.AddListener(PushButtonSelectSceneCatalog);
     }
 
-    public void NoteEnemyDefeat()
+    public void NoteEnemyDefeat(int size)
     {
-        if (!Quests.DefaultsApplied || Quests.EnemyDefeats >= ulong.MaxValue)
+        if (!Quests.DefaultsApplied)
             return;
-        Quests.EnemyDefeats++;
+        if (size < 1)
+            size = 8;
+        if (Quests.EnemyDefeats < ulong.MaxValue)
+            Quests.EnemyDefeats++;
+        Quests.NoteRecruitDefeat(size);
     }
 
-    public bool IsNextEnemyDefeatGuaranteedRecruit()
+    public bool IsNextEnemyDefeatGuaranteedRecruit(int size)
     {
-        if (!Quests.DefaultsApplied || Quests.EnemyDefeats >= ulong.MaxValue)
+        if (!Quests.DefaultsApplied)
             return false;
-        return BattleRewardCalculator.IsGuaranteedRecruitCount(Quests.EnemyDefeats + 1);
+        if (size < 1)
+            size = 8;
+        ulong count = Quests.RecruitDefeatsOf(size);
+        if (count >= ulong.MaxValue)
+            return false;
+        return BattleRewardCalculator.IsGuaranteedRecruitCount(count + 1, size);
     }
 
     public void MarkCatalogDefeated(uint characterId)
@@ -5188,6 +5197,18 @@ public class ControllerProduction : MonoBehaviour
         BattleSpeed = speed;
     }
 
+    public void HoldBattleSpeedForScreenIdle()
+    {
+        if (ControllerBattle != null)
+            ControllerBattle.HoldSpeedForScreenIdle();
+    }
+
+    public void ReleaseBattleSpeedFromScreenIdle()
+    {
+        if (ControllerBattle != null)
+            ControllerBattle.ReleaseSpeedFromScreenIdle();
+    }
+
     static int NormalizeBattleSpeedCap(int cap)
     {
         if (cap == 2 || cap == 4 || cap == 8 || cap == 16)
@@ -6234,7 +6255,7 @@ public class ControllerProduction : MonoBehaviour
 
     public bool HasRestingHospitalPatients()
     {
-        return Hospital != null && Hospital.BedPatientCount > 0;
+        return Hospital != null && (Hospital.BedPatientCount > 0 || Hospital.WaitingCount > 0);
     }
 
     public void WatchAdToRecoverHospital()
@@ -6254,9 +6275,9 @@ public class ControllerProduction : MonoBehaviour
 
     void PlayHospitalRecoverAd()
     {
-        if (_adBusy || _hospitalAdPending || Hospital == null || Hospital.BedPatientCount < 1)
+        if (_adBusy || _hospitalAdPending || Hospital == null)
             return;
-        _hospitalAdPatients = Hospital.CopyBedPatientIds();
+        _hospitalAdPatients = Hospital.CopyAdRecoverIds();
         if (_hospitalAdPatients == null || _hospitalAdPatients.Length == 0)
             return;
 #if UNITY_ANDROID || UNITY_EDITOR
