@@ -1290,9 +1290,9 @@ public class SaveClass// : MonoBehaviour
         }
         if (key.StartsWith("RecruitDefeat[") && key.EndsWith("]"))
         {
-            string inside = key.Substring("RecruitDefeat[".Length, key.Length - "RecruitDefeat[".Length - 1);
+            string sizeText = key.Substring("RecruitDefeat[".Length, key.Length - "RecruitDefeat[".Length - 1);
             int size;
-            if (!int.TryParse(inside, NumberStyles.Integer, CultureInfo.InvariantCulture, out size) || size < 1)
+            if (!int.TryParse(sizeText, NumberStyles.Integer, CultureInfo.InvariantCulture, out size) || size < 1)
                 throw new FormatException("RecruitDefeat");
             quests.RecruitDefeats[size] = ReadUlong(values);
             return true;
