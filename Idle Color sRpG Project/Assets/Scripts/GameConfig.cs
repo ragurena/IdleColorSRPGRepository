@@ -12,7 +12,8 @@ public static class GameConfig
     // 0.0.6 はキャラのレベルを 1 始まりにした。これより古いセーブはレベルを 1 足す。
     // 0.0.7 は ID 16〜20 に新しいキャラを入れた版。これより古いセーブは ID 19 以降を今の並びにずらす。
     // 0.0.8 は ID 14 に GraySlime16 を入れ、WhiteSlime16 を ID 15 へ移した。これより古いセーブは ID 14 を 15 にずらす。
-    public const string DataVersion = "0.0.8";
+    // 0.0.9 は ID 26〜30 にコウモリ、カラス、シャチ、オオカミ、ブラックドラゴンを入れた。これより古いセーブは ID 26 以降を 5 つずらす。
+    public const string DataVersion = "0.0.9";
     public const string ImageDataVersion = "0.0.5";
 
     // ファイルの手順。DataVersion とは別。2 はチェックサムと SaveEnd がある。

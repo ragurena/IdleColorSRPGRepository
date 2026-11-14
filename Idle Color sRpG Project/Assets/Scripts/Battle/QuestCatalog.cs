@@ -231,7 +231,7 @@ public static class QuestCatalog
         Stage(5300, 3, 100), // モアとバトル１の開放
         Stage(5320, 3, 200),
         Stage(5330, 3, 300),
-        Stage(5400, 4, 100), // 次のステージの開放
+        Stage(5400, 4, 100), // ソウガとバトル１の開放
         Stage(5420, 4, 200),
         Stage(5430, 4, 300),
         Stage(5500, 5, 100),

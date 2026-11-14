@@ -476,6 +476,47 @@ public sealed class HospitalState
         return true;
     }
 
+    public void RemapCharacterIds(Func<uint, uint> map)
+    {
+        if (map == null)
+            return;
+        for (int i = _patients.Count - 1; i >= 0; i--)
+        {
+            uint next = map(_patients[i].CharacterId);
+            if (next == 0)
+                _patients.RemoveAt(i);
+            else
+                _patients[i].CharacterId = next;
+        }
+        for (int i = _pending.Count - 1; i >= 0; i--)
+        {
+            uint next = map(_pending[i]);
+            if (next == 0)
+                _pending.RemoveAt(i);
+            else
+                _pending[i] = next;
+        }
+        for (int card = 1; card < _nurses.Length; card++)
+        {
+            if (_nurses[card] == 0)
+                continue;
+            uint next = map(_nurses[card]);
+            _nurses[card] = next;
+            if (next == 0)
+                _nurseSizes[card] = 0;
+        }
+        for (int i = _growth.Count - 1; i >= 0; i--)
+        {
+            if (_growth[i].Person)
+                continue;
+            uint next = map(_growth[i].Id);
+            if (next == 0)
+                _growth.RemoveAt(i);
+            else
+                _growth[i].Id = next;
+        }
+    }
+
     public void Repair()
     {
         if (UnlockedBeds < InitialBeds)

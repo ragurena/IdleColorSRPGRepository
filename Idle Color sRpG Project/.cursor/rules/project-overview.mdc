@@ -44,7 +44,7 @@ Android の本番アプリ ID と報酬型ユニット ID はコードに入っ�
 
 ステージ名は `ControllerBattleStageClass` の `StageNames`、敵の並びは `BattleStageCatalog`。
 
-ステージ5は、名前が「？？？」のまま。中身を作るときに伝える。
+ステージ5の名前は「ソウガとバトル１」。中身を作るときに伝える。
 
 ## Git
 - 作業は常に `master` に載せる。作業用ブランチは作らない。`cursor/` ブランチにも残さない

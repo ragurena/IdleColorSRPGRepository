@@ -16,7 +16,7 @@ public enum Trigger {User, Update};
 
 static class Constants
 {
-    public const int CHARACTERS_ALL_NUM = 32;
+    public const int CHARACTERS_ALL_NUM = 37;
     public const int CHARACTERS_HELP_PRODUCTION_NUM = 3;
     public const int PRODUCTION_SLOT_MAX = 255;
     public const int PRODUCTION_SLOT_INITIAL = 3;
@@ -82,6 +82,7 @@ public class ControllerProduction : MonoBehaviour
     readonly List<GameObject> SelectScenePage1Buttons = new List<GameObject>();
     readonly List<GameObject> SelectScenePage2Buttons = new List<GameObject>();
     int SelectScenePage;
+    int FirstPageSceneFontSize;
     Button ButtonSelectScenePagePrev;
     Button ButtonSelectScenePageNext;
     Image[] CharacterStopPixelFills;
@@ -1862,6 +1863,7 @@ public class ControllerProduction : MonoBehaviour
         GameObject bar = GameObject.Find("PanelSelectScene");
         if (bar == null)
             return;
+        RefreshFirstPageSceneFontSize(bar.transform);
         for (int i = 0; i < bar.transform.childCount; i++)
         {
             Button button = bar.transform.GetChild(i).GetComponent<Button>();
@@ -1885,6 +1887,7 @@ public class ControllerProduction : MonoBehaviour
             EnsureButtonNeon(button.transform, Color.white, false, false);
         RestoreCatalogBadgeInk(button.transform);
         PlaceSceneIcon(button, open);
+        StyleSceneButtonLabelOutline(SceneButtonLabel(button));
     }
 
     static readonly string[] SceneIconFiles =
@@ -2024,18 +2027,19 @@ public class ControllerProduction : MonoBehaviour
         icon.gameObject.SetActive(true);
 
         RectTransform buttonRect = button.GetComponent<RectTransform>();
-        float height = buttonRect != null ? buttonRect.rect.height : 0f;
-        float width = buttonRect != null ? buttonRect.rect.width : 0f;
-        if (height < 48f && buttonRect != null)
-            height = buttonRect.sizeDelta.y;
-        if (width < 48f && buttonRect != null)
-            width = buttonRect.sizeDelta.x;
-        if (height < 48f)
-            height = 128f;
-        if (width < 48f)
-            width = 160f;
-        float iconSize = height * 0.58f;
+        float height = SceneButtonEdge(buttonRect, false);
+        float width = SceneButtonEdge(buttonRect, true);
+        bool firstPage = !IsSelectScenePage2(button.name);
+        if (firstPage && FirstPageSceneFontSize <= 0 && button.transform.parent != null)
+            RefreshFirstPageSceneFontSize(button.transform.parent);
+        int fontSize = 20;
         float textH = 28f;
+        if (firstPage)
+        {
+            fontSize = FirstPageSceneFontSize > 0 ? FirstPageSceneFontSize : 24;
+            textH = fontSize + 10f;
+        }
+        float iconSize = height * 0.58f;
         float gap = 2f;
         float block = iconSize + gap + textH;
         float iconY = block * 0.5f - iconSize * 0.5f;
@@ -2059,15 +2063,15 @@ public class ControllerProduction : MonoBehaviour
             textRect.sizeDelta = new Vector2(width - 4f, textH);
             label.supportRichText = false;
             label.resizeTextForBestFit = false;
-            label.fontSize = 20;
+            label.fontSize = fontSize;
             label.alignment = TextAnchor.MiddleCenter;
-            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.horizontalOverflow = firstPage ? HorizontalWrapMode.Overflow : HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Overflow;
             label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
             label.gameObject.SetActive(true);
             if (button.name == "ButtonSelectSceneRGBProduction")
                 label.text = "RGB生産";
-            StyleGaugeTextGlow(label, Color.white);
+            StyleSceneButtonLabelOutline(label);
             label.transform.SetAsLastSibling();
         }
         Transform badge = button.transform.Find("ImageCatalogBadge");
@@ -2086,6 +2090,129 @@ public class ControllerProduction : MonoBehaviour
             return labels[i];
         }
         return null;
+    }
+
+    // 画面下の機能ボタン。白い光だとアイコンに溶けるので、文字の周りを黒で縁取る。
+    static void StyleSceneButtonLabelOutline(Text label)
+    {
+        if (label == null)
+            return;
+        GaugeTextGlow glow = label.GetComponent<GaugeTextGlow>();
+        if (glow != null)
+            glow.enabled = false;
+        Outline outline = label.GetComponent<Outline>();
+        if (outline == null)
+            outline = label.gameObject.AddComponent<Outline>();
+        Color edge = new Color(0f, 0f, 0f, 0.95f);
+        Vector2 distance = new Vector2(1.5f, -1.5f);
+        if (outline.effectColor != edge)
+            outline.effectColor = edge;
+        if (outline.effectDistance != distance)
+            outline.effectDistance = distance;
+        label.SetVerticesDirty();
+    }
+
+    // 1画面目のラベルは、いちばん長い文字が1行に収まる最大のサイズで揃える。
+    void RefreshFirstPageSceneFontSize(Transform bar)
+    {
+        if (bar == null)
+            return;
+        Canvas.ForceUpdateCanvases();
+        int chosen = 40;
+        bool found = false;
+        for (int i = 0; i < bar.childCount; i++)
+        {
+            Button button = bar.GetChild(i).GetComponent<Button>();
+            if (button == null || IsSelectScenePage2(button.name) || SceneIconFile(button.name) == null)
+                continue;
+            Text label = SceneButtonLabel(button);
+            if (label == null || label.font == null)
+                continue;
+            string text = button.name == "ButtonSelectSceneRGBProduction" ? "RGB生産" : label.text;
+            if (string.IsNullOrEmpty(text))
+                continue;
+            RectTransform buttonRect = button.GetComponent<RectTransform>();
+            float width = SceneButtonEdge(buttonRect, true);
+            float height = SceneButtonEdge(buttonRect, false);
+            int cap = SceneLabelSizeCap(height);
+            int fit = FitSingleLineFontSize(label, text, width - 8f, cap, 16);
+            if (fit < 0)
+                fit = 24;
+            if (!found || fit < chosen)
+                chosen = fit;
+            found = true;
+        }
+        if (found)
+            FirstPageSceneFontSize = chosen;
+    }
+
+    static int SceneLabelSizeCap(float height)
+    {
+        float iconSize = height * 0.58f;
+        float maxTextH = height - iconSize - 6f;
+        int cap = Mathf.FloorToInt(maxTextH - 10f);
+        if (cap > 40)
+            cap = 40;
+        if (cap < 16)
+            cap = 16;
+        return cap;
+    }
+
+    static int FitSingleLineFontSize(Text label, string text, float maxWidth, int maxSize, int minSize)
+    {
+        if (label == null || label.font == null || string.IsNullOrEmpty(text))
+            return -1;
+        if (maxSize < minSize)
+            maxSize = minSize;
+        if (maxWidth < 8f)
+            return minSize;
+        if (SceneLabelWidth(label, text, maxSize) <= 0.5f)
+            return -1;
+        int low = minSize;
+        int high = maxSize;
+        int best = minSize;
+        while (low <= high)
+        {
+            int mid = (low + high) / 2;
+            float width = SceneLabelWidth(label, text, mid);
+            if (width > 0.5f && width <= maxWidth)
+            {
+                best = mid;
+                low = mid + 1;
+            }
+            else
+                high = mid - 1;
+        }
+        return best;
+    }
+
+    static float SceneLabelWidth(Text label, string text, int fontSize)
+    {
+        TextGenerationSettings settings = label.GetGenerationSettings(new Vector2(4096f, 256f));
+        settings.fontSize = fontSize;
+        settings.horizontalOverflow = HorizontalWrapMode.Overflow;
+        settings.verticalOverflow = VerticalWrapMode.Overflow;
+        settings.generateOutOfBounds = true;
+        settings.resizeTextForBestFit = false;
+        settings.updateBounds = true;
+        float unit = label.pixelsPerUnit;
+        if (unit < 0.01f)
+            unit = 1f;
+        settings.scaleFactor = unit;
+        float raw = label.cachedTextGeneratorForLayout.GetPreferredWidth(text, settings);
+        return raw / unit;
+    }
+
+    static float SceneButtonEdge(RectTransform buttonRect, bool width)
+    {
+        float value = 0f;
+        if (buttonRect != null)
+            value = width ? buttonRect.rect.width : buttonRect.rect.height;
+        if (value < 48f && buttonRect != null)
+            value = width ? buttonRect.sizeDelta.x : buttonRect.sizeDelta.y;
+        if (value < 48f)
+            value = width ? 160f : 128f;
+        return value;
     }
 
     static void RestoreCatalogBadgeInk(Transform button)
@@ -5291,7 +5418,7 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
-    // 0.0.4 より前は ID 4 以降も初期所持だった。仲間化で持ったネコ（ID 28 以降）はそのまま残す。
+    // 0.0.4 より前は ID 4 以降も初期所持だった。仲間化で持ったネコ（いまの ID 33 以降）はそのまま残す。
     // 版が空のときは所持を外さない。
     void DropFormerStarterOwnership(string savedVersion)
     {
@@ -5302,7 +5429,7 @@ public class ControllerProduction : MonoBehaviour
         for (int i = 0; i < roster.Length; i++)
         {
             CharacterDefinition def = roster[i];
-            if (def.StartsOwned || def.Id >= 28)
+            if (def.StartsOwned || def.Id >= 33)
                 continue;
             if (def.Id < 1 || def.Id > Constants.CHARACTERS_ALL_NUM)
                 continue;
@@ -6567,6 +6694,11 @@ public class ControllerProduction : MonoBehaviour
         "ミケ_32.png",
         "ベリー_32.png",
         "ベリル_64.png",
+        "コウモリ_32.png",
+        "カラス_32.png",
+        "シャチ_32.png",
+        "オオカミ_64.png",
+        "ブラックドラゴン_128.png",
     };
 
     static bool IsKuronekoSeries(string fileName)

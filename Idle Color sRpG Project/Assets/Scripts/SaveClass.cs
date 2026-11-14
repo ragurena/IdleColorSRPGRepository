@@ -1174,7 +1174,10 @@ public class SaveClass// : MonoBehaviour
         if (IsOlderThan(savedVersion, "0.0.6"))
             ImportedCharacters.RaisePendingLevels();
         if (hospital != null)
+        {
+            hospital.RemapCharacterIds(id => ShiftCharacterId(id, savedVersion));
             hospital.Repair();
+        }
         if (slots != null)
             slots.Clamp();
         return true;
@@ -1463,6 +1466,9 @@ public class SaveClass// : MonoBehaviour
             if (index == 14)
                 index = 15;
         }
+        // 0.0.9 は ID 26〜30 に新しいキャラを入れ、それ以降を 5 つ後ろへずらした。
+        if (CompareVersions(savedVersion, "0.0.9") < 0 && index >= 26)
+            index += 5;
         return index;
     }
 
@@ -1488,6 +1494,8 @@ public class SaveClass// : MonoBehaviour
         if (CompareVersions(savedVersion, "0.0.7") < 0 && slot >= 16 && slot <= 20)
             return true;
         if (CompareVersions(savedVersion, "0.0.8") < 0 && slot == 14)
+            return true;
+        if (CompareVersions(savedVersion, "0.0.9") < 0 && slot >= 26 && slot <= 30)
             return true;
         return false;
     }

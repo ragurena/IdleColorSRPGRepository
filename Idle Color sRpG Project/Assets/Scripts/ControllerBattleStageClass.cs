@@ -10,7 +10,7 @@ public class ControllerBattleStageClass : MonoBehaviour
     public const string CELL_IMAGE_PREFIX = "ImageBattleStageCell";
 
     //ステージ番号は 1～BATTLE_STAGE_NUM。0 は未出撃
-    static readonly string[] StageNames = { "", "チュートリアル", "スライムの森", "チグサとバトル１", "モアとバトル１", "？？？", "ギャラリー" };
+    static readonly string[] StageNames = { "", "チュートリアル", "スライムの森", "チグサとバトル１", "モアとバトル１", "ソウガとバトル１", "ギャラリー" };
 
     public static string GetStageName(int stageIndex)
     {
@@ -35,6 +35,8 @@ public class ControllerBattleStageClass : MonoBehaviour
     [SerializeField] Button ButtonSortieBattleStage;
     [SerializeField] Button ButtonBattleRepeat;
     Button ButtonGalleryStage;
+    Button ButtonComingSoon;
+    float TrailContentWidth = -1f;
     Text TextBattleStageDetail;
     Text _battleEndedNote;
     bool _battleEndedNoteOn;
@@ -145,7 +147,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         else
             Debug.LogWarning("ButtonBattleRepeat が見つかりません");
 
-        EnsureGalleryButton();
+        EnsureTrailingStageButtons();
 
         SetupFloorSlider(SliderBattleFloorFrom, true);
         SetupFloorSlider(SliderBattleFloorTo, false);
@@ -159,6 +161,7 @@ public class ControllerBattleStageClass : MonoBehaviour
     {
         for (int i = 0; i < ButtonBattleStages.Length; i++)
             SetStageCardHeight(ButtonBattleStages[i]);
+        SetStageCardHeight(ButtonComingSoon);
         SetStageCardHeight(ButtonGalleryStage);
     }
 
@@ -1028,7 +1031,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             ControllerProduction.ShowBattleStageBackground(activeStage);
 
         RefreshStageEnemyPortraits();
-        PaintGalleryButton(activeStage);
+        PlaceTrailingStageButtons(activeStage);
 
         for (int i = 0; i < ButtonBattleStageSets.Length; i++)
         {
@@ -1265,7 +1268,34 @@ public class ControllerBattleStageClass : MonoBehaviour
         floorTo = windowStart + toBand * Constants.BATTLE_STAGE_FLOOR_STEP - 1;
     }
 
-    void EnsureGalleryButton()
+    void EnsureTrailingStageButtons()
+    {
+        Button source = LastStageButton();
+        if (source == null)
+        {
+            Debug.LogWarning("ギャラリーのボタンを置く元になるステージボタンがありません");
+            return;
+        }
+
+        ButtonComingSoon = FindOrCloneStageButton(source, "ButtonBattleStageComingSoon");
+        ButtonGalleryStage = FindOrCloneStageButton(source, "ButtonBattleStageGallery");
+        if (ButtonComingSoon != null)
+        {
+            ButtonComingSoon.onClick = new Button.ButtonClickedEvent();
+            ButtonComingSoon.gameObject.SetActive(false);
+        }
+        if (ButtonGalleryStage != null)
+        {
+            ButtonGalleryStage.onClick = new Button.ButtonClickedEvent();
+            ButtonGalleryStage.onClick.AddListener(() => PushButtonSelectBattleStage(Constants.BATTLE_STAGE_GALLERY));
+        }
+        if (ButtonComingSoon != null)
+            ButtonComingSoon.transform.SetAsLastSibling();
+        if (ButtonGalleryStage != null)
+            ButtonGalleryStage.transform.SetAsLastSibling();
+    }
+
+    Button LastStageButton()
     {
         Button source = null;
         for (int i = 0; i < ButtonBattleStages.Length; i++)
@@ -1273,34 +1303,102 @@ public class ControllerBattleStageClass : MonoBehaviour
             if (ButtonBattleStages[i] != null)
                 source = ButtonBattleStages[i];
         }
-        if (source == null)
-        {
-            Debug.LogWarning("ギャラリーのボタンを置く元になるステージボタンがありません");
-            return;
-        }
+        return source;
+    }
 
+    static Button FindOrCloneStageButton(Button source, string name)
+    {
         Transform parent = source.transform.parent;
-        Transform existing = parent != null ? parent.Find("ButtonBattleStageGallery") : null;
+        Transform existing = parent != null ? parent.Find(name) : null;
         if (existing != null)
-            ButtonGalleryStage = existing.GetComponent<Button>();
+            return existing.GetComponent<Button>();
+        GameObject clone = Instantiate(source.gameObject, parent);
+        clone.name = name;
+        return clone.GetComponent<Button>();
+    }
 
-        if (ButtonGalleryStage == null)
+    bool AllConfiguredStagesUnlocked()
+    {
+        if (ControllerProduction == null)
+            return false;
+        for (int stage = 1; stage <= Constants.BATTLE_STAGE_NUM; stage++)
         {
-            GameObject clone = Instantiate(source.gameObject, parent);
-            clone.name = "ButtonBattleStageGallery";
-            RectTransform sourceRect = source.GetComponent<RectTransform>();
-            RectTransform rect = clone.GetComponent<RectTransform>();
-            float gap = sourceRect.sizeDelta.x;
-            if (gap < 1f)
-                gap = 160f;
-            rect.anchoredPosition = sourceRect.anchoredPosition + new Vector2(gap + 12f, 0f);
-            ButtonGalleryStage = clone.GetComponent<Button>();
+            if (!ControllerProduction.IsBattleStageUnlocked(stage))
+                return false;
+        }
+        return true;
+    }
+
+    // 設定済みのステージが全部開いたら、ギャラリーの左に空枠を出す。出撃はできない。
+    void PlaceTrailingStageButtons(int activeStage)
+    {
+        Button anchor = LastStageButton();
+        bool showSoon = AllConfiguredStagesUnlocked();
+        if (ButtonComingSoon != null)
+        {
+            ButtonComingSoon.gameObject.SetActive(showSoon);
+            if (showSoon)
+                PaintComingSoon();
         }
 
-        if (ButtonGalleryStage == null)
+        if (anchor != null)
+        {
+            Transform parent = anchor.transform.parent;
+            bool laidOut = parent != null
+                && (parent.GetComponent<HorizontalLayoutGroup>() != null || parent.GetComponent<GridLayoutGroup>() != null);
+            if (!laidOut)
+            {
+                RectTransform anchorRect = anchor.GetComponent<RectTransform>();
+                float gap = anchorRect.sizeDelta.x;
+                if (gap < 1f)
+                    gap = 160f;
+                float step = gap + 12f;
+                if (showSoon && ButtonComingSoon != null)
+                {
+                    RectTransform soon = ButtonComingSoon.GetComponent<RectTransform>();
+                    soon.anchoredPosition = anchorRect.anchoredPosition + new Vector2(step, 0f);
+                }
+                if (ButtonGalleryStage != null)
+                {
+                    RectTransform gallery = ButtonGalleryStage.GetComponent<RectTransform>();
+                    gallery.anchoredPosition = anchorRect.anchoredPosition + new Vector2(step * (showSoon ? 2f : 1f), 0f);
+                }
+                FitTrailContent(anchorRect.parent as RectTransform, showSoon ? step : 0f);
+            }
+        }
+
+        PaintGalleryButton(activeStage);
+    }
+
+    void FitTrailContent(RectTransform content, float extra)
+    {
+        if (content == null || content.GetComponent<ContentSizeFitter>() != null)
             return;
-        ButtonGalleryStage.onClick = new Button.ButtonClickedEvent();
-        ButtonGalleryStage.onClick.AddListener(() => PushButtonSelectBattleStage(Constants.BATTLE_STAGE_GALLERY));
+        if (TrailContentWidth < 0f)
+            TrailContentWidth = content.sizeDelta.x;
+        if (TrailContentWidth <= extra)
+            return;
+        float width = TrailContentWidth + extra;
+        if (Mathf.Approximately(content.sizeDelta.x, width))
+            return;
+        content.sizeDelta = new Vector2(width, content.sizeDelta.y);
+    }
+
+    void PaintComingSoon()
+    {
+        if (ButtonComingSoon == null)
+            return;
+        ButtonComingSoon.interactable = false;
+        KeepLockedColor(ButtonComingSoon);
+        ButtonComingSoon.image.color = ColorStageLocked;
+        Text label = ButtonComingSoon.GetComponentInChildren<Text>();
+        ApplyStageButtonBackground(ButtonComingSoon, 0, label, true);
+        if (label == null)
+            return;
+        label.text = "Coming Soon……";
+        label.color = Color.white;
+        MatchStageTitleSize(label);
+        label.transform.SetAsLastSibling();
     }
 
     void PaintGalleryButton(int activeStage)
