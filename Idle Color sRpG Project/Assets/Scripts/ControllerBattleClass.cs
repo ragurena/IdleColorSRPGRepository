@@ -46,6 +46,9 @@ public class ControllerBattleClass : MonoBehaviour
     readonly FrontSlot[] _frontSlots = new FrontSlot[3];
     readonly List<BattleUnit> _frontUnits = new List<BattleUnit>();
     Button _fastButton;
+    Text _speedRemain;
+    int _speedRemainShown = -1;
+    bool _speed8Using;
     Button _withdrawButton;
     QuestBoard _questBoard;
         SettingsBoard _settings;
@@ -540,7 +543,7 @@ public class ControllerBattleClass : MonoBehaviour
     int SpeedCap()
     {
         if (_production == null)
-            return 16;
+            return 4;
         return _production.GetBattleSpeedCap();
     }
 
@@ -1362,7 +1365,8 @@ public class ControllerBattleClass : MonoBehaviour
         Image image = _fastButton.GetComponent<Image>();
         if (image != null)
             image.color = open ? new Color(0.25f, 0.45f, 0.75f, 1f) : new Color(0.45f, 0.45f, 0.45f, 1f);
-        Text label = _fastButton.GetComponentInChildren<Text>();
+        Transform labelObject = _fastButton.transform.Find("Text");
+        Text label = labelObject != null ? labelObject.GetComponent<Text>() : null;
         if (label == null)
             return;
         label.color = open ? Color.white : new Color(0.62f, 0.62f, 0.62f, 1f);
@@ -1644,6 +1648,7 @@ public class ControllerBattleClass : MonoBehaviour
 
     void Update()
     {
+        TickSpeedUnlock();
         TickDrops();
         if (!_stageWiping || _stageWipeMaterial == null)
             return;
@@ -1930,6 +1935,16 @@ public class ControllerBattleClass : MonoBehaviour
         _fastButton = CreateButton("ButtonBattleFast", "通常", new Color(0.25f, 0.45f, 0.75f, 1f));
         PlaceRect(_fastButton.GetComponent<RectTransform>(), -290f, 175f, 120f, 44f);
         _fastButton.onClick.AddListener(PushFast);
+        _speedRemain = CreateText("TextBattleSpeedRemain", _fastButton.transform, 22, TextAnchor.MiddleCenter);
+        _speedRemain.raycastTarget = false;
+        _speedRemain.color = new Color(1f, 0.95f, 0.75f, 1f);
+        RectTransform remainRect = _speedRemain.rectTransform;
+        remainRect.anchorMin = new Vector2(0.5f, 0f);
+        remainRect.anchorMax = new Vector2(0.5f, 0f);
+        remainRect.pivot = new Vector2(0.5f, 1f);
+        remainRect.anchoredPosition = new Vector2(0f, -2f);
+        remainRect.sizeDelta = new Vector2(120f, 28f);
+        _speedRemain.gameObject.SetActive(false);
         ApplySpeedButton();
 
         PlaceTextPlate(_header);
@@ -2822,7 +2837,7 @@ public class ControllerBattleClass : MonoBehaviour
         _questBoard = new QuestBoard();
         _questBoard.Build(_questOverlay, _font, _production);
         _settings = new SettingsBoard();
-        _settings.Build(_questOverlay, _font, ApplySpeedCap, ApplyAdWatchConfirm, ApplyKeepAwake, ApplyReturnToBattleStage, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
+        _settings.Build(_questOverlay, _font, ApplySpeedCap, WatchBattleSpeed8, ApplyAdWatchConfirm, ApplyKeepAwake, ApplyReturnToBattleStage, PushSettingsSave, PushSettingsDeleteSave, PushSettingsTestRgb, PushSettingsTestPixels, PushSettingsTestOwned);
         _messages = new MessageBoard();
         _messages.Build(_questOverlay, _font, _production);
         _items = new ItemBoard();
@@ -2989,7 +3004,7 @@ public class ControllerBattleClass : MonoBehaviour
             if (_items != null && _items.IsOpen)
                 _items.Close();
             CloseStory();
-            _settings.Open(SpeedCap(), AdWatchConfirm(), ScreenAwake.Enabled, ReturnToBattleStage());
+            _settings.Open(SpeedCap(), AdWatchConfirm(), ScreenAwake.Enabled, ReturnToBattleStage(), Speed8Active(), Speed8RemainingMs());
         }
     }
 
@@ -3194,6 +3209,76 @@ public class ControllerBattleClass : MonoBehaviour
         rect.sizeDelta = new Vector2(28f, 28f);
         _storyBadge = badge.gameObject;
         _storyBadge.SetActive(false);
+    }
+
+    void TickSpeedUnlock()
+    {
+        if (_production == null)
+            return;
+        bool using8 = _running && BattleSpeed() == 8;
+        bool expired = false;
+        if (using8)
+            expired = _production.TickBattleSpeed8Use(Time.unscaledDeltaTime);
+        else if (_speed8Using)
+            _production.FlushBattleSpeed8Use();
+        _speed8Using = using8 && !expired;
+        int cap = _production.GetBattleSpeedCap();
+        if (expired || _battleSpeed > cap)
+            ApplySavedSpeed(_production.GetBattleSpeed());
+        PaintSpeedRemain(using8 && !expired && _production.BattleSpeed8RemainingMs() > 0);
+        if (_settings != null && _settings.IsOpen)
+            _settings.SyncSpeed(cap, _production.IsBattleSpeed8Active(), _production.BattleSpeed8RemainingMs());
+    }
+
+    void PaintSpeedRemain(bool show)
+    {
+        if (_speedRemain == null)
+            return;
+        if (!show)
+        {
+            _speedRemainShown = -1;
+            if (_speedRemain.gameObject.activeSelf)
+                _speedRemain.gameObject.SetActive(false);
+            return;
+        }
+        long ms = _production != null ? _production.BattleSpeed8RemainingMs() : 0;
+        int total = (int)((ms + 999L) / 1000L);
+        if (total < 0)
+            total = 0;
+        if (!_speedRemain.gameObject.activeSelf)
+            _speedRemain.gameObject.SetActive(true);
+        if (total == _speedRemainShown)
+            return;
+        _speedRemainShown = total;
+        int minutes = total / 60;
+        int seconds = total % 60;
+        _speedRemain.text = minutes.ToString("00") + ":" + seconds.ToString("00");
+    }
+
+    bool Speed8Active()
+    {
+        return _production != null && _production.IsBattleSpeed8Active();
+    }
+
+    long Speed8RemainingMs()
+    {
+        return _production == null ? 0 : _production.BattleSpeed8RemainingMs();
+    }
+
+    void WatchBattleSpeed8()
+    {
+        if (_production == null)
+            return;
+        _production.WatchBattleSpeed8Ad(RefreshSpeedChoice);
+    }
+
+    void RefreshSpeedChoice()
+    {
+        if (_production == null)
+            return;
+        ApplySavedSpeed(_production.GetBattleSpeed());
+        if (_settings != null && _settings.IsOpen)
+            _settings.SyncSpeed(_production.GetBattleSpeedCap(), _production.IsBattleSpeed8Active(), _production.BattleSpeed8RemainingMs());
     }
 
     void ApplySpeedCap(int cap)

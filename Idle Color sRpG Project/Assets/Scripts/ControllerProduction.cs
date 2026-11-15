@@ -146,9 +146,14 @@ public class ControllerProduction : MonoBehaviour
     int ActiveBattleFloorTo = 0;
     // いま戦っている階。0 は範囲の最初から。クリア直後の保存は次の階
     int ActiveBattleFloor = 0;
-    // 1, 2, 4, 8, 16。出撃が終わっても残す。上限は BattleSpeedCap
+    // 1, 2, 4。8は広告で1時間だけ。16は未開放。出撃が終わっても残す。上限は BattleSpeedCap
     int BattleSpeed = 1;
-    int BattleSpeedCap = 16;
+    int BattleSpeedCap = 4;
+    // 8倍速の残り時間。ミリ秒。戦闘で8倍にしているあいだだけ減る。0は未解放。
+    long BattleSpeed8RemainMs;
+    float _battleSpeed8Fraction;
+    bool _battleSpeed8Dirty;
+    float _battleSpeed8SaveWait;
     bool AdWatchConfirm = true;
     // バトルが終わったあと、バトルのステージ画面を開く。OFF のときは RGB 生産へ戻る
     bool ReturnToBattleStage = true;
@@ -860,6 +865,7 @@ public class ControllerProduction : MonoBehaviour
             ActiveBattleFloor,
             BattleSpeed,
             BattleSpeedCap,
+            BattleSpeed8RemainMs,
             AdWatchConfirm,
             ReturnToBattleStage,
             ShowBattleFrontStatus,
@@ -1078,6 +1084,7 @@ public class ControllerProduction : MonoBehaviour
                     ref ActiveBattleFloor,
                     ref BattleSpeed,
                     ref BattleSpeedCap,
+                    ref BattleSpeed8RemainMs,
                     ref AdWatchConfirm,
                     ref ReturnToBattleStage,
                     ref ShowBattleFrontStatus,
@@ -1208,7 +1215,11 @@ public class ControllerProduction : MonoBehaviour
         ActiveBattleFloorTo = 0;
         ActiveBattleFloor = 0;
         BattleSpeed = 1;
-        BattleSpeedCap = 16;
+        BattleSpeedCap = 4;
+        BattleSpeed8RemainMs = 0;
+        _battleSpeed8Fraction = 0f;
+        _battleSpeed8Dirty = false;
+        _battleSpeed8SaveWait = 0f;
         AdWatchConfirm = true;
         ReturnToBattleStage = true;
         ShowBattleFrontStatus = true;
@@ -5383,12 +5394,149 @@ public class ControllerProduction : MonoBehaviour
 
     public int GetBattleSpeedCap()
     {
-        return NormalizeBattleSpeedCap(BattleSpeedCap);
+        if (ExpireBattleSpeed8())
+            SaveGame();
+        int cap = BattleSpeedCap;
+        if (cap != 2 && cap != 4 && cap != 8)
+            cap = 4;
+        if (cap == 8 && BattleSpeed8RemainMs <= 0)
+            cap = 4;
+        if (cap != BattleSpeedCap)
+            BattleSpeedCap = cap;
+        if (BattleSpeed > BattleSpeedCap)
+            BattleSpeed = BattleSpeedCap;
+        return BattleSpeedCap;
+    }
+
+    public bool IsBattleSpeed8Active()
+    {
+        if (ExpireBattleSpeed8())
+            SaveGame();
+        return BattleSpeed8RemainMs > 0;
+    }
+
+    public long BattleSpeed8RemainingMs()
+    {
+        return BattleSpeed8RemainMs > 0 ? BattleSpeed8RemainMs : 0;
+    }
+
+    // 戦闘で8倍にしているあいだだけ呼ぶ。切れたら true。
+    public bool TickBattleSpeed8Use(float deltaSeconds)
+    {
+        if (deltaSeconds <= 0f || BattleSpeed8RemainMs <= 0)
+            return false;
+        _battleSpeed8Fraction += deltaSeconds * 1000f;
+        if (_battleSpeed8Fraction < 1f)
+            return false;
+        long drop = (long)_battleSpeed8Fraction;
+        _battleSpeed8Fraction -= drop;
+        if (drop > BattleSpeed8RemainMs)
+            drop = BattleSpeed8RemainMs;
+        BattleSpeed8RemainMs -= drop;
+        _battleSpeed8Dirty = true;
+        _battleSpeed8SaveWait += deltaSeconds;
+        if (BattleSpeed8RemainMs > 0)
+        {
+            if (_battleSpeed8SaveWait >= 10f)
+                FlushBattleSpeed8Use();
+            return false;
+        }
+        BattleSpeed8RemainMs = 0;
+        _battleSpeed8Fraction = 0f;
+        _battleSpeed8SaveWait = 0f;
+        if (BattleSpeedCap > 4)
+            BattleSpeedCap = 4;
+        if (BattleSpeed > BattleSpeedCap)
+            BattleSpeed = BattleSpeedCap;
+        _battleSpeed8Dirty = false;
+        SaveGame();
+        return true;
+    }
+
+    public void FlushBattleSpeed8Use()
+    {
+        if (!_battleSpeed8Dirty)
+            return;
+        _battleSpeed8Dirty = false;
+        _battleSpeed8SaveWait = 0f;
+        SaveGame();
+    }
+
+    public void WatchBattleSpeed8Ad(Action onGranted)
+    {
+        if (IsBattleSpeed8Active())
+        {
+            SetBattleSpeedCap(8);
+            SaveGame();
+            if (onGranted != null)
+                onGranted();
+            return;
+        }
+        if (_adBusy)
+            return;
+        if (AdWatchConfirm)
+        {
+            ShowConfirm("広告を最後まで見ると、1時間8倍速になります。よろしいですか？", () => PlayBattleSpeed8Ad(onGranted));
+            return;
+        }
+        PlayBattleSpeed8Ad(onGranted);
+    }
+
+    void PlayBattleSpeed8Ad(Action onGranted)
+    {
+        if (_adBusy || IsBattleSpeed8Active())
+            return;
+#if UNITY_ANDROID || UNITY_EDITOR
+        _adBusy = true;
+        if (!AdService.TryShowRewarded(
+            () =>
+            {
+                _adBusy = false;
+                Idle.NoteAdSuccess();
+                GrantBattleSpeed8Hour();
+                if (onGranted != null)
+                    onGranted();
+            },
+            () => { _adBusy = false; }))
+        {
+            _adBusy = false;
+        }
+#else
+        Debug.LogWarning("広告はAndroidで表示します。");
+#endif
+    }
+
+    void GrantBattleSpeed8Hour()
+    {
+        BattleSpeed8RemainMs = 60L * 60L * 1000L;
+        _battleSpeed8Fraction = 0f;
+        _battleSpeed8Dirty = false;
+        _battleSpeed8SaveWait = 0f;
+        BattleSpeedCap = 8;
+        SaveGame();
+    }
+
+    bool ExpireBattleSpeed8()
+    {
+        if (BattleSpeed8RemainMs > 0)
+            return false;
+        if (BattleSpeedCap <= 4)
+            return false;
+        BattleSpeedCap = 4;
+        if (BattleSpeed > BattleSpeedCap)
+            BattleSpeed = BattleSpeedCap;
+        return true;
     }
 
     public void SetBattleSpeedCap(int cap)
     {
-        BattleSpeedCap = NormalizeBattleSpeedCap(cap);
+        if (cap == 16)
+            return;
+        if (cap == 8 && !IsBattleSpeed8Active())
+            return;
+        if (cap != 2 && cap != 4 && cap != 8)
+            cap = 4;
+        BattleSpeedCap = cap;
         if (BattleSpeed > BattleSpeedCap)
             BattleSpeed = BattleSpeedCap;
     }
@@ -5416,13 +5564,6 @@ public class ControllerProduction : MonoBehaviour
     {
         if (ControllerBattle != null)
             ControllerBattle.ReleaseSpeedFromScreenIdle();
-    }
-
-    static int NormalizeBattleSpeedCap(int cap)
-    {
-        if (cap == 2 || cap == 4 || cap == 8 || cap == 16)
-            return cap;
-        return 16;
     }
 
     public bool GetAdWatchConfirm()

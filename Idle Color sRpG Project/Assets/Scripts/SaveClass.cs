@@ -45,6 +45,7 @@ public class SaveClass// : MonoBehaviour
         int ActiveBattleFloor,
         int BattleSpeed,
         int BattleSpeedCap,
+        long BattleSpeed8RemainMs,
         bool AdWatchConfirm,
         bool ReturnToBattleStage,
         bool ShowBattleFrontStatus,
@@ -303,6 +304,7 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("ActiveBattleFloor," + ActiveBattleFloor.ToString());
         sw.WriteLine("BattleSpeed," + BattleSpeed.ToString());
         sw.WriteLine("BattleSpeedCap," + BattleSpeedCap.ToString());
+        sw.WriteLine("BattleSpeed8RemainMs," + BattleSpeed8RemainMs.ToString(CultureInfo.InvariantCulture));
         sw.WriteLine("AdWatchConfirm," + (AdWatchConfirm ? "true" : "false"));
         sw.WriteLine("ReturnToBattleStage," + (ReturnToBattleStage ? "true" : "false"));
         sw.WriteLine("ShowBattleFrontStatus," + (ShowBattleFrontStatus ? "true" : "false"));
@@ -449,6 +451,7 @@ public class SaveClass// : MonoBehaviour
         ref int ActiveBattleFloor,
         ref int BattleSpeed,
         ref int BattleSpeedCap,
+        ref long BattleSpeed8RemainMs,
         ref bool AdWatchConfirm,
         ref bool ReturnToBattleStage,
         ref bool ShowBattleFrontStatus,
@@ -888,7 +891,30 @@ public class SaveClass// : MonoBehaviour
             if (values[0].Equals("BattleSpeedCap"))
             {
                 int cap = int.Parse(values[1]);
-                BattleSpeedCap = cap == 2 || cap == 4 || cap == 8 || cap == 16 ? cap : 16;
+                BattleSpeedCap = cap == 2 || cap == 4 || cap == 8 || cap == 16 ? cap : 4;
+            }
+
+            else
+            if (values[0].Equals("BattleSpeed8RemainMs"))
+            {
+                long remain;
+                if (long.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out remain) && remain > 0)
+                    BattleSpeed8RemainMs = remain;
+            }
+
+            else
+            if (values[0].Equals("BattleSpeed8UntilMs"))
+            {
+                long until;
+                if (long.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out until) && until > 0 && BattleSpeed8RemainMs <= 0)
+                {
+                    long now = HospitalState.NowUnixMs();
+                    long left = until > now ? until - now : 0;
+                    const long hour = 60L * 60L * 1000L;
+                    if (left > hour)
+                        left = hour;
+                    BattleSpeed8RemainMs = left;
+                }
             }
 
             else

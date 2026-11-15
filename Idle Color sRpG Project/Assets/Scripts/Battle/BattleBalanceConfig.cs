@@ -19,9 +19,9 @@ public class BattleBalanceConfig
     // そのあと一辺8を1として、2倍ごとに2.8倍し、小数第1位未満は切り捨てて割る。経験値の端数は切り上げ。
     public double ExpMultiplier = 1.0;
 
-    // 次のレベルまでに必要な経験値 = 非透過ピクセル数 × 属性値 × 切り上げ(今のレベルの1.25乗)。
+    // 次のレベルまでに必要な経験値 = 非透過ピクセル数 × 属性値 × 切り上げ(今のレベルの1.15乗)。
     // 属性値は倒したときの経験値と同じ。赤・緑・青は1〜3、光は3〜9、闇は1〜3。無属性は1。
-    // レベル1は1.25乗が1なので、必要量は非透過ピクセル数 × 属性値そのもの。
+    // レベル1は1.15乗が1なので、必要量は非透過ピクセル数 × 属性値そのもの。
     // MaxLevel は今のレベル上限。最初は5。100階をクリアするたびに5上がる。
     public const int InitialLevelCap = 5;
     public const int LevelCapPerHundredFloors = 5;
@@ -88,7 +88,7 @@ public class BattleBalanceConfig
             level = 1;
         if (opaquePixels < 1)
             opaquePixels = 1;
-        double powered = Math.Pow(level, 1.25);
+        double powered = Math.Pow(level, 1.15);
         long factor = BattleMath.CeilToLong(powered);
         if (factor < 1)
             factor = 1;
