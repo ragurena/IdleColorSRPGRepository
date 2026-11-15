@@ -19,13 +19,30 @@ public class BattleBalanceConfig
     // そのあと一辺8を1として、2倍ごとに2.8倍し、小数第1位未満は切り捨てて割る。経験値の端数は切り上げ。
     public double ExpMultiplier = 1.0;
 
-    // 次のレベルまでに必要な経験値 = 切り上げ(非透過ピクセル数 * 今のレベルの1.5乗)。
-    // レベル1は 1^1.5 なので、必要量は非透過ピクセル数そのもの。
+    // 次のレベルまでに必要な経験値 = 非透過ピクセル数 × 属性値 × 切り上げ(今のレベルの1.25乗)。
+    // 属性値は倒したときの経験値と同じ。赤・緑・青は1〜3、光は3〜9、闇は1〜3。無属性は1。
+    // レベル1は1.25乗が1なので、必要量は非透過ピクセル数 × 属性値そのもの。
     // MaxLevel は今のレベル上限。最初は5。100階をクリアするたびに5上がる。
     public const int InitialLevelCap = 5;
     public const int LevelCapPerHundredFloors = 5;
     public const int LevelCapCeiling = 9999;
     public long MaxLevel = InitialLevelCap;
+    // 敵の合成回数。レベル上限が5上がるごとに2。上限5のときは0。
+    public const int EnemyFusionPerLevelCapStep = 2;
+
+    public static int EnemyFusionCount(long levelCap)
+    {
+        if (LevelCapPerHundredFloors < 1)
+            return 0;
+        if (levelCap < InitialLevelCap)
+            levelCap = InitialLevelCap;
+        long steps = (levelCap - InitialLevelCap) / LevelCapPerHundredFloors;
+        if (steps < 0)
+            steps = 0;
+        if (steps > int.MaxValue / EnemyFusionPerLevelCapStep)
+            return int.MaxValue;
+        return (int)steps * EnemyFusionPerLevelCapStep;
+    }
     public int MaxLevelsPerExpGrant = 30;
 
     // 1レベルごとに、基礎ステータスのこの割合を足す。今の値へ掛けない。
@@ -71,11 +88,13 @@ public class BattleBalanceConfig
             level = 1;
         if (opaquePixels < 1)
             opaquePixels = 1;
-        double need = opaquePixels * Math.Pow(level, 1.5);
-        long result = BattleMath.CeilToLong(need);
-        if (result < 1)
-            result = 1;
-        return result;
+        double powered = Math.Pow(level, 1.25);
+        long factor = BattleMath.CeilToLong(powered);
+        if (factor < 1)
+            factor = 1;
+        if (opaquePixels > long.MaxValue / factor)
+            return long.MaxValue;
+        return opaquePixels * factor;
     }
 
     public int ResolveExpOrbItemId(int enemySize)

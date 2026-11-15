@@ -242,7 +242,8 @@ public static class QuestCatalog
         MainQuest(65, "「チュートリアル」ステージの300階をクリアする", QuestMetric.StageFloor, 1, 300, QuestRewardKind.UnlockFeature, MainFeature.Recovery),
 
         // ステージクリア。100階、200階、300階。同じステージは100階をクリアすると次が出る。
-        // ピクセル生成枠+1、キャラ生成枠+1。広告でピクセル生成+0.5、キャラ生成+0.3。
+        // 100階はピクセル生成枠+1、キャラ生成枠+1。200階は全ピクセル200個、300階は全ピクセル300個。
+        // 広告でピクセル生成+0.5、キャラ生成+0.3。
         // レベル上限と合成上限は、100階クリアごとに5上がる。この引数では付けない。
         // 次のステージ開放は100階だけ。スライムの森は出さない。
         Stage(5200, 2, 100),
@@ -258,8 +259,8 @@ public static class QuestCatalog
         Stage(5520, 5, 200),
         Stage(5530, 5, 300),
 
-        // ギャラリークリア。
-        // ピクセル生成枠+1、キャラ生成枠+1。広告でピクセル生成+0.5、キャラ生成+0.3。
+        // ギャラリークリア。100階は枠+1。200階以降は、その階の数だけ全ピクセル。
+        // 広告でピクセル生成+0.5、キャラ生成+0.3。
         Gallery( 5219, 100),
         Gallery( 5429, 200),
         Gallery( 5639, 300),
@@ -665,7 +666,23 @@ public static class QuestCatalog
     static QuestDef Stage(int id, int stage, long floor, int levelCap = 0, int fusionCap = 0)
     {
         string name = ControllerBattleStageClass.GetStageName(stage);
-        return new QuestDef(id, name + "を" + UiNumber.Format(floor) + "階クリア", QuestMetric.StageFloor, stage, floor, QuestRewardKind.BothSlots, 1, true, false, levelCap, fusionCap);
+        QuestRewardKind reward;
+        long amount;
+        StageFloorReward(floor, out reward, out amount);
+        return new QuestDef(id, name + "を" + UiNumber.Format(floor) + "階クリア", QuestMetric.StageFloor, stage, floor, reward, amount, true, false, levelCap, fusionCap);
+    }
+
+    // 100階は生産枠。200階以降は、その階の数だけ生産できるピクセルをすべて配る。
+    static void StageFloorReward(long floor, out QuestRewardKind reward, out long amount)
+    {
+        if (floor == Constants.BATTLE_STAGE_FLOOR_MAX)
+        {
+            reward = QuestRewardKind.BothSlots;
+            amount = 1;
+            return;
+        }
+        reward = QuestRewardKind.GrantPalette;
+        amount = floor > 0 ? floor : 0;
     }
 
     static string StageUnlockText(QuestDef def)
@@ -696,7 +713,10 @@ public static class QuestCatalog
 
     static QuestDef Gallery(int id, long floor)
     {
-        return new QuestDef(id, "ギャラリーを" + UiNumber.Format(floor) + "階クリア", QuestMetric.StageFloor, Constants.BATTLE_STAGE_GALLERY, floor, QuestRewardKind.BothSlots, 1, true);
+        QuestRewardKind reward;
+        long amount;
+        StageFloorReward(floor, out reward, out amount);
+        return new QuestDef(id, "ギャラリーを" + UiNumber.Format(floor) + "階クリア", QuestMetric.StageFloor, Constants.BATTLE_STAGE_GALLERY, floor, reward, amount, true);
     }
 
     static QuestDef Rgb(int id, int channel, string name, long target)

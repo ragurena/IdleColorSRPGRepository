@@ -13,6 +13,7 @@ public sealed class IdleRewardState
     public const int OfflinePerAdMinutes = 10;
     public const int OfflinePerPurchaseMinutes = 60;
     public const int OfflineChunkMinutes = 10;
+    public const int OfflineAdAfterMinutes = 40;
     public const int Percent = 10;
 
     public const int BankR = 0;
@@ -153,10 +154,7 @@ public sealed class IdleRewardState
             elapsedMs = 0;
         if (capMinutes < 1)
             return false;
-        long capMs = (long)capMinutes * 60000L;
-        if (capMs < 0)
-            return true;
-        return elapsedMs >= capMs / 2L;
+        return elapsedMs >= (long)OfflineAdAfterMinutes * 60000L;
     }
 
     // tapR/G/B は、その色を1回タップしたときの増加量。10分ごとに10回分。

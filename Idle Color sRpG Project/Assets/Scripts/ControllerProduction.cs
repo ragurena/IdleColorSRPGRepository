@@ -104,6 +104,10 @@ public class ControllerProduction : MonoBehaviour
     bool SaveBlocked;
     bool SaveFailureNotified;
     GameObject SaveNotice;
+    GameObject AdFailNotice;
+    CanvasGroup AdFailNoticeGroup;
+    Text _adFailNoticeText;
+    float _adFailNoticeLeft;
 
     CharacterClass[] CharactersAll = new CharacterClass[Constants.CHARACTERS_ALL_NUM + 1];
 
@@ -302,6 +306,7 @@ public class ControllerProduction : MonoBehaviour
     IEnumerator Start()
     {
         Debug.Log("==================== [LOG 1] Start 始まったよ！ ====================");
+        EnsureScreenGradient();
         _messages = new MessageDirector(this);
 
 #if UNITY_EDITOR
@@ -340,6 +345,8 @@ public class ControllerProduction : MonoBehaviour
 #if UNITY_EDITOR || UNITY_ANDROID
         AdService.Begin();
 #endif
+        AdService.PlaybackFailed -= ShowAdPlaybackFailed;
+        AdService.PlaybackFailed += ShowAdPlaybackFailed;
 
         ControllerCharacterSelect = GetComponent<ControllerCharacterSelectClass>();
 
@@ -588,6 +595,8 @@ public class ControllerProduction : MonoBehaviour
     Color _rgbFxTint;
     void Update()
     {
+        AdService.Tick(Time.unscaledDeltaTime);
+        TickAdFailNotice();
         AdvanceHospital(false);
         if (_autosaveReady)
         {
@@ -1199,6 +1208,66 @@ public class ControllerProduction : MonoBehaviour
         ShowSaveNotice(message);
     }
 
+    static Sprite ScreenGradientSprite;
+
+    // 画面のいちばん後ろ。上から暗い赤、緑、青。
+    void EnsureScreenGradient()
+    {
+        GameObject canvas = GameObject.Find("CanvasProduction");
+        if (canvas == null)
+            return;
+        Transform existing = canvas.transform.Find("ScreenGradient");
+        Image image;
+        if (existing == null)
+        {
+            GameObject obj = new GameObject("ScreenGradient", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(canvas.transform, false);
+            image = obj.GetComponent<Image>();
+            image.raycastTarget = false;
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.localScale = Vector3.one;
+            image.sprite = MakeScreenGradientSprite();
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.color = Color.white;
+        }
+        else
+            image = existing.GetComponent<Image>();
+        if (image != null)
+            image.transform.SetAsFirstSibling();
+    }
+
+    static Sprite MakeScreenGradientSprite()
+    {
+        if (ScreenGradientSprite != null)
+            return ScreenGradientSprite;
+        const int height = 128;
+        Texture2D texture = new Texture2D(4, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        Color top = new Color(0.34f, 0.05f, 0.07f, 1f);
+        Color middle = new Color(0.04f, 0.22f, 0.09f, 1f);
+        Color bottom = new Color(0.05f, 0.08f, 0.30f, 1f);
+        for (int y = 0; y < height; y++)
+        {
+            float t = y / (float)(height - 1);
+            Color color = t < 0.5f
+                ? Color.Lerp(bottom, middle, t / 0.5f)
+                : Color.Lerp(middle, top, (t - 0.5f) / 0.5f);
+            for (int x = 0; x < 4; x++)
+                texture.SetPixel(x, y, color);
+        }
+        texture.Apply();
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        ScreenGradientSprite = Sprite.Create(texture, new Rect(0f, 0f, 4f, height), new Vector2(0.5f, 0.5f));
+        ScreenGradientSprite.hideFlags = HideFlags.HideAndDontSave;
+        return ScreenGradientSprite;
+    }
+
     GameObject RestartLock;
 
     void ShowRestartLock()
@@ -1316,6 +1385,108 @@ public class ControllerProduction : MonoBehaviour
     {
         if (SaveNotice != null)
             SaveNotice.SetActive(false);
+    }
+
+    const float AdFailNoticeSeconds = 2.2f;
+    const float AdFailNoticeFadeSeconds = 0.45f;
+
+    void ShowAdPlaybackFailed(AdService.AdFailReason reason)
+    {
+        EnsureAdFailNotice();
+        if (AdFailNotice == null)
+            return;
+        if (_adFailNoticeText != null)
+            _adFailNoticeText.text = AdFailMessage(reason);
+        _adFailNoticeLeft = AdFailNoticeSeconds;
+        if (AdFailNoticeGroup != null)
+            AdFailNoticeGroup.alpha = 1f;
+        AdFailNotice.SetActive(true);
+        AdFailNotice.transform.SetAsLastSibling();
+    }
+
+    static string AdFailMessage(AdService.AdFailReason reason)
+    {
+        switch (reason)
+        {
+            case AdService.AdFailReason.Preparing:
+                return "広告の準備が終わっていません";
+            case AdService.AdFailReason.Consent:
+                return "広告の同意がないため、再生できません";
+            case AdService.AdFailReason.Load:
+                return "広告を読み込めませんでした";
+            case AdService.AdFailReason.Show:
+                return "広告を表示できませんでした";
+            default:
+                return "この端末では広告を再生できません";
+        }
+    }
+
+    void TickAdFailNotice()
+    {
+        if (AdFailNotice == null || !AdFailNotice.activeSelf)
+            return;
+        _adFailNoticeLeft -= Time.unscaledDeltaTime;
+        if (_adFailNoticeLeft <= 0f)
+        {
+            AdFailNotice.SetActive(false);
+            return;
+        }
+        if (AdFailNoticeGroup == null)
+            return;
+        if (_adFailNoticeLeft >= AdFailNoticeFadeSeconds)
+            AdFailNoticeGroup.alpha = 1f;
+        else
+            AdFailNoticeGroup.alpha = _adFailNoticeLeft / AdFailNoticeFadeSeconds;
+    }
+
+    void EnsureAdFailNotice()
+    {
+        if (AdFailNotice != null)
+            return;
+        GameObject canvas = GameObject.Find("CanvasProduction");
+        if (canvas == null)
+            return;
+
+        AdFailNotice = new GameObject("AdFailNotice", typeof(RectTransform));
+        AdFailNotice.transform.SetParent(canvas.transform, false);
+        RectTransform rect = AdFailNotice.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(860f, 200f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.localScale = Vector3.one;
+        Image image = AdFailNotice.AddComponent<Image>();
+        Texture2D pixel = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        pixel.SetPixel(0, 0, Color.white);
+        pixel.Apply();
+        image.sprite = Sprite.Create(pixel, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+        image.color = new Color(0.08f, 0.05f, 0.05f, 0.92f);
+        image.raycastTarget = false;
+        AdFailNoticeGroup = AdFailNotice.AddComponent<CanvasGroup>();
+        AdFailNoticeGroup.interactable = false;
+        AdFailNoticeGroup.blocksRaycasts = false;
+
+        GameObject textObject = new GameObject("AdFailNoticeText", typeof(RectTransform));
+        textObject.transform.SetParent(AdFailNotice.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(28f, 16f);
+        textRect.offsetMax = new Vector2(-28f, -16f);
+        Text text = textObject.AddComponent<Text>();
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (text.font == null)
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        text.fontSize = 36;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = Color.white;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.raycastTarget = false;
+        text.text = AdFailMessage(AdService.AdFailReason.Load);
+        _adFailNoticeText = text;
+        AdFailNotice.SetActive(false);
     }
 
 
@@ -5908,10 +6079,13 @@ public class ControllerProduction : MonoBehaviour
         if (!CanSpendExpOrb(character, itemId, count))
             return forecast;
         long gain = ItemIds.ExpPerOrb(itemId) * count;
+        int used = UsefulOrbCount(character, itemId, count);
+        if (used < count)
+            gain = ItemIds.ExpPerOrb(itemId) * used;
         forecast = ForecastExp(character, gain);
         forecast.Ok = true;
         forecast.ItemId = itemId;
-        forecast.Count = count;
+        forecast.Count = used;
         forecast.Gain = gain;
         return forecast;
     }
@@ -5919,10 +6093,10 @@ public class ControllerProduction : MonoBehaviour
     public bool TryUseExpOrbs(uint characterId, int itemId, int count, out ExpOrbForecast forecast)
     {
         forecast = PreviewExpOrb(characterId, itemId, count);
-        if (!forecast.Ok || forecast.Unchanged)
+        if (!forecast.Ok || forecast.Unchanged || forecast.Count < 1)
             return false;
         CharacterClass character = GetCharacter(characterId);
-        KeepItemCount(itemId, GetItemCount(itemId) - count);
+        KeepItemCount(itemId, GetItemCount(itemId) - forecast.Count);
         character.Level = (ulong)forecast.LevelAfter;
         character.Exp = (ulong)forecast.ExpAfter;
         character.ExpMax = (ulong)forecast.ExpMaxAfter;
@@ -5946,6 +6120,41 @@ public class ControllerProduction : MonoBehaviour
         return GetItemCount(itemId) >= count;
     }
 
+    // レベル上限で入りきらない分は、消費しない。1個でも経験値が増える玉だけ数える。
+    int UsefulOrbCount(CharacterClass character, int itemId, int count)
+    {
+        long each = ItemIds.ExpPerOrb(itemId);
+        if (character == null || each < 1 || count < 1)
+            return 0;
+        BattleBalanceConfig config = GetBattleBalance();
+        if (config == null)
+            config = BattleBalanceConfig.CreateDefault();
+        long level = character.Level < 1 ? 1 : (long)character.Level;
+        long exp = character.Exp < 0 ? 0 : (long)character.Exp;
+        long basis = character.LevelExpBase();
+        long expMax = character.ExpMax > (ulong)long.MaxValue ? long.MaxValue : (long)character.ExpMax;
+        if (expMax < 1)
+            expMax = config.ExpToNext(level, basis);
+        int used = 0;
+        for (int i = 0; i < count; i++)
+        {
+            long beforeLevel = level;
+            long beforeExp = exp;
+            long pending = each;
+            for (int safety = 0; safety < 400; safety++)
+            {
+                int got = BattleExperience.Add(ref level, ref exp, ref expMax, pending, config, basis);
+                pending = 0;
+                if (level >= config.MaxLevel || exp < expMax || got == 0)
+                    break;
+            }
+            if (level == beforeLevel && exp == beforeExp)
+                break;
+            used++;
+        }
+        return used;
+    }
+
     ExpOrbForecast ForecastExp(CharacterClass character, long gain)
     {
         ExpOrbForecast forecast = new ExpOrbForecast();
@@ -5959,7 +6168,7 @@ public class ControllerProduction : MonoBehaviour
         forecast.ExpBefore = (long)character.Exp;
         forecast.ExpMaxBefore = (long)character.ExpMax;
         if (forecast.ExpMaxBefore < 1)
-            forecast.ExpMaxBefore = config.ExpToNext(forecast.LevelBefore, character.OpaquePixelCount());
+            forecast.ExpMaxBefore = config.ExpToNext(forecast.LevelBefore, character.LevelExpBase());
         forecast.HpBefore = (long)character.Stats[0].HPMax;
         forecast.AtkBefore = (long)character.Stats[0].ATK;
         forecast.DefBefore = (long)character.Stats[0].DEF;
@@ -5971,7 +6180,7 @@ public class ControllerProduction : MonoBehaviour
         long level = forecast.LevelBefore;
         long exp = forecast.ExpBefore < 0 ? 0 : forecast.ExpBefore;
         long expMax = forecast.ExpMaxBefore;
-        long opaque = character.OpaquePixelCount();
+        long opaque = character.LevelExpBase();
         long pending = gain < 0 ? 0 : gain;
         try
         {
@@ -6034,7 +6243,7 @@ public class ControllerProduction : MonoBehaviour
             return true;
         long expMax = (long)character.ExpMax;
         if (expMax < 1)
-            expMax = config.ExpToNext(level, character.OpaquePixelCount());
+            expMax = config.ExpToNext(level, character.LevelExpBase());
         if (expMax < 1)
             expMax = 1;
         long room = expMax - 1;
@@ -6058,7 +6267,7 @@ public class ControllerProduction : MonoBehaviour
         long exp = (long)character.Exp;
         long expMax = (long)character.ExpMax;
         long previousHpMax = unit.HpMax;
-        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config, character.OpaquePixelCount());
+        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config, character.LevelExpBase());
 
         if (level < 1)
             level = 1;
@@ -10925,6 +11134,28 @@ public class ControllerProduction : MonoBehaviour
             StylePixelListNumber(progressText, -1);
     }
 
+    // 所持一覧の顔に、生産の透かしと、作っている対象を乗せる。
+    void PaintOwnedListAssignment(GameObject button, CharacterClass character)
+    {
+        if (button == null || character == null)
+            return;
+        ControllerCharacterSelectClass select = GetComponent<ControllerCharacterSelectClass>();
+        Place place = Place.None;
+        if (IsHospitalNurse(character.ID) || character.Whereabouts == Place.Hospital)
+            place = Place.Hospital;
+        else
+            place = character.Whereabouts;
+        if (select != null)
+            select.PaintOwnedListAssignment(button, character.ID, place);
+        bool dim = place == Place.Hospital
+            || place == Place.CreateR || place == Place.CreateG || place == Place.CreateB
+            || place == Place.CreatePixel || place == Place.CreateCharacter;
+        if (dim)
+            ControllerCharacterSelectClass.DarkenAssignedPortrait(button);
+        else
+            ControllerCharacterSelectClass.RestoreAssignedPortrait(button);
+    }
+
     //TODO:TODO!
     //キャラクター生産のキャラクター所持数の表示
     public void ShowCharacterOwnedNum()
@@ -10971,6 +11202,7 @@ public class ControllerProduction : MonoBehaviour
                     FitOwnedStockLabel(label, "所持 " + character.StockText(true), IsOwnedAtCap(character));
                 RemoveWhiteFrame(existing);
                 EnsureOwnedAttributeGlow(existing, character);
+                PaintOwnedListAssignment(existing.gameObject, character);
                 CatalogNewMark.Apply(existing, character);
                 existing.SetSiblingIndex(shown);
                 KeptOwnedListIds.Add(existing.GetInstanceID());
@@ -10985,21 +11217,8 @@ public class ControllerProduction : MonoBehaviour
             Text createdLabel = characterButton.GetComponentInChildren<Text>();
             FitOwnedStockLabel(createdLabel, "所持 " + character.StockText(true), IsOwnedAtCap(character));
             EnsureOwnedAttributeGlow(characterButton.transform, character);
+            PaintOwnedListAssignment(characterButton, character);
             CatalogNewMark.Apply(characterButton.transform, character);
-            bool assignedWorker = IsHospitalNurse(character.ID) || character.Whereabouts == Place.Hospital
-                || character.Whereabouts == Place.CreateR || character.Whereabouts == Place.CreateG
-                || character.Whereabouts == Place.CreateB || character.Whereabouts == Place.CreatePixel
-                || character.Whereabouts == Place.CreateCharacter;
-            if (IsHospitalNurse(character.ID) || character.Whereabouts == Place.Hospital)
-                ControllerCharacterSelectClass.AddFaintWarningMark(characterButton, Place.Hospital);
-            else if (character.Whereabouts == Place.CreateR ||
-                character.Whereabouts == Place.CreateG ||
-                character.Whereabouts == Place.CreateB ||
-                character.Whereabouts == Place.CreatePixel ||
-                character.Whereabouts == Place.CreateCharacter)
-                ControllerCharacterSelectClass.AddFaintWarningMark(characterButton, character.Whereabouts);
-            if (assignedWorker)
-                ControllerCharacterSelectClass.DarkenAssignedPortrait(characterButton);
             KeptOwnedListIds.Add(characterButton.transform.GetInstanceID());
             shown++;
             added = true;
@@ -11025,6 +11244,7 @@ public class ControllerProduction : MonoBehaviour
                 continue;
             if (KeptOwnedListIds.Contains(child.GetInstanceID()))
                 continue;
+            ControllerCharacterSelectClass.ReleaseOwnedAssignment(child.gameObject);
             child.gameObject.SetActive(false);
             Destroy(child.gameObject);
             removed = true;

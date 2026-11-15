@@ -26,6 +26,7 @@ public sealed class BattleUnit
     public long Obs;
     public int Lives;
     public int Level;
+    public int FusionCount;
     public int OpaquePixels;
     public int RepresentativeR;
     public int RepresentativeG;

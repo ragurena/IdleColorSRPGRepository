@@ -99,6 +99,9 @@ public static class BattleCharacterFactory
 
     static void ApplyEnemyLevel(CharacterClass character, BattleUnit unit, int level, BattleBalanceConfig config)
     {
+        long levelCap = config != null ? config.MaxLevel : BattleBalanceConfig.InitialLevelCap;
+        int fusion = BattleBalanceConfig.EnemyFusionCount(levelCap);
+        unit.FusionCount = fusion;
         if (character.Stats == null || character.Stats[1] == null)
             return;
         long grownHp;
@@ -116,13 +119,26 @@ public static class BattleCharacterFactory
             out grownAtk,
             out grownDef,
             out grownSpd);
-        unit.HpMax = grownHp < 1 ? 1 : grownHp;
+        long hp = WithFusion(grownHp, fusion);
+        unit.HpMax = hp < 1 ? 1 : hp;
         unit.Hp = unit.HpMax;
-        unit.Atk = grownAtk < 0 ? 0 : grownAtk;
-        unit.Def = grownDef < 0 ? 0 : grownDef;
+        unit.Atk = WithFusion(grownAtk, fusion);
+        unit.Def = WithFusion(grownDef, fusion);
         unit.Spd = CharacterClass.ClampSpd(grownSpd);
         unit.Luc = (long)CharacterClass.ClampLuc(character.Stats[1].LUC);
         unit.Obs = (long)character.Stats[1].OBS;
+    }
+
+    static long WithFusion(long grown, int fusion)
+    {
+        if (grown < 0)
+            grown = 0;
+        long bonus = FusionBonus.Bonus(grown, fusion, false);
+        if (bonus < 0)
+            bonus = 0;
+        if (grown > long.MaxValue - bonus)
+            return long.MaxValue;
+        return grown + bonus;
     }
 
     static long Scale(long value, double multiplier)

@@ -227,6 +227,22 @@ public class CharacterClass //: MonoBehaviour
         return opaque;
     }
 
+    // 必要経験値の元。非透過ピクセル数 × 属性値。属性値は倒したときの経験値と同じ。0にはしない。
+    public long LevelExpBase()
+    {
+        long opaque = OpaquePixelCount();
+        if (opaque < 1)
+            opaque = 1;
+        long attribute = AttributeColorValue.GetAttributeColorValue(
+            BattleCharacterFactory.ToAttribute(CharacterType),
+            RepresentativeR, RepresentativeG, RepresentativeB);
+        if (attribute < 1)
+            attribute = 1;
+        if (opaque > long.MaxValue / attribute)
+            return long.MaxValue;
+        return opaque * attribute;
+    }
+
 
     public CharacterClass()
     {
@@ -676,18 +692,20 @@ public class CharacterClass //: MonoBehaviour
                     APixels++;
                     continue;
                 }
+
+                int channelR = ColorByte(source.r);
+                int channelG = ColorByte(source.g);
+                int channelB = ColorByte(source.b);
+
                 if (body == null || index >= body.Length || body[index] == false)
                     continue;
 
                 AddColorCount(bodyColors, source);
-                bodyR += (uint)ColorByte(source.r);
-                bodyG += (uint)ColorByte(source.g);
-                bodyB += (uint)ColorByte(source.b);
+                bodyR += (uint)channelR;
+                bodyG += (uint)channelG;
+                bodyB += (uint)channelB;
 
                 float brightness = (source.r + source.g + source.b) * 255f / 3f;
-                int channelR = ColorByte(source.r);
-                int channelG = ColorByte(source.g);
-                int channelB = ColorByte(source.b);
                 int stepR = AttributeColorValue.ChannelStep(channelR);
                 int stepG = AttributeColorValue.ChannelStep(channelG);
                 int stepB = AttributeColorValue.ChannelStep(channelB);
@@ -862,12 +880,17 @@ public class CharacterClass //: MonoBehaviour
                   "BPixels : " + BPixels + "\n" +
                   "Total : " + (APixels + RPixels + GPixels + BPixels));
 
-        Stats[1].RCreates = RPixels;
-        Stats[1].GCreates = GPixels;
-        Stats[1].BCreates = BPixels;
+        Stats[1].RCreates = AtLeastOne(RPixels);
+        Stats[1].GCreates = AtLeastOne(GPixels);
+        Stats[1].BCreates = AtLeastOne(BPixels);
         SetRepresentativeColors(bodyColors);
 
         return true;
+    }
+
+    static uint AtLeastOne(uint value)
+    {
+        return value < 1 ? 1u : value;
     }
 
     void SetRepresentativeColors(List<ExistColor> colors)
@@ -1052,6 +1075,12 @@ public class CharacterClass //: MonoBehaviour
         Stats[2].DEF = (ulong)defBonus;
         Stats[2].SPD = (byte)spdBonus;
 
+        if (Stats[1].RCreates < 1)
+            Stats[1].RCreates = 1;
+        if (Stats[1].GCreates < 1)
+            Stats[1].GCreates = 1;
+        if (Stats[1].BCreates < 1)
+            Stats[1].BCreates = 1;
         long baseR = ToStatLong(Stats[1].RCreates);
         long baseG = ToStatLong(Stats[1].GCreates);
         long baseB = ToStatLong(Stats[1].BCreates);
@@ -1069,7 +1098,7 @@ public class CharacterClass //: MonoBehaviour
         Stats[2].GCreates = (ulong)gBonus;
         Stats[2].BCreates = (ulong)bBonus;
 
-        long need = config.ExpToNext((long)Level, OpaquePixelCount());
+        long need = config.ExpToNext((long)Level, LevelExpBase());
         if (need < 1)
             need = 1;
         ExpMax = (ulong)need;

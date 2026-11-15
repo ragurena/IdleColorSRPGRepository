@@ -36,15 +36,18 @@ public static class FusionBonus
         return lives > cost;
     }
 
-    public static long Percent(long fusionCount)
+    public static long CountPercent(long fusionCount)
     {
         if (fusionCount < 0)
             fusionCount = 0;
-        long fromCount;
         if (fusionCount > long.MaxValue / PercentPerFusion)
-            fromCount = long.MaxValue;
-        else
-            fromCount = fusionCount * PercentPerFusion;
+            return long.MaxValue;
+        return fusionCount * PercentPerFusion;
+    }
+
+    public static long Percent(long fusionCount)
+    {
+        long fromCount = CountPercent(fusionCount);
         long extra = ExtraPercent;
         if (extra < 0)
             extra = 0;
@@ -55,9 +58,15 @@ public static class FusionBonus
 
     public static long Bonus(long grownStat, long fusionCount)
     {
+        return Bonus(grownStat, fusionCount, true);
+    }
+
+    // includeExtra が false のときは、クエストの合成効率を足さない。敵はこちら。
+    public static long Bonus(long grownStat, long fusionCount, bool includeExtra)
+    {
         if (fusionCount < 0)
             fusionCount = 0;
-        if (fusionCount <= 0 && ExtraPercent <= 0)
+        if (fusionCount <= 0 && (!includeExtra || ExtraPercent <= 0))
             return 0;
         if (grownStat < 0)
             grownStat = 0;
@@ -65,7 +74,7 @@ public static class FusionBonus
             return 0;
 
         long bonus = 0;
-        long percent = Percent(fusionCount);
+        long percent = includeExtra ? Percent(fusionCount) : CountPercent(fusionCount);
         if (grownStat > 0 && percent > 0)
         {
             if (percent <= (long.MaxValue - 99) / grownStat)

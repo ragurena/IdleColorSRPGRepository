@@ -2612,7 +2612,7 @@ public class ControllerBattleClass : MonoBehaviour
 
         SetGauge(slot.Hp, unit.Hp, unit.HpMax);
         if (slot.HpText != null)
-            slot.HpText.text = UiNumber.Format(unit.Hp) + "/" + UiNumber.Format(unit.HpMax);
+            slot.HpText.text = UiNumber.Format(unit.Hp) + " / " + UiNumber.Format(unit.HpMax);
 
         long exp = 0;
         long need = 1;
@@ -2621,7 +2621,7 @@ public class ControllerBattleClass : MonoBehaviour
             exp = (long)character.Exp;
             need = (long)character.ExpMax;
             if (need < 1 && _config != null)
-                need = _config.ExpToNext((long)character.Level, character.OpaquePixelCount());
+                need = _config.ExpToNext((long)character.Level, character.LevelExpBase());
         }
         else if (_config != null)
             need = _config.ExpToNext(unit.Level, unit.OpaquePixels);
@@ -2629,7 +2629,7 @@ public class ControllerBattleClass : MonoBehaviour
             need = 1;
         SetGauge(slot.Exp, exp, need);
         if (slot.ExpText != null)
-            slot.ExpText.text = UiNumber.Format(exp) + "/" + UiNumber.Format(need);
+            slot.ExpText.text = UiNumber.Format(exp) + " / " + UiNumber.Format(need);
     }
 
     // 背景画像と文字の間。板は文字と同じ大きさにして、隣のボタンやマスには被せない

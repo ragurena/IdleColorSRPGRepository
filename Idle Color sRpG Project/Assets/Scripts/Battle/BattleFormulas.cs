@@ -167,6 +167,21 @@ public static class BattleRewardCalculator
         return baseExp + bonus;
     }
 
+    // 合成回数1回につき1%。端数は切り上げ。0回はそのまま。
+    public static long ExpGainForFusion(long baseExp, int fusionCount)
+    {
+        if (baseExp < 0)
+            baseExp = 0;
+        if (fusionCount < 1 || baseExp == 0)
+            return baseExp;
+        long bonus = BattleMath.CeilToLong(baseExp * fusionCount / 100.0);
+        if (bonus < 0)
+            bonus = 0;
+        if (baseExp > long.MaxValue - bonus)
+            return long.MaxValue;
+        return baseExp + bonus;
+    }
+
     // レベル上乗せ後の経験値を 2 で割る。端数は切り上げ。0 はそのまま。
     public static long ExpReward(long totalExp)
     {

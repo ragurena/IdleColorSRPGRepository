@@ -846,9 +846,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
 
+        bool plainPortrait = argButtonTmp.name.Contains("ButtonCharacterProducedCharacter")
+            || argButtonTmp.name.Contains("ButtonCharacterColor");
+
         //出撃中のキャラは生産へ割り当てられない。一覧には残して、グレーで押せなくする
-        if (IsLockedOutOfProduction((uint)argCharacterIndex, argButtonTmp)
-            || (ControllerBattlePartyClass.IsCellButton(argButtonTmp) && GetComponent<ControllerProduction>() != null && GetComponent<ControllerProduction>().IsHospitalNurse((uint)argCharacterIndex)))
+        if (!plainPortrait && (IsLockedOutOfProduction((uint)argCharacterIndex, argButtonTmp)
+            || (ControllerBattlePartyClass.IsCellButton(argButtonTmp) && GetComponent<ControllerProduction>() != null && GetComponent<ControllerProduction>().IsHospitalNurse((uint)argCharacterIndex))))
         {
             GrayOutCharacterButton(GameObjectCharacterButton);
             if (warnIfUsedInOtherProduction && IsNurseOnAnotherCard((uint)argCharacterIndex, argButtonTmp))
@@ -880,22 +883,86 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 assignment = current.Whereabouts;
             assignedWorker = true;
         }
-        if (assignedWorker)
+        if (!plainPortrait && assignedWorker)
             DarkenAssignedPortrait(GameObjectCharacterButton);
-        if (assignment == Place.None && buttonCharacter.Whereabouts == Place.Battle)
+        if (!plainPortrait && assignment == Place.None && buttonCharacter.Whereabouts == Place.Battle)
             assignment = Place.Battle;
 
         //クリックイベントを追加
         uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
         GameObjectCharacterButton.GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
         CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
-        if (assignment != Place.None)
-            AddAssignmentMark(GameObjectCharacterButton, CharacterID, assignment);
+        if (!plainPortrait && assignment != Place.None)
+            AddAssignmentMark(GameObjectCharacterButton, CharacterID, assignment, true);
+    }
+
+    static readonly Dictionary<int, string> OwnedAssignmentKeys = new Dictionary<int, string>();
+
+    // キャラ作成の上の所持一覧。生産アイコンと、作っている対象を乗せる。
+    public void PaintOwnedListAssignment(GameObject buttonObject, uint characterId, Place place)
+    {
+        if (buttonObject == null)
+            return;
+        string key = OwnedAssignmentKey(characterId, place);
+        int id = buttonObject.GetInstanceID();
+        string previous;
+        bool same = OwnedAssignmentKeys.TryGetValue(id, out previous) && previous == key;
+        bool marked = buttonObject.transform.Find("ProductionWarning") != null
+            || buttonObject.transform.Find("ProducedCharacterFace") != null;
+        if (same && (place == Place.None || marked))
+            return;
+        ReleaseOwnedAssignmentMarks(buttonObject);
+        OwnedAssignmentKeys[id] = key;
+        if (place == Place.None)
+            return;
+        AddAssignmentMark(buttonObject, characterId, place, false);
+    }
+
+    public static void ReleaseOwnedAssignment(GameObject buttonObject)
+    {
+        if (buttonObject == null)
+            return;
+        OwnedAssignmentKeys.Remove(buttonObject.GetInstanceID());
+        ReleaseOwnedAssignmentMarks(buttonObject);
+    }
+
+    string OwnedAssignmentKey(uint characterId, Place place)
+    {
+        if (place == Place.CreateCharacter)
+            return "c:" + ProducedCharacterOf(characterId);
+        if (place == Place.CreatePixel)
+        {
+            Color color = PixelColorOf(characterId);
+            return "p:" + Mathf.RoundToInt(color.r * 255f) + "," + Mathf.RoundToInt(color.g * 255f) + "," + Mathf.RoundToInt(color.b * 255f);
+        }
+        return "w:" + (int)place;
+    }
+
+    static void ReleaseOwnedAssignmentMarks(GameObject buttonObject)
+    {
+        Transform root = buttonObject.transform;
+        for (int i = root.childCount - 1; i >= 0; i--)
+        {
+            Transform child = root.GetChild(i);
+            if (child.name != "ProductionWarning" && child.name != "ProducedCharacterFace")
+                continue;
+            if (child.name == "ProducedCharacterFace")
+            {
+                Image face = child.GetComponent<Image>();
+                if (face != null && face.sprite != null)
+                {
+                    Sprite sprite = face.sprite;
+                    face.sprite = null;
+                    ControllerProduction.DestroyRuntime(sprite);
+                }
+            }
+            Destroy(child.gameObject);
+        }
     }
 
     // 生産に入っている顔へ、何を作っているかを乗せる。
     // 手前から、文字かチップ、生産アイコン、キャラの絵。
-    void AddAssignmentMark(GameObject buttonObject, uint characterId, Place place)
+    void AddAssignmentMark(GameObject buttonObject, uint characterId, Place place, bool trackSprites)
     {
         if (IsProductionPlace(place) || place == Place.Battle)
             AddPlaceIcon(buttonObject, place);
@@ -904,7 +971,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         else if (place == Place.CreatePixel)
             AddPixelColorMark(buttonObject, PixelColorOf(characterId));
         else if (place == Place.CreateCharacter)
-            AddProducedCharacterMark(buttonObject, ProducedCharacterOf(characterId));
+            AddProducedCharacterMark(buttonObject, ProducedCharacterOf(characterId), trackSprites);
         else if (place != Place.Battle)
             AddFaintWarningMark(buttonObject, place);
         RaiseNewMark(buttonObject);
@@ -993,7 +1060,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         rect.SetAsLastSibling();
     }
 
-    void AddProducedCharacterMark(GameObject buttonObject, uint producedId)
+    void AddProducedCharacterMark(GameObject buttonObject, uint producedId, bool trackSprites)
     {
         CharacterClass produced = producedId == 0 ? null : ImportedCharacters.FindAny(CharactersAll, producedId);
         Texture2D texture = produced != null ? produced.ImageTexture2D : null;
@@ -1006,7 +1073,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             new Vector2(0.5f, 0.5f),
             produced.Size);
         ControllerProduction.MarkRuntime(sprite);
-        _listSprites.Add(sprite);
+        if (trackSprites)
+            _listSprites.Add(sprite);
 
         RectTransform plate = CreateCenterMark(buttonObject, new Vector2(64f, 64f));
         Image backing = plate.gameObject.AddComponent<Image>();
@@ -1014,6 +1082,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         backing.raycastTarget = false;
 
         RectTransform faceRect = CreateCenterMark(buttonObject, new Vector2(56f, 56f));
+        faceRect.gameObject.name = "ProducedCharacterFace";
         Image face = faceRect.gameObject.AddComponent<Image>();
         face.sprite = sprite;
         face.type = Image.Type.Simple;
@@ -1199,14 +1268,43 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
     public static void DarkenAssignedPortrait(GameObject buttonObject)
     {
-        if (buttonObject == null)
-            return;
-        Image image = buttonObject.GetComponent<Image>();
+        Image image = PortraitImage(buttonObject);
         if (image == null)
-            image = buttonObject.GetComponentInChildren<Image>();
-        if (image == null || image.gameObject.name == "ProductionWarning")
             return;
         image.color = new Color(0.7f, 0.7f, 0.7f, 1f);
+    }
+
+    public static void RestoreAssignedPortrait(GameObject buttonObject)
+    {
+        Image image = PortraitImage(buttonObject);
+        if (image == null)
+            return;
+        image.color = Color.white;
+    }
+
+    static Image PortraitImage(GameObject buttonObject)
+    {
+        if (buttonObject == null)
+            return null;
+        Image own = buttonObject.GetComponent<Image>();
+        if (IsPortraitImage(own))
+            return own;
+        Image[] images = buttonObject.GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++)
+        {
+            if (IsPortraitImage(images[i]))
+                return images[i];
+        }
+        return null;
+    }
+
+    static bool IsPortraitImage(Image image)
+    {
+        if (image == null)
+            return false;
+        string name = image.gameObject.name;
+        return name != "ProductionWarning" && name != "ProducedCharacterFace" && name != "AttributeGlow"
+            && name != "CatalogNewMark" && name != "WhiteFrame" && name != "NeonFrame";
     }
 
     bool IsCharacterInSourceSlot(uint characterId, Button sourceButton)

@@ -253,6 +253,7 @@ public static class BattleDefeatProcessor
         long exp = BattleRewardCalculator.ExpGain(enemy.OpaquePixels, attributeValue, config);
         exp = BattleRewardCalculator.ExpGainForSize(exp, enemy.Size);
         exp = BattleRewardCalculator.ExpGainForLevel(exp, enemy.Level);
+        exp = BattleRewardCalculator.ExpGainForFusion(exp, enemy.FusionCount);
         exp = BattleRewardCalculator.ExpReward(exp);
         int recipients = 0;
         if (units != null)

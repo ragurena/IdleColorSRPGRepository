@@ -257,9 +257,13 @@ static class Program
         Check(BattleRewardCalculator.ExpReward(20) == 10, "exp divided by 2");
         Check(BattleRewardCalculator.ExpReward(1) == 1, "exp divide keeps 1");
         Check(BattleRewardCalculator.ExpReward(0) == 0, "exp divide zero");
+        Check(BattleRewardCalculator.ExpGainForFusion(100, 0) == 100, "exp fusion 0");
+        Check(BattleRewardCalculator.ExpGainForFusion(100, 1) == 101, "exp fusion 1");
+        Check(BattleRewardCalculator.ExpGainForFusion(50, 1) == 51, "exp fusion ceil");
+        Check(BattleRewardCalculator.ExpGainForFusion(0, 4) == 0, "exp fusion zero");
         Check(config.ExpToNext(1, 43) == 43, "exp table lv1");
-        Check(config.ExpToNext(2, 43) == 122, "exp table lv2");
-        Check(config.ExpToNext(3, 10) == 52, "exp table lv3");
+        Check(config.ExpToNext(2, 43) == 129, "exp table lv2");
+        Check(config.ExpToNext(3, 10) == 40, "exp table lv3");
         Check(BattleRewardCalculator.ExpShare(100, 1) == 100, "exp share 1");
         Check(BattleRewardCalculator.ExpShare(100, 3) == 34, "exp share 3");
         Check(BattleRewardCalculator.ExpShare(100, 0) == 0, "exp share 0");

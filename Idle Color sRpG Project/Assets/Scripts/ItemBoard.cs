@@ -606,6 +606,8 @@ public sealed class ItemBoard
             _detailLevel.text = LevelLine(forecast);
             _barNowLabel.text = "今  " + UiNumber.Format(forecast.ExpBefore) + " / " + UiNumber.Format(forecast.ExpMaxBefore);
             _barAfterLabel.text = "使うと  " + UiNumber.Format(forecast.ExpAfter) + " / " + UiNumber.Format(forecast.ExpMaxAfter);
+            if (forecast.Count < _quantity)
+                _barAfterLabel.text += "\n消費 " + UiNumber.Format(forecast.Count) + "個";
             SetBar(_barNow, forecast.ExpBefore, forecast.ExpMaxBefore);
             SetBar(_barAfter, forecast.ExpAfter, forecast.ExpMaxAfter);
             _detailStats.text = StatBlock(forecast);
