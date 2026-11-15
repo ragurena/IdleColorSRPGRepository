@@ -5474,12 +5474,7 @@ public class ControllerProduction : MonoBehaviour
         }
         if (_adBusy)
             return;
-        if (AdWatchConfirm)
-        {
-            ShowConfirm("広告を最後まで見ると、1時間8倍速になります。よろしいですか？", () => PlayBattleSpeed8Ad(onGranted));
-            return;
-        }
-        PlayBattleSpeed8Ad(onGranted);
+        ShowConfirm("広告を最後まで見ると、1時間8倍速が開放されます。広告を再生しますか？", () => PlayBattleSpeed8Ad(onGranted));
     }
 
     void PlayBattleSpeed8Ad(Action onGranted)

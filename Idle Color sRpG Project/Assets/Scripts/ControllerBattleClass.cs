@@ -1937,7 +1937,10 @@ public class ControllerBattleClass : MonoBehaviour
         _fastButton.onClick.AddListener(PushFast);
         _speedRemain = CreateText("TextBattleSpeedRemain", _fastButton.transform, 22, TextAnchor.MiddleCenter);
         _speedRemain.raycastTarget = false;
-        _speedRemain.color = new Color(1f, 0.95f, 0.75f, 1f);
+        _speedRemain.color = Color.white;
+        Outline speedRemainOutline = _speedRemain.gameObject.AddComponent<Outline>();
+        speedRemainOutline.effectColor = new Color(0f, 0f, 0f, 0.95f);
+        speedRemainOutline.effectDistance = new Vector2(1.5f, -1.5f);
         RectTransform remainRect = _speedRemain.rectTransform;
         remainRect.anchorMin = new Vector2(0.5f, 0f);
         remainRect.anchorMax = new Vector2(0.5f, 0f);
