@@ -174,9 +174,11 @@ public sealed class QuestBoard
         rowObject.transform.SetParent(_content, false);
         Image background = rowObject.GetComponent<Image>();
         background.color = new Color(0.16f, 0.18f, 0.24f, 1f);
+        // 黄色の報酬を、いまより2行多く出す。
+        const float rewardLines = 64f;
         LayoutElement element = rowObject.GetComponent<LayoutElement>();
-        element.minHeight = 204f;
-        element.preferredHeight = 204f;
+        element.minHeight = 204f + rewardLines;
+        element.preferredHeight = 204f + rewardLines;
 
         Row row = new Row();
         row.Id = def.Id;
@@ -186,12 +188,12 @@ public sealed class QuestBoard
         row.Reward = CreateText("Reward", rowObject.transform, 22, TextAnchor.UpperLeft);
         row.Reward.color = new Color(1f, 0.93f, 0.72f, 1f);
         row.Reward.horizontalOverflow = HorizontalWrapMode.Wrap;
-        StretchTop(row.Reward.rectTransform, 16f, 370f, 48f, 76f);
+        StretchTop(row.Reward.rectTransform, 16f, 370f, 48f, 76f + rewardLines);
         row.Fraction = CreateText("Fraction", rowObject.transform, 24, TextAnchor.MiddleLeft);
         row.Fraction.color = Color.white;
-        StretchTop(row.Fraction.rectTransform, 16f, 370f, 126f, 32f);
+        StretchTop(row.Fraction.rectTransform, 16f, 370f, 126f + rewardLines, 32f);
         row.Bar = CreateBar(rowObject.transform);
-        StretchTop(row.Bar.GetComponent<RectTransform>(), 16f, 370f, 160f, 22f);
+        StretchTop(row.Bar.GetComponent<RectTransform>(), 16f, 370f, 160f + rewardLines, 22f);
 
         row.Claim = CreateButton("Claim", rowObject.transform, "受け取る", new Color(0.28f, 0.55f, 0.34f, 1f));
         RectTransform claimRect = row.Claim.GetComponent<RectTransform>();
@@ -199,7 +201,7 @@ public sealed class QuestBoard
         claimRect.anchorMax = new Vector2(1f, 1f);
         claimRect.pivot = new Vector2(1f, 1f);
         claimRect.anchoredPosition = new Vector2(-12f, -10f);
-        claimRect.sizeDelta = new Vector2(210f, 168f);
+        claimRect.sizeDelta = new Vector2(210f, 168f + rewardLines);
         row.ClaimLabel = row.Claim.GetComponentInChildren<Text>();
         ColorBlock claimColors = row.Claim.colors;
         claimColors.disabledColor = Color.white;
@@ -225,11 +227,11 @@ public sealed class QuestBoard
         choiceRect.anchorMax = new Vector2(1f, 1f);
         choiceRect.pivot = new Vector2(1f, 1f);
         choiceRect.anchoredPosition = new Vector2(-12f, -10f);
-        choiceRect.sizeDelta = new Vector2(210f, 168f);
+        choiceRect.sizeDelta = new Vector2(210f, 168f + rewardLines);
         row.PixelChoice = CreateButton("Pixel", choices.transform, "ピクセル生成枠+3", new Color(0.25f, 0.48f, 0.72f, 1f));
-        PlaceChoice(row.PixelChoice.GetComponent<RectTransform>(), 0f, 82f);
+        PlaceChoice(row.PixelChoice.GetComponent<RectTransform>(), 0f, 82f + rewardLines * 0.5f);
         row.CharacterChoice = CreateButton("Character", choices.transform, "キャラ生成枠+3", new Color(0.72f, 0.42f, 0.22f, 1f));
-        PlaceChoice(row.CharacterChoice.GetComponent<RectTransform>(), 86f, 82f);
+        PlaceChoice(row.CharacterChoice.GetComponent<RectTransform>(), 86f + rewardLines * 0.5f, 82f + rewardLines * 0.5f);
         int choiceQuest = def.Id;
         row.PixelChoice.onClick.AddListener(() => ChooseReward(choiceQuest, 1));
         row.CharacterChoice.onClick.AddListener(() => ChooseReward(choiceQuest, 2));

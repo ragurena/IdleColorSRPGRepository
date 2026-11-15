@@ -203,6 +203,7 @@ public class ControllerBattleStageClass : MonoBehaviour
                 Image viewImage = viewport.GetComponent<Image>();
                 if (viewImage != null)
                     viewImage.color = Color.black;
+                StretchStageViewport(viewport as RectTransform);
             }
             // 一覧の大きさはそのまま。下のカードを縮めた分だけ下へずらす。
             RectTransform scrollRect = scroll as RectTransform;
@@ -1329,7 +1330,23 @@ public class ControllerBattleStageClass : MonoBehaviour
         return true;
     }
 
-    // 設定済みのステージが全部開いたら、ギャラリーの左に空枠を出す。出撃はできない。
+    // 表示枠の幅も高さも 0 だと、中のカードがマスクで全部隠れる。
+    static void StretchStageViewport(RectTransform viewRect)
+    {
+        if (viewRect == null)
+            return;
+        if (viewRect.anchorMin != viewRect.anchorMax)
+            return;
+        if (viewRect.sizeDelta.x > 1f || viewRect.sizeDelta.y > 1f)
+            return;
+        viewRect.anchorMin = Vector2.zero;
+        viewRect.anchorMax = Vector2.one;
+        viewRect.offsetMin = Vector2.zero;
+        viewRect.offsetMax = new Vector2(-20f, 0f);
+    }
+
+    // 設定済みのステージが全部開いたら、ギャラリーの前に空枠を出す。出撃はできない。
+    // 一覧は縦並びなので、右へずらすと横スクロールがなく、枠の外に隠れる。
     void PlaceTrailingStageButtons(int activeStage)
     {
         Button anchor = LastStageButton();
@@ -1340,12 +1357,18 @@ public class ControllerBattleStageClass : MonoBehaviour
             if (showSoon)
                 PaintComingSoon();
         }
+        if (ButtonGalleryStage != null)
+            ButtonGalleryStage.gameObject.SetActive(true);
 
         if (anchor != null)
         {
             Transform parent = anchor.transform.parent;
-            bool laidOut = parent != null
-                && (parent.GetComponent<HorizontalLayoutGroup>() != null || parent.GetComponent<GridLayoutGroup>() != null);
+            if (ButtonComingSoon != null)
+                ButtonComingSoon.transform.SetAsLastSibling();
+            if (ButtonGalleryStage != null)
+                ButtonGalleryStage.transform.SetAsLastSibling();
+
+            bool laidOut = parent != null && parent.GetComponent<LayoutGroup>() != null;
             if (!laidOut)
             {
                 RectTransform anchorRect = anchor.GetComponent<RectTransform>();
@@ -1363,7 +1386,12 @@ public class ControllerBattleStageClass : MonoBehaviour
                     RectTransform gallery = ButtonGalleryStage.GetComponent<RectTransform>();
                     gallery.anchoredPosition = anchorRect.anchoredPosition + new Vector2(step * (showSoon ? 2f : 1f), 0f);
                 }
-                FitTrailContent(anchorRect.parent as RectTransform, showSoon ? step : 0f);
+                int extras = (ButtonGalleryStage != null ? 1 : 0) + (showSoon ? 1 : 0);
+                FitTrailContent(anchorRect.parent as RectTransform, step * extras);
+            }
+            else if (parent is RectTransform content)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(content);
             }
         }
 

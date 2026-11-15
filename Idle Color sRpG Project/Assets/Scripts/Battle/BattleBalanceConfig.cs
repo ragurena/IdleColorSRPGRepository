@@ -27,8 +27,8 @@ public class BattleBalanceConfig
     public const int LevelCapPerHundredFloors = 5;
     public const int LevelCapCeiling = 9999;
     public long MaxLevel = InitialLevelCap;
-    // 敵の合成回数。レベル上限が5上がるごとに2。上限5のときは0。
-    public const int EnemyFusionPerLevelCapStep = 2;
+    // 敵の合成回数。レベル上限が5上がるごとに1。上限5のときは0。
+    public const int EnemyFusionPerLevelCapStep = 1;
 
     public static int EnemyFusionCount(long levelCap)
     {

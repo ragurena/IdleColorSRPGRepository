@@ -1437,6 +1437,7 @@ public class ControllerProduction : MonoBehaviour
     }
 
     const float AdFailNoticeSeconds = 2.2f;
+    const float AdFailLoadNoticeSeconds = 3.2f;
     const float AdFailNoticeFadeSeconds = 0.45f;
 
     void ShowAdPlaybackFailed(AdService.AdFailReason reason)
@@ -1446,7 +1447,9 @@ public class ControllerProduction : MonoBehaviour
             return;
         if (_adFailNoticeText != null)
             _adFailNoticeText.text = AdFailMessage(reason);
-        _adFailNoticeLeft = AdFailNoticeSeconds;
+        _adFailNoticeLeft = reason == AdService.AdFailReason.Load
+            ? AdFailLoadNoticeSeconds
+            : AdFailNoticeSeconds;
         if (AdFailNoticeGroup != null)
             AdFailNoticeGroup.alpha = 1f;
         AdFailNotice.SetActive(true);
@@ -1462,7 +1465,7 @@ public class ControllerProduction : MonoBehaviour
             case AdService.AdFailReason.Consent:
                 return "広告の同意がないため、再生できません";
             case AdService.AdFailReason.Load:
-                return "広告を読み込めませんでした";
+                return "広告を読み込めませんでした\n頻発する場合は端末の再起動をご検討ください。";
             case AdService.AdFailReason.Show:
                 return "広告を表示できませんでした";
             default:
@@ -1502,7 +1505,7 @@ public class ControllerProduction : MonoBehaviour
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.sizeDelta = new Vector2(860f, 200f);
+        rect.sizeDelta = new Vector2(1000f, 280f);
         rect.anchoredPosition = Vector2.zero;
         rect.localScale = Vector3.one;
         Image image = AdFailNotice.AddComponent<Image>();
