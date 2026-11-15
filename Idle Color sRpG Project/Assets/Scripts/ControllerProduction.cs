@@ -55,6 +55,12 @@ public class ConsumePixelClass
 public class ControllerProduction : MonoBehaviour
 {
     [SerializeField] EventSystem eventSystem;
+    // 起動中のスタート画面の背景。未設定のときは暗い画面だけ出す。
+    [SerializeField] Sprite StartBackground;
+
+    StartScreen _startScreen;
+    bool _bootReady;
+    float _nextStartScreenPaint;
 
     ModelProduction ModelProduction;
     ControllerCharacterSelectClass ControllerCharacterSelect;
@@ -301,10 +307,26 @@ public class ControllerProduction : MonoBehaviour
 
 
 
+    void Awake()
+    {
+        if (StartBackground == null)
+            StartBackground = Resources.Load<Sprite>("StartBackground");
+        _startScreen = StartScreen.Open(StartBackground);
+    }
+
+    // 読み込みの途中で画面を描き直して、Loading の点を進める。
+    IEnumerator PaceStartScreen()
+    {
+        _nextStartScreenPaint = Time.realtimeSinceStartup + 0.05f;
+        yield return null;
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Start is called before the first frame update
     IEnumerator Start()
     {
+        yield return null;
+        _nextStartScreenPaint = Time.realtimeSinceStartup + 0.05f;
         Debug.Log("==================== [LOG 1] Start 始まったよ！ ====================");
         EnsureScreenGradient();
         _messages = new MessageDirector(this);
@@ -380,6 +402,7 @@ public class ControllerProduction : MonoBehaviour
 
         // ② MakeFile が完全に終わるまで、ここで待機する！
         yield return StartCoroutine(MakeFile());
+        yield return PaceStartScreen();
         Debug.Log("==================== [LOG 3] MakeFile 終わったよ！ ====================");
 
         //画面回転固定
@@ -398,6 +421,7 @@ public class ControllerProduction : MonoBehaviour
         {
             CharactersAll[i] = new CharacterClass();
         }
+        yield return PaceStartScreen();
 
         // 1. スマホ内の保存パスを表示
         string testPath = Application.persistentDataPath + "/Character/RedSlime8.png";
@@ -419,6 +443,7 @@ public class ControllerProduction : MonoBehaviour
         //ImportedCharacters.FindAny(CharactersAll, (uint)(1)).MakeCharacter(Application.dataPath + "/Resources/" + "Character/RedSlime8" + ".png", 1, "LittleRedSlime");
         string acceptedVersion;
         bool acceptedSave = TryRestoreSave(out acceptedVersion);
+        yield return PaceStartScreen();
         if (ClearedBattleStage < 0 || ClearedBattleStage > Constants.BATTLE_STAGE_NUM)
             ClearedBattleStage = 0;
         NormalizeClearedBattleFloors();
@@ -468,7 +493,7 @@ public class ControllerProduction : MonoBehaviour
         if (rebuildImages)
         {
             Debug.Log("セーブの版が古いので、減色画像を作り直す");
-            RebuildNormalizedImages();
+            yield return RebuildNormalizedImages();
         }
 
         for (int i = 1; i <= Slots.CharacterSlots; i++)
@@ -567,13 +592,21 @@ public class ControllerProduction : MonoBehaviour
         PushButtonSelectSceneRGBProduction();
         if (ControllerBattle != null)
             ControllerBattle.Hide();
-        ResumeSortie();
         RefreshCharacterStopPixels();
         FinishIdleLoad();
 
         _autosaveElapsed = 0f;
         _autosaveReady = true;
         Debug.Log("ControllerProduction End");
+        if (_startScreen != null)
+        {
+            _startScreen.ShowStart();
+            while (!_startScreen.Pressed)
+                yield return null;
+            _startScreen.Close();
+        }
+        _bootReady = true;
+        ResumeSortie();
     }
 
     // Update is called once per frame
@@ -596,6 +629,8 @@ public class ControllerProduction : MonoBehaviour
     void Update()
     {
         AdService.Tick(Time.unscaledDeltaTime);
+        if (!_bootReady)
+            return;
         TickAdFailNotice();
         AdvanceHospital(false);
         if (_autosaveReady)
@@ -916,7 +951,7 @@ public class ControllerProduction : MonoBehaviour
         }
     }
 
-    void RebuildNormalizedImages()
+    IEnumerator RebuildNormalizedImages()
     {
         ClearNormalizedCharacterImages();
         CharacterDefinition[] roster = CharacterRoster.All;
@@ -940,6 +975,8 @@ public class ControllerProduction : MonoBehaviour
             {
                 Debug.LogError("減色画像を作り直せませんでした。 " + exception.Message);
             }
+            if (Time.realtimeSinceStartup >= _nextStartScreenPaint)
+                yield return PaceStartScreen();
         }
         ImportedCharacters.ForEach(character =>
         {
@@ -958,6 +995,7 @@ public class ControllerProduction : MonoBehaviour
                 Debug.LogError("減色画像を作り直せませんでした。 " + exception.Message);
             }
         });
+        yield return PaceStartScreen();
     }
 
     //デリートセーブボタンが押されたら
@@ -7034,6 +7072,8 @@ public class ControllerProduction : MonoBehaviour
             string fileName = Path.GetFileName(file);
             if (ShouldCopyCharacterImage(file, fileName))
                 CopyCharacterImage(file, fileName);
+            if (Time.realtimeSinceStartup >= _nextStartScreenPaint)
+                yield return PaceStartScreen();
         }
         PersonPortraits.CopyFromFolder(Application.streamingAssetsPath + "/human");
         ItemImages.CopyFromFolder(Application.streamingAssetsPath + "/item");
@@ -7049,6 +7089,8 @@ public class ControllerProduction : MonoBehaviour
         string fileName = Path.GetFileName(file);
         if (ShouldCopyCharacterImage(file, fileName))
             CopyCharacterImage(file, fileName);
+        if (Time.realtimeSinceStartup >= _nextStartScreenPaint)
+            yield return PaceStartScreen();
     }
     PersonPortraits.CopyFromFolder(Application.dataPath + "/Raw" + "/human");
     ItemImages.CopyFromFolder(Application.dataPath + "/Raw" + "/item");
