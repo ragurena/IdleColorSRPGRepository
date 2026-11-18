@@ -90,6 +90,10 @@ public class ControllerBattleStageClass : MonoBehaviour
     readonly Button[] FloorWindowPrev = new Button[Constants.BATTLE_STAGE_NUM];
     readonly Button[] FloorWindowNext = new Button[Constants.BATTLE_STAGE_NUM];
     readonly Image[] ChallengeStarPlates = new Image[Constants.BATTLE_STAGE_NUM];
+    GameObject _starPopup;
+    RectTransform _starPopupCard;
+    Text _starPopupTitle;
+    RectTransform _starPopupRows;
     readonly Image[,] ChallengeStarBlurs = new Image[Constants.BATTLE_STAGE_NUM, ChallengeRules.KindCount];
     readonly Image[,] ChallengeStarGlows = new Image[Constants.BATTLE_STAGE_NUM, ChallengeRules.KindCount];
     readonly Image[,] ChallengeStars = new Image[Constants.BATTLE_STAGE_NUM, ChallengeRules.KindCount];
@@ -1290,7 +1294,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             int stageIndex = i + 1;
             FloorWindowPrev[i] = EnsureFloorArrow(card, "ButtonBattleStageFloorPrev" + stageIndex.ToString(), true, stageIndex);
             FloorWindowNext[i] = EnsureFloorArrow(card, "ButtonBattleStageFloorNext" + stageIndex.ToString(), false, stageIndex);
-            ChallengeStarPlates[i] = EnsureChallengePlate(card, "ImageChallengeStarPlate" + stageIndex.ToString());
+            ChallengeStarPlates[i] = EnsureChallengePlate(card, "ImageChallengeStarPlate" + stageIndex.ToString(), stageIndex);
             for (int star = 0; star < ChallengeRules.KindCount; star++)
             {
                 ChallengeStarBlurs[i, star] = EnsureChallengeBlur(card, "ImageChallengeStarBlur" + stageIndex.ToString() + "_" + star.ToString());
@@ -1304,26 +1308,17 @@ public class ControllerBattleStageClass : MonoBehaviour
     {
         Transform existing = card.transform.Find(name);
         if (existing != null)
-            return existing.GetComponent<Button>();
+        {
+            Button found = existing.GetComponent<Button>();
+            LayoutFloorArrow(found, previous);
+            return found;
+        }
 
         GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         obj.transform.SetParent(card.transform, false);
-        Image image = obj.GetComponent<Image>();
-        image.sprite = ChallengeMarks.Triangle();
-        image.color = Color.white;
-        image.raycastTarget = true;
-        RectTransform rect = image.rectTransform;
-        rect.anchorMin = new Vector2(previous ? 0f : 1f, 0.5f);
-        rect.anchorMax = new Vector2(previous ? 0f : 1f, 0.5f);
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.sizeDelta = new Vector2(52f, 68f);
-        rect.anchoredPosition = new Vector2(previous ? 36f : -36f, 46f);
-        rect.localEulerAngles = previous ? new Vector3(0f, 0f, 180f) : Vector3.zero;
-        rect.localScale = Vector3.one;
         LayoutElement layout = obj.AddComponent<LayoutElement>();
         layout.ignoreLayout = true;
         Button button = obj.GetComponent<Button>();
-        button.targetGraphic = image;
         ColorBlock colors = button.colors;
         colors.normalColor = Color.white;
         colors.highlightedColor = Color.white;
@@ -1332,30 +1327,245 @@ public class ControllerBattleStageClass : MonoBehaviour
         button.colors = colors;
         int direction = previous ? -1 : 1;
         button.onClick.AddListener(() => PushFloorWindow(stageIndex, direction));
+        LayoutFloorArrow(button, previous);
         obj.SetActive(false);
         return button;
     }
 
-    Image EnsureChallengePlate(Button card, string name)
+    Image EnsureChallengePlate(Button card, string name, int stageIndex)
     {
         Transform existing = card.transform.Find(name);
+        GameObject obj;
         if (existing != null)
-            return existing.GetComponent<Image>();
-
-        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        obj.transform.SetParent(card.transform, false);
+            obj = existing.gameObject;
+        else
+        {
+            obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            obj.transform.SetParent(card.transform, false);
+            LayoutElement layout = obj.AddComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+            obj.SetActive(false);
+        }
         Image image = obj.GetComponent<Image>();
         image.sprite = ChallengeMarks.Square();
         image.color = new Color(0f, 0f, 0f, 0.62f);
-        image.raycastTarget = false;
+        image.raycastTarget = true;
         RectTransform rect = image.rectTransform;
         rect.anchorMin = new Vector2(0f, 0f);
         rect.anchorMax = new Vector2(0f, 0f);
         rect.pivot = new Vector2(0f, 0f);
-        LayoutElement layout = obj.AddComponent<LayoutElement>();
-        layout.ignoreLayout = true;
-        obj.SetActive(false);
+        Button button = obj.GetComponent<Button>();
+        if (button == null)
+            button = obj.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.None;
+        button.onClick = new Button.ButtonClickedEvent();
+        button.onClick.AddListener(() => OpenChallengeStars(stageIndex));
         return image;
+    }
+
+    void OpenChallengeStars(int stageIndex)
+    {
+        if (ControllerProduction == null)
+            return;
+        int start = ControllerProduction.GetViewedFloorWindowStart(stageIndex);
+        EnsureStarPopup();
+        if (_starPopup == null)
+            return;
+        FillStarPopup(stageIndex, start);
+        _starPopup.SetActive(true);
+        _starPopup.transform.SetAsLastSibling();
+    }
+
+    void CloseChallengeStars()
+    {
+        if (_starPopup != null)
+            _starPopup.SetActive(false);
+    }
+
+    void EnsureStarPopup()
+    {
+        if (_starPopup != null)
+            return;
+        GameObject panelObject = GameObject.Find("PanelBattleStage");
+        if (panelObject == null)
+            return;
+        _starPopup = new GameObject("ChallengeStarPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        _starPopup.transform.SetParent(panelObject.transform, false);
+        RectTransform dimRect = _starPopup.GetComponent<RectTransform>();
+        dimRect.anchorMin = Vector2.zero;
+        dimRect.anchorMax = Vector2.one;
+        dimRect.offsetMin = Vector2.zero;
+        dimRect.offsetMax = Vector2.zero;
+        Image dim = _starPopup.GetComponent<Image>();
+        dim.color = new Color(0f, 0f, 0f, 0.62f);
+        dim.raycastTarget = true;
+        Button dimButton = _starPopup.GetComponent<Button>();
+        dimButton.transition = Selectable.Transition.None;
+        dimButton.onClick.AddListener(CloseChallengeStars);
+
+        GameObject card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        card.transform.SetParent(_starPopup.transform, false);
+        _starPopupCard = card.GetComponent<RectTransform>();
+        _starPopupCard.anchorMin = new Vector2(0.5f, 0.5f);
+        _starPopupCard.anchorMax = new Vector2(0.5f, 0.5f);
+        _starPopupCard.pivot = new Vector2(0.5f, 0.5f);
+        Image cardImage = card.GetComponent<Image>();
+        cardImage.sprite = ChallengeMarks.Square();
+        cardImage.color = new Color(0.08f, 0.09f, 0.12f, 1f);
+        cardImage.raycastTarget = true;
+        Button cardButton = card.GetComponent<Button>();
+        cardButton.transition = Selectable.Transition.None;
+
+        _starPopupTitle = CreateStarPopupText("Title", card.transform, 36, TextAnchor.MiddleCenter);
+        _starPopupTitle.color = Color.white;
+
+        GameObject rows = new GameObject("Rows", typeof(RectTransform));
+        rows.transform.SetParent(card.transform, false);
+        _starPopupRows = rows.GetComponent<RectTransform>();
+        _starPopupRows.anchorMin = new Vector2(0f, 1f);
+        _starPopupRows.anchorMax = new Vector2(1f, 1f);
+        _starPopupRows.pivot = new Vector2(0.5f, 1f);
+
+        Button close = CreateStarPopupButton(card.transform, "閉じる", new Color(0.45f, 0.45f, 0.48f, 1f));
+        close.onClick.AddListener(CloseChallengeStars);
+        _starPopup.SetActive(false);
+    }
+
+    void FillStarPopup(int stageIndex, int rangeStart)
+    {
+        int end = ChallengeRules.RangeEnd(rangeStart);
+        _starPopupTitle.text = GetStageName(stageIndex) + "　" + rangeStart.ToString() + "~" + end.ToString() + "階";
+        for (int i = _starPopupRows.childCount - 1; i >= 0; i--)
+            Destroy(_starPopupRows.GetChild(i).gameObject);
+        ChallengeRules.CollectSlots(stageIndex, rangeStart, ChallengeSlots);
+        const float rowH = 96f;
+        const float titleH = 88f;
+        const float closeH = 108f;
+        float height = 28f + titleH + ChallengeSlots.Count * rowH + closeH;
+        _starPopupCard.sizeDelta = new Vector2(980f, height);
+        RectTransform titleRect = _starPopupTitle.rectTransform;
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -16f);
+        titleRect.sizeDelta = new Vector2(-48f, titleH - 16f);
+        _starPopupRows.anchoredPosition = new Vector2(0f, -titleH);
+        _starPopupRows.sizeDelta = new Vector2(-36f, ChallengeSlots.Count * rowH);
+        for (int i = 0; i < ChallengeSlots.Count; i++)
+        {
+            bool done = ControllerProduction != null && ControllerProduction.IsChallengeStarLit(stageIndex, rangeStart, i);
+            AddChallengeStarRow(i, ChallengeSlots[i], rangeStart, done, rowH);
+        }
+        Transform close = _starPopupCard.Find("ButtonClose");
+        if (close != null)
+        {
+            RectTransform closeRect = close.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(0.08f, 0f);
+            closeRect.anchorMax = new Vector2(0.92f, 0f);
+            closeRect.pivot = new Vector2(0.5f, 0f);
+            closeRect.anchoredPosition = new Vector2(0f, 24f);
+            closeRect.sizeDelta = new Vector2(0f, 84f);
+        }
+    }
+
+    void AddChallengeStarRow(int index, ChallengeKind kind, int rangeStart, bool done, float rowH)
+    {
+        GameObject row = new GameObject("Row" + index.ToString(), typeof(RectTransform));
+        row.transform.SetParent(_starPopupRows, false);
+        RectTransform rect = row.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, -index * rowH);
+        rect.sizeDelta = new Vector2(0f, rowH);
+
+        Image star = new GameObject("Star", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)).GetComponent<Image>();
+        star.transform.SetParent(row.transform, false);
+        star.sprite = ChallengeMarks.Star();
+        star.raycastTarget = false;
+        star.color = done ? new Color(1f, 0.86f, 0.2f, 1f) : new Color(0.62f, 0.62f, 0.66f, 1f);
+        RectTransform starRect = star.rectTransform;
+        starRect.anchorMin = new Vector2(0f, 0.5f);
+        starRect.anchorMax = new Vector2(0f, 0.5f);
+        starRect.pivot = new Vector2(0f, 0.5f);
+        starRect.anchoredPosition = new Vector2(8f, 0f);
+        starRect.sizeDelta = new Vector2(64f, 64f);
+
+        Text body = CreateStarPopupText("Body", row.transform, 30, TextAnchor.MiddleLeft);
+        body.text = ChallengeCaption(kind, rangeStart);
+        body.color = Color.white;
+        RectTransform bodyRect = body.rectTransform;
+        bodyRect.anchorMin = new Vector2(0f, 0f);
+        bodyRect.anchorMax = new Vector2(1f, 1f);
+        bodyRect.offsetMin = new Vector2(84f, 0f);
+        bodyRect.offsetMax = new Vector2(-150f, 0f);
+
+        Text state = CreateStarPopupText("State", row.transform, 30, TextAnchor.MiddleRight);
+        state.text = done ? "達成" : "未達成";
+        state.color = done ? new Color(1f, 0.86f, 0.2f, 1f) : new Color(0.62f, 0.62f, 0.66f, 1f);
+        RectTransform stateRect = state.rectTransform;
+        stateRect.anchorMin = new Vector2(1f, 0f);
+        stateRect.anchorMax = new Vector2(1f, 1f);
+        stateRect.pivot = new Vector2(1f, 0.5f);
+        stateRect.anchoredPosition = new Vector2(-8f, 0f);
+        stateRect.sizeDelta = new Vector2(140f, 0f);
+    }
+
+    static string ChallengeCaption(ChallengeKind kind, int rangeStart)
+    {
+        int end = ChallengeRules.RangeEnd(rangeStart);
+        int seconds = Mathf.RoundToInt(ChallengeRules.TimeLimit(kind));
+        if (kind == ChallengeKind.Rush)
+            return rangeStart.ToString() + "~" + end.ToString() + "階を一気にクリア";
+        if (kind == ChallengeKind.NoDamage)
+            return ChallengeRules.NoDamageFloor(rangeStart).ToString() + "~" + end.ToString() + "階を誰も倒れずにクリア";
+        if (kind == ChallengeKind.MidBossTime)
+            return ChallengeRules.MidBossFloor(rangeStart).ToString() + "階のボスを" + seconds.ToString() + "秒以内に倒す";
+        if (kind == ChallengeKind.BossTime)
+            return end.ToString() + "階のボスを" + seconds.ToString() + "秒以内に倒す";
+        return "";
+    }
+
+    Text CreateStarPopupText(string name, Transform parent, int size, TextAnchor anchor)
+    {
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+        obj.transform.SetParent(parent, false);
+        Text text = obj.GetComponent<Text>();
+        text.font = StageFont();
+        text.fontSize = size;
+        text.alignment = anchor;
+        text.color = Color.white;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
+        text.raycastTarget = false;
+        return text;
+    }
+
+    Button CreateStarPopupButton(Transform parent, string label, Color color)
+    {
+        GameObject obj = new GameObject("ButtonClose", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        obj.transform.SetParent(parent, false);
+        Image image = obj.GetComponent<Image>();
+        image.sprite = ChallengeMarks.Square();
+        image.color = color;
+        Text text = CreateStarPopupText("Text", obj.transform, 30, TextAnchor.MiddleCenter);
+        text.text = label;
+        text.rectTransform.anchorMin = Vector2.zero;
+        text.rectTransform.anchorMax = Vector2.one;
+        text.rectTransform.offsetMin = Vector2.zero;
+        text.rectTransform.offsetMax = Vector2.zero;
+        return obj.GetComponent<Button>();
+    }
+
+    Font StageFont()
+    {
+        if (TextBattleStageDetail != null && TextBattleStageDetail.font != null)
+            return TextBattleStageDetail.font;
+        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (font == null)
+            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        return font;
     }
 
     Image EnsureChallengeBlur(Button card, string name)
@@ -1479,15 +1689,61 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     static void PlaceFloorArrow(Button button, bool previous)
     {
+        LayoutFloorArrow(button, previous);
+    }
+
+    // 絵は52×68のまま、回転は絵だけ。当たりは回さない。
+    // 横は中央側だけ、絵の2.25倍（1.5倍のさらに1.5倍）。縦は上下に1.2倍。
+    static void LayoutFloorArrow(Button button, bool previous)
+    {
         if (button == null)
             return;
+        const float visualW = 52f;
+        const float visualH = 68f;
+        const float hitW = visualW * 2.25f;
+        const float hitH = visualH * 1.2f;
+        float shift = (hitW - visualW) * 0.5f;
+
         RectTransform rect = button.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(previous ? 0f : 1f, 0.5f);
         rect.anchorMax = rect.anchorMin;
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.sizeDelta = new Vector2(52f, 68f);
-        rect.anchoredPosition = new Vector2(previous ? 36f : -36f, 46f);
-        rect.localEulerAngles = previous ? new Vector3(0f, 0f, 180f) : Vector3.zero;
+        rect.sizeDelta = new Vector2(hitW, hitH);
+        rect.anchoredPosition = new Vector2(previous ? 36f + shift : -36f - shift, 46f);
+        rect.localEulerAngles = Vector3.zero;
+        rect.localScale = Vector3.one;
+
+        Image hit = button.GetComponent<Image>();
+        hit.sprite = ChallengeMarks.Square();
+        hit.color = new Color(1f, 1f, 1f, 0f);
+        hit.raycastTarget = true;
+        hit.raycastPadding = Vector4.zero;
+        hit.canvasRenderer.cullTransparentMesh = false;
+
+        Image icon = EnsureFloorArrowIcon(button);
+        icon.sprite = ChallengeMarks.Triangle();
+        icon.raycastTarget = false;
+        RectTransform iconRect = icon.rectTransform;
+        iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+        iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRect.pivot = new Vector2(0.5f, 0.5f);
+        iconRect.sizeDelta = new Vector2(visualW, visualH);
+        iconRect.anchoredPosition = new Vector2(previous ? -shift : shift, 0f);
+        iconRect.localEulerAngles = previous ? new Vector3(0f, 0f, 180f) : Vector3.zero;
+        iconRect.localScale = Vector3.one;
+        button.targetGraphic = icon;
+    }
+
+    static Image EnsureFloorArrowIcon(Button button)
+    {
+        Transform existing = button.transform.Find("ImageFloorArrow");
+        if (existing != null)
+            return existing.GetComponent<Image>();
+        GameObject obj = new GameObject("ImageFloorArrow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        obj.transform.SetParent(button.transform, false);
+        Image image = obj.GetComponent<Image>();
+        image.color = Color.white;
+        return image;
     }
 
     static void PlaceChallengeStar(Image image, float x, float y, float size, bool visible, bool lit, bool glow)

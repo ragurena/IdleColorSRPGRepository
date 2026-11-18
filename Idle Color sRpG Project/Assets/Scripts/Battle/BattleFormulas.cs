@@ -195,6 +195,69 @@ public static class BattleRewardCalculator
         return BattleMath.CeilDivPositive(totalExp, recipientCount);
     }
 
+    // 今までの経験値に、星1つにつき1%を足してから、さらに1を足す。端数は切り上げ。
+    // 分配とレベル差のあとに掛ける。星が0、または経験値が0のときはそのまま。
+    public static long ExpGainForStars(long exp, int stars)
+    {
+        if (exp <= 0)
+            return exp < 0 ? 0 : exp;
+        if (stars < 1)
+            return exp;
+        long bonus = BattleMath.CeilToLong(exp * stars / 100.0);
+        if (bonus < 0)
+            bonus = 0;
+        if (bonus > long.MaxValue - stars)
+            return long.MaxValue;
+        long added = bonus + stars;
+        if (exp > long.MaxValue - added)
+            return long.MaxValue;
+        return exp + added;
+    }
+
+    // 101〜200階は各味方へ3。201〜300階は5。それ以外は0。
+    public static int ExpFloorBonus(int floor)
+    {
+        if (floor >= 201 && floor <= 300)
+            return 5;
+        if (floor >= 101 && floor <= 200)
+            return 3;
+        return 0;
+    }
+
+    // 星のあとに、階の固定値を各味方の経験値へ足す。経験値が0のときはそのまま。
+    public static long ExpGainForFloor(long exp, int floor)
+    {
+        if (exp <= 0)
+            return exp < 0 ? 0 : exp;
+        int bonus = ExpFloorBonus(floor);
+        if (bonus <= 0)
+            return exp;
+        if (exp > long.MaxValue - bonus)
+            return long.MaxValue;
+        return exp + bonus;
+    }
+
+    // ステージが進むごとに各味方へ2。チュートリアルは0、スライムの森は2、チグサとバトル１は4。ギャラリーは足さない。
+    public static int ExpStageBonus(int stageIndex)
+    {
+        if (stageIndex < 1 || stageIndex > 5)
+            return 0;
+        return (stageIndex - 1) * 2;
+    }
+
+    // 星と階のあとに、ステージの固定値を各味方の経験値へ足す。経験値が0のときはそのまま。
+    public static long ExpGainForStage(long exp, int stageIndex)
+    {
+        if (exp <= 0)
+            return exp < 0 ? 0 : exp;
+        int bonus = ExpStageBonus(stageIndex);
+        if (bonus <= 0)
+            return exp;
+        if (exp > long.MaxValue - bonus)
+            return long.MaxValue;
+        return exp + bonus;
+    }
+
     // 分配後の取り分に、味方ごとの差を掛ける。
     // 敵が10レベル高いと1.2倍、10低いと0.8倍。
     // サイズは一辺が2倍になる段差ごとに、敵が大きいと0.1足し、小さいと0.1引く。同じ段は変えない。

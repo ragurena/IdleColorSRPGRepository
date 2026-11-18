@@ -21,6 +21,8 @@ public interface IBattleRewardSink
     bool IsGuaranteedRecruit(int size);
     // 縁結びのお守りが有効で、倒した敵をまだ所持していないとき true。
     bool ForcesUnownedRecruit(uint characterId);
+    // 獲得した星。消費では減らさない。倒した敵の経験値を、今までの計算の外側で増やす。
+    int EarnedStars();
     // その1体を仲間にしたら効果を切る。次のお守りは、プレイヤーが使うまで消費しない。
     void EndForcedRecruit();
 }
@@ -44,15 +46,19 @@ public sealed class BattleFloorFight
     readonly BattleBalanceConfig _config;
     readonly IBattleRandom _rng;
     readonly IBattleRewardSink _sink;
+    readonly int _floor;
+    readonly int _stageIndex;
     List<int> _queue = new List<int>();
     int _queueIndex;
     bool _turnActive;
 
-    public BattleFloorFight(BattleBalanceConfig config, IBattleRandom rng, IBattleRewardSink sink)
+    public BattleFloorFight(BattleBalanceConfig config, IBattleRandom rng, IBattleRewardSink sink, int floor = 1, int stageIndex = 1)
     {
         _config = config;
         _rng = rng;
         _sink = sink;
+        _floor = floor;
+        _stageIndex = stageIndex;
     }
 
     public void Begin(List<BattleUnit> units)
@@ -155,7 +161,7 @@ public sealed class BattleFloorFight
             CancelRemainingActions(target.UnitId);
 
         if (knockout == KnockoutResult.Defeated && actor.IsAlly && !target.IsAlly)
-            BattleDefeatProcessor.Process(actor, target, Units, _config, _rng, _sink);
+            BattleDefeatProcessor.Process(actor, target, Units, _config, _rng, _sink, _floor, _stageIndex);
         if (target.IsAlly && knockout != KnockoutResult.Alive && _sink != null)
             _sink.NoteAllyFainted(target.CharacterId);
 
@@ -234,7 +240,7 @@ public sealed class BattleFloorFight
 
 public static class BattleDefeatProcessor
 {
-    public static void Process(BattleUnit killer, BattleUnit enemy, IReadOnlyList<BattleUnit> units, BattleBalanceConfig config, IBattleRandom rng, IBattleRewardSink sink)
+    public static void Process(BattleUnit killer, BattleUnit enemy, IReadOnlyList<BattleUnit> units, BattleBalanceConfig config, IBattleRandom rng, IBattleRewardSink sink, int floor = 1, int stageIndex = 1)
     {
         if (killer == null || enemy == null || sink == null)
             return;
@@ -265,6 +271,7 @@ public static class BattleDefeatProcessor
             }
         }
         long share = BattleRewardCalculator.ExpShare(exp, recipients);
+        int stars = sink.EarnedStars();
         if (units != null && share > 0)
         {
             for (int i = 0; i < units.Count; i++)
@@ -273,6 +280,9 @@ public static class BattleDefeatProcessor
                 if (!ReceivesExpShare(ally, sink))
                     continue;
                 long personal = BattleRewardCalculator.ExpGainForOpponent(share, enemy.Level, enemy.Size, ally.Level, ally.Size);
+                personal = BattleRewardCalculator.ExpGainForStars(personal, stars);
+                personal = BattleRewardCalculator.ExpGainForFloor(personal, floor);
+                personal = BattleRewardCalculator.ExpGainForStage(personal, stageIndex);
                 if (personal <= 0)
                     continue;
                 sink.GrantExp(ally, personal);

@@ -38,6 +38,12 @@ sealed class RecordingSink : IBattleRewardSink
     public readonly List<long> ExpGrants = new List<long>();
     public readonly List<int> ExpUnitIds = new List<int>();
     public int BlockExpUnitId = -1;
+    public int EarnedStarsCount;
+
+    public int EarnedStars()
+    {
+        return EarnedStarsCount;
+    }
 
     public void GrantExp(BattleUnit ally, long exp)
     {
@@ -62,7 +68,7 @@ sealed class RecordingSink : IBattleRewardSink
         Calls.Add("recruit");
     }
 
-    public void NoteDefeated(uint characterId)
+    public void NoteDefeated(uint characterId, int size)
     {
         Calls.Add("catalog");
     }
@@ -72,7 +78,7 @@ sealed class RecordingSink : IBattleRewardSink
         Calls.Add("hospital");
     }
 
-    public bool IsGuaranteedRecruit()
+    public bool IsGuaranteedRecruit(int size)
     {
         return false;
     }
@@ -108,6 +114,7 @@ static class Program
         TestRewards(config);
         TestCharmRecruit(config);
         TestExpShareSkipsFull(config);
+        TestExpStars(config);
         TestTurnOrder(config);
         TestTargeting();
         TestKnockout(config);
@@ -275,6 +282,31 @@ static class Program
         Check(BattleRewardCalculator.ExpShare(100, 1) == 100, "exp share 1");
         Check(BattleRewardCalculator.ExpShare(100, 3) == 34, "exp share 3");
         Check(BattleRewardCalculator.ExpShare(100, 0) == 0, "exp share 0");
+        Check(BattleRewardCalculator.ExpGainForStars(100, 0) == 100, "exp stars 0");
+        Check(BattleRewardCalculator.ExpGainForStars(100, 1) == 102, "exp stars 1");
+        Check(BattleRewardCalculator.ExpGainForStars(100, 3) == 106, "exp stars 3");
+        Check(BattleRewardCalculator.ExpGainForStars(50, 1) == 52, "exp stars ceil");
+        Check(BattleRewardCalculator.ExpGainForStars(1, 1) == 3, "exp stars small");
+        Check(BattleRewardCalculator.ExpGainForStars(0, 4) == 0, "exp stars zero");
+        Check(BattleRewardCalculator.ExpGainForStars(10, -1) == 10, "exp stars negative");
+        Check(BattleRewardCalculator.ExpFloorBonus(100) == 0, "floor bonus 100");
+        Check(BattleRewardCalculator.ExpFloorBonus(101) == 3, "floor bonus 101");
+        Check(BattleRewardCalculator.ExpFloorBonus(200) == 3, "floor bonus 200");
+        Check(BattleRewardCalculator.ExpFloorBonus(201) == 5, "floor bonus 201");
+        Check(BattleRewardCalculator.ExpFloorBonus(300) == 5, "floor bonus 300");
+        Check(BattleRewardCalculator.ExpFloorBonus(301) == 0, "floor bonus 301");
+        Check(BattleRewardCalculator.ExpGainForFloor(10, 50) == 10, "exp floor 50");
+        Check(BattleRewardCalculator.ExpGainForFloor(10, 150) == 13, "exp floor 150");
+        Check(BattleRewardCalculator.ExpGainForFloor(10, 250) == 15, "exp floor 250");
+        Check(BattleRewardCalculator.ExpGainForFloor(0, 150) == 0, "exp floor zero");
+        Check(BattleRewardCalculator.ExpStageBonus(1) == 0, "stage bonus tutorial");
+        Check(BattleRewardCalculator.ExpStageBonus(2) == 2, "stage bonus slime");
+        Check(BattleRewardCalculator.ExpStageBonus(3) == 4, "stage bonus chigusa");
+        Check(BattleRewardCalculator.ExpStageBonus(4) == 6, "stage bonus moa");
+        Check(BattleRewardCalculator.ExpStageBonus(5) == 8, "stage bonus souga");
+        Check(BattleRewardCalculator.ExpStageBonus(6) == 0, "stage bonus gallery");
+        Check(BattleRewardCalculator.ExpGainForStage(10, 2) == 12, "exp stage slime");
+        Check(BattleRewardCalculator.ExpGainForStage(0, 3) == 0, "exp stage zero");
         long r, g, b;
         BattleRewardCalculator.SplitRgb(CharacterAttribute.Fire, 10, out r, out g, out b);
         Check(r == 10 && g == 0 && b == 0, "split fire");
@@ -333,6 +365,38 @@ static class Program
         sink.BlockExpUnitId = -1;
         BattleDefeatProcessor.Process(openA, enemy, units, config, rng, sink);
         Check(sink.ExpGrants.Count == 3 && sink.ExpGrants[0] == 2, "all three still share");
+    }
+
+    // 星は分配とレベル差のあと。1つで、出していた経験値の1%を切り上げて足し、さらに1足す。
+    static void TestExpStars(BattleBalanceConfig config)
+    {
+        var rng = new FixedRandom();
+        rng.DoubleValue = 1;
+        var sink = new RecordingSink();
+        sink.EarnedStarsCount = 1;
+        BattleUnit ally = Unit(1, true, 10, 1, 1);
+        BattleUnit enemy = Unit(2, false, 10, 1, 1);
+        enemy.OpaquePixels = 10;
+        enemy.Size = 8;
+        enemy.Level = 1;
+        var units = new List<BattleUnit> { ally };
+        BattleDefeatProcessor.Process(ally, enemy, units, config, rng, sink);
+        Check(sink.ExpGrants.Count == 1 && sink.ExpGrants[0] == 7, "one star wraps granted exp");
+
+        sink.ExpGrants.Clear();
+        sink.EarnedStarsCount = 0;
+        BattleDefeatProcessor.Process(ally, enemy, units, config, rng, sink, 150);
+        Check(sink.ExpGrants.Count == 1 && sink.ExpGrants[0] == 8, "floor 150 adds 3");
+
+        sink.ExpGrants.Clear();
+        sink.EarnedStarsCount = 1;
+        BattleDefeatProcessor.Process(ally, enemy, units, config, rng, sink, 250);
+        Check(sink.ExpGrants.Count == 1 && sink.ExpGrants[0] == 12, "floor 250 adds 5 after stars");
+
+        sink.ExpGrants.Clear();
+        sink.EarnedStarsCount = 0;
+        BattleDefeatProcessor.Process(ally, enemy, units, config, rng, sink, 150, 2);
+        Check(sink.ExpGrants.Count == 1 && sink.ExpGrants[0] == 10, "floor 3 and slime 2 stack");
     }
 
     static void TestTurnOrder(BattleBalanceConfig config)

@@ -273,7 +273,7 @@ public class ControllerBattleClass : MonoBehaviour
 
             RemoveEnemies();
             SpawnEnemies(content, floor);
-            var fight = new BattleFloorFight(_config, new SystemBattleRandom(), sink);
+            var fight = new BattleFloorFight(_config, new SystemBattleRandom(), sink, floor, stageIndex);
             fight.Begin(_units);
             if (!_alliesEntered)
             {
@@ -4039,6 +4039,13 @@ public class ControllerBattleClass : MonoBehaviour
         public bool IsGuaranteedRecruit(int size)
         {
             return _view._production != null && _view._production.IsNextEnemyDefeatGuaranteedRecruit(size);
+        }
+
+        public int EarnedStars()
+        {
+            if (_view._production == null)
+                return 0;
+            return _view._production.GetEarnedChallengeStars();
         }
 
         public bool ForcesUnownedRecruit(uint characterId)
