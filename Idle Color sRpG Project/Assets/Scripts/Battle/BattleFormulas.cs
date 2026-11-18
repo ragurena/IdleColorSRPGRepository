@@ -114,7 +114,7 @@ public static class BattleRewardCalculator
         return BattleMath.CeilToLong(opaquePixels * (double)attributeValue * multiplier);
     }
 
-    // 一辺8はそのまま。2倍になるごとに2.8で掛け、小数第1位未満は切り捨てる。16は2.8、32は7.8、64は21.9、128は61.4。経験値を割った端数は切り上げ。
+    // 一辺8はそのまま。2倍になるごとに2.5で掛け、小数第1位未満は切り捨てる。16は2.5、32は6.2、64は15.6、128は39.0。経験値を割った端数は切り上げ。
     public static long ExpGainForSize(long baseExp, int size)
     {
         if (baseExp <= 0)
@@ -138,7 +138,7 @@ public static class BattleRewardCalculator
         int steps = ExpSizeSteps(size);
         decimal divisor = 1m;
         for (int i = 0; i < steps; i++)
-            divisor *= 2.8m;
+            divisor *= 2.5m;
         return decimal.Floor(divisor * 10m) / 10m;
     }
 
@@ -154,27 +154,27 @@ public static class BattleRewardCalculator
         return steps;
     }
 
-    // 基礎経験値に、基礎経験値 ×（レベル－1）/ 100 を足す。レベル1以下は基礎のまま。端数は切り上げ。
+    // 基礎経験値に、基礎経験値 ×（レベル－1）× 2 / 100 を足す。1レベルごとに基礎の2%。レベル1以下は基礎のまま。端数は切り上げ。
     public static long ExpGainForLevel(long baseExp, int level)
     {
         if (baseExp < 0)
             baseExp = 0;
         if (level < 1)
             level = 1;
-        long bonus = BattleMath.CeilToLong(baseExp * (level - 1) / 100.0);
+        long bonus = BattleMath.CeilToLong(baseExp * (level - 1) * 2.0 / 100.0);
         if (bonus < 0)
             bonus = 0;
         return baseExp + bonus;
     }
 
-    // 合成回数1回につき1%。端数は切り上げ。0回はそのまま。
+    // 合成回数1回につき2%。端数は切り上げ。0回はそのまま。
     public static long ExpGainForFusion(long baseExp, int fusionCount)
     {
         if (baseExp < 0)
             baseExp = 0;
         if (fusionCount < 1 || baseExp == 0)
             return baseExp;
-        long bonus = BattleMath.CeilToLong(baseExp * fusionCount / 100.0);
+        long bonus = BattleMath.CeilToLong(baseExp * fusionCount * 2.0 / 100.0);
         if (bonus < 0)
             bonus = 0;
         if (baseExp > long.MaxValue - bonus)
@@ -193,6 +193,25 @@ public static class BattleRewardCalculator
     public static long ExpShare(long totalExp, int recipientCount)
     {
         return BattleMath.CeilDivPositive(totalExp, recipientCount);
+    }
+
+    // 分配後の取り分に、味方ごとの差を掛ける。
+    // 敵が10レベル高いと1.2倍、10低いと0.8倍。
+    // サイズは一辺が2倍になる段差ごとに、敵が大きいと0.1足し、小さいと0.1引く。同じ段は変えない。
+    // 倍率が0以下なら0。端数は切り上げ。
+    public static long ExpGainForOpponent(long share, int enemyLevel, int enemySize, int allyLevel, int allySize)
+    {
+        if (share <= 0)
+            return 0;
+        if (enemyLevel < 1)
+            enemyLevel = 1;
+        if (allyLevel < 1)
+            allyLevel = 1;
+        double scale = 1.0 + (enemyLevel - allyLevel) * 0.02;
+        scale += (ExpSizeSteps(enemySize) - ExpSizeSteps(allySize)) * 0.1;
+        if (scale <= 0.0)
+            return 0;
+        return BattleMath.CeilToLong(share * scale);
     }
 
     public static double ExpOrbDropProbability(long luc, BattleBalanceConfig config)

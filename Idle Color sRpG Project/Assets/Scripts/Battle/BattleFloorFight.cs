@@ -272,7 +272,10 @@ public static class BattleDefeatProcessor
                 BattleUnit ally = units[i];
                 if (!ReceivesExpShare(ally, sink))
                     continue;
-                sink.GrantExp(ally, share);
+                long personal = BattleRewardCalculator.ExpGainForOpponent(share, enemy.Level, enemy.Size, ally.Level, ally.Size);
+                if (personal <= 0)
+                    continue;
+                sink.GrantExp(ally, personal);
             }
         }
 

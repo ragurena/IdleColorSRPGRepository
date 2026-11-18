@@ -61,7 +61,8 @@ public class SaveClass// : MonoBehaviour
         bool EnmusubiArmed,
         HospitalState hospital,
         IdleRewardState idle,
-        StoryState story
+        StoryState story,
+        ChallengeProgress challenges
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -315,6 +316,8 @@ public class SaveClass// : MonoBehaviour
             for (int stage = 1; stage < ClearedBattleFloor.Length; stage++)
                 sw.WriteLine("ClearedBattleFloor[" + stage.ToString() + "]," + ClearedBattleFloor[stage].ToString());
         }
+        if (challenges != null)
+            challenges.Write(sw);
 
         if (ItemCounts != null)
         {
@@ -468,6 +471,7 @@ public class SaveClass// : MonoBehaviour
         HospitalState hospital,
         IdleRewardState idle,
         StoryState story,
+        ChallengeProgress challenges,
         string sourcePath
         )
     {
@@ -480,6 +484,8 @@ public class SaveClass// : MonoBehaviour
         if (hospital != null)
             hospital.Reset();
         Debug.Log("ロード : " + sourcePath);
+        if (challenges != null)
+            challenges.Clear();
 
         // キャラを途中に入れた版より古いセーブは、入れた位置以降の ID をずらす
         string savedVersion = ReadDataVersion(sourcePath);
@@ -519,6 +525,8 @@ public class SaveClass// : MonoBehaviour
             }
             string[] values = line.Split(',');
             if (values.Length >= 2 && people != null && people.TryRead(values[0], values[1]))
+                continue;
+            if (challenges != null && challenges.TryRead(values))
                 continue;
 
             if (values[0].Equals("DataVersion"))

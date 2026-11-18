@@ -87,6 +87,13 @@ public class ControllerBattleStageClass : MonoBehaviour
     Button _partyButton;
     bool _partyBlink;
     CanvasGroup _partyBlinkGroup;
+    readonly Button[] FloorWindowPrev = new Button[Constants.BATTLE_STAGE_NUM];
+    readonly Button[] FloorWindowNext = new Button[Constants.BATTLE_STAGE_NUM];
+    readonly Image[] ChallengeStarPlates = new Image[Constants.BATTLE_STAGE_NUM];
+    readonly Image[,] ChallengeStarBlurs = new Image[Constants.BATTLE_STAGE_NUM, ChallengeRules.KindCount];
+    readonly Image[,] ChallengeStarGlows = new Image[Constants.BATTLE_STAGE_NUM, ChallengeRules.KindCount];
+    readonly Image[,] ChallengeStars = new Image[Constants.BATTLE_STAGE_NUM, ChallengeRules.KindCount];
+    readonly List<ChallengeKind> ChallengeSlots = new List<ChallengeKind>();
 
     public void Initialize(ref CharacterClass[] argCharactersAll, ControllerProduction argControllerProduction)
     {
@@ -148,6 +155,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             Debug.LogWarning("ButtonBattleRepeat が見つかりません");
 
         EnsureTrailingStageButtons();
+        EnsureFloorWindowControls();
 
         SetupFloorSlider(SliderBattleFloorFrom, true);
         SetupFloorSlider(SliderBattleFloorTo, false);
@@ -950,8 +958,10 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         int activeFloorFrom = ControllerProduction.GetActiveBattleFloorFrom();
         int activeFloorTo = ControllerProduction.GetActiveBattleFloorTo();
-        int windowStart = ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex);
-        if (activeStage == CurrentStageIndex && ControllerProduction.IsSortieFloorRange(activeStage, activeFloorFrom, activeFloorTo))
+        int windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
+        int windowEnd = ControllerProduction.GetViewedFloorWindowEnd(CurrentStageIndex);
+        if (activeStage == CurrentStageIndex && ControllerProduction.IsSortieFloorRange(activeStage, activeFloorFrom, activeFloorTo)
+            && activeFloorFrom >= windowStart && activeFloorTo <= windowEnd)
             SetFloorSliders(activeFloorFrom, activeFloorTo);
         else
             SetFloorSliders(windowStart, windowStart + Constants.BATTLE_STAGE_FLOOR_STEP - 1);
@@ -1016,8 +1026,8 @@ public class ControllerBattleStageClass : MonoBehaviour
             }
             else
             {
-                int start = ControllerProduction.GetBattleFloorWindowStart(stageIndex);
-                int end = ControllerProduction.GetBattleFloorWindowEnd(stageIndex);
+                int start = ControllerProduction.GetViewedFloorWindowStart(stageIndex);
+                int end = ControllerProduction.GetViewedFloorWindowEnd(stageIndex);
                 label.text = StageNames[stageIndex] + "\n" + start.ToString() + "〜" + end.ToString() + "階";
                 label.horizontalOverflow = HorizontalWrapMode.Wrap;
                 label.verticalOverflow = VerticalWrapMode.Overflow;
@@ -1032,6 +1042,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             ControllerProduction.ShowBattleStageBackground(activeStage);
 
         RefreshStageEnemyPortraits();
+        PaintChallengeMarks();
         PlaceTrailingStageButtons(activeStage);
 
         for (int i = 0; i < ButtonBattleStageSets.Length; i++)
@@ -1166,7 +1177,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             GetSelectedFloorRange(out int floorFrom, out int floorTo);
             TextBattleFloorRange.text = floorFrom.ToString() + "階 〜 " + floorTo.ToString() + "階";
             int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
-            int windowStart = ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex);
+            int windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
             int lastBandStart = windowStart + Constants.BATTLE_STAGE_FLOOR_MAX - Constants.BATTLE_STAGE_FLOOR_STEP;
             if (maxFrom < lastBandStart)
             {
@@ -1193,7 +1204,7 @@ public class ControllerBattleStageClass : MonoBehaviour
             return;
 
         int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
-        int windowStart = ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex);
+        int windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
         int maxBand = (maxFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         if (maxBand < 1)
             maxBand = 1;
@@ -1238,7 +1249,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
     void SetFloorSliders(int floorFrom, int floorTo)
     {
-        int windowStart = ControllerProduction != null ? ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex) : 1;
+        int windowStart = ControllerProduction != null ? ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex) : 1;
         int fromBand = (floorFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         int toBand = (floorTo - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         if (SliderBattleFloorFrom != null)
@@ -1256,7 +1267,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         int windowStart = 1;
         if (ControllerProduction != null)
         {
-            windowStart = ControllerProduction.GetBattleFloorWindowStart(CurrentStageIndex);
+            windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
             int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
             int maxBand = (maxFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
             if (fromBand > maxBand)
@@ -1267,6 +1278,259 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         floorFrom = windowStart + (fromBand - 1) * Constants.BATTLE_STAGE_FLOOR_STEP;
         floorTo = windowStart + toBand * Constants.BATTLE_STAGE_FLOOR_STEP - 1;
+    }
+
+    void EnsureFloorWindowControls()
+    {
+        for (int i = 0; i < ButtonBattleStages.Length && i < Constants.BATTLE_STAGE_NUM; i++)
+        {
+            Button card = ButtonBattleStages[i];
+            if (card == null)
+                continue;
+            int stageIndex = i + 1;
+            FloorWindowPrev[i] = EnsureFloorArrow(card, "ButtonBattleStageFloorPrev" + stageIndex.ToString(), true, stageIndex);
+            FloorWindowNext[i] = EnsureFloorArrow(card, "ButtonBattleStageFloorNext" + stageIndex.ToString(), false, stageIndex);
+            ChallengeStarPlates[i] = EnsureChallengePlate(card, "ImageChallengeStarPlate" + stageIndex.ToString());
+            for (int star = 0; star < ChallengeRules.KindCount; star++)
+            {
+                ChallengeStarBlurs[i, star] = EnsureChallengeBlur(card, "ImageChallengeStarBlur" + stageIndex.ToString() + "_" + star.ToString());
+                ChallengeStarGlows[i, star] = EnsureChallengeStar(card, "ImageChallengeStarGlow" + stageIndex.ToString() + "_" + star.ToString(), true);
+                ChallengeStars[i, star] = EnsureChallengeStar(card, "ImageChallengeStar" + stageIndex.ToString() + "_" + star.ToString(), false);
+            }
+        }
+    }
+
+    Button EnsureFloorArrow(Button card, string name, bool previous, int stageIndex)
+    {
+        Transform existing = card.transform.Find(name);
+        if (existing != null)
+            return existing.GetComponent<Button>();
+
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        obj.transform.SetParent(card.transform, false);
+        Image image = obj.GetComponent<Image>();
+        image.sprite = ChallengeMarks.Triangle();
+        image.color = Color.white;
+        image.raycastTarget = true;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(previous ? 0f : 1f, 0.5f);
+        rect.anchorMax = new Vector2(previous ? 0f : 1f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(52f, 68f);
+        rect.anchoredPosition = new Vector2(previous ? 36f : -36f, 46f);
+        rect.localEulerAngles = previous ? new Vector3(0f, 0f, 180f) : Vector3.zero;
+        rect.localScale = Vector3.one;
+        LayoutElement layout = obj.AddComponent<LayoutElement>();
+        layout.ignoreLayout = true;
+        Button button = obj.GetComponent<Button>();
+        button.targetGraphic = image;
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = Color.white;
+        colors.pressedColor = new Color(1f, 0.9f, 0.45f, 1f);
+        colors.disabledColor = new Color(1f, 1f, 1f, 0.35f);
+        button.colors = colors;
+        int direction = previous ? -1 : 1;
+        button.onClick.AddListener(() => PushFloorWindow(stageIndex, direction));
+        obj.SetActive(false);
+        return button;
+    }
+
+    Image EnsureChallengePlate(Button card, string name)
+    {
+        Transform existing = card.transform.Find(name);
+        if (existing != null)
+            return existing.GetComponent<Image>();
+
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        obj.transform.SetParent(card.transform, false);
+        Image image = obj.GetComponent<Image>();
+        image.sprite = ChallengeMarks.Square();
+        image.color = new Color(0f, 0f, 0f, 0.62f);
+        image.raycastTarget = false;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0f, 0f);
+        LayoutElement layout = obj.AddComponent<LayoutElement>();
+        layout.ignoreLayout = true;
+        obj.SetActive(false);
+        return image;
+    }
+
+    Image EnsureChallengeBlur(Button card, string name)
+    {
+        Transform existing = card.transform.Find(name);
+        if (existing != null)
+            return existing.GetComponent<Image>();
+
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        obj.transform.SetParent(card.transform, false);
+        Image image = obj.GetComponent<Image>();
+        image.sprite = ChallengeMarks.StarBlur();
+        image.raycastTarget = false;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(108f, 108f);
+        LayoutElement layout = obj.AddComponent<LayoutElement>();
+        layout.ignoreLayout = true;
+        obj.SetActive(false);
+        return image;
+    }
+
+    Image EnsureChallengeStar(Button card, string name, bool glow)
+    {
+        Transform existing = card.transform.Find(name);
+        if (existing != null)
+            return existing.GetComponent<Image>();
+
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        obj.transform.SetParent(card.transform, false);
+        Image image = obj.GetComponent<Image>();
+        image.sprite = ChallengeMarks.Star();
+        image.raycastTarget = false;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = glow ? new Vector2(76f, 76f) : new Vector2(60f, 60f);
+        LayoutElement layout = obj.AddComponent<LayoutElement>();
+        layout.ignoreLayout = true;
+        obj.SetActive(false);
+        return image;
+    }
+
+    void PushFloorWindow(int stageIndex, int direction)
+    {
+        if (ControllerProduction == null || !ControllerProduction.TryShiftViewedFloorWindow(stageIndex, direction))
+            return;
+        CurrentStageIndex = stageIndex;
+        int start = ControllerProduction.GetViewedFloorWindowStart(stageIndex);
+        SetFloorSliders(start, start + Constants.BATTLE_STAGE_FLOOR_STEP - 1);
+        Refresh();
+    }
+
+    void PaintChallengeMarks()
+    {
+        bool feature = ControllerProduction != null && ControllerProduction.IsFloorRangeSelectUnlocked();
+        int activeStage = ControllerProduction != null ? ControllerProduction.GetActiveBattleStage() : 0;
+        for (int i = 0; i < ButtonBattleStages.Length && i < Constants.BATTLE_STAGE_NUM; i++)
+        {
+            Button card = ButtonBattleStages[i];
+            if (card == null)
+                continue;
+            int stageIndex = i + 1;
+            bool unlocked = ControllerProduction != null && ControllerProduction.IsBattleStageUnlocked(stageIndex);
+            bool lockedLook = !unlocked && stageIndex != activeStage;
+            bool show = feature && card.gameObject.activeSelf && !lockedLook;
+            if (FloorWindowPrev[i] != null)
+            {
+                FloorWindowPrev[i].gameObject.SetActive(show && ControllerProduction.CanShiftViewedFloorWindow(stageIndex, -1));
+                PlaceFloorArrow(FloorWindowPrev[i], true);
+            }
+            if (FloorWindowNext[i] != null)
+            {
+                FloorWindowNext[i].gameObject.SetActive(show && ControllerProduction.CanShiftViewedFloorWindow(stageIndex, 1));
+                PlaceFloorArrow(FloorWindowNext[i], false);
+            }
+            int rangeStart = ControllerProduction != null ? ControllerProduction.GetViewedFloorWindowStart(stageIndex) : 1;
+            ChallengeRules.CollectSlots(stageIndex, rangeStart, ChallengeSlots);
+            const float size = 60f;
+            const float gap = 8f;
+            const float left = 24f;
+            const float bottom = 20f;
+            int slots = ChallengeSlots.Count;
+            float row = slots * size + Mathf.Max(0, slots - 1) * gap;
+            if (ChallengeStarPlates[i] != null)
+            {
+                ChallengeStarPlates[i].gameObject.SetActive(show && slots > 0);
+                RectTransform plate = ChallengeStarPlates[i].rectTransform;
+                plate.anchorMin = new Vector2(0f, 0f);
+                plate.anchorMax = new Vector2(0f, 0f);
+                plate.pivot = new Vector2(0f, 0f);
+                plate.sizeDelta = new Vector2(row + 16f, size + 12f);
+                plate.anchoredPosition = new Vector2(left - 8f, bottom - 6f);
+                ChallengeStarPlates[i].transform.SetAsLastSibling();
+            }
+            for (int star = 0; star < ChallengeRules.KindCount; star++)
+            {
+                bool slot = show && star < slots;
+                bool lit = slot && ControllerProduction.IsChallengeStarLit(stageIndex, rangeStart, star);
+                float x = left + size * 0.5f + star * (size + gap);
+                float y = bottom + size * 0.5f;
+                PlaceChallengeBlur(ChallengeStarBlurs[i, star], x, y, size, slot && lit);
+                PlaceChallengeStar(ChallengeStarGlows[i, star], x, y, size, slot, lit, true);
+                PlaceChallengeStar(ChallengeStars[i, star], x, y + 1f, size, slot, lit, false);
+            }
+            Text label = card.GetComponentInChildren<Text>();
+            if (label != null && show)
+            {
+                label.rectTransform.offsetMin = new Vector2(64f, 0f);
+                label.rectTransform.offsetMax = new Vector2(-64f, 0f);
+            }
+            if (FloorWindowPrev[i] != null)
+                FloorWindowPrev[i].transform.SetAsLastSibling();
+            if (FloorWindowNext[i] != null)
+                FloorWindowNext[i].transform.SetAsLastSibling();
+        }
+    }
+
+    static void PlaceFloorArrow(Button button, bool previous)
+    {
+        if (button == null)
+            return;
+        RectTransform rect = button.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(previous ? 0f : 1f, 0.5f);
+        rect.anchorMax = rect.anchorMin;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(52f, 68f);
+        rect.anchoredPosition = new Vector2(previous ? 36f : -36f, 46f);
+        rect.localEulerAngles = previous ? new Vector3(0f, 0f, 180f) : Vector3.zero;
+    }
+
+    static void PlaceChallengeStar(Image image, float x, float y, float size, bool visible, bool lit, bool glow)
+    {
+        if (image == null)
+            return;
+        image.gameObject.SetActive(visible);
+        if (!visible)
+            return;
+        float span = !glow ? size : (lit ? size + 28f : size + 16f);
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(span, span);
+        rect.anchoredPosition = new Vector2(x, y);
+        if (glow && lit)
+            image.color = new Color(1f, 1f, 0.82f, 1f);
+        else if (glow)
+            image.color = new Color(0f, 0f, 0f, 0.9f);
+        else if (lit)
+            image.color = new Color(1f, 0.86f, 0.2f, 1f);
+        else
+            image.color = new Color(0.62f, 0.62f, 0.66f, 1f);
+        image.transform.SetAsLastSibling();
+    }
+
+    static void PlaceChallengeBlur(Image image, float x, float y, float size, bool visible)
+    {
+        if (image == null)
+            return;
+        image.gameObject.SetActive(visible);
+        if (!visible)
+            return;
+        float span = size + 48f;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(span, span);
+        rect.anchoredPosition = new Vector2(x, y);
+        image.color = new Color(1f, 1f, 1f, 0.95f);
+        image.transform.SetAsLastSibling();
     }
 
     void EnsureTrailingStageButtons()
@@ -1461,7 +1725,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         if (label == null)
             return;
 
-        int start = ControllerProduction.GetBattleFloorWindowStart(Constants.BATTLE_STAGE_GALLERY);
+        int start = ControllerProduction.GetViewedFloorWindowStart(Constants.BATTLE_STAGE_GALLERY);
         int end = start + Constants.BATTLE_STAGE_FLOOR_MAX - 1;
         label.text = "ギャラリー\n" + start.ToString() + "〜" + end.ToString() + "階";
         if (sortieing)
@@ -1595,8 +1859,8 @@ public class ControllerBattleStageClass : MonoBehaviour
             if (stageIndex > Constants.BATTLE_STAGE_NUM)
                 break;
 
-            int floorFrom = ControllerProduction.GetBattleFloorWindowStart(stageIndex);
-            int floorTo = ControllerProduction.GetBattleFloorWindowEnd(stageIndex);
+            int floorFrom = ControllerProduction.GetViewedFloorWindowStart(stageIndex);
+            int floorTo = ControllerProduction.GetViewedFloorWindowEnd(stageIndex);
             BattleStageCatalog.CollectEnemyIds(stageIndex, floorFrom, floorTo, StageEnemyIds);
             if (StagePortraitsMatch(stageIndex, StageEnemyIds))
                 continue;

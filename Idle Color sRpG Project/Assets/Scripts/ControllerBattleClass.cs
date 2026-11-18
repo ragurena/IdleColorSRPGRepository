@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -24,6 +25,20 @@ public class ControllerBattleClass : MonoBehaviour
     const float StageWipeSeconds = 0.55f;
     Text _header;
     RawImage _repeatMark;
+    RectTransform _challengeHud;
+    Image _nodmgIcon;
+    Text _nodmgText;
+    Image _timeTrack;
+    Image _timeFill;
+    Text _timeText;
+    bool _rushOk;
+    bool _nodmgArmed;
+    bool _nodmgFailed;
+    bool _timingBoss;
+    bool _timingMid;
+    bool _timedThisFloor;
+    float _bossNormal;
+    float _midNormal;
     Image _headerFill;
     Image _headerRecord;
     float _headerRate;
@@ -244,9 +259,11 @@ public class ControllerBattleClass : MonoBehaviour
         int start = _production.GetActiveBattleFloor();
         if (start < floorFrom || start > floorTo)
             start = floorFrom;
+        BeginChallengeRun(stageIndex, floorFrom, floorTo, start);
         for (int floor = start; floor <= floorTo; floor++)
         {
             _production.SetActiveBattleFloor(floor);
+            OnChallengeFloorStarted(floor);
             _itemDropHomeSet = false;
             ClearBattleFloats();
             if (_stop)
@@ -273,8 +290,14 @@ public class ControllerBattleClass : MonoBehaviour
                 yield return new WaitForSeconds(Interval());
             }
 
+            bool floorTimed = false;
             while (fight.Outcome == BattleOutcome.InProgress && !_stop)
             {
+                if (!floorTimed)
+                {
+                    BeginChallengeTimer(stageIndex, floor);
+                    floorTimed = true;
+                }
                 ClearDropVisuals();
                 ClearDropCue();
                 BattleAttackResult step = fight.Step();
@@ -305,6 +328,7 @@ public class ControllerBattleClass : MonoBehaviour
             }
 
             ClearDropVisuals();
+            EndChallengeTimer();
 
             if (_stop)
                 break;
@@ -327,6 +351,8 @@ public class ControllerBattleClass : MonoBehaviour
                 yield return PlayFloorItemDrops(drops);
 
             bool advanced = _production.MarkBattleFloorCleared(stageIndex, floor);
+            OnChallengeFloorCleared(stageIndex, floor);
+            _production.FlushChallengeAwards();
             _production.GrantPersonBattleFloor();
             _production.SetActiveBattleFloor(floor + 1);
             if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
@@ -383,8 +409,244 @@ public class ControllerBattleClass : MonoBehaviour
         }
     }
 
+    void BeginChallengeRun(int stageIndex, int floorFrom, int floorTo, int startFloor)
+    {
+        ClearChallengeRun();
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
+            return;
+        int range = ChallengeRules.RangeStartOf(floorFrom);
+        int end = ChallengeRules.RangeEnd(range);
+        int cap = ControllerProduction.StageFloorCap(stageIndex);
+        if (end > cap)
+            end = cap;
+        _rushOk = startFloor == range && floorFrom == range && floorTo == end;
+    }
+
+    void ClearChallengeRun()
+    {
+        _rushOk = false;
+        _nodmgArmed = false;
+        _nodmgFailed = false;
+        _timingBoss = false;
+        _timingMid = false;
+        _timedThisFloor = false;
+        _bossNormal = 0f;
+        _midNormal = 0f;
+        RefreshChallengeHud();
+    }
+
+    void OnChallengeFloorStarted(int floor)
+    {
+        _timedThisFloor = false;
+        _bossNormal = 0f;
+        _midNormal = 0f;
+        if (_battleStageIndex < 1 || _battleStageIndex > Constants.BATTLE_STAGE_NUM)
+            return;
+        int range = ChallengeRules.RangeStartOf(floor);
+        if (floor == ChallengeRules.NoDamageFloor(range))
+            _nodmgArmed = true;
+        RefreshChallengeHud();
+    }
+
+    public void FailNoDamageChallenge()
+    {
+        if (!_nodmgArmed || _nodmgFailed)
+            return;
+        _nodmgFailed = true;
+        RefreshChallengeHud();
+    }
+
+    void BeginChallengeTimer(int stageIndex, int floor)
+    {
+        _timingBoss = false;
+        _timingMid = false;
+        _timedThisFloor = false;
+        _bossNormal = 0f;
+        _midNormal = 0f;
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
+            return;
+        if (ChallengeRules.IsBossFloor(floor) && ChallengeRules.HasSpawn(stageIndex, floor))
+        {
+            _timingBoss = true;
+            _timedThisFloor = true;
+            RefreshChallengeHud();
+            return;
+        }
+        if (ChallengeRules.IsMidBossFloor(floor) && ChallengeRules.HasSpawn(stageIndex, floor))
+        {
+            _timingMid = true;
+            _timedThisFloor = true;
+            RefreshChallengeHud();
+        }
+    }
+
+    void EndChallengeTimer()
+    {
+        if (!_timingBoss && !_timingMid)
+            return;
+        _timingBoss = false;
+        _timingMid = false;
+        RefreshChallengeHud();
+    }
+
+    void TickChallengeTimer()
+    {
+        if (!_timingBoss && !_timingMid)
+            return;
+        float step = Time.deltaTime * BattleSpeed();
+        if (step < 0f)
+            step = 0f;
+        if (_timingBoss)
+            _bossNormal += step;
+        if (_timingMid)
+            _midNormal += step;
+        RefreshChallengeHud();
+    }
+
+    void OnChallengeFloorCleared(int stageIndex, int floor)
+    {
+        if (_production == null || stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
+            return;
+        int range = ChallengeRules.RangeStartOf(floor);
+        if (_timedThisFloor && ChallengeRules.IsBossFloor(floor))
+            _production.ReportBossClearTime(stageIndex, range, false, _bossNormal);
+        else if (_timedThisFloor && ChallengeRules.IsMidBossFloor(floor))
+            _production.ReportBossClearTime(stageIndex, range, true, _midNormal);
+        int end = ChallengeRules.RangeEnd(range);
+        int cap = ControllerProduction.StageFloorCap(stageIndex);
+        if (end > cap)
+            end = cap;
+        if (floor != end)
+            return;
+        if (_rushOk)
+            _production.TryCompleteChallenge(stageIndex, range, ChallengeKind.Rush);
+        if (_nodmgArmed && !_nodmgFailed)
+            _production.TryCompleteChallenge(stageIndex, range, ChallengeKind.NoDamage);
+    }
+
+    void BuildChallengeHud()
+    {
+        if (_header == null || _challengeHud != null)
+            return;
+        GameObject row = new GameObject("ChallengeHud", typeof(RectTransform));
+        row.transform.SetParent(_header.transform, false);
+        _challengeHud = row.GetComponent<RectTransform>();
+        _challengeHud.anchorMin = new Vector2(0f, 0f);
+        _challengeHud.anchorMax = new Vector2(1f, 0f);
+        _challengeHud.pivot = new Vector2(0.5f, 1f);
+        _challengeHud.anchoredPosition = new Vector2(0f, -4f);
+        _challengeHud.sizeDelta = new Vector2(0f, 32f);
+
+        _nodmgIcon = CreateImage("ImageChallengeNoDamage", row.transform, Color.white);
+        _nodmgIcon.sprite = ChallengeMarks.Circle();
+        _nodmgIcon.raycastTarget = false;
+        RectTransform icon = _nodmgIcon.rectTransform;
+        icon.anchorMin = new Vector2(0f, 0.5f);
+        icon.anchorMax = new Vector2(0f, 0.5f);
+        icon.pivot = new Vector2(0f, 0.5f);
+        icon.anchoredPosition = new Vector2(0f, 0f);
+        icon.sizeDelta = new Vector2(26f, 26f);
+
+        _nodmgText = CreateText("TextChallengeNoDamage", row.transform, 22, TextAnchor.MiddleLeft);
+        _nodmgText.raycastTarget = false;
+        Outline nodmgOutline = _nodmgText.gameObject.AddComponent<Outline>();
+        nodmgOutline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        nodmgOutline.effectDistance = new Vector2(1.5f, -1.5f);
+        RectTransform nodmgRect = _nodmgText.rectTransform;
+        nodmgRect.anchorMin = new Vector2(0f, 0f);
+        nodmgRect.anchorMax = new Vector2(0f, 1f);
+        nodmgRect.pivot = new Vector2(0f, 0.5f);
+        nodmgRect.anchoredPosition = new Vector2(32f, 0f);
+        nodmgRect.sizeDelta = new Vector2(180f, 0f);
+
+        _timeTrack = CreateImage("ImageChallengeTimeTrack", row.transform, new Color(0.12f, 0.12f, 0.14f, 0.9f));
+        _timeTrack.sprite = ChallengeMarks.Square();
+        _timeTrack.raycastTarget = false;
+        RectTransform track = _timeTrack.rectTransform;
+        track.anchorMin = new Vector2(1f, 0.5f);
+        track.anchorMax = new Vector2(1f, 0.5f);
+        track.pivot = new Vector2(1f, 0.5f);
+        track.anchoredPosition = new Vector2(0f, 0f);
+        track.sizeDelta = new Vector2(230f, 20f);
+
+        _timeFill = CreateImage("ImageChallengeTimeFill", _timeTrack.transform, new Color(0.95f, 0.78f, 0.2f, 1f));
+        _timeFill.sprite = ChallengeMarks.Square();
+        _timeFill.raycastTarget = false;
+        RectTransform fill = _timeFill.rectTransform;
+        fill.anchorMin = Vector2.zero;
+        fill.anchorMax = Vector2.one;
+        fill.offsetMin = Vector2.zero;
+        fill.offsetMax = Vector2.zero;
+
+        _timeText = CreateText("TextChallengeTime", row.transform, 22, TextAnchor.MiddleRight);
+        _timeText.raycastTarget = false;
+        Outline timeOutline = _timeText.gameObject.AddComponent<Outline>();
+        timeOutline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        timeOutline.effectDistance = new Vector2(1.5f, -1.5f);
+        RectTransform timeRect = _timeText.rectTransform;
+        timeRect.anchorMin = new Vector2(1f, 0.5f);
+        timeRect.anchorMax = new Vector2(1f, 0.5f);
+        timeRect.pivot = new Vector2(1f, 0.5f);
+        timeRect.anchoredPosition = new Vector2(-238f, 0f);
+        timeRect.sizeDelta = new Vector2(120f, 28f);
+        row.SetActive(false);
+    }
+
+    void RefreshChallengeHud()
+    {
+        if (_challengeHud == null)
+            return;
+        bool feature = _running && _production != null && _production.IsFloorRangeSelectUnlocked()
+            && _battleStageIndex >= 1 && _battleStageIndex <= Constants.BATTLE_STAGE_NUM;
+        bool showNodmg = feature && _nodmgArmed;
+        bool showTime = feature && (_timingBoss || _timingMid);
+        _challengeHud.gameObject.SetActive(showNodmg || showTime);
+        if (!showNodmg && !showTime)
+            return;
+        if (_nodmgIcon != null)
+        {
+            _nodmgIcon.gameObject.SetActive(showNodmg);
+            _nodmgIcon.color = _nodmgFailed
+                ? new Color(0.85f, 0.2f, 0.18f, 1f)
+                : new Color(0.25f, 0.82f, 0.35f, 1f);
+        }
+        if (_nodmgText != null)
+        {
+            _nodmgText.gameObject.SetActive(showNodmg);
+            _nodmgText.text = _nodmgFailed ? "たおれてしまった" : "誰も倒れていない";
+            _nodmgText.color = _nodmgFailed
+                ? new Color(1f, 0.45f, 0.4f, 1f)
+                : new Color(0.75f, 1f, 0.78f, 1f);
+        }
+        float seconds = _timingMid ? _midNormal : _bossNormal;
+        float limit = ChallengeRules.TimeLimit(_timingMid ? ChallengeKind.MidBossTime : ChallengeKind.BossTime);
+        bool over = limit > 0f && seconds > limit;
+        if (_timeTrack != null)
+            _timeTrack.gameObject.SetActive(showTime);
+        if (_timeFill != null)
+        {
+            _timeFill.gameObject.SetActive(showTime);
+            float rate = limit <= 0f ? 1f : seconds / limit;
+            if (rate < 0f)
+                rate = 0f;
+            if (rate > 1f)
+                rate = 1f;
+            _timeFill.rectTransform.anchorMax = new Vector2(rate, 1f);
+            _timeFill.color = over
+                ? new Color(0.85f, 0.22f, 0.18f, 1f)
+                : new Color(0.95f, 0.78f, 0.2f, 1f);
+        }
+        if (_timeText != null)
+        {
+            _timeText.gameObject.SetActive(showTime);
+            _timeText.text = seconds.ToString("0.0", CultureInfo.InvariantCulture) + "/" + limit.ToString("0", CultureInfo.InvariantCulture);
+            _timeText.color = over ? new Color(1f, 0.4f, 0.35f, 1f) : Color.white;
+        }
+    }
+
     void Finish()
     {
+        ClearChallengeRun();
         _running = false;
         _stop = false;
         _battleStageIndex = 0;
@@ -1649,6 +1911,7 @@ public class ControllerBattleClass : MonoBehaviour
     void Update()
     {
         TickSpeedUnlock();
+        TickChallengeTimer();
         TickDrops();
         if (!_stageWiping || _stageWipeMaterial == null)
             return;
@@ -1905,6 +2168,7 @@ public class ControllerBattleClass : MonoBehaviour
 
         _header = CreateText("TextBattleHeader", _root.transform, 28, TextAnchor.MiddleLeft);
         PlaceRect(_header.rectTransform, 110f, 175f, 620f, 44f);
+        BuildChallengeHud();
 
         _allies = new CellView[_config.FormationSize + 1, _config.FormationSize + 1];
         _enemies = new CellView[_config.FormationSize + 1, _config.FormationSize + 1];
@@ -2689,19 +2953,25 @@ public class ControllerBattleClass : MonoBehaviour
             back.SetSiblingIndex(desired);
     }
 
-    // 今の100階を満タンにする。緑がいまの階、その後ろの灰色が最高クリア階
+    // いま戦っている100階を満タンにする。緑がいまの階、その後ろの灰色が、その区間での最高クリア階
     void SetHeaderProgress(int floor)
     {
         int current = floor > 0 ? floor : 0;
+        int windowStart = current > 0
+            ? ChallengeRules.RangeStartOf(current)
+            : 1;
         int reached = current;
-        int windowStart = 1;
         if (_production != null && _battleStageIndex > 0)
         {
-            windowStart = _production.GetBattleFloorWindowStart(_battleStageIndex);
+            if (current <= 0)
+                windowStart = _production.GetBattleFloorWindowStart(_battleStageIndex);
             int cleared = _production.GetHighestClearedBattleFloor(_battleStageIndex);
             if (cleared > reached)
                 reached = cleared;
         }
+        int windowEnd = windowStart + Constants.BATTLE_STAGE_FLOOR_MAX - 1;
+        if (reached > windowEnd)
+            reached = windowEnd;
         _headerRate = HeaderRate(current, windowStart);
         _headerRecordRate = HeaderRate(reached, windowStart);
         ApplyHeaderFill();
@@ -3759,6 +4029,7 @@ public class ControllerBattleClass : MonoBehaviour
         {
             if (_view._production == null)
                 return;
+            _view.FailNoDamageChallenge();
             _view._production.AdmitHospitalSpirit(characterId);
             CharacterClass character = _view._production.GetCharacter(characterId);
             if (character != null)

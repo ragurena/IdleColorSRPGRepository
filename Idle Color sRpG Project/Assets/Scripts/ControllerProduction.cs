@@ -164,6 +164,9 @@ public class ControllerProduction : MonoBehaviour
     int ClearedBattleStage = 0;
     //ステージごとの最高クリア階。0は未クリア。開始階はこの直後の10階区切りまで
     int[] ClearedBattleFloor = new int[Constants.BATTLE_STAGE_GALLERY + 1];
+    readonly ChallengeProgress Challenges = new ChallengeProgress();
+    bool _challengeDirty;
+    bool _challengeTimeDirty;
     List<bool[,]> ProgressTextureProductionCharacter = new List<bool[,]>();//[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     List<ConsumePixelClass>[] ConsumePixelsProductionCharacter = new List<ConsumePixelClass>[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     Texture[] ProductionCharacterViewTexture = new Texture[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
@@ -881,7 +884,8 @@ public class ControllerProduction : MonoBehaviour
             EnmusubiArmed,
             Hospital,
             Idle,
-            Story
+            Story,
+            Challenges
             );
         if (saved)
         {
@@ -1101,6 +1105,7 @@ public class ControllerProduction : MonoBehaviour
                     Hospital,
                     Idle,
                     Story,
+                    Challenges,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -1225,6 +1230,9 @@ public class ControllerProduction : MonoBehaviour
         ShowBattleFrontStatus = true;
         BattleRepeat = false;
         ClearedBattleStage = 0;
+        Challenges.Clear();
+        _challengeDirty = false;
+        _challengeTimeDirty = false;
         ApplyCharacterLevelCap();
         ApplyFusionCountCap();
 
@@ -5658,16 +5666,156 @@ public class ControllerProduction : MonoBehaviour
         return end;
     }
 
+    // ソウガとバトル1の100階クリアで、100階区間の行き来と星を解放する。ギャラリーは対象外。
+    public bool IsFloorRangeSelectUnlocked()
+    {
+        return GetHighestClearedBattleFloor(5) >= Constants.BATTLE_STAGE_FLOOR_MAX;
+    }
+
+    public int GetViewedFloorWindowStart(int stageIndex)
+    {
+        int progress = GetBattleFloorWindowStart(stageIndex);
+        if (stageIndex == Constants.BATTLE_STAGE_GALLERY || !IsFloorRangeSelectUnlocked())
+            return progress;
+        int viewed = Challenges.ViewedWindow(stageIndex);
+        int index;
+        if (!ChallengeRules.TryRangeIndex(viewed, out index) || viewed > progress)
+            return progress;
+        return viewed;
+    }
+
+    public int GetViewedFloorWindowEnd(int stageIndex)
+    {
+        int end = GetViewedFloorWindowStart(stageIndex) + Constants.BATTLE_STAGE_FLOOR_MAX - 1;
+        int cap = StageFloorCap(stageIndex);
+        if (end > cap)
+            end = cap;
+        return end;
+    }
+
+    public bool CanShiftViewedFloorWindow(int stageIndex, int direction)
+    {
+        if (direction != -1 && direction != 1)
+            return false;
+        if (!IsFloorRangeSelectUnlocked() || stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
+            return false;
+        int next = GetViewedFloorWindowStart(stageIndex) + direction * Constants.BATTLE_STAGE_FLOOR_MAX;
+        int index;
+        if (!ChallengeRules.TryRangeIndex(next, out index))
+            return false;
+        return next <= GetBattleFloorWindowStart(stageIndex);
+    }
+
+    public bool TryShiftViewedFloorWindow(int stageIndex, int direction)
+    {
+        if (!CanShiftViewedFloorWindow(stageIndex, direction))
+            return false;
+        int next = GetViewedFloorWindowStart(stageIndex) + direction * Constants.BATTLE_STAGE_FLOOR_MAX;
+        int progress = GetBattleFloorWindowStart(stageIndex);
+        Challenges.SetViewedWindow(stageIndex, next == progress ? 0 : next);
+        SaveGame();
+        return true;
+    }
+
+    public int ChallengeSlotCount(int stageIndex, int rangeStart)
+    {
+        List<ChallengeKind> slots = new List<ChallengeKind>();
+        ChallengeRules.CollectSlots(stageIndex, rangeStart, slots);
+        return slots.Count;
+    }
+
+    public bool IsChallengeStarLit(int stageIndex, int rangeStart, int slot)
+    {
+        List<ChallengeKind> slots = new List<ChallengeKind>();
+        ChallengeRules.CollectSlots(stageIndex, rangeStart, slots);
+        if (slot < 0 || slot >= slots.Count)
+            return false;
+        return Challenges.IsDone(stageIndex, rangeStart, slots[slot]);
+    }
+
+    public int GetEarnedChallengeStars()
+    {
+        return Challenges.EarnedStars();
+    }
+
+    public int GetSpentChallengeStars()
+    {
+        return Challenges.SpentStars();
+    }
+
+    public int GetHeldChallengeStars()
+    {
+        int held = Challenges.EarnedStars() - Challenges.SpentStars();
+        return held > 0 ? held : 0;
+    }
+
+    // 消費しても達成フラグと育成上限は残る。受け取る画面はまだ無い。
+    public bool TrySpendChallengeStars(int count)
+    {
+        if (!Challenges.TrySpend(count))
+            return false;
+        SaveGame();
+        return true;
+    }
+
+    public bool TryCompleteChallenge(int stageIndex, int rangeStart, ChallengeKind kind)
+    {
+        if (!IsFloorRangeSelectUnlocked())
+            return false;
+        if (!ChallengeRules.IsOffered(stageIndex, rangeStart, kind))
+            return false;
+        if (!Challenges.MarkDone(stageIndex, rangeStart, kind))
+            return false;
+        _challengeDirty = true;
+        return true;
+    }
+
+    public void ReportBossClearTime(int stageIndex, int rangeStart, bool midBoss, float normalSeconds)
+    {
+        ChallengeKind kind = midBoss ? ChallengeKind.MidBossTime : ChallengeKind.BossTime;
+        if (!ChallengeRules.IsOffered(stageIndex, rangeStart, kind))
+            return;
+        if (normalSeconds < 0f)
+            normalSeconds = 0f;
+        if (Challenges.NoteTime(stageIndex, rangeStart, midBoss, normalSeconds))
+            _challengeTimeDirty = true;
+        if (normalSeconds <= ChallengeRules.TimeLimit(kind))
+            TryCompleteChallenge(stageIndex, rangeStart, kind);
+    }
+
+    public void FlushChallengeAwards()
+    {
+        if (!_challengeDirty && !_challengeTimeDirty)
+            return;
+        bool newStar = _challengeDirty;
+        _challengeDirty = false;
+        _challengeTimeDirty = false;
+        if (newStar)
+        {
+            ApplyCharacterLevelCap();
+            ApplyFusionCountCap();
+        }
+        SaveGame();
+    }
+
     //クリア階の次の階が含まれる10階区切りの始まり。未クリアなら、今の100階の先頭。
     public int GetMaxBattleFloorFrom(int stageIndex)
     {
+        return MaxStartInWindow(stageIndex, GetViewedFloorWindowStart(stageIndex));
+    }
+
+    int MaxStartInWindow(int stageIndex, int windowStart)
+    {
         int cleared = GetHighestClearedBattleFloor(stageIndex);
-        int windowStart = GetBattleFloorWindowStart(stageIndex);
         int relative = cleared - (windowStart - 1);
         if (relative < 0)
             relative = 0;
         int from = windowStart - 1 + MaxBattleFloorFrom(relative);
-        int lastBand = GetBattleFloorWindowEnd(stageIndex) - Constants.BATTLE_STAGE_FLOOR_STEP + 1;
+        int windowEnd = windowStart + Constants.BATTLE_STAGE_FLOOR_MAX - 1;
+        int cap = StageFloorCap(stageIndex);
+        if (windowEnd > cap)
+            windowEnd = cap;
+        int lastBand = windowEnd - Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         if (from > lastBand)
             from = lastBand;
         if (from < windowStart)
@@ -5784,13 +5932,27 @@ public class ControllerProduction : MonoBehaviour
     public bool IsSortieFloorRange(int stageIndex, int floorFrom, int floorTo)
     {
         int step = Constants.BATTLE_STAGE_FLOOR_STEP;
-        int start = GetBattleFloorWindowStart(stageIndex);
-        int end = GetBattleFloorWindowEnd(stageIndex);
-        if (floorFrom < start || floorTo > end || floorTo < floorFrom)
+        if (step < 1)
+            step = 1;
+        if (!IsKnownBattleStage(stageIndex))
             return false;
-        if ((floorFrom - start) % step != 0)
+        if (floorFrom < 1 || floorTo < floorFrom || floorTo > StageFloorCap(stageIndex))
             return false;
-        if ((floorTo - start + 1) % step != 0)
+        int window = ChallengeRules.RangeStartOf(floorFrom);
+        int windowEnd = ChallengeRules.RangeEnd(window);
+        int cap = StageFloorCap(stageIndex);
+        if (windowEnd > cap)
+            windowEnd = cap;
+        if (floorTo > windowEnd)
+            return false;
+        if ((floorFrom - window) % step != 0)
+            return false;
+        if ((floorTo - window + 1) % step != 0)
+            return false;
+        int progress = GetBattleFloorWindowStart(stageIndex);
+        if (window > progress)
+            return false;
+        if (stageIndex == Constants.BATTLE_STAGE_GALLERY && window != progress)
             return false;
         return true;
     }
@@ -13427,11 +13589,13 @@ public class ControllerProduction : MonoBehaviour
         FusionBonus.MaxCount = count;
     }
 
-    // 初期値に、クリア済みの100階を5ずつ足す。クエストの合成上限+は、その上に足す。
+    // 初期値に、クリア済みの100階を5ずつ足し、獲得した星を1つにつき1足す。クエストの合成上限+は、その上に足す。星の消費では減らさない。
     void ApplyFusionCountCap()
     {
+        Challenges.ClampViewed(GetBattleFloorWindowStart);
         long cap = FusionBonus.InitialCap;
         cap += (long)ClearedHundredFloorBlocks() * FusionBonus.CapPerHundredFloors;
+        cap += Challenges.EarnedStars();
         if (cap > FusionBonus.CapCeiling)
             cap = FusionBonus.CapCeiling;
         int floorCap = cap > int.MaxValue ? int.MaxValue : (int)cap;
@@ -13461,14 +13625,16 @@ public class ControllerProduction : MonoBehaviour
         FusionBonus.MaxCount = result;
     }
 
-    // 初期値に、クリア済みの100階を5ずつ足す。クエストがそれより高い値を出しているときは、その値まで上げる。
+    // 初期値に、クリア済みの100階を5ずつ足し、獲得した星を1つにつき1足す。クエストがそれより高い値を出しているときは、その値まで上げる。星の消費では減らさない。
     void ApplyCharacterLevelCap()
     {
         if (BattleBalance == null)
             BattleBalance = BattleBalanceConfig.CreateDefault();
+        Challenges.ClampViewed(GetBattleFloorWindowStart);
         long cap = BattleBalanceConfig.InitialLevelCap;
         long added = (long)ClearedHundredFloorBlocks() * BattleBalanceConfig.LevelCapPerHundredFloors;
         cap += added;
+        cap += Challenges.EarnedStars();
         if (cap > BattleBalanceConfig.LevelCapCeiling)
             cap = BattleBalanceConfig.LevelCapCeiling;
         QuestDef[] all = QuestCatalog.All;
