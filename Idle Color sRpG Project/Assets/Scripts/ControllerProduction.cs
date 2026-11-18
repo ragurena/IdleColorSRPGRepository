@@ -2137,6 +2137,13 @@ public class ControllerProduction : MonoBehaviour
             return SceneIconSprite("バトル_1024x1024.png");
         return null;
     }
+
+    public static Sprite FeatureIcon(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName))
+            return null;
+        return SceneIconSprite(fileName);
+    }
     static readonly Dictionary<string, Sprite> SceneIconSprites = new Dictionary<string, Sprite>();
 
     static string SceneIconFile(string buttonName)
@@ -5477,7 +5484,7 @@ public class ControllerProduction : MonoBehaviour
         }
         if (_adBusy)
             return;
-        ShowConfirm("広告を最後まで見ると、1時間8倍速が開放されます。広告を再生しますか？", () => PlayBattleSpeed8Ad(onGranted));
+        ShowConfirm(AdConfirmMessage("広告を最後まで見ると、1時間8倍速が開放されます。広告を再生しますか？"), () => PlayBattleSpeed8Ad(onGranted));
     }
 
     void PlayBattleSpeed8Ad(Action onGranted)
@@ -5491,6 +5498,7 @@ public class ControllerProduction : MonoBehaviour
             {
                 _adBusy = false;
                 Idle.NoteAdSuccess();
+                GrantAdWatchBonus();
                 GrantBattleSpeed8Hour();
                 if (onGranted != null)
                     onGranted();
@@ -6227,6 +6235,21 @@ public class ControllerProduction : MonoBehaviour
         }
     }
 
+    // 効果が出る前の中止。消費した1個を所持に戻す。仲間化で切れたときは戻さない。
+    public void CancelEnmusubiUse()
+    {
+        if (!EnmusubiArmed)
+            return;
+        EnmusubiArmed = false;
+        KeepItemCount(ItemIds.EnmusubiOmamori, GetItemCount(ItemIds.EnmusubiOmamori) + 1);
+        SaveGame();
+        if (ControllerBattle != null)
+        {
+            ControllerBattle.RefreshCharmIcon();
+            ControllerBattle.RefreshItemBoard();
+        }
+    }
+
     public void CollectOwnedCharactersOfSize(int size, List<uint> into)
     {
         if (into == null)
@@ -6650,7 +6673,7 @@ public class ControllerProduction : MonoBehaviour
             return;
         if (AdWatchConfirm)
         {
-            ShowConfirm("広告が流れますよろしいですか？", PlayHospitalRecoverAd);
+            ShowConfirm(AdConfirmMessage("広告が流れますよろしいですか？"), PlayHospitalRecoverAd);
             return;
         }
         PlayHospitalRecoverAd();
@@ -6690,6 +6713,7 @@ public class ControllerProduction : MonoBehaviour
         ulong[] ids = _hospitalAdPatients;
         _hospitalAdPatients = null;
         Idle.NoteAdSuccess();
+        GrantAdWatchBonus();
         if (Hospital != null && ids != null && ids.Length > 0)
         {
             int returned = Hospital.InstantRecover(ids, HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
@@ -6937,8 +6961,35 @@ public class ControllerProduction : MonoBehaviour
         Idle.Limited = false;
         Idle.LastInputUnixMs = HospitalState.NowUnixMs();
         AddBattleItem(Idle.MaxSeenOrb(), 10);
-        GrantGradationPixels(100);
+        GrantAdWatchBonus();
         SaveGame();
+    }
+
+    public const string AdWatchBonusNote = "広告視聴完了のたびに\n全ピクセルを100個　RGBをそれぞれ100タップ分\nもらえます";
+
+    // 広告を最後まで見たとき。全ピクセル100個と、RGBを今の1タップの100回分。上限で止まるのはタップと同じ。
+    public void GrantAdWatchBonus()
+    {
+        GainRgb(ref CurR, MaxR, TapBundle(IncreaseValueR, 100), 0);
+        GainRgb(ref CurG, MaxG, TapBundle(IncreaseValueG, 100), 1);
+        GainRgb(ref CurB, MaxB, TapBundle(IncreaseValueB, 100), 2);
+        GrantGradationPixels(100);
+        UpdateRGBProductionScene();
+    }
+
+    static string AdConfirmMessage(string lead)
+    {
+        return lead + "\n\n" + AdWatchBonusNote;
+    }
+
+    static ulong TapBundle(ulong perTap, int taps)
+    {
+        if (perTap == 0 || taps <= 0)
+            return 0;
+        ulong count = (ulong)taps;
+        if (perTap > ulong.MaxValue / count)
+            return ulong.MaxValue;
+        return perTap * count;
     }
 
     public IdlePayout BuildOfflinePayout(int cycles, int multiplier)
@@ -13249,7 +13300,6 @@ public class ControllerProduction : MonoBehaviour
         record.Cleared = true;
         record.Claimed = true;
         record.Choice = choice;
-        NoteQuestAdBonus(def);
         ApplyStoredImportCap();
         RefreshUnlockedProductionSlots();
         ApplyMainFeatureLocks();
@@ -13261,26 +13311,6 @@ public class ControllerProduction : MonoBehaviour
         RefreshProductionFigures();
         SaveGame();
         return true;
-    }
-
-    void NoteQuestAdBonus(QuestDef def)
-    {
-        QuestAdBonus bonus = QuestCatalog.AdBonus(def);
-        if (bonus == QuestAdBonus.Pixel)
-        {
-            if (Slots.ClaimedPixelAdQuests < int.MaxValue)
-                Slots.ClaimedPixelAdQuests++;
-        }
-        else if (bonus == QuestAdBonus.Character)
-        {
-            if (Slots.ClaimedCharacterAdQuests < int.MaxValue)
-                Slots.ClaimedCharacterAdQuests++;
-        }
-        else if (bonus == QuestAdBonus.Both)
-        {
-            if (Slots.ClaimedQuests < int.MaxValue)
-                Slots.ClaimedQuests++;
-        }
     }
 
     void ApplyQuestReward(QuestDef def, int choice)
@@ -14223,12 +14253,12 @@ public class ControllerProduction : MonoBehaviour
         return RemainingAdTenths(pixel) >= 10;
     }
 
-    // 1回を10とする。ピクセルは1件で5、キャラは1件で3。初期の1回は10。
+    // 1回を10とする。クリア1件でピクセルは2（0.2）、キャラは1（0.1）。初期の1回は10。
     static int AdCreditTenths(int quests, bool pixel)
     {
         if (quests < 0)
             quests = 0;
-        long bonus = pixel ? (long)quests * 5L : (long)quests * 3L;
+        long bonus = pixel ? (long)quests * 2L : (long)quests;
         long total = 10L + bonus;
         if (total > int.MaxValue)
             total = int.MaxValue;
@@ -14246,8 +14276,7 @@ public class ControllerProduction : MonoBehaviour
     {
         int slots = pixel ? Slots.PixelSlots : Slots.CharacterSlots;
         int used = pixel ? Slots.AdPixelSlots : Slots.AdCharacterSlots;
-        int fromQuests = pixel ? Slots.ClaimedPixelAdQuests : Slots.ClaimedCharacterAdQuests;
-        int quests = Slots.ClaimedQuests + fromQuests;
+        int quests = CountClearedQuests();
         int credit = AdCreditTenths(quests, pixel) - used * 10;
         int slotLeft = (Constants.PRODUCTION_SLOT_MAX - slots) * 10;
         if (credit < 0)
@@ -14257,13 +14286,34 @@ public class ControllerProduction : MonoBehaviour
         return credit < slotLeft ? credit : slotLeft;
     }
 
+    int CountClearedQuests()
+    {
+        QuestDef[] all = QuestCatalog.All;
+        int count = 0;
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (QuestCountsForAd(all[i]))
+                count++;
+        }
+        return count;
+    }
+
+    bool QuestCountsForAd(QuestDef def)
+    {
+        if (def == null)
+            return false;
+        if (IsQuestClaimed(def))
+            return true;
+        return QuestReached(def);
+    }
+
     void ShowRewardedForSlot(bool pixel)
     {
         if (_adBusy || !CanWatchAd(pixel))
             return;
         if (AdWatchConfirm)
         {
-            ShowConfirm("広告が流れますよろしいですか？", () => PlayRewardedForSlot(pixel));
+            ShowConfirm(AdConfirmMessage("広告が流れますよろしいですか？"), () => PlayRewardedForSlot(pixel));
             return;
         }
         PlayRewardedForSlot(pixel);
@@ -14280,6 +14330,7 @@ public class ControllerProduction : MonoBehaviour
             {
                 _adBusy = false;
                 Idle.NoteAdSuccess();
+                GrantAdWatchBonus();
                 GrantAdSlot(pixel);
             },
             () => { _adBusy = false; }))
@@ -14292,10 +14343,11 @@ public class ControllerProduction : MonoBehaviour
     }
 
     GameObject AdConfirm;
+    RectTransform _adConfirmCard;
     Text _adConfirmText;
     Action _adConfirmYes;
 
-    void ShowConfirm(string message, Action onYes)
+    public void ShowConfirm(string message, Action onYes)
     {
         _adConfirmYes = onYes;
         EnsureAdConfirm();
@@ -14306,6 +14358,11 @@ public class ControllerProduction : MonoBehaviour
         }
         if (_adConfirmText != null)
             _adConfirmText.text = message;
+        if (_adConfirmCard != null)
+        {
+            bool tall = message != null && message.IndexOf('\n') >= 0;
+            _adConfirmCard.sizeDelta = new Vector2(980f, tall ? 560f : 420f);
+        }
         AdConfirm.SetActive(true);
         AdConfirm.transform.SetAsLastSibling();
     }
@@ -14339,7 +14396,8 @@ public class ControllerProduction : MonoBehaviour
         cardRect.anchorMin = new Vector2(0.5f, 0.5f);
         cardRect.anchorMax = new Vector2(0.5f, 0.5f);
         cardRect.pivot = new Vector2(0.5f, 0.5f);
-        cardRect.sizeDelta = new Vector2(820f, 420f);
+        cardRect.sizeDelta = new Vector2(980f, 420f);
+        _adConfirmCard = cardRect;
         Image cardImage = card.GetComponent<Image>();
         cardImage.color = new Color(0.08f, 0.09f, 0.12f, 1f);
 
@@ -14707,7 +14765,7 @@ public class ControllerProduction : MonoBehaviour
         if (count != null)
         {
             count.gameObject.SetActive(true);
-            count.text = "広告視聴可能回数：" + FormatAdTenths(leftTenths) + "回　クエスト達成により増加します";
+            count.text = "広告視聴可能回数：" + FormatAdTenths(leftTenths) + "回\nクエストクリアにより" + (pixel ? "0.2" : "0.1") + "増加します";
             count.fontSize = 36;
             count.color = Color.white;
             LayoutElement countLayout = count.GetComponent<LayoutElement>();

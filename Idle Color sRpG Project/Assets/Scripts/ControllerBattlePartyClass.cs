@@ -20,6 +20,7 @@ public class ControllerBattlePartyClass : MonoBehaviour
     [SerializeField] Button[] ButtonBattlePartySets = new Button[Constants.BATTLE_PARTY_SET_NUM];
     [SerializeField] Text TextBattlePartyTotal;
     [SerializeField] Button ButtonClearBattleParty;
+    Text TextPartyLocked;
 
     Button[,] ButtonCells = new Button[Constants.BATTLE_FORMATION_SIZE + 1, Constants.BATTLE_FORMATION_SIZE + 1];
     Button[] ButtonPeople = new Button[Constants.BATTLE_PERSON_SLOT_NUM + 1];
@@ -84,6 +85,80 @@ public class ControllerBattlePartyClass : MonoBehaviour
             TextBattlePartyTotal.gameObject.SetActive(false);
         EnsureStageButton(panelObject.transform);
         PlaceClearButton(panelObject.transform);
+        EnsurePartyLockedNote(panelObject.transform);
+    }
+
+    // 出撃中のセットを見ているとき、クリアの上の空きに出す。
+    void EnsurePartyLockedNote(Transform panel)
+    {
+        if (panel == null)
+            return;
+        if (TextPartyLocked == null)
+        {
+            Transform found = panel.Find("TextBattlePartyLocked");
+            if (found != null)
+                TextPartyLocked = found.GetComponent<Text>();
+        }
+        if (TextPartyLocked == null)
+        {
+            GameObject textObject = new GameObject("TextBattlePartyLocked", typeof(RectTransform));
+            textObject.transform.SetParent(panel, false);
+            Text text = textObject.AddComponent<Text>();
+            Text sample = ButtonClearBattleParty != null ? ButtonClearBattleParty.GetComponentInChildren<Text>() : null;
+            text.font = sample != null && sample.font != null ? sample.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.text = "出撃中は編集できません";
+            text.fontSize = 34;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+            text.raycastTarget = false;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            TextPartyLocked = text;
+        }
+        TextPartyLocked.gameObject.SetActive(false);
+    }
+
+    void PlacePartyLockedNote(bool show)
+    {
+        if (TextPartyLocked == null)
+            return;
+        TextPartyLocked.gameObject.SetActive(show);
+        if (!show)
+            return;
+
+        RectTransform note = TextPartyLocked.rectTransform;
+        RectTransform panel = note.parent as RectTransform;
+        float width = panel != null && panel.rect.width > 8f ? panel.rect.width - 48f : 720f;
+        note.sizeDelta = new Vector2(width, 72f);
+        note.SetAsLastSibling();
+
+        RectTransform clear = ButtonClearBattleParty != null ? ButtonClearBattleParty.GetComponent<RectTransform>() : null;
+        Button cell = ButtonCells[1, 1];
+        RectTransform formation = cell != null ? cell.transform.parent as RectTransform : null;
+        if (panel == null || clear == null || formation == null || formation.rect.height < 8f || clear.rect.height < 8f)
+        {
+            float clearHeight = clear != null ? clear.sizeDelta.y : 160f;
+            if (clearHeight < 8f)
+                clearHeight = 160f;
+            float clearCenter = clear != null ? clear.anchoredPosition.y : 88f;
+            note.anchorMin = new Vector2(0.5f, 0f);
+            note.anchorMax = new Vector2(0.5f, 0f);
+            note.pivot = new Vector2(0.5f, 0.5f);
+            note.anchoredPosition = new Vector2(0f, clearCenter + clearHeight * 0.5f + 48f);
+            return;
+        }
+
+        float gridBottom = EdgeCenterInPanel(panel, formation, false).y;
+        float clearTop = EdgeCenterInPanel(panel, clear, true).y;
+        float mid = (gridBottom + clearTop) * 0.5f;
+        if (gridBottom - clearTop < 72f)
+            mid = clearTop + 40f;
+        note.anchorMin = new Vector2(0.5f, 0.5f);
+        note.anchorMax = new Vector2(0.5f, 0.5f);
+        note.pivot = new Vector2(0.5f, 0.5f);
+        note.anchoredPosition = new Vector2(0f, mid);
     }
 
     // ステージボタンと同じ高さで、横だけパネルの中央へ置く。
@@ -276,6 +351,7 @@ public class ControllerBattlePartyClass : MonoBehaviour
         if (ButtonClearBattleParty != null)
             ButtonClearBattleParty.interactable = canClear;
         PlacePersonSlots();
+        PlacePartyLockedNote(isActiveSet);
     }
 
     void Update()
@@ -536,6 +612,26 @@ public class ControllerBattlePartyClass : MonoBehaviour
             rect.anchoredPosition = new Vector2(leftCenter.x - gap, leftCenter.y);
             rect.SetAsLastSibling();
         }
+        if (TextPartyLocked != null && TextPartyLocked.gameObject.activeSelf)
+            PlacePartyLockedNote(true);
+    }
+
+    static Vector2 EdgeCenterInPanel(RectTransform panel, RectTransform target, bool top)
+    {
+        Vector3[] corners = new Vector3[4];
+        target.GetWorldCorners(corners);
+        Vector3 edge = top ? (corners[1] + corners[2]) * 0.5f : (corners[0] + corners[3]) * 0.5f;
+        Canvas canvas = panel.GetComponentInParent<Canvas>();
+        Camera camera = null;
+        if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            camera = canvas.worldCamera;
+        Vector2 local;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            panel,
+            RectTransformUtility.WorldToScreenPoint(camera, edge),
+            camera,
+            out local);
+        return local;
     }
 
     static Vector2 LeftCenterInPanel(RectTransform panel, RectTransform cell)

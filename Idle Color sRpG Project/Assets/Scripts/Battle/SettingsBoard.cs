@@ -111,17 +111,22 @@ public sealed class SettingsBoard
         confirmOff.onClick.AddListener(() => SelectAdConfirm(false));
         _adChoices[1] = confirmOff;
 
+        Text adNote = CreateText("TextSettingsAdBonus", _root.transform, 22, TextAnchor.MiddleCenter);
+        adNote.text = ControllerProduction.AdWatchBonusNote;
+        adNote.color = new Color(0.78f, 0.80f, 0.84f, 1f);
+        StretchTop(adNote.rectTransform, 24f, 24f, 552f, 96f);
+
         Text awakeLabel = CreateText("TextSettingsKeepAwake", _root.transform, 26, TextAnchor.MiddleCenter);
         awakeLabel.text = "スリープしない";
-        StretchTop(awakeLabel.rectTransform, 24f, 24f, 564f, 48f);
+        StretchTop(awakeLabel.rectTransform, 24f, 24f, 660f, 48f);
 
         Text awakeNote = CreateText("TextSettingsKeepAwakeNote", _root.transform, 22, TextAnchor.MiddleCenter);
         awakeNote.text = "ONのあいだは、操作していなくても画面が消えません。OFFは端末の設定どおりです。";
         awakeNote.color = new Color(0.78f, 0.80f, 0.84f, 1f);
-        StretchTop(awakeNote.rectTransform, 24f, 24f, 616f, 72f);
+        StretchTop(awakeNote.rectTransform, 24f, 24f, 712f, 72f);
 
         Button awakeOn = CreateButton("ButtonSettingsKeepAwakeOn", _root.transform, "ON", Idle);
-        PlaceRow(awakeOn.GetComponent<RectTransform>(), 0, 2, 700f, 96f);
+        PlaceRow(awakeOn.GetComponent<RectTransform>(), 0, 2, 796f, 96f);
         Text awakeOnLabel = awakeOn.GetComponentInChildren<Text>();
         if (awakeOnLabel != null)
             awakeOnLabel.fontSize = 28;
@@ -129,7 +134,7 @@ public sealed class SettingsBoard
         _awakeChoices[0] = awakeOn;
 
         Button awakeOff = CreateButton("ButtonSettingsKeepAwakeOff", _root.transform, "OFF", Idle);
-        PlaceRow(awakeOff.GetComponent<RectTransform>(), 1, 2, 700f, 96f);
+        PlaceRow(awakeOff.GetComponent<RectTransform>(), 1, 2, 796f, 96f);
         Text awakeOffLabel = awakeOff.GetComponentInChildren<Text>();
         if (awakeOffLabel != null)
             awakeOffLabel.fontSize = 28;
@@ -138,10 +143,10 @@ public sealed class SettingsBoard
 
         Text returnLabel = CreateText("TextSettingsReturnStage", _root.transform, 26, TextAnchor.MiddleCenter);
         returnLabel.text = "バトル終了時バトル設定画面にする";
-        StretchTop(returnLabel.rectTransform, 24f, 24f, 820f, 56f);
+        StretchTop(returnLabel.rectTransform, 24f, 24f, 916f, 56f);
 
         Button returnOn = CreateButton("ButtonSettingsReturnStageOn", _root.transform, "ON", Idle);
-        PlaceRow(returnOn.GetComponent<RectTransform>(), 0, 2, 884f, 96f);
+        PlaceRow(returnOn.GetComponent<RectTransform>(), 0, 2, 980f, 96f);
         Text returnOnLabel = returnOn.GetComponentInChildren<Text>();
         if (returnOnLabel != null)
             returnOnLabel.fontSize = 28;
@@ -149,7 +154,7 @@ public sealed class SettingsBoard
         _returnChoices[0] = returnOn;
 
         Button returnOff = CreateButton("ButtonSettingsReturnStageOff", _root.transform, "OFF", Idle);
-        PlaceRow(returnOff.GetComponent<RectTransform>(), 1, 2, 884f, 96f);
+        PlaceRow(returnOff.GetComponent<RectTransform>(), 1, 2, 980f, 96f);
         Text returnOffLabel = returnOff.GetComponentInChildren<Text>();
         if (returnOffLabel != null)
             returnOffLabel.fontSize = 28;
@@ -157,7 +162,7 @@ public sealed class SettingsBoard
         _returnChoices[1] = returnOff;
 
         Button save = CreateButton("ButtonSettingsSave", _root.transform, "セーブ", new Color(0.25f, 0.45f, 0.75f, 1f));
-        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 1004f, 96f);
+        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 1100f, 96f);
         Text saveLabel = save.GetComponentInChildren<Text>();
         if (saveLabel != null)
             saveLabel.fontSize = 28;
@@ -168,7 +173,7 @@ public sealed class SettingsBoard
         });
 
         Button deleteSave = CreateButton("ButtonSettingsDeleteSave", _root.transform, "セーブ削除", new Color(0.75f, 0.28f, 0.24f, 1f));
-        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 1004f, 96f);
+        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 1100f, 96f);
         Text deleteLabel = deleteSave.GetComponentInChildren<Text>();
         if (deleteLabel != null)
             deleteLabel.fontSize = 28;
@@ -181,7 +186,7 @@ public sealed class SettingsBoard
         _saveStatus = CreateText("TextSettingsSaveStatus", _root.transform, 22, TextAnchor.MiddleCenter);
         _saveStatus.text = "";
         _saveStatus.color = new Color(0.78f, 0.80f, 0.84f, 1f);
-        StretchTop(_saveStatus.rectTransform, 24f, 24f, 1116f, 48f);
+        StretchTop(_saveStatus.rectTransform, 24f, 24f, 1212f, 48f);
 
         // RELEASE_REMOVE_TEST_GRANTS: 設定画面下部のテストボタン。リリース用ビルドの前に消す。
         Text testLabel = CreateText("TextSettingsTest", _root.transform, 22, TextAnchor.MiddleCenter);

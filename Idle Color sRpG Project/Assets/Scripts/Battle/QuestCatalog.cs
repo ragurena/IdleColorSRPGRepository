@@ -610,12 +610,35 @@ public static class QuestCatalog
         string unlock = StageUnlockText(def);
         if (unlock.Length > 0)
             body = unlock + "\n" + body;
-        string ad = AdRewardText(def);
-        if (ad.Length == 0)
-            return body;
-        if (body.Length == 0)
-            return ad;
-        return body + "\n" + ad;
+        return body;
+    }
+
+    // 報酬の1行に付けられる機能アイコン。無い行は null。
+    public static string RewardIconFile(string line)
+    {
+        if (string.IsNullOrEmpty(line))
+            return null;
+        int best = int.MaxValue;
+        string file = null;
+        NoteRewardIcon(line, "R・G・B", "RGB生産_1024x1024.png", ref best, ref file);
+        NoteRewardIcon(line, "ボタンタップ", "RGB生産_1024x1024.png", ref best, ref file);
+        NoteRewardIcon(line, "ピクセル", "ピクセル生産_1024x1024.png", ref best, ref file);
+        NoteRewardIcon(line, "キャラ", "キャラ生産_1024x1024.png", ref best, ref file);
+        NoteRewardIcon(line, "合成", "合成_1024x1024.png", ref best, ref file);
+        NoteRewardIcon(line, "回復", "回復_1024x1024.png", ref best, ref file);
+        NoteRewardIcon(line, "バトル", "バトル_1024x1024.png", ref best, ref file);
+        NoteRewardIcon(line, "階層", "バトル_1024x1024.png", ref best, ref file);
+        NoteRewardIcon(line, "ステージ", "バトル_1024x1024.png", ref best, ref file);
+        return file;
+    }
+
+    static void NoteRewardIcon(string line, string key, string icon, ref int best, ref string file)
+    {
+        int index = line.IndexOf(key);
+        if (index < 0 || index >= best)
+            return;
+        best = index;
+        file = icon;
     }
 
     public static QuestAdBonus AdBonus(QuestDef def)

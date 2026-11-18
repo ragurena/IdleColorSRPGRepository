@@ -19,6 +19,7 @@ public class IdleRewardBoard : MonoBehaviour
     Text _offlineBody;
     RectTransform _offlineList;
     Button _offlineAd;
+    Text _offlineAdNote;
     Button _offlineClose;
     bool _idleAdBusy;
     bool _offlineAdBusy;
@@ -245,6 +246,8 @@ public class IdleRewardBoard : MonoBehaviour
         FillOfflineList(payout);
         if (_offlineAd != null)
             _offlineAd.gameObject.SetActive(ad);
+        if (_offlineAdNote != null)
+            _offlineAdNote.gameObject.SetActive(ad);
         if (_offlineClose != null)
         {
             Text label = _offlineClose.GetComponentInChildren<Text>();
@@ -306,6 +309,8 @@ public class IdleRewardBoard : MonoBehaviour
         _game.Idle.Limited = false;
         _game.Idle.LastInputUnixMs = HospitalState.NowUnixMs();
         _game.GrantOfflineReward(payout);
+        if (countAd)
+            _game.GrantAdWatchBonus();
         _game.SaveGame();
         HideOffline();
     }
@@ -328,10 +333,12 @@ public class IdleRewardBoard : MonoBehaviour
             for (int i = 0; i < payout.OrbSizes.Count; i++)
                 tiles.Add(CreateRewardTile(ItemIds.DisplayName(payout.OrbSizes[i]), payout.OrbEach, ItemImages.SpriteOf(payout.OrbSizes[i]), Color.white));
         }
-        tiles.Add(CreateRewardTile("R", payout.Red, null, new Color(0.95f, 0.28f, 0.24f, 1f)));
-        tiles.Add(CreateRewardTile("G", payout.Green, null, new Color(0.28f, 0.78f, 0.32f, 1f)));
-        tiles.Add(CreateRewardTile("B", payout.Blue, null, new Color(0.28f, 0.48f, 0.95f, 1f)));
-        tiles.Add(CreateRewardTile("全ピクセル", payout.AllPixels, null, Color.white));
+        Sprite rgb = ControllerProduction.ProductionPlaceIcon(Place.CreateR);
+        Sprite pixel = ControllerProduction.ProductionPlaceIcon(Place.CreatePixel);
+        tiles.Add(CreateRewardTile("R", payout.Red, rgb, rgb != null ? Color.white : new Color(0.95f, 0.28f, 0.24f, 1f)));
+        tiles.Add(CreateRewardTile("G", payout.Green, rgb, rgb != null ? Color.white : new Color(0.28f, 0.78f, 0.32f, 1f)));
+        tiles.Add(CreateRewardTile("B", payout.Blue, rgb, rgb != null ? Color.white : new Color(0.28f, 0.48f, 0.95f, 1f)));
+        tiles.Add(CreateRewardTile("全ピクセル", payout.AllPixels, pixel, Color.white));
         LayoutRewardTiles(tiles);
     }
 
@@ -465,7 +472,7 @@ public class IdleRewardBoard : MonoBehaviour
         if (canvas == null)
             return;
         _idlePopup = Dim("IdleLimitPopup", canvas);
-        Transform card = Card(_idlePopup.transform, 860f, 840f);
+        Transform card = Card(_idlePopup.transform, 860f, 980f);
         _idleBody = CreateLabel("Body", card, 28, TextAnchor.UpperCenter);
         PlaceTop(_idleBody.rectTransform, 28f, 200f);
         Text lead = CreateLabel("Lead", card, 28, TextAnchor.MiddleCenter);
@@ -476,6 +483,10 @@ public class IdleRewardBoard : MonoBehaviour
         Text gain = CreateLabel("Gain", card, 28, TextAnchor.MiddleCenter);
         gain.text = "を取得します";
         PlaceTop(gain.rectTransform, 522f, 48f);
+        Text bonus = CreateLabel("AdBonus", card, 24, TextAnchor.MiddleCenter);
+        bonus.text = ControllerProduction.AdWatchBonusNote;
+        bonus.color = new Color(0.78f, 0.80f, 0.84f, 1f);
+        PlaceTop(bonus.rectTransform, 578f, 96f);
         Button watch = WideButton("ButtonIdleWatchAd", card, "広告を見る", new Color(0.25f, 0.45f, 0.75f, 1f), 150f);
         Button close = WideButton("ButtonIdleClose", card, "広告を見ずに再開する", new Color(0.45f, 0.45f, 0.48f, 1f), 48f);
         watch.onClick.AddListener(WatchIdleAd);
@@ -515,12 +526,19 @@ public class IdleRewardBoard : MonoBehaviour
         }
         else
         {
-            Image swatch = CreateImage("Icon", cluster.transform, new Color(0f, 0f, 0f, 0f));
-            Prefer(swatch.rectTransform, 84f, 84f);
-            AddSwatch(swatch.transform, new Color(0.95f, 0.28f, 0.24f, 1f), 0f, 42f);
-            AddSwatch(swatch.transform, new Color(0.28f, 0.78f, 0.32f, 1f), 42f, 42f);
-            AddSwatch(swatch.transform, new Color(0.28f, 0.48f, 0.95f, 1f), 0f, 0f);
-            AddSwatch(swatch.transform, Color.white, 42f, 0f);
+            Image icon = CreateImage("Icon", cluster.transform, Color.white);
+            icon.preserveAspect = true;
+            Sprite pixel = ControllerProduction.ProductionPlaceIcon(Place.CreatePixel);
+            if (pixel != null)
+                icon.sprite = pixel;
+            else
+            {
+                AddSwatch(icon.transform, new Color(0.95f, 0.28f, 0.24f, 1f), 0f, 42f);
+                AddSwatch(icon.transform, new Color(0.28f, 0.78f, 0.32f, 1f), 42f, 42f);
+                AddSwatch(icon.transform, new Color(0.28f, 0.48f, 0.95f, 1f), 0f, 0f);
+                AddSwatch(icon.transform, Color.white, 42f, 0f);
+            }
+            Prefer(icon.rectTransform, 84f, 84f);
             RewardLabel(cluster.transform, "全ピクセル");
         }
         RewardLabel(cluster.transform, orb ? "×10" : "×100");
@@ -588,9 +606,18 @@ public class IdleRewardBoard : MonoBehaviour
         _offlineList = list.GetComponent<RectTransform>();
         _offlineList.anchorMin = new Vector2(0f, 0f);
         _offlineList.anchorMax = new Vector2(1f, 1f);
-        // 下端132・高さ84の広告ボタンより上に余白を残す。一覧はその分だけ上に寄る。
-        _offlineList.offsetMin = new Vector2(16f, 248f);
+        // 広告ボタンと、その上の付与説明より上に一覧を置く。
+        _offlineList.offsetMin = new Vector2(16f, 320f);
         _offlineList.offsetMax = new Vector2(-16f, -310f);
+        _offlineAdNote = CreateLabel("AdBonus", card, 22, TextAnchor.MiddleCenter);
+        _offlineAdNote.text = ControllerProduction.AdWatchBonusNote;
+        _offlineAdNote.color = new Color(0.78f, 0.80f, 0.84f, 1f);
+        RectTransform note = _offlineAdNote.rectTransform;
+        note.anchorMin = new Vector2(0f, 0f);
+        note.anchorMax = new Vector2(1f, 0f);
+        note.pivot = new Vector2(0.5f, 0f);
+        note.anchoredPosition = new Vector2(0f, 224f);
+        note.sizeDelta = new Vector2(-48f, 88f);
         _offlineAd = WideButton("ButtonOfflineWatchAd", card, "広告を見て放置報酬を3倍受け取る", new Color(0.25f, 0.45f, 0.75f, 1f), 132f);
         _offlineClose = WideButton("ButtonOfflineClose", card, "広告を見ずに閉じる", new Color(0.45f, 0.45f, 0.48f, 1f), 36f);
         _offlineAd.onClick.AddListener(WatchOfflineAd);

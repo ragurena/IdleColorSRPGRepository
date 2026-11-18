@@ -1,4 +1,7 @@
+using System.Collections;
+using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 
 // 起動中の画面。読み込み中は Loading の点が増え、終わると START になり、押されるまで残る。
@@ -11,6 +14,7 @@ public class StartScreen : MonoBehaviour
     RectTransform _artRect;
     Sprite _art;
     Text _label;
+    Image _logo;
     StartLabelGradient _gradient;
     int _dots;
     float _dotTime;
@@ -124,8 +128,128 @@ public class StartScreen : MonoBehaviour
         outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
         outline.effectDistance = new Vector2(3f, -3f);
 
+        Image logo = CreateImage("TitleLogo", _root.transform);
+        logo.color = Color.white;
+        logo.preserveAspect = true;
+        logo.raycastTarget = false;
+        logo.gameObject.SetActive(false);
+        _logo = logo;
+
         Canvas.ForceUpdateCanvases();
         _artFitted = FitArt();
+        ShowLogo(LoadLogo());
+        if (_logo.sprite == null)
+            StartCoroutine(LoadLogoLater());
+    }
+
+    void ShowLogo(Sprite sprite)
+    {
+        if (_logo == null || sprite == null)
+            return;
+        _logo.sprite = sprite;
+        _logo.gameObject.SetActive(true);
+        RectTransform rect = _logo.rectTransform;
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        float width = 960f;
+        float aspect = sprite.rect.width / Mathf.Max(1f, sprite.rect.height);
+        float height = width / aspect;
+        if (height > 520f)
+        {
+            height = 520f;
+            width = height * aspect;
+        }
+        rect.sizeDelta = new Vector2(width, height);
+        rect.anchoredPosition = new Vector2(0f, -72f);
+    }
+
+    static Sprite LoadLogo()
+    {
+        byte[] bytes = ReadLogoBytes();
+        return bytes == null ? null : LogoSprite(bytes);
+    }
+
+    static byte[] ReadLogoBytes()
+    {
+#if UNITY_EDITOR
+        string editor = Path.Combine(Application.dataPath, "Images", "title", "titlelogo.png");
+        if (File.Exists(editor))
+            return File.ReadAllBytes(editor);
+#endif
+        string streaming = Application.streamingAssetsPath + "/title/titlelogo.png";
+        if (streaming.Contains("://"))
+            return null;
+        if (File.Exists(streaming))
+            return File.ReadAllBytes(streaming);
+        return null;
+    }
+
+    IEnumerator LoadLogoLater()
+    {
+        string url = Application.streamingAssetsPath + "/title/titlelogo.png";
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            yield return request.SendWebRequest();
+            if (request.result != UnityWebRequest.Result.Success)
+                yield break;
+            ShowLogo(LogoSprite(request.downloadHandler.data));
+        }
+    }
+
+    static Sprite LogoSprite(byte[] bytes)
+    {
+        if (bytes == null || bytes.Length == 0)
+            return null;
+        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!tex.LoadImage(bytes))
+        {
+            Object.Destroy(tex);
+            return null;
+        }
+        tex.filterMode = FilterMode.Bilinear;
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.hideFlags = HideFlags.HideAndDontSave;
+        Sprite sprite = Sprite.Create(tex, OpaqueRect(tex), new Vector2(0.5f, 0.5f), 100f);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        return sprite;
+    }
+
+    // 正方形キャンバスの上下の透けを除いて、ロゴ本体だけを使う。
+    static Rect OpaqueRect(Texture2D tex)
+    {
+        Color32[] pixels = tex.GetPixels32();
+        int width = tex.width;
+        int height = tex.height;
+        int minX = width;
+        int minY = height;
+        int maxX = -1;
+        int maxY = -1;
+        const int step = 4;
+        for (int y = 0; y < height; y += step)
+        {
+            int row = y * width;
+            for (int x = 0; x < width; x += step)
+            {
+                if (pixels[row + x].a <= 16)
+                    continue;
+                if (x < minX)
+                    minX = x;
+                if (y < minY)
+                    minY = y;
+                if (x > maxX)
+                    maxX = x;
+                if (y > maxY)
+                    maxY = y;
+            }
+        }
+        if (maxX < minX)
+            return new Rect(0f, 0f, width, height);
+        minX = Mathf.Max(0, minX - step);
+        minY = Mathf.Max(0, minY - step);
+        maxX = Mathf.Min(width - 1, maxX + step);
+        maxY = Mathf.Min(height - 1, maxY + step);
+        return new Rect(minX, minY, maxX - minX + 1, maxY - minY + 1);
     }
 
     void Update()

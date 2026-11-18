@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -29,12 +30,12 @@ public sealed class QuestBoard
         background.color = new Color(0.05f, 0.06f, 0.09f, 0.96f);
         Stretch(_root.GetComponent<RectTransform>());
 
-        Text title = CreateText("TextQuestTitle", _root.transform, 34, TextAnchor.MiddleCenter);
+        Text title = CreateText("TextQuestTitle", _root.transform, 42, TextAnchor.MiddleCenter);
         title.text = "クエスト";
         title.color = Color.white;
         PlaceTop(title.rectTransform, 16f, 0f, 400f, 48f);
 
-        Button close = CreateButton("ButtonQuestClose", _root.transform, "閉じる", new Color(0.75f, 0.28f, 0.24f, 1f));
+        Button close = CreateButton("ButtonQuestClose", _root.transform, "閉じる", new Color(0.75f, 0.28f, 0.24f, 1f), 32);
         PlaceTop(close.GetComponent<RectTransform>(), 12f, 430f, 140f, 68f);
         close.onClick.AddListener(Close);
 
@@ -126,6 +127,8 @@ public sealed class QuestBoard
         if (toTop || rebuilt)
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
+            UpdateRows();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
             if (_scroll != null)
                 _scroll.verticalNormalizedPosition = toTop ? 1f : position;
         }
@@ -156,7 +159,7 @@ public sealed class QuestBoard
     void BuildRows()
     {
         for (int i = _content.childCount - 1; i >= 0; i--)
-            Object.DestroyImmediate(_content.GetChild(i).gameObject);
+            UnityEngine.Object.DestroyImmediate(_content.GetChild(i).gameObject);
         _rows.Clear();
         for (int i = 0; i < _visible.Count; i++)
             _rows.Add(CreateRow(_visible[i]));
@@ -174,34 +177,27 @@ public sealed class QuestBoard
         rowObject.transform.SetParent(_content, false);
         Image background = rowObject.GetComponent<Image>();
         background.color = new Color(0.16f, 0.18f, 0.24f, 1f);
-        // 黄色の報酬を、いまより2行多く出す。
-        const float rewardLines = 64f;
         LayoutElement element = rowObject.GetComponent<LayoutElement>();
-        element.minHeight = 204f + rewardLines;
-        element.preferredHeight = 204f + rewardLines;
+        element.minHeight = 360f;
+        element.preferredHeight = 360f;
 
         Row row = new Row();
         row.Id = def.Id;
-        row.Title = CreateText("Title", rowObject.transform, 28, TextAnchor.MiddleLeft);
+        row.Root = rowObject.GetComponent<RectTransform>();
+        row.Title = CreateText("Title", rowObject.transform, 34, TextAnchor.MiddleLeft);
         row.Title.color = Color.white;
-        StretchTop(row.Title.rectTransform, 16f, 370f, 10f, 36f);
-        row.Reward = CreateText("Reward", rowObject.transform, 22, TextAnchor.UpperLeft);
-        row.Reward.color = new Color(1f, 0.93f, 0.72f, 1f);
-        row.Reward.horizontalOverflow = HorizontalWrapMode.Wrap;
-        StretchTop(row.Reward.rectTransform, 16f, 370f, 48f, 76f + rewardLines);
-        row.Fraction = CreateText("Fraction", rowObject.transform, 24, TextAnchor.MiddleLeft);
+        StretchTop(row.Title.rectTransform, 16f, 370f, 10f, 48f);
+        row.Fraction = CreateText("Fraction", rowObject.transform, 30, TextAnchor.MiddleLeft);
         row.Fraction.color = Color.white;
-        StretchTop(row.Fraction.rectTransform, 16f, 370f, 126f + rewardLines, 32f);
         row.Bar = CreateBar(rowObject.transform);
-        StretchTop(row.Bar.GetComponent<RectTransform>(), 16f, 370f, 160f + rewardLines, 22f);
 
-        row.Claim = CreateButton("Claim", rowObject.transform, "受け取る", new Color(0.28f, 0.55f, 0.34f, 1f));
+        row.Claim = CreateButton("Claim", rowObject.transform, "受け取る", new Color(0.28f, 0.55f, 0.34f, 1f), 28);
         RectTransform claimRect = row.Claim.GetComponent<RectTransform>();
         claimRect.anchorMin = new Vector2(1f, 1f);
         claimRect.anchorMax = new Vector2(1f, 1f);
         claimRect.pivot = new Vector2(1f, 1f);
         claimRect.anchoredPosition = new Vector2(-12f, -10f);
-        claimRect.sizeDelta = new Vector2(210f, 168f + rewardLines);
+        claimRect.sizeDelta = new Vector2(210f, 320f);
         row.ClaimLabel = row.Claim.GetComponentInChildren<Text>();
         ColorBlock claimColors = row.Claim.colors;
         claimColors.disabledColor = Color.white;
@@ -209,7 +205,7 @@ public sealed class QuestBoard
         int claimId = def.Id;
         row.Claim.onClick.AddListener(() => PushClaim(claimId));
 
-        row.Lock = CreateButton("Lock", rowObject.transform, "ロック", new Color(0.28f, 0.30f, 0.36f, 1f));
+        row.Lock = CreateButton("Lock", rowObject.transform, "ロック", new Color(0.28f, 0.30f, 0.36f, 1f), 26);
         RectTransform lockRect = row.Lock.GetComponent<RectTransform>();
         lockRect.anchorMin = new Vector2(1f, 1f);
         lockRect.anchorMax = new Vector2(1f, 1f);
@@ -227,11 +223,11 @@ public sealed class QuestBoard
         choiceRect.anchorMax = new Vector2(1f, 1f);
         choiceRect.pivot = new Vector2(1f, 1f);
         choiceRect.anchoredPosition = new Vector2(-12f, -10f);
-        choiceRect.sizeDelta = new Vector2(210f, 168f + rewardLines);
-        row.PixelChoice = CreateButton("Pixel", choices.transform, "ピクセル生成枠+3", new Color(0.25f, 0.48f, 0.72f, 1f));
-        PlaceChoice(row.PixelChoice.GetComponent<RectTransform>(), 0f, 82f + rewardLines * 0.5f);
-        row.CharacterChoice = CreateButton("Character", choices.transform, "キャラ生成枠+3", new Color(0.72f, 0.42f, 0.22f, 1f));
-        PlaceChoice(row.CharacterChoice.GetComponent<RectTransform>(), 86f + rewardLines * 0.5f, 82f + rewardLines * 0.5f);
+        choiceRect.sizeDelta = new Vector2(210f, 320f);
+        row.PixelChoice = CreateButton("Pixel", choices.transform, "ピクセル生成枠+3", new Color(0.25f, 0.48f, 0.72f, 1f), 24);
+        PlaceChoice(row.PixelChoice.GetComponent<RectTransform>(), 0f, 120f);
+        row.CharacterChoice = CreateButton("Character", choices.transform, "キャラ生成枠+3", new Color(0.72f, 0.42f, 0.22f, 1f), 24);
+        PlaceChoice(row.CharacterChoice.GetComponent<RectTransform>(), 124f, 120f);
         int choiceQuest = def.Id;
         row.PixelChoice.onClick.AddListener(() => ChooseReward(choiceQuest, 1));
         row.CharacterChoice.onClick.AddListener(() => ChooseReward(choiceQuest, 2));
@@ -250,7 +246,7 @@ public sealed class QuestBoard
         if (_production.TryQuestRecord(def.Id, out record) && record != null)
             choice = record.Choice;
         row.Title.text = def.Title;
-        row.Reward.text = QuestCatalog.RewardText(def, claimed, choice);
+        LayoutReward(row, QuestCatalog.RewardText(def, claimed, choice));
         row.Fraction.text = _production.QuestFraction(def);
         row.Bar.value = _production.QuestBar(def);
 
@@ -276,6 +272,116 @@ public sealed class QuestBoard
             pixel.text = QuestCatalog.ChoiceLabel(def, 1, _production.QuestWarning(def, 1));
             character.text = QuestCatalog.ChoiceLabel(def, 2, _production.QuestWarning(def, 2));
         }
+    }
+
+    void LayoutReward(Row row, string reward)
+    {
+        string[] lines = string.IsNullOrEmpty(reward)
+            ? new string[0]
+            : reward.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        while (row.Lines.Count < lines.Length)
+            row.Lines.Add(CreateRewardLine(row.Root));
+        float width = row.Root.rect.width;
+        if (width < 8f)
+            width = 1000f;
+        const float rewardTop = 64f;
+        const float lineSlot = 46f;
+        float y = rewardTop;
+        float used = 0f;
+        for (int i = 0; i < row.Lines.Count; i++)
+        {
+            RewardLineView line = row.Lines[i];
+            bool show = i < lines.Length;
+            line.Root.gameObject.SetActive(show);
+            if (!show)
+                continue;
+            line.Label.text = lines[i];
+            Sprite sprite = ControllerProduction.FeatureIcon(QuestCatalog.RewardIconFile(lines[i]));
+            bool icon = sprite != null;
+            line.Icon.gameObject.SetActive(icon);
+            if (icon)
+                line.Icon.sprite = sprite;
+            float textLeft = icon ? 50f : 0f;
+            float textWidth = width - 16f - 370f - textLeft;
+            if (textWidth < 80f)
+                textWidth = 520f;
+            int perLine = (int)(textWidth / 32f);
+            if (perLine < 6)
+                perLine = 6;
+            int rows = (lines[i].Length + perLine - 1) / perLine;
+            if (rows < 1)
+                rows = 1;
+            float height = rows * 40f + 6f;
+            StretchTop(line.Root, 16f, 370f, y, height);
+            RectTransform iconRect = line.Icon.rectTransform;
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
+            iconRect.pivot = new Vector2(0f, 0.5f);
+            iconRect.anchoredPosition = Vector2.zero;
+            iconRect.sizeDelta = new Vector2(42f, 42f);
+            RectTransform textRect = line.Label.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(textLeft, 0f);
+            textRect.offsetMax = Vector2.zero;
+            y += height;
+            used += height;
+        }
+        if (used < lineSlot * 4f)
+            y = rewardTop + lineSlot * 4f;
+        y += 6f;
+        StretchTop(row.Fraction.rectTransform, 16f, 370f, y, 40f);
+        y += 46f;
+        StretchTop(row.Bar.GetComponent<RectTransform>(), 16f, 370f, y, 26f);
+        y += 40f;
+        LayoutElement element = row.Root.GetComponent<LayoutElement>();
+        if (element != null && Mathf.Abs(element.preferredHeight - y) > 0.5f)
+        {
+            element.minHeight = y;
+            element.preferredHeight = y;
+            if (_content != null)
+                LayoutRebuilder.MarkLayoutForRebuild(_content);
+        }
+        float buttonH = y - 20f;
+        if (buttonH < 120f)
+            buttonH = 120f;
+        Vector2 claimSize = row.Claim.GetComponent<RectTransform>().sizeDelta;
+        claimSize.y = buttonH;
+        row.Claim.GetComponent<RectTransform>().sizeDelta = claimSize;
+        RectTransform choices = row.Choices.GetComponent<RectTransform>();
+        Vector2 choiceSize = choices.sizeDelta;
+        choiceSize.y = buttonH;
+        choices.sizeDelta = choiceSize;
+        float half = (buttonH - 4f) * 0.5f;
+        PlaceChoice(row.PixelChoice.GetComponent<RectTransform>(), 0f, half);
+        PlaceChoice(row.CharacterChoice.GetComponent<RectTransform>(), half + 4f, half);
+    }
+
+    RewardLineView CreateRewardLine(RectTransform parent)
+    {
+        GameObject root = new GameObject("RewardLine", typeof(RectTransform));
+        root.transform.SetParent(parent, false);
+        Image icon = CreateImage("Icon", root.transform);
+        icon.preserveAspect = true;
+        Text label = CreateText("Text", root.transform, 30, TextAnchor.MiddleLeft);
+        label.color = new Color(1f, 0.93f, 0.72f, 1f);
+        label.horizontalOverflow = HorizontalWrapMode.Wrap;
+        label.verticalOverflow = VerticalWrapMode.Overflow;
+        RewardLineView view = new RewardLineView();
+        view.Root = root.GetComponent<RectTransform>();
+        view.Icon = icon;
+        view.Label = label;
+        return view;
+    }
+
+    static Image CreateImage(string name, Transform parent)
+    {
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(Image));
+        obj.transform.SetParent(parent, false);
+        Image image = obj.GetComponent<Image>();
+        image.color = Color.white;
+        image.raycastTarget = false;
+        return image;
     }
 
     void PushClaim(int id)
@@ -340,14 +446,14 @@ public sealed class QuestBoard
         return slider;
     }
 
-    Button CreateButton(string name, Transform parent, string label, Color color)
+    Button CreateButton(string name, Transform parent, string label, Color color, int fontSize)
     {
         GameObject obj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
         obj.transform.SetParent(parent, false);
         Image image = obj.GetComponent<Image>();
         image.color = color;
         Button button = obj.GetComponent<Button>();
-        Text text = CreateText("Text", obj.transform, 20, TextAnchor.MiddleCenter);
+        Text text = CreateText("Text", obj.transform, fontSize, TextAnchor.MiddleCenter);
         text.text = label;
         text.color = Color.white;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -406,11 +512,19 @@ public sealed class QuestBoard
         rect.offsetMax = Vector2.zero;
     }
 
+    sealed class RewardLineView
+    {
+        public RectTransform Root;
+        public Image Icon;
+        public Text Label;
+    }
+
     sealed class Row
     {
         public int Id;
+        public RectTransform Root;
         public Text Title;
-        public Text Reward;
+        public readonly List<RewardLineView> Lines = new List<RewardLineView>();
         public Text Fraction;
         public Slider Bar;
         public Button Claim;

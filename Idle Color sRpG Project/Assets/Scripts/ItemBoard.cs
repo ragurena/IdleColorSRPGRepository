@@ -190,7 +190,7 @@ public sealed class ItemBoard
         nameRect.offsetMax = new Vector2(-156f, -20f);
 
         Text detail = CreateText("Detail", plate.transform, 22, TextAnchor.UpperLeft);
-        detail.text = "所持 " + UiNumber.Format(count) + "\n次に倒した未所持の敵が必ず仲間になる。1回で終わる。";
+        detail.text = "所持 " + UiNumber.Format(count) + "\n次に倒した未所持の敵が必ず仲間になる。消費アイテム。";
         detail.color = SubInk;
         RectTransform detailRect = detail.rectTransform;
         detailRect.anchorMin = new Vector2(0f, 0f);
@@ -199,16 +199,22 @@ public sealed class ItemBoard
         detailRect.offsetMax = new Vector2(-156f, -62f);
 
         bool canUse = !armed && count > 0;
-        Button use = CreateButton("ButtonUseEnmusubi", plate.transform, armed ? "効果中" : "使う",
-            canUse ? new Color(0.28f, 0.55f, 0.34f, 1f) : new Color(0.45f, 0.48f, 0.52f, 1f));
+        Color useColor = new Color(0.45f, 0.48f, 0.52f, 1f);
+        if (armed)
+            useColor = new Color(0.72f, 0.42f, 0.18f, 1f);
+        else if (canUse)
+            useColor = new Color(0.28f, 0.55f, 0.34f, 1f);
+        Button use = CreateButton("ButtonUseEnmusubi", plate.transform, armed ? "使用中" : "使う", useColor);
         RectTransform useRect = use.GetComponent<RectTransform>();
         useRect.anchorMin = new Vector2(1f, 0.5f);
         useRect.anchorMax = new Vector2(1f, 0.5f);
         useRect.pivot = new Vector2(1f, 0.5f);
         useRect.anchoredPosition = new Vector2(-16f, 0f);
         useRect.sizeDelta = new Vector2(124f, 72f);
-        use.interactable = canUse;
-        if (canUse)
+        use.interactable = armed || canUse;
+        if (armed)
+            use.onClick.AddListener(AskStopCharm);
+        else if (canUse)
             use.onClick.AddListener(UseCharm);
     }
 
@@ -304,6 +310,13 @@ public sealed class ItemBoard
         if (_game == null || !_game.TryUseEnmusubi())
             return;
         Fill();
+    }
+
+    void AskStopCharm()
+    {
+        if (_game == null || !_game.IsEnmusubiArmed())
+            return;
+        _game.ShowConfirm("使用中止しますか？", () => _game.CancelEnmusubiUse());
     }
 
     void BuildUsePage()
