@@ -80,6 +80,11 @@ public class ControllerProduction : MonoBehaviour
     GameObject PanelImport;
     ControllerHospitalClass ControllerHospital;
     GameObject PanelHospital;
+    ControllerEnhanceClass ControllerEnhance;
+    GameObject PanelEnhance;
+    readonly EnhanceProgress Enhance = new EnhanceProgress();
+    readonly int[] PixelSpeedTapCounts = new int[Constants.CHARACTERS_PRODUCTION_PIXEL_NUM + 1];
+    Button ButtonEnhance;
     readonly HospitalState Hospital = new HospitalState();
     public readonly IdleRewardState Idle = new IdleRewardState();
     public readonly StoryState Story = new StoryState();
@@ -457,6 +462,7 @@ public class ControllerProduction : MonoBehaviour
         NormalizeClearedBattleFloors();
         ApplyCharacterLevelCap();
         ApplyFusionCountCap();
+        Enhance.ClampToCaps(CharacterLevelCapInt());
         bool rebuildImages = acceptedSave
             && !string.IsNullOrEmpty(acceptedVersion)
             && SaveClass.IsOlderThan(acceptedVersion, GameConfig.ImageDataVersion);
@@ -584,8 +590,20 @@ public class ControllerProduction : MonoBehaviour
             if (PanelHospital != null)
                 NotShowPanel(PanelHospital);
         }
+        if (PanelRGBProduction != null)
+        {
+            ControllerEnhance = GetComponent<ControllerEnhanceClass>();
+            if (ControllerEnhance == null)
+                ControllerEnhance = gameObject.AddComponent<ControllerEnhanceClass>();
+            ControllerEnhance.Initialize(this, PanelRGBProduction);
+            PanelEnhance = ControllerEnhance.Panel;
+            if (PanelEnhance != null)
+                NotShowPanel(PanelEnhance);
+        }
+        WireEnhanceButton();
         WireSelectScenePages();
         ApplyMainFeatureLocks();
+        ApplyAcademyToAllCharacters();
         if (ControllerBattle != null)
             ControllerBattle.BringQuestForward();
         if (Story != null && Story.CatchUp(this))
@@ -666,21 +684,21 @@ public class ControllerProduction : MonoBehaviour
             _rgbFxPrefix = "ButtonRProductionHelpCharacter";
             _rgbFxTint = RgbProduceFx.ChannelColor(0);
             ulong IncreaseValueRHelp = RgbSlotOutput(PersonIdHelpProductionR, CharactersIDHelpProductionR, 0, _onRgbSlot);
-            GainRgb(ref CurR, MaxR, IncreaseValueRHelp, 0);
+            GainRgb(ref CurR, MaxR, AddUlong(IncreaseValueRHelp, EnhanceAutoAmount(EnhanceSkillId.AutoR)), 0);
             UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
 
             //Gの生産
             _rgbFxPrefix = "ButtonGProductionHelpCharacter";
             _rgbFxTint = RgbProduceFx.ChannelColor(1);
             ulong IncreaseValueGHelp = RgbSlotOutput(PersonIdHelpProductionG, CharactersIDHelpProductionG, 1, _onRgbSlot);
-            GainRgb(ref CurG, MaxG, IncreaseValueGHelp, 1);
+            GainRgb(ref CurG, MaxG, AddUlong(IncreaseValueGHelp, EnhanceAutoAmount(EnhanceSkillId.AutoG)), 1);
             UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
 
             //Bの生産
             _rgbFxPrefix = "ButtonBProductionHelpCharacter";
             _rgbFxTint = RgbProduceFx.ChannelColor(2);
             ulong IncreaseValueBHelp = RgbSlotOutput(PersonIdHelpProductionB, CharactersIDHelpProductionB, 2, _onRgbSlot);
-            GainRgb(ref CurB, MaxB, IncreaseValueBHelp, 2);
+            GainRgb(ref CurB, MaxB, AddUlong(IncreaseValueBHelp, EnhanceAutoAmount(EnhanceSkillId.AutoB)), 2);
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
             //ピクセルの生産
@@ -885,7 +903,8 @@ public class ControllerProduction : MonoBehaviour
             Hospital,
             Idle,
             Story,
-            Challenges
+            Challenges,
+            Enhance
             );
         if (saved)
         {
@@ -1106,6 +1125,7 @@ public class ControllerProduction : MonoBehaviour
                     Idle,
                     Story,
                     Challenges,
+                    Enhance,
                     candidate.Path);
             }
             catch (Exception exception)
@@ -1122,6 +1142,8 @@ public class ControllerProduction : MonoBehaviour
             version = info.DataVersion ?? "";
             Hospital.FillMissingNurseSizes(HospitalNurseSize);
             Hospital.CatchUp(HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+            Enhance.ClampToCaps(CharacterLevelCapInt());
+            ApplyAcademyToAllCharacters();
             SaveBlocked = false;
             SetBattleSpeed(BattleSpeed);
             return true;
@@ -1231,6 +1253,8 @@ public class ControllerProduction : MonoBehaviour
         BattleRepeat = false;
         ClearedBattleStage = 0;
         Challenges.Clear();
+        Enhance.Clear();
+        ClearPixelSpeedTapCounts();
         _challengeDirty = false;
         _challengeTimeDirty = false;
         ApplyCharacterLevelCap();
@@ -1557,21 +1581,21 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonR()
     {
         Debug.Log("ButtonRが押された");
-        GainRgb(ref CurR, MaxR, IncreaseValueR, 0);
+        GainRgb(ref CurR, MaxR, AddUlong(IncreaseValueR, EnhanceRgbTapBonus()), 0);
         UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
     }
     // ButtonGが押されたら
     public void PushButtonG()
     {
         Debug.Log("ButtonGが押された");
-        GainRgb(ref CurG, MaxG, IncreaseValueG, 1);
+        GainRgb(ref CurG, MaxG, AddUlong(IncreaseValueG, EnhanceRgbTapBonus()), 1);
         UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
     }
     // ButtonBが押されたら
     public void PushButtonB()
     {
         Debug.Log("ButtonBが押された");
-        GainRgb(ref CurB, MaxB, IncreaseValueB, 2);
+        GainRgb(ref CurB, MaxB, AddUlong(IncreaseValueB, EnhanceRgbTapBonus()), 2);
         UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
     }
 
@@ -1665,6 +1689,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowFusionPanel();
         NotShowImportPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
     }
 
     //ピクセル生産シーンボタンが押されたら
@@ -1691,6 +1716,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowFusionPanel();
         NotShowImportPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
     }
 
     //キャラクター生産シーンボタンが押されたら
@@ -1716,6 +1742,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowFusionPanel();
         NotShowImportPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
     }
 
     //バトル編成シーンボタンが押されたら
@@ -1742,6 +1769,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowFusionPanel();
         NotShowImportPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
     }
 
     //バトルステージ選択シーンボタンが押されたら
@@ -1771,6 +1799,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowFusionPanel();
         NotShowImportPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
     }
 
     public void PushButtonSelectSceneCatalog()
@@ -1791,6 +1820,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowFusionPanel();
         NotShowImportPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
     }
 
     public void ReturnFromBattle()
@@ -1821,6 +1851,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowFusionPanel();
         NotShowImportPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
         RefreshCatalogBadge();
     }
 
@@ -1850,6 +1881,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowImportPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
     }
 
     void NotShowFusionPanel()
@@ -1878,6 +1910,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowHospitalPanel();
+        NotShowEnhancePanel();
     }
 
     void NotShowImportPanel()
@@ -1908,6 +1941,7 @@ public class ControllerProduction : MonoBehaviour
         NotShowCatalogPanel();
         NotShowFusionPanel();
         NotShowImportPanel();
+        NotShowEnhancePanel();
     }
 
     void NotShowHospitalPanel()
@@ -1916,6 +1950,70 @@ public class ControllerProduction : MonoBehaviour
             ControllerHospital.RefreshIfVisible();
         if (PanelHospital != null)
             NotShowPanel(PanelHospital);
+    }
+
+    public void PushButtonSelectSceneEnhance()
+    {
+        if (PanelEnhance == null)
+            return;
+
+        ShowPanel(PanelEnhance);
+        if (ControllerEnhance != null)
+            ControllerEnhance.Open();
+
+        NotShowPanel(PanelRGBProduction);
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
+        NotShowPanel(PanelCharacterProduction);
+        NotShowPanel(PanelBattleParty);
+        NotShowBattleStagePanel();
+        NotShowCatalogPanel();
+        NotShowFusionPanel();
+        NotShowImportPanel();
+        NotShowHospitalPanel();
+    }
+
+    void NotShowEnhancePanel()
+    {
+        if (PanelEnhance != null)
+            NotShowPanel(PanelEnhance);
+    }
+
+    void WireEnhanceButton()
+    {
+        GameObject bar = GameObject.Find("PanelSelectScene");
+        GameObject buttonObject = null;
+        if (bar != null)
+        {
+            for (int i = 0; i < bar.transform.childCount; i++)
+            {
+                Transform child = bar.transform.GetChild(i);
+                if (child.name.Contains("Enhance"))
+                {
+                    buttonObject = child.gameObject;
+                    break;
+                }
+            }
+        }
+        if (buttonObject == null)
+            buttonObject = GameObject.Find("ButtonEnhance_Page2");
+        if (buttonObject == null)
+        {
+            Debug.LogWarning("ButtonEnhance_Page2 が見つかりません");
+            return;
+        }
+
+        Text label = buttonObject.GetComponentInChildren<Text>();
+        if (label != null)
+            label.text = "強化";
+        Button button = buttonObject.GetComponent<Button>();
+        if (button == null)
+            return;
+        SilenceSceneSwitch(button);
+        button.onClick.RemoveListener(PushButtonSelectSceneEnhance);
+        button.onClick.AddListener(PushButtonSelectSceneEnhance);
+        ButtonEnhance = button;
+        StyleSceneNavButton(button, true);
     }
 
     // 編成は下のメニューから外し、ステージ画面の左下へ置く。出撃ボタンと左右で対になる。
@@ -2199,6 +2297,11 @@ public class ControllerProduction : MonoBehaviour
                     File.WriteAllBytes(Path.Combine(destDir, fileName), www.downloadHandler.data);
             }
         }
+    }
+
+    public static Sprite GetSceneFeatureIcon(string fileName)
+    {
+        return SceneIconSprite(fileName);
     }
 
     static Sprite SceneIconSprite(string fileName)
@@ -4772,6 +4875,7 @@ public class ControllerProduction : MonoBehaviour
         if (ProductionPixelIndex < 1)
             return;
 
+        NotePixelSpeedTap(ProductionPixelIndex);
         ushort beforeR = ProgressProductionPixel[ProductionPixelIndex, 1];
         ushort beforeG = ProgressProductionPixel[ProductionPixelIndex, 2];
         ushort beforeB = ProgressProductionPixel[ProductionPixelIndex, 3];
@@ -4939,6 +5043,7 @@ public class ControllerProduction : MonoBehaviour
             CharacterClass produced = ImportedCharacters.FindAny(CharactersAll, (uint)(CharactersIDProducedCharacter[argIndex]));
             int ownedBefore = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
             GrantCompletedCharacter(argIndex, produced);
+            TryGrantEnhanceHalfCharacter(produced);
             int ownedAfter = produced.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)produced.OwnedNumCur;
             if (ownedAfter > ownedBefore && ControllerBattle != null)
                 ControllerBattle.AddAllyLives(produced.ID, ownedAfter - ownedBefore);
@@ -4968,7 +5073,17 @@ public class ControllerProduction : MonoBehaviour
 
         bool ProductionCharacterFlag;
         bool paintedPixel;
-        ProductionCharacter(Trigger.User, ProductionCharacterIndex, 1, out ProductionCharacterFlag, out _, out paintedPixel);
+        uint paint = 1;
+        int tapBonus = EnhanceCharacterTapBonus();
+        if (tapBonus > 0)
+        {
+            long total = (long)paint + tapBonus;
+            if (total > uint.MaxValue)
+                paint = uint.MaxValue;
+            else
+                paint = (uint)total;
+        }
+        ProductionCharacter(Trigger.User, ProductionCharacterIndex, paint, out ProductionCharacterFlag, out _, out paintedPixel);
         SyncCharacterWorkerMotion(ProductionCharacterIndex, ProductionCharacterFlag, paintedPixel);
         if (paintedPixel || ProductionCharacterFlag)
             UpdateProductionCharacterProgressImage(ProductionCharacterIndex);
@@ -5749,13 +5864,260 @@ public class ControllerProduction : MonoBehaviour
         return held > 0 ? held : 0;
     }
 
-    // 消費しても達成フラグと育成上限は残る。受け取る画面はまだ無い。
+    // 消費しても達成フラグと育成上限は残る。強化画面でスキル解放に使う。
     public bool TrySpendChallengeStars(int count)
     {
         if (!Challenges.TrySpend(count))
             return false;
         SaveGame();
         return true;
+    }
+
+    public ulong GetWhitePixelStock()
+    {
+        return PixelStock(EnhanceSkillCatalog.WhiteR, EnhanceSkillCatalog.WhiteG, EnhanceSkillCatalog.WhiteB);
+    }
+
+    public bool IsEnhanceUnlocked(EnhanceSkillId id)
+    {
+        return Enhance.IsUnlocked(id);
+    }
+
+    public int EnhanceLevel(EnhanceSkillId id)
+    {
+        return Enhance.Level(id);
+    }
+
+    public int EnhanceLevelCap(EnhanceSkillId id)
+    {
+        EnhanceSkillDef def = EnhanceSkillCatalog.Get(id);
+        if (def == null)
+            return 1;
+        return EnhanceSkillCatalog.LevelCap(def.CapKind, CharacterLevelCapInt());
+    }
+
+    int CharacterLevelCapInt()
+    {
+        long cap = BattleBalance != null ? BattleBalance.MaxLevel : BattleBalanceConfig.InitialLevelCap;
+        if (cap < 1)
+            return 1;
+        if (cap > int.MaxValue)
+            return int.MaxValue;
+        return (int)cap;
+    }
+
+    public bool TryUnlockEnhance(EnhanceSkillId id)
+    {
+        if (!Enhance.TryBeginAction())
+            return false;
+        try
+        {
+            EnhanceSkillDef def = EnhanceSkillCatalog.Get(id);
+            if (def == null || Enhance.IsUnlocked(id))
+                return false;
+            if (!Challenges.TrySpend(def.UnlockStars))
+                return false;
+            if (!Enhance.Unlock(id))
+                return false;
+            SaveGame();
+            NotifyEnhanceChanged(id);
+            return true;
+        }
+        finally
+        {
+            Enhance.EndAction();
+        }
+    }
+
+    public bool TryUpgradeEnhance(EnhanceSkillId id)
+    {
+        if (!Enhance.TryBeginAction())
+            return false;
+        try
+        {
+            EnhanceSkillDef def = EnhanceSkillCatalog.Get(id);
+            if (def == null || !Enhance.IsUnlocked(id))
+                return false;
+            int cap = EnhanceLevelCap(id);
+            int level = Enhance.Level(id);
+            if (level >= cap)
+                return false;
+            long cost = EnhanceSkillCatalog.UpgradeCost(def, level + 1);
+            if (cost < 1 || cost == long.MaxValue)
+                return false;
+            if (!TrySpendWhitePixels(cost))
+                return false;
+            if (!Enhance.LevelUp(id, cap))
+                return false;
+            if (id == EnhanceSkillId.HpBonus || id == EnhanceSkillId.AtkBonus || id == EnhanceSkillId.DefBonus)
+                ApplyAcademyToAllCharacters();
+            SaveGame();
+            NotifyEnhanceChanged(id);
+            return true;
+        }
+        finally
+        {
+            Enhance.EndAction();
+        }
+    }
+
+    void NotifyEnhanceChanged(EnhanceSkillId id)
+    {
+        if (ControllerEnhance != null)
+            ControllerEnhance.Refresh();
+        if (id == EnhanceSkillId.RgbTapBonus
+            || id == EnhanceSkillId.AutoR
+            || id == EnhanceSkillId.AutoG
+            || id == EnhanceSkillId.AutoB)
+            UpdateRGBProductionScene();
+    }
+
+    bool TrySpendWhitePixels(long count)
+    {
+        if (count < 1)
+            return false;
+        ulong held = GetWhitePixelStock();
+        if (held < (ulong)count)
+            return false;
+        try
+        {
+            SpendPixel(EnhanceSkillCatalog.WhiteR, EnhanceSkillCatalog.WhiteG, EnhanceSkillCatalog.WhiteB, count);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    int EnhanceEffectLevel(EnhanceSkillId id)
+    {
+        if (!Enhance.IsUnlocked(id))
+            return 0;
+        return Enhance.Level(id);
+    }
+
+    ulong EnhanceRgbTapBonus()
+    {
+        long amount = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.RgbTapBonus, EnhanceEffectLevel(EnhanceSkillId.RgbTapBonus));
+        return amount < 0 ? 0UL : (ulong)amount;
+    }
+
+    ulong EnhanceAutoAmount(EnhanceSkillId id)
+    {
+        long amount = EnhanceSkillCatalog.EffectAmount(id, EnhanceEffectLevel(id));
+        return amount < 0 ? 0UL : (ulong)amount;
+    }
+
+    ulong EnhancePixelCompletionExtra(int slot)
+    {
+        long gen = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.PixelGenBonus, EnhanceEffectLevel(EnhanceSkillId.PixelGenBonus));
+        long tapLevel = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.PixelSpeedTapBonus, EnhanceEffectLevel(EnhanceSkillId.PixelSpeedTapBonus));
+        long taps = 0;
+        if (slot >= 0 && slot < PixelSpeedTapCounts.Length)
+            taps = PixelSpeedTapCounts[slot];
+        long tapBonus = 0;
+        if (tapLevel > 0 && taps > 0)
+        {
+            if (taps > long.MaxValue / tapLevel)
+                tapBonus = long.MaxValue;
+            else
+                tapBonus = taps * tapLevel;
+        }
+        long total = gen;
+        if (tapBonus > 0)
+        {
+            if (total > long.MaxValue - tapBonus)
+                total = long.MaxValue;
+            else
+                total += tapBonus;
+        }
+        return total < 0 ? 0UL : (ulong)total;
+    }
+
+    int EnhanceCharacterTapBonus()
+    {
+        long amount = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.CharTapBonus, EnhanceEffectLevel(EnhanceSkillId.CharTapBonus));
+        if (amount < 0)
+            return 0;
+        if (amount > int.MaxValue)
+            return int.MaxValue;
+        return (int)amount;
+    }
+
+    void NotePixelSpeedTap(int slot)
+    {
+        if (slot < 0 || slot >= PixelSpeedTapCounts.Length)
+            return;
+        if (PixelSpeedTapCounts[slot] < int.MaxValue)
+            PixelSpeedTapCounts[slot]++;
+    }
+
+    void ClearPixelSpeedTapCounts()
+    {
+        if (PixelSpeedTapCounts == null)
+            return;
+        for (int i = 0; i < PixelSpeedTapCounts.Length; i++)
+            PixelSpeedTapCounts[i] = 0;
+    }
+
+    void ClearPixelSpeedTap(int slot)
+    {
+        if (slot < 0 || slot >= PixelSpeedTapCounts.Length)
+            return;
+        PixelSpeedTapCounts[slot] = 0;
+    }
+
+    void AddPixelsCapped(int r, int g, int b, ulong amount)
+    {
+        if (amount == 0 || CurPixels == null)
+            return;
+        if (r < 0 || g < 0 || b < 0 || r > 255 || g > 255 || b > 255)
+            return;
+        CurPixels[r, g, b] = AddUlong(CurPixels[r, g, b], amount);
+    }
+
+    void ApplyAcademyToAllCharacters()
+    {
+        long hp = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.HpBonus, EnhanceEffectLevel(EnhanceSkillId.HpBonus));
+        long atk = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.AtkBonus, EnhanceEffectLevel(EnhanceSkillId.AtkBonus));
+        long def = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.DefBonus, EnhanceEffectLevel(EnhanceSkillId.DefBonus));
+        if (CharactersAll != null)
+        {
+            for (int i = 1; i < CharactersAll.Length; i++)
+            {
+                CharacterClass character = CharactersAll[i];
+                if (character == null || character.ID == 0)
+                    continue;
+                character.ApplyAcademyBonus(hp, atk, def);
+                if (ControllerBattle != null)
+                    ControllerBattle.ApplyAllyFusion(character);
+            }
+        }
+        ImportedCharacters.ForEach(character =>
+        {
+            if (character == null || character.ID < ImportedCharacters.FirstId)
+                return;
+            character.ApplyAcademyBonus(hp, atk, def);
+            if (ControllerBattle != null)
+                ControllerBattle.ApplyAllyFusion(character);
+        });
+    }
+
+    void TryGrantEnhanceHalfCharacter(CharacterClass produced)
+    {
+        if (produced == null)
+            return;
+        int chance = EnhanceEffectLevel(EnhanceSkillId.CharChanceBonus);
+        if (chance < 1)
+            return;
+        if (chance > 50)
+            chance = 50;
+        if (UnityEngine.Random.Range(0, 100) >= chance)
+            return;
+        if (IsOwnedAtCap(produced))
+            return;
+        produced.GainOwnedTier(OwnedTier.Half, 1, BattleBalance.MaxLives);
     }
 
     public bool TryCompleteChallenge(int stageIndex, int rangeStart, ChallengeKind kind)
@@ -7654,7 +8016,9 @@ public class ControllerProduction : MonoBehaviour
             ProgressProductionPixel[argIndex, 3] = 0;
             ClearPixelSpend(argIndex);
 
-            CurPixels[pixelR, pixelG, pixelB] += createPixels;
+            AddPixelsCapped(pixelR, pixelG, pixelB, createPixels);
+            AddPixelsCapped(pixelR, pixelG, pixelB, EnhancePixelCompletionExtra(argIndex));
+            ClearPixelSpeedTap(argIndex);
             if (pixelPerson != null)
                 pixelPerson.AddPixelCompletion(pixelR, pixelG, pixelB, PersonBalance);
             ProductionPixelFlag = true;
@@ -9284,8 +9648,10 @@ public class ControllerProduction : MonoBehaviour
     {
         UpdateRGBProductionSliderOneColor(TextColorValue, ColorValue, MaxValue, SliderColorValue, SliderCostIncrease, SliderCostMaxValueUp);
 
-        TextIncreaseValueLeft.text = "+" + UiNumber.Format(IncreaseValue);
-        TextIncreaseValueRight.text = "+" + UiNumber.Format(IncreaseValue);
+        // 表示も実際のタップ量と同じく、アカデミースキル分を足す。
+        ulong shownTap = AddUlong(IncreaseValue, EnhanceRgbTapBonus());
+        TextIncreaseValueLeft.text = "+" + UiNumber.Format(shownTap);
+        TextIncreaseValueRight.text = "+" + UiNumber.Format(shownTap);
         TextCostIncreaseValueUp.text = UiNumber.Format(CostIncreaseUp);
         SliderCostIncrease.maxValue = CostIncreaseUp;
         SliderCostIncrease.minValue = 0;

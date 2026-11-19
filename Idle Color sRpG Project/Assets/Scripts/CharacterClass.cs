@@ -1107,6 +1107,26 @@ public class CharacterClass //: MonoBehaviour
         CalcTotalStats();
     }
 
+    // アカデミースキルの味方全体ボーナス。Stats[3] に載せ、装備枠 Stats[4] とは分ける。
+    public void ApplyAcademyBonus(long hp, long atk, long def)
+    {
+        if (Stats == null || Stats.Length < 4)
+            return;
+        if (Stats[3] == null)
+            Stats[3] = new StatisticsClass();
+        if (hp < 0)
+            hp = 0;
+        if (atk < 0)
+            atk = 0;
+        if (def < 0)
+            def = 0;
+        Stats[3].HPMax = (ulong)hp;
+        Stats[3].HPCur = (ulong)hp;
+        Stats[3].ATK = (ulong)atk;
+        Stats[3].DEF = (ulong)def;
+        CalcTotalStats();
+    }
+
     bool CalcTotalStats()
     {
         ulong fusionHp = FusionStatBonus(Stats[1].HPMax, Stats[2].HPMax);

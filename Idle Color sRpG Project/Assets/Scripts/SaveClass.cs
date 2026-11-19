@@ -62,7 +62,8 @@ public class SaveClass// : MonoBehaviour
         HospitalState hospital,
         IdleRewardState idle,
         StoryState story,
-        ChallengeProgress challenges
+        ChallengeProgress challenges,
+        EnhanceProgress enhance
         )
     {
         Debug.Log("セーブ : " + Application.persistentDataPath + "/ICS.csv");
@@ -318,6 +319,8 @@ public class SaveClass// : MonoBehaviour
         }
         if (challenges != null)
             challenges.Write(sw);
+        if (enhance != null)
+            enhance.Write(sw);
 
         if (ItemCounts != null)
         {
@@ -472,6 +475,7 @@ public class SaveClass// : MonoBehaviour
         IdleRewardState idle,
         StoryState story,
         ChallengeProgress challenges,
+        EnhanceProgress enhance,
         string sourcePath
         )
     {
@@ -486,6 +490,8 @@ public class SaveClass// : MonoBehaviour
         Debug.Log("ロード : " + sourcePath);
         if (challenges != null)
             challenges.Clear();
+        if (enhance != null)
+            enhance.Clear();
 
         // キャラを途中に入れた版より古いセーブは、入れた位置以降の ID をずらす
         string savedVersion = ReadDataVersion(sourcePath);
@@ -527,6 +533,8 @@ public class SaveClass// : MonoBehaviour
             if (values.Length >= 2 && people != null && people.TryRead(values[0], values[1]))
                 continue;
             if (challenges != null && challenges.TryRead(values))
+                continue;
+            if (enhance != null && enhance.TryRead(values))
                 continue;
 
             if (values[0].Equals("DataVersion"))
