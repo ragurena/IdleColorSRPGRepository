@@ -33,12 +33,54 @@ public class ControllerImportCharacterClass : MonoBehaviour
     RectTransform _content;
     bool _picking;
     bool _showingRebirth;
+    bool _retouchPayDone;
+    uint _retouchPickId;
     Coroutine _readPick;
     ImportRebirthPlayer _rebirth;
     readonly List<GameObject> _cells = new List<GameObject>();
 
+    GameObject _retouchPay;
+    Text _retouchPayPrompt;
+    Text _retouchPayDetail;
+    Button _retouchAdButton;
+    Button _retouchTicketButton;
+    Text _retouchTicketLabel;
+    GameObject _retouchConfirm;
+    Image _retouchOldImage;
+    Image _retouchNewImage;
+    Sprite _retouchOldSprite;
+    Sprite _retouchNewSprite;
+    Text _retouchCostIntro;
+    Text _retouchCostR;
+    Text _retouchCostG;
+    Text _retouchCostB;
+    Text _retouchCostError;
+    Text _retouchConfirmMessage;
+    Button _retouchConfirmButton;
+    string _retouchCostStatus;
+
+    GameObject _attributePanel;
+    Text _attributePrompt;
+    Text _attributeMessage;
+    Button _attributeAdButton;
+    Button _attributeTicketButton;
+    Text _attributeTicketLabel;
+    uint _attributeId;
+    CharacterType _attributeSelected;
+    readonly Button[] _attributeTypeButtons = new Button[5];
+    readonly CharacterType[] _attributeTypes =
+    {
+        CharacterType.Fire,
+        CharacterType.Grass,
+        CharacterType.Water,
+        CharacterType.Dark,
+        CharacterType.Light,
+    };
+    static Sprite _attributeGradientSprite;
+
     const float FrameThin = 3f;
     static readonly Color DeleteFill = new Color(0.78f, 0.18f, 0.16f, 1f);
+    static readonly Color RetouchFill = new Color(0.14f, 0.68f, 0.28f, 1f);
     static readonly Color ImportOkFill = new Color(0.12f, 0.72f, 0.22f, 1f);
     static readonly Color ImportCancelFill = new Color(0.86f, 0.16f, 0.12f, 1f);
 
@@ -66,6 +108,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _showingRebirth = false;
         HideDelete();
         DiscardPending();
+        DiscardRetouch();
+        HideAttributeChange();
     }
 
     public void Refresh()
@@ -95,6 +139,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
             return;
         if (_deleteConfirm != null && _deleteConfirm.activeSelf)
             return;
+        if (ImportExtraBusy())
+            return;
         string capMessage;
         if (ImportedCharacters.RejectImportCount(out capMessage))
         {
@@ -102,6 +148,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
             return;
         }
 
+        _retouchPickId = 0;
         _picking = true;
         PngFilePicker.Pick(OnPicked);
     }
@@ -157,11 +204,13 @@ public class ControllerImportCharacterClass : MonoBehaviour
             yield break;
         if (path == null)
         {
+            _retouchPickId = 0;
             SetMessage("この環境ではファイルを選べません。", false);
             yield break;
         }
         if (string.IsNullOrEmpty(path))
         {
+            _retouchPickId = 0;
             SetMessage("ファイルを選びませんでした。", false);
             yield break;
         }
@@ -186,7 +235,27 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
         if (bytes == null)
         {
+            _retouchPickId = 0;
             SetMessage("ファイルを読めませんでした。", false);
+            yield break;
+        }
+
+        if (_retouchPickId != 0)
+        {
+            uint targetId = _retouchPickId;
+            _retouchPickId = 0;
+            string retouchMessage;
+            bool retouchPrepared = _production.TryPrepareRetouch(targetId, bytes, out retouchMessage);
+            if (!retouchPrepared)
+            {
+                SetMessage(retouchMessage, false);
+                yield break;
+            }
+            _retouchPayDone = !_production.PreparedRetouchRequiresPay();
+            if (_retouchPayDone)
+                ShowRetouchConfirm();
+            else
+                ShowRetouchPay();
             yield break;
         }
 
@@ -228,9 +297,12 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
     void Update()
     {
-        if (_confirm == null || !_confirm.activeSelf || _showingRebirth)
+        if (_showingRebirth)
             return;
-        PaintImportCost();
+        if (_confirm != null && _confirm.activeSelf)
+            PaintImportCost();
+        if (_retouchConfirm != null && _retouchConfirm.activeSelf)
+            PaintRetouchCost();
     }
 
     void PaintImportCost()
@@ -403,8 +475,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
         GameObject picture = new GameObject("Picture", typeof(RectTransform));
         picture.transform.SetParent(cell.transform, false);
         RectTransform pictureRect = picture.GetComponent<RectTransform>();
-        pictureRect.anchorMin = new Vector2(0.15f, 0.46f);
-        pictureRect.anchorMax = new Vector2(0.85f, 0.96f);
+        pictureRect.anchorMin = new Vector2(0.15f, 0.58f);
+        pictureRect.anchorMax = new Vector2(0.85f, 0.97f);
         pictureRect.offsetMin = Vector2.zero;
         pictureRect.offsetMax = Vector2.zero;
         Image image = picture.AddComponent<Image>();
@@ -412,10 +484,10 @@ public class ControllerImportCharacterClass : MonoBehaviour
         image.raycastTarget = false;
         image.sprite = SpriteOf(character);
 
-        Text label = CreateText("Label", cell.transform, 18, TextAnchor.UpperCenter);
+        Text label = CreateText("Label", cell.transform, 17, TextAnchor.UpperCenter);
         RectTransform labelRect = label.rectTransform;
-        labelRect.anchorMin = new Vector2(0f, 0.22f);
-        labelRect.anchorMax = new Vector2(1f, 0.46f);
+        labelRect.anchorMin = new Vector2(0f, 0.48f);
+        labelRect.anchorMax = new Vector2(1f, 0.58f);
         labelRect.offsetMin = new Vector2(4f, 0f);
         labelRect.offsetMax = new Vector2(-4f, 0f);
         label.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -424,18 +496,68 @@ public class ControllerImportCharacterClass : MonoBehaviour
 
         uint id = character.ID;
         string name = string.IsNullOrWhiteSpace(character.Name) ? "ななし" : character.Name.Trim();
+
+        GameObject retouchObject = new GameObject("ButtonRetouch", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        retouchObject.transform.SetParent(cell.transform, false);
+        RectTransform retouchRect = retouchObject.GetComponent<RectTransform>();
+        retouchRect.anchorMin = new Vector2(0.08f, 0.33f);
+        retouchRect.anchorMax = new Vector2(0.92f, 0.46f);
+        retouchRect.offsetMin = Vector2.zero;
+        retouchRect.offsetMax = Vector2.zero;
+        retouchObject.GetComponent<Image>().color = Color.white;
+        Button retouch = retouchObject.GetComponent<Button>();
+        retouch.targetGraphic = retouchObject.GetComponent<Image>();
+        retouch.onClick.AddListener(() => PushRetouch(id));
+        Text retouchLabel = CreateText("Text", retouchObject.transform, 18, TextAnchor.MiddleCenter);
+        Stretch(retouchLabel.rectTransform);
+        retouchLabel.text = "手直し";
+        retouchLabel.color = Color.white;
+        StyleChromeButton(retouch);
+        PaintRetouchFill(retouch);
+
+        GameObject attributeObject = new GameObject("ButtonAttributeChange", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        attributeObject.transform.SetParent(cell.transform, false);
+        RectTransform attributeRect = attributeObject.GetComponent<RectTransform>();
+        attributeRect.anchorMin = new Vector2(0.08f, 0.18f);
+        attributeRect.anchorMax = new Vector2(0.92f, 0.31f);
+        attributeRect.offsetMin = Vector2.zero;
+        attributeRect.offsetMax = Vector2.zero;
+        Image attributeImage = attributeObject.GetComponent<Image>();
+        attributeImage.sprite = AttributeGradientSprite();
+        attributeImage.type = Image.Type.Simple;
+        attributeImage.color = Color.white;
+        attributeImage.preserveAspect = false;
+        Button attribute = attributeObject.GetComponent<Button>();
+        attribute.targetGraphic = attributeImage;
+        attribute.onClick.AddListener(() => PushAttributeChange(id));
+        Text attributeLabel = CreateText("Text", attributeObject.transform, 16, TextAnchor.MiddleCenter);
+        Stretch(attributeLabel.rectTransform);
+        bool attributeUsed = character.AttributeChangeUsed;
+        attributeLabel.text = attributeUsed ? "属性済" : "属性チェンジ";
+        attributeLabel.color = attributeUsed ? new Color(0.55f, 0.55f, 0.55f, 1f) : Color.white;
+        PaintAttributeGradientButton(attribute);
+        if (attributeUsed)
+        {
+            attribute.interactable = false;
+            attributeImage.color = new Color(0.4f, 0.4f, 0.4f, 1f);
+            ColorBlock usedColors = attribute.colors;
+            usedColors.disabledColor = new Color(0.4f, 0.4f, 0.4f, 1f);
+            attribute.colors = usedColors;
+        }
+        EnsureWhiteFrame(attributeObject.transform, FrameThin);
+
         GameObject deleteObject = new GameObject("ButtonDelete", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         deleteObject.transform.SetParent(cell.transform, false);
         RectTransform deleteRect = deleteObject.GetComponent<RectTransform>();
         deleteRect.anchorMin = new Vector2(0.08f, 0.03f);
-        deleteRect.anchorMax = new Vector2(0.92f, 0.2f);
+        deleteRect.anchorMax = new Vector2(0.92f, 0.16f);
         deleteRect.offsetMin = Vector2.zero;
         deleteRect.offsetMax = Vector2.zero;
         deleteObject.GetComponent<Image>().color = Color.white;
         Button delete = deleteObject.GetComponent<Button>();
         delete.targetGraphic = deleteObject.GetComponent<Image>();
         delete.onClick.AddListener(() => AskDelete(id, name));
-        Text deleteLabel = CreateText("Text", deleteObject.transform, 20, TextAnchor.MiddleCenter);
+        Text deleteLabel = CreateText("Text", deleteObject.transform, 18, TextAnchor.MiddleCenter);
         Stretch(deleteLabel.rectTransform);
         deleteLabel.text = "消す";
         deleteLabel.color = Color.white;
@@ -450,6 +572,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
         if (_showingRebirth || _picking || _production == null)
             return;
         if (_confirm != null && _confirm.activeSelf)
+            return;
+        if (ImportExtraBusy())
             return;
         if (ImportedCharacters.Find(id) == null)
             return;
@@ -559,6 +683,720 @@ public class ControllerImportCharacterClass : MonoBehaviour
         BuildConfirm();
         BuildRebirth();
         BuildDeleteConfirm();
+        BuildRetouchPay();
+        BuildRetouchConfirm();
+        BuildAttributeChange();
+    }
+
+    public void PushRetouch(uint id)
+    {
+        if (_picking || _showingRebirth || _production == null || id == 0)
+            return;
+        if (_confirm != null && _confirm.activeSelf)
+            return;
+        if (_deleteConfirm != null && _deleteConfirm.activeSelf)
+            return;
+        if (ImportExtraBusy())
+            return;
+        if (ImportedCharacters.Find(id) == null)
+            return;
+        _retouchPickId = id;
+        _picking = true;
+        PngFilePicker.Pick(OnPicked);
+    }
+
+    public void PushAttributeChange(uint id)
+    {
+        if (_picking || _showingRebirth || _production == null || id == 0)
+            return;
+        if (_confirm != null && _confirm.activeSelf)
+            return;
+        if (_deleteConfirm != null && _deleteConfirm.activeSelf)
+            return;
+        if (ImportExtraBusy())
+            return;
+        CharacterClass character = ImportedCharacters.Find(id);
+        if (character == null)
+            return;
+        if (character.AttributeChangeUsed)
+        {
+            SetMessage("このキャラの属性チェンジはもう使えません。1体につき1回だけです。", false);
+            return;
+        }
+        _attributeId = id;
+        _attributeSelected = CharacterType.None;
+        string name = string.IsNullOrWhiteSpace(character.Name) ? "ななし" : character.Name.Trim();
+        if (_attributePrompt != null)
+        {
+            _attributePrompt.text = name + " の属性を変えます。いまは "
+                + ImportedCharacters.AttributeLabel(character.CharacterType)
+                + " です。\n変えたい属性を選んでから、広告視聴か属性チェンジチケットが必要です。";
+        }
+        SetAttributeMessage("", true);
+        PaintAttributeTypeButtons(character.CharacterType);
+        PaintAttributePayButtons();
+        if (_attributePanel != null)
+            _attributePanel.SetActive(true);
+    }
+
+    public void PushAttributeType(CharacterType type)
+    {
+        if (_attributePanel == null || !_attributePanel.activeSelf || _production == null)
+            return;
+        CharacterClass character = ImportedCharacters.Find(_attributeId);
+        if (character == null)
+            return;
+        if (type == CharacterType.None || type == character.CharacterType)
+            return;
+        _attributeSelected = type;
+        PaintAttributeTypeButtons(character.CharacterType);
+        PaintAttributePayButtons();
+        SetAttributeMessage(ImportedCharacters.AttributeLabel(type) + " を選びました。", true);
+    }
+
+    public void PushAttributeAd()
+    {
+        if (_production == null || _attributePanel == null || !_attributePanel.activeSelf)
+            return;
+        if (_attributeSelected == CharacterType.None)
+            return;
+        _production.WatchAttributeChangeAd(ApplySelectedAttribute);
+    }
+
+    public void PushAttributeTicket()
+    {
+        // チケット消費は後で実装。今は所持0の枠だけ。
+    }
+
+    public void PushCancelAttributeChange()
+    {
+        HideAttributeChange();
+        SetMessage("属性チェンジをやめました。", false);
+    }
+
+    void ApplySelectedAttribute()
+    {
+        if (_production == null || _attributeSelected == CharacterType.None || _attributeId == 0)
+            return;
+        uint id = _attributeId;
+        CharacterType type = _attributeSelected;
+        string message;
+        bool changed = _production.ChangeImportedAttribute(id, type, out message);
+        HideAttributeChange();
+        SetMessage(message, changed);
+        Refresh();
+    }
+
+    void HideAttributeChange()
+    {
+        _attributeId = 0;
+        _attributeSelected = CharacterType.None;
+        if (_attributePanel != null)
+            _attributePanel.SetActive(false);
+    }
+
+    bool AttributeBusy()
+    {
+        return _attributePanel != null && _attributePanel.activeSelf;
+    }
+
+    bool ImportExtraBusy()
+    {
+        return RetouchBusy() || AttributeBusy();
+    }
+
+    void PaintAttributeTypeButtons(CharacterType current)
+    {
+        for (int i = 0; i < _attributeTypeButtons.Length; i++)
+        {
+            Button button = _attributeTypeButtons[i];
+            if (button == null)
+                continue;
+            CharacterType type = _attributeTypes[i];
+            bool selected = type == _attributeSelected;
+            bool same = type == current;
+            button.interactable = !same;
+            Color fill = AttributeButtonColor(type);
+            if (same)
+                fill = new Color(fill.r * 0.35f, fill.g * 0.35f, fill.b * 0.35f, 1f);
+            if (_production != null)
+                _production.StyleRepresentativeButton(button, fill, !same);
+            if (selected && !same)
+            {
+                ColorBlock colors = button.colors;
+                colors.normalColor = fill;
+                colors.highlightedColor = fill;
+                colors.selectedColor = fill;
+                button.colors = colors;
+                EnsureWhiteFrame(button.transform, 5f);
+                SetFrameColor(button.transform, Color.white);
+            }
+            else
+            {
+                Transform frame = button.transform.Find("WhiteFrame");
+                if (frame != null)
+                    frame.gameObject.SetActive(false);
+            }
+            Text label = button.GetComponentInChildren<Text>();
+            if (label == null)
+                continue;
+            label.color = same ? new Color(0.55f, 0.55f, 0.55f, 1f) : Color.white;
+        }
+    }
+
+    void PaintAttributePayButtons()
+    {
+        bool ready = _attributeSelected != CharacterType.None;
+        if (_attributeAdButton != null && _production != null)
+        {
+            _production.StyleRepresentativeButton(_attributeAdButton, RetouchFill, ready);
+            _attributeAdButton.interactable = ready;
+            Text adLabel = _attributeAdButton.GetComponentInChildren<Text>();
+            if (!ready && adLabel != null)
+                adLabel.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+        }
+        if (_attributeTicketButton == null || _production == null)
+            return;
+        int count = _production.AttributeChangeTicketCount();
+        if (_attributeTicketLabel != null)
+            _attributeTicketLabel.text = "チケット (" + UiNumber.Format(count) + ")";
+        bool open = ready && count > 0;
+        _production.StyleRepresentativeButton(_attributeTicketButton, new Color(0.75f, 0.55f, 0.18f, 1f), open);
+        _attributeTicketButton.interactable = open;
+        if (_attributeTicketLabel != null && !open)
+            _attributeTicketLabel.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+    }
+
+    void SetAttributeMessage(string message, bool ok)
+    {
+        PaintMessage(_attributeMessage, message, ok);
+    }
+
+    static Color AttributeButtonColor(CharacterType type)
+    {
+        switch (type)
+        {
+            case CharacterType.Fire: return new Color(0.9f, 0.22f, 0.16f, 1f);
+            case CharacterType.Grass: return new Color(0.18f, 0.7f, 0.28f, 1f);
+            case CharacterType.Water: return new Color(0.2f, 0.42f, 0.92f, 1f);
+            case CharacterType.Dark: return new Color(0.55f, 0.22f, 0.85f, 1f);
+            case CharacterType.Light: return new Color(0.92f, 0.78f, 0.16f, 1f);
+            default: return Color.gray;
+        }
+    }
+
+    void BuildAttributeChange()
+    {
+        _attributePanel = new GameObject("PanelImportAttributeChange", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _attributePanel.transform.SetParent(Panel.transform, false);
+        Stretch(_attributePanel.GetComponent<RectTransform>());
+        _attributePanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.72f);
+        _attributePanel.GetComponent<Image>().raycastTarget = true;
+
+        GameObject card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        card.transform.SetParent(_attributePanel.transform, false);
+        Place(card.GetComponent<RectTransform>(), 0f, 40f, 960f, 740f);
+        card.GetComponent<Image>().color = Color.black;
+        EnsureWhiteFrame(card.transform, FrameThin);
+
+        Text title = CreateText("TextAttributeTitle", card.transform, 34, TextAnchor.MiddleCenter);
+        Place(title.rectTransform, 0f, 310f, 900f, 50f);
+        title.text = "属性チェンジ";
+
+        _attributePrompt = CreateText("TextAttributePrompt", card.transform, 24, TextAnchor.MiddleCenter);
+        Place(_attributePrompt.rectTransform, 0f, 190f, 900f, 150f);
+        _attributePrompt.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _attributePrompt.verticalOverflow = VerticalWrapMode.Overflow;
+
+        Text notice = CreateText("TextAttributeNotice", card.transform, 22, TextAnchor.MiddleCenter);
+        Place(notice.rectTransform, 0f, 95f, 900f, 50f);
+        notice.color = new Color(1f, 0.22f, 0.22f, 1f);
+        notice.fontStyle = FontStyle.Bold;
+        notice.horizontalOverflow = HorizontalWrapMode.Wrap;
+        notice.text = "※ 読み込みキャラ1体につき、属性チェンジは1回だけです。";
+
+        GameObject row = new GameObject("AttributeTypeRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        row.transform.SetParent(card.transform, false);
+        Place(row.GetComponent<RectTransform>(), 0f, 20f, 900f, 100f);
+        HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = true;
+        layout.spacing = 12f;
+        layout.padding = new RectOffset(8, 8, 8, 8);
+
+        string[] labels = { "火", "草", "水", "闇", "光" };
+        for (int i = 0; i < _attributeTypes.Length; i++)
+        {
+            CharacterType type = _attributeTypes[i];
+            GameObject buttonObject = new GameObject("ButtonAttribute" + type, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
+            buttonObject.transform.SetParent(row.transform, false);
+            buttonObject.GetComponent<LayoutElement>().preferredWidth = 150f;
+            buttonObject.GetComponent<LayoutElement>().preferredHeight = 84f;
+            buttonObject.GetComponent<Image>().color = Color.white;
+            Button button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = buttonObject.GetComponent<Image>();
+            CharacterType captured = type;
+            button.onClick.AddListener(() => PushAttributeType(captured));
+            Text label = CreateText("Text", buttonObject.transform, 30, TextAnchor.MiddleCenter);
+            Stretch(label.rectTransform);
+            label.text = labels[i];
+            label.color = Color.white;
+            _attributeTypeButtons[i] = button;
+        }
+
+        GameObject adObject = new GameObject("ButtonAttributeAd", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        adObject.transform.SetParent(card.transform, false);
+        Place(adObject.GetComponent<RectTransform>(), -200f, -140f, 340f, 84f);
+        adObject.GetComponent<Image>().color = Color.white;
+        _attributeAdButton = adObject.GetComponent<Button>();
+        _attributeAdButton.targetGraphic = adObject.GetComponent<Image>();
+        _attributeAdButton.onClick.AddListener(PushAttributeAd);
+        Text adLabel = CreateText("Text", adObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(adLabel.rectTransform);
+        adLabel.text = "広告を見る";
+        adLabel.color = Color.white;
+
+        GameObject ticketObject = new GameObject("ButtonAttributeTicket", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        ticketObject.transform.SetParent(card.transform, false);
+        Place(ticketObject.GetComponent<RectTransform>(), 200f, -140f, 340f, 84f);
+        ticketObject.GetComponent<Image>().color = Color.white;
+        _attributeTicketButton = ticketObject.GetComponent<Button>();
+        _attributeTicketButton.targetGraphic = ticketObject.GetComponent<Image>();
+        _attributeTicketButton.onClick.AddListener(PushAttributeTicket);
+        _attributeTicketLabel = CreateText("Text", ticketObject.transform, 24, TextAnchor.MiddleCenter);
+        Stretch(_attributeTicketLabel.rectTransform);
+        _attributeTicketLabel.text = "チケット (0)";
+        _attributeTicketLabel.color = Color.white;
+
+        GameObject cancelObject = new GameObject("ButtonAttributeCancel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        cancelObject.transform.SetParent(card.transform, false);
+        Place(cancelObject.GetComponent<RectTransform>(), 0f, -250f, 280f, 76f);
+        cancelObject.GetComponent<Image>().color = Color.white;
+        Button cancel = cancelObject.GetComponent<Button>();
+        cancel.targetGraphic = cancelObject.GetComponent<Image>();
+        cancel.onClick.AddListener(PushCancelAttributeChange);
+        Text cancelLabel = CreateText("Text", cancelObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(cancelLabel.rectTransform);
+        cancelLabel.text = "やめる";
+        cancelLabel.color = Color.white;
+        StyleChromeButton(cancel);
+
+        _attributeMessage = CreateText("TextAttributeMessage", card.transform, 24, TextAnchor.MiddleCenter);
+        Place(_attributeMessage.rectTransform, 0f, -320f, 900f, 50f);
+        _attributeMessage.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+        _attributePanel.SetActive(false);
+    }
+
+    public void PushRetouchAd()
+    {
+        if (_production == null || !_retouchPay || !_retouchPay.activeSelf)
+            return;
+        _production.WatchRetouchUnlockAd(OnRetouchPayUnlocked);
+    }
+
+    public void PushRetouchTicket()
+    {
+        // チケット消費は後で実装。今は所持0の枠だけ。
+    }
+
+    public void PushCancelRetouchPay()
+    {
+        DiscardRetouch();
+        SetMessage("手直しをやめました。", false);
+    }
+
+    public void PushConfirmRetouch()
+    {
+        if (_production == null || !_retouchPayDone)
+            return;
+        string message;
+        bool replaced = _production.CommitPreparedRetouch(out message);
+        if (!replaced)
+        {
+            if (_production.PreparedRetouchCharacter() == null)
+            {
+                DiscardRetouch();
+                SetMessage(message, false);
+                return;
+            }
+            SetRetouchConfirmMessage(message, false);
+            return;
+        }
+        HideRetouchConfirm();
+        DiscardRetouch();
+        SetMessage(message, true);
+        Refresh();
+    }
+
+    public void PushCancelRetouchConfirm()
+    {
+        DiscardRetouch();
+        SetMessage("手直しをやめました。", false);
+    }
+
+    void OnRetouchPayUnlocked()
+    {
+        _retouchPayDone = true;
+        HideRetouchPay();
+        ShowRetouchConfirm();
+    }
+
+    bool RetouchBusy()
+    {
+        if (_retouchPay != null && _retouchPay.activeSelf)
+            return true;
+        if (_retouchConfirm != null && _retouchConfirm.activeSelf)
+            return true;
+        return _production != null && _production.PreparedRetouchCharacter() != null;
+    }
+
+    void DiscardRetouch()
+    {
+        _retouchPayDone = false;
+        _retouchPickId = 0;
+        _retouchCostStatus = null;
+        HideRetouchPay();
+        HideRetouchConfirm();
+        if (_production != null)
+            _production.DiscardPreparedRetouch();
+    }
+
+    void ShowRetouchPay()
+    {
+        if (_retouchPay == null || _production == null)
+            return;
+        CharacterClass target = _production.RetouchTargetCharacter();
+        ImportRetouchDiff diff = _production.PreparedRetouchDiff();
+        string name = target != null && !string.IsNullOrWhiteSpace(target.Name) ? target.Name.Trim() : "ななし";
+        if (_retouchPayPrompt != null)
+            _retouchPayPrompt.text = name + " の手直しには、\n広告視聴か手直しチケットが必要です。";
+        if (_retouchPayDetail != null)
+            _retouchPayDetail.text = RetouchDiffText(diff);
+        PaintRetouchTicketButton();
+        _retouchPay.SetActive(true);
+    }
+
+    void HideRetouchPay()
+    {
+        if (_retouchPay != null)
+            _retouchPay.SetActive(false);
+    }
+
+    void ShowRetouchConfirm()
+    {
+        if (_retouchConfirm == null || _production == null)
+            return;
+        CharacterClass target = _production.RetouchTargetCharacter();
+        CharacterClass preview = _production.PreparedRetouchCharacter();
+        if (target == null || preview == null)
+        {
+            DiscardRetouch();
+            SetMessage("画像をキャラにできませんでした。", false);
+            return;
+        }
+        if (_retouchOldSprite != null)
+            Destroy(_retouchOldSprite);
+        if (_retouchNewSprite != null)
+            Destroy(_retouchNewSprite);
+        _retouchOldSprite = SpriteOf(target);
+        _retouchNewSprite = SpriteOf(preview);
+        if (_retouchOldImage != null)
+        {
+            _retouchOldImage.sprite = _retouchOldSprite;
+            _retouchOldImage.color = Color.white;
+        }
+        if (_retouchNewImage != null)
+        {
+            _retouchNewImage.sprite = _retouchNewSprite;
+            _retouchNewImage.color = Color.white;
+        }
+        _retouchCostStatus = null;
+        SetRetouchConfirmMessage("", true);
+        _retouchConfirm.SetActive(true);
+        PaintRetouchCost();
+    }
+
+    void HideRetouchConfirm()
+    {
+        _retouchCostStatus = null;
+        if (_retouchConfirm != null)
+            _retouchConfirm.SetActive(false);
+        if (_retouchOldImage != null)
+            _retouchOldImage.sprite = null;
+        if (_retouchNewImage != null)
+            _retouchNewImage.sprite = null;
+        if (_retouchOldSprite != null)
+        {
+            Destroy(_retouchOldSprite);
+            _retouchOldSprite = null;
+        }
+        if (_retouchNewSprite != null)
+        {
+            Destroy(_retouchNewSprite);
+            _retouchNewSprite = null;
+        }
+    }
+
+    void PaintRetouchCost()
+    {
+        CharacterClass preview = _production != null ? _production.PreparedRetouchCharacter() : null;
+        bool affordable = false;
+        ulong red = 0;
+        ulong green = 0;
+        ulong blue = 0;
+        bool priced = _production != null && _production.TryImportRgbCost(preview, out red, out green, out blue, out affordable);
+        if (!priced)
+            affordable = false;
+        string shortage = priced ? _production.ImportRgbShortageText() : "このキャラのRGBを計算できません。";
+        string status = (affordable ? "1" : "0") + "\n" + red.ToString() + "\n" + green.ToString() + "\n" + blue.ToString() + "\n" + shortage;
+        if (status == _retouchCostStatus)
+            return;
+        _retouchCostStatus = status;
+        ShowRetouchCost(priced, red, green, blue);
+        PaintRetouchConfirmAfford(affordable);
+        string shown = _retouchConfirmMessage != null ? _retouchConfirmMessage.text : "";
+        bool statusMessage = shown.Length == 0
+            || shown.StartsWith("RGBが足りません")
+            || shown.StartsWith("このキャラのRGB");
+        if (!statusMessage)
+            return;
+        if (affordable)
+            SetRetouchConfirmMessage("", true);
+        else
+            SetRetouchConfirmMessage(shortage, false);
+    }
+
+    void ShowRetouchCost(bool priced, ulong red, ulong green, ulong blue)
+    {
+        if (_retouchCostIntro != null)
+            _retouchCostIntro.gameObject.SetActive(priced);
+        if (_retouchCostR != null)
+        {
+            _retouchCostR.gameObject.SetActive(priced);
+            if (priced)
+                _retouchCostR.text = "R " + UiNumber.Format(red);
+        }
+        if (_retouchCostG != null)
+        {
+            _retouchCostG.gameObject.SetActive(priced);
+            if (priced)
+                _retouchCostG.text = "G " + UiNumber.Format(green);
+        }
+        if (_retouchCostB != null)
+        {
+            _retouchCostB.gameObject.SetActive(priced);
+            if (priced)
+                _retouchCostB.text = "B " + UiNumber.Format(blue);
+        }
+        if (_retouchCostError != null)
+        {
+            _retouchCostError.gameObject.SetActive(!priced);
+            if (!priced)
+                _retouchCostError.text = "このキャラのRGBを計算できません。";
+        }
+    }
+
+    void PaintRetouchConfirmAfford(bool affordable)
+    {
+        if (_retouchConfirmButton == null || _production == null)
+            return;
+        bool open = affordable && _retouchPayDone;
+        _production.StyleRepresentativeButton(_retouchConfirmButton, ImportOkFill, open);
+        _retouchConfirmButton.interactable = open;
+        if (open)
+            return;
+        Text label = _retouchConfirmButton.GetComponentInChildren<Text>();
+        if (label != null)
+            label.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+    }
+
+    void PaintRetouchTicketButton()
+    {
+        if (_retouchTicketButton == null || _production == null)
+            return;
+        int count = _production.RetouchTicketCount();
+        if (_retouchTicketLabel != null)
+            _retouchTicketLabel.text = "チケット (" + UiNumber.Format(count) + ")";
+        bool open = count > 0;
+        _production.StyleRepresentativeButton(_retouchTicketButton, new Color(0.75f, 0.55f, 0.18f, 1f), open);
+        _retouchTicketButton.interactable = open;
+        if (open || _retouchTicketLabel == null)
+            return;
+        _retouchTicketLabel.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+    }
+
+    void SetRetouchConfirmMessage(string message, bool ok)
+    {
+        PaintMessage(_retouchConfirmMessage, message, ok);
+    }
+
+    static string RetouchDiffText(ImportRetouchDiff diff)
+    {
+        int percent = Mathf.RoundToInt(diff.ChangedRatio * 100f);
+        return "修正 " + UiNumber.Format(diff.ChangedPixels) + " ドット (" + percent.ToString() + "%)\n"
+            + "RGB合計 " + UiNumber.Format(diff.OldRgbSum) + " → " + UiNumber.Format(diff.NewRgbSum) + "\n"
+            + "不透明 " + UiNumber.Format(diff.OldOpaque) + " → " + UiNumber.Format(diff.NewOpaque) + "\n"
+            + "LUC " + UiNumber.Format(diff.OldLuc) + " → " + UiNumber.Format(diff.NewLuc);
+    }
+
+    void BuildRetouchPay()
+    {
+        _retouchPay = new GameObject("PanelImportRetouchPay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _retouchPay.transform.SetParent(Panel.transform, false);
+        Stretch(_retouchPay.GetComponent<RectTransform>());
+        _retouchPay.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.72f);
+        _retouchPay.GetComponent<Image>().raycastTarget = true;
+
+        GameObject card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        card.transform.SetParent(_retouchPay.transform, false);
+        Place(card.GetComponent<RectTransform>(), 0f, 40f, 900f, 620f);
+        card.GetComponent<Image>().color = Color.black;
+        EnsureWhiteFrame(card.transform, FrameThin);
+
+        _retouchPayPrompt = CreateText("TextRetouchPayPrompt", card.transform, 28, TextAnchor.MiddleCenter);
+        Place(_retouchPayPrompt.rectTransform, 0f, 200f, 820f, 120f);
+        _retouchPayPrompt.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _retouchPayPrompt.verticalOverflow = VerticalWrapMode.Overflow;
+
+        _retouchPayDetail = CreateText("TextRetouchPayDetail", card.transform, 24, TextAnchor.MiddleCenter);
+        Place(_retouchPayDetail.rectTransform, 0f, 40f, 820f, 160f);
+        _retouchPayDetail.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _retouchPayDetail.verticalOverflow = VerticalWrapMode.Overflow;
+
+        GameObject adObject = new GameObject("ButtonRetouchAd", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        adObject.transform.SetParent(card.transform, false);
+        Place(adObject.GetComponent<RectTransform>(), -200f, -140f, 340f, 84f);
+        adObject.GetComponent<Image>().color = Color.white;
+        _retouchAdButton = adObject.GetComponent<Button>();
+        _retouchAdButton.targetGraphic = adObject.GetComponent<Image>();
+        _retouchAdButton.onClick.AddListener(PushRetouchAd);
+        Text adLabel = CreateText("Text", adObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(adLabel.rectTransform);
+        adLabel.text = "広告を見る";
+        adLabel.color = Color.white;
+        _production.StyleRepresentativeButton(_retouchAdButton, RetouchFill, true);
+
+        GameObject ticketObject = new GameObject("ButtonRetouchTicket", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        ticketObject.transform.SetParent(card.transform, false);
+        Place(ticketObject.GetComponent<RectTransform>(), 200f, -140f, 340f, 84f);
+        ticketObject.GetComponent<Image>().color = Color.white;
+        _retouchTicketButton = ticketObject.GetComponent<Button>();
+        _retouchTicketButton.targetGraphic = ticketObject.GetComponent<Image>();
+        _retouchTicketButton.onClick.AddListener(PushRetouchTicket);
+        _retouchTicketLabel = CreateText("Text", ticketObject.transform, 26, TextAnchor.MiddleCenter);
+        Stretch(_retouchTicketLabel.rectTransform);
+        _retouchTicketLabel.text = "チケット (0)";
+        _retouchTicketLabel.color = Color.white;
+
+        GameObject cancelObject = new GameObject("ButtonRetouchPayCancel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        cancelObject.transform.SetParent(card.transform, false);
+        Place(cancelObject.GetComponent<RectTransform>(), 0f, -250f, 280f, 76f);
+        cancelObject.GetComponent<Image>().color = Color.white;
+        Button cancel = cancelObject.GetComponent<Button>();
+        cancel.targetGraphic = cancelObject.GetComponent<Image>();
+        cancel.onClick.AddListener(PushCancelRetouchPay);
+        Text cancelLabel = CreateText("Text", cancelObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(cancelLabel.rectTransform);
+        cancelLabel.text = "やめる";
+        cancelLabel.color = Color.white;
+        StyleChromeButton(cancel);
+
+        _retouchPay.SetActive(false);
+    }
+
+    void BuildRetouchConfirm()
+    {
+        _retouchConfirm = new GameObject("PanelImportRetouchConfirm", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _retouchConfirm.transform.SetParent(Panel.transform, false);
+        Stretch(_retouchConfirm.GetComponent<RectTransform>());
+        _retouchConfirm.GetComponent<Image>().color = Color.black;
+        _retouchConfirm.GetComponent<Image>().raycastTarget = true;
+
+        Text title = CreateText("TextRetouchConfirmTitle", _retouchConfirm.transform, 36, TextAnchor.MiddleCenter);
+        Place(title.rectTransform, 0f, 620f, 1000f, 56f);
+        title.text = "この絵に手直しする";
+
+        GameObject oldPicture = new GameObject("ImageRetouchOld", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        oldPicture.transform.SetParent(_retouchConfirm.transform, false);
+        Place(oldPicture.GetComponent<RectTransform>(), -220f, 250f, 300f, 300f);
+        _retouchOldImage = oldPicture.GetComponent<Image>();
+        _retouchOldImage.preserveAspect = true;
+        _retouchOldImage.raycastTarget = false;
+        EnsureWhiteFrame(oldPicture.transform, FrameThin);
+        Text oldLabel = CreateText("TextRetouchOldLabel", _retouchConfirm.transform, 24, TextAnchor.MiddleCenter);
+        Place(oldLabel.rectTransform, -220f, 70f, 300f, 40f);
+        oldLabel.text = "いまの絵";
+
+        GameObject newPicture = new GameObject("ImageRetouchNew", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        newPicture.transform.SetParent(_retouchConfirm.transform, false);
+        Place(newPicture.GetComponent<RectTransform>(), 220f, 250f, 300f, 300f);
+        _retouchNewImage = newPicture.GetComponent<Image>();
+        _retouchNewImage.preserveAspect = true;
+        _retouchNewImage.raycastTarget = false;
+        EnsureWhiteFrame(newPicture.transform, FrameThin);
+        Text newLabel = CreateText("TextRetouchNewLabel", _retouchConfirm.transform, 24, TextAnchor.MiddleCenter);
+        Place(newLabel.rectTransform, 220f, 70f, 300f, 40f);
+        newLabel.text = "新しい絵";
+
+        Text prompt = CreateText("TextRetouchConfirmPrompt", _retouchConfirm.transform, 24, TextAnchor.MiddleCenter);
+        Place(prompt.rectTransform, 0f, -10f, 960f, 70f);
+        prompt.horizontalOverflow = HorizontalWrapMode.Wrap;
+        prompt.text = "属性・レベル・合成回数はそのまま残します。\n新しい絵のRGBを消費して差し替えます。";
+
+        GameObject costRow = new GameObject("RetouchCostRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        costRow.transform.SetParent(_retouchConfirm.transform, false);
+        Place(costRow.GetComponent<RectTransform>(), 0f, -100f, 960f, 72f);
+        HorizontalLayoutGroup layout = costRow.GetComponent<HorizontalLayoutGroup>();
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+        layout.spacing = 18f;
+        layout.padding = new RectOffset(12, 12, 10, 10);
+        _retouchCostIntro = CreateCostText(costRow.transform, "消費", 36);
+        _retouchCostR = CreateCostText(costRow.transform, "R", 40);
+        _retouchCostG = CreateCostText(costRow.transform, "G", 40);
+        _retouchCostB = CreateCostText(costRow.transform, "B", 40);
+        ControllerProduction.PaintChannelText(_retouchCostR, 0);
+        ControllerProduction.PaintChannelText(_retouchCostG, 1);
+        ControllerProduction.PaintChannelText(_retouchCostB, 2);
+        _retouchCostError = CreateCostText(costRow.transform, "", 32);
+        _retouchCostError.gameObject.SetActive(false);
+
+        GameObject okObject = new GameObject("ButtonRetouchConfirm", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        okObject.transform.SetParent(_retouchConfirm.transform, false);
+        Place(okObject.GetComponent<RectTransform>(), -200f, -260f, 360f, 84f);
+        okObject.GetComponent<Image>().color = Color.white;
+        _retouchConfirmButton = okObject.GetComponent<Button>();
+        _retouchConfirmButton.targetGraphic = okObject.GetComponent<Image>();
+        _retouchConfirmButton.onClick.AddListener(PushConfirmRetouch);
+        Text okLabel = CreateText("Text", okObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(okLabel.rectTransform);
+        okLabel.text = "この絵に差し替える";
+        _production.StyleRepresentativeButton(_retouchConfirmButton, ImportOkFill, true);
+
+        GameObject cancelObject = new GameObject("ButtonRetouchConfirmCancel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        cancelObject.transform.SetParent(_retouchConfirm.transform, false);
+        Place(cancelObject.GetComponent<RectTransform>(), 200f, -260f, 280f, 84f);
+        cancelObject.GetComponent<Image>().color = Color.white;
+        Button cancel = cancelObject.GetComponent<Button>();
+        cancel.targetGraphic = cancelObject.GetComponent<Image>();
+        cancel.onClick.AddListener(PushCancelRetouchConfirm);
+        Text cancelLabel = CreateText("Text", cancelObject.transform, 28, TextAnchor.MiddleCenter);
+        Stretch(cancelLabel.rectTransform);
+        cancelLabel.text = "やめる";
+        _production.StyleRepresentativeButton(cancel, ImportCancelFill, true);
+
+        _retouchConfirmMessage = CreateText("TextRetouchConfirmMessage", _retouchConfirm.transform, 24, TextAnchor.MiddleCenter);
+        Place(_retouchConfirmMessage.rectTransform, 0f, -370f, 960f, 70f);
+        _retouchConfirmMessage.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+        _retouchConfirm.SetActive(false);
     }
 
     void BuildDeleteConfirm()
@@ -782,7 +1620,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         _content.sizeDelta = new Vector2(0f, 0f);
 
         GridLayoutGroup grid = content.AddComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(188f, 280f);
+        grid.cellSize = new Vector2(188f, 390f);
         grid.spacing = new Vector2(16f, 16f);
         grid.padding = new RectOffset(16, 16, 16, 16);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -898,6 +1736,69 @@ public class ControllerImportCharacterClass : MonoBehaviour
         colors.disabledColor = DeleteFill;
         colors.colorMultiplier = 1f;
         button.colors = colors;
+    }
+
+    static void PaintRetouchFill(Button button)
+    {
+        if (button == null)
+            return;
+        ColorBlock colors = button.colors;
+        colors.normalColor = RetouchFill;
+        colors.highlightedColor = new Color(0.22f, 0.8f, 0.36f, 1f);
+        colors.pressedColor = new Color(0.08f, 0.45f, 0.18f, 1f);
+        colors.selectedColor = RetouchFill;
+        colors.disabledColor = RetouchFill;
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+    }
+
+    static void PaintAttributeGradientButton(Button button)
+    {
+        if (button == null)
+            return;
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.92f, 0.92f, 0.92f, 1f);
+        colors.pressedColor = new Color(0.75f, 0.75f, 0.75f, 1f);
+        colors.selectedColor = Color.white;
+        colors.disabledColor = new Color(0.55f, 0.55f, 0.55f, 1f);
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+    }
+
+    // 赤・緑・青・紫・黄の横グラデ。属性チェンジボタン用。
+    static Sprite AttributeGradientSprite()
+    {
+        if (_attributeGradientSprite != null)
+            return _attributeGradientSprite;
+        const int width = 160;
+        const int height = 8;
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        Color[] stops =
+        {
+            new Color(0.95f, 0.18f, 0.14f, 1f),
+            new Color(0.16f, 0.78f, 0.28f, 1f),
+            new Color(0.18f, 0.42f, 0.95f, 1f),
+            new Color(0.62f, 0.22f, 0.9f, 1f),
+            new Color(0.95f, 0.82f, 0.14f, 1f),
+        };
+        for (int x = 0; x < width; x++)
+        {
+            float t = x / (float)(width - 1);
+            float scaled = t * (stops.Length - 1);
+            int index = Mathf.Clamp(Mathf.FloorToInt(scaled), 0, stops.Length - 2);
+            float local = scaled - index;
+            Color color = Color.Lerp(stops[index], stops[index + 1], local);
+            for (int y = 0; y < height; y++)
+                texture.SetPixel(x, y, color);
+        }
+        texture.Apply();
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        _attributeGradientSprite = Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f));
+        _attributeGradientSprite.hideFlags = HideFlags.HideAndDontSave;
+        return _attributeGradientSprite;
     }
 
     static void StyleChromeButton(Button button)

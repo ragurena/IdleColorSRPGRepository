@@ -55,6 +55,8 @@ public class CharacterClass //: MonoBehaviour
     public bool CatalogNew;
     //属性
     public CharacterType CharacterType;
+    // 読み込みキャラの属性チェンジを1回使ったか。消す・セーブ消去で消える。
+    public bool AttributeChangeUsed;
     //代表カラーと弱点カラー。0〜255。起動時に画像から計算し、セーブしない
     public int RepresentativeR;
     public int RepresentativeG;
@@ -280,6 +282,7 @@ public class CharacterClass //: MonoBehaviour
         CatalogOpened = false;
         CatalogNew = false;
         CharacterType = CharacterType.None;
+        AttributeChangeUsed = false;
         RepresentativeR = 0;
         RepresentativeG = 0;
         RepresentativeB = 0;
@@ -634,6 +637,11 @@ public class CharacterClass //: MonoBehaviour
 
     bool CalcCharacterStats()
     {
+        return CalcCharacterStats(false, CharacterType.None);
+    }
+
+    bool CalcCharacterStats(bool keepAttribute, CharacterType attribute)
+    {
         if (ImageTexture2D == null)
             ImageTexture2D = ImagegUtility.ReadPng(ImagePath);
 
@@ -758,18 +766,20 @@ public class CharacterClass //: MonoBehaviour
         ListExistsColors = tmpList;
 
 
-        //属性決め。最大の島の色だけで比べる。
-        if (bodyR > bodyG && bodyR > bodyB)
+        //属性決め。最大の島の色だけで比べる。手直しでは今までの属性を残す。
+        if (keepAttribute)
+        {
+            CharacterType = attribute;
+        }
+        else if (bodyR > bodyG && bodyR > bodyB)
         {
             CharacterType = CharacterType.Fire;
         }
-        else
-        if (bodyG > bodyR && bodyG > bodyB)
+        else if (bodyG > bodyR && bodyG > bodyB)
         {
             CharacterType = CharacterType.Grass;
         }
-        else
-        if (bodyB > bodyR && bodyB > bodyG)
+        else if (bodyB > bodyR && bodyB > bodyG)
         {
             CharacterType = CharacterType.Water;
         }
@@ -1019,9 +1029,20 @@ public class CharacterClass //: MonoBehaviour
     //画像から基礎ステータス(Stats[1])を計算し、レベル-1 回ぶん成長を掛け直してトータルを更新する。
     public bool RecalculateBaseStats(BattleBalanceConfig config)
     {
+        return RecalculateBaseStats(config, false, CharacterType.None);
+    }
+
+    // 手直し用。属性は残して、画像から基礎ステータスだけ作り直す。
+    public bool RecalculateBaseStatsKeepingType(BattleBalanceConfig config, CharacterType attribute)
+    {
+        return RecalculateBaseStats(config, true, attribute);
+    }
+
+    bool RecalculateBaseStats(BattleBalanceConfig config, bool keepAttribute, CharacterType attribute)
+    {
         if (ImageTexture2D == null && string.IsNullOrEmpty(ImagePath))
             return false;
-        if (CalcCharacterStats() == false)
+        if (CalcCharacterStats(keepAttribute, attribute) == false)
             return false;
         RebuildLevelStats(config);
         return true;
@@ -1098,7 +1119,7 @@ public class CharacterClass //: MonoBehaviour
         Stats[2].GCreates = (ulong)gBonus;
         Stats[2].BCreates = (ulong)bBonus;
 
-        long need = config.ExpToNext((long)Level, LevelExpBase());
+        long need = config.ExpToNext((long)Level, LevelExpBase(), Size);
         if (need < 1)
             need = 1;
         ExpMax = (ulong)need;

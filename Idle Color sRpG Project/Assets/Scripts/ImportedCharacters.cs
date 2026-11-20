@@ -205,6 +205,10 @@ public class ImportedCharacterRecord
     public bool HasExp;
     public ulong FusionCount;
     public bool HasFusionCount;
+    public CharacterType CharacterType;
+    public bool HasCharacterType;
+    public bool AttributeChangeUsed;
+    public bool HasAttributeChangeUsed;
     public bool FlagFNT;
     public bool HasFlagFNT;
     public Place Whereabouts;
@@ -225,6 +229,21 @@ public class ImportedCharacterEntry
 {
     public CharacterClass Character;
     public string SourceHash;
+}
+
+// 手直し前後の比較。どれか1つでも超えたら広告かチケットが必要。
+public struct ImportRetouchDiff
+{
+    public int Size;
+    public int ChangedPixels;
+    public float ChangedRatio;
+    public ulong OldRgbSum;
+    public ulong NewRgbSum;
+    public int OldOpaque;
+    public int NewOpaque;
+    public ulong OldLuc;
+    public ulong NewLuc;
+    public bool RequiresPay;
 }
 
 // 自作キャラ。CharactersAll の添字にはしない。ID は 10001 から。
@@ -434,11 +453,42 @@ public static class ImportedCharacters
         public CharacterClass Character;
     }
 
+    class PreparedRetouch
+    {
+        public uint TargetId;
+        public string SourceHash;
+        public CharacterClass Preview;
+        public byte[] PngBytes;
+        public ImportRetouchDiff Diff;
+        public CharacterType KeepType;
+    }
+
     static PreparedImport Prepared;
+    static PreparedRetouch Retouch;
 
     public static CharacterClass PreparedCharacter()
     {
         return Prepared != null ? Prepared.Character : null;
+    }
+
+    public static CharacterClass PreparedRetouchCharacter()
+    {
+        return Retouch != null ? Retouch.Preview : null;
+    }
+
+    public static uint PreparedRetouchTargetId()
+    {
+        return Retouch != null ? Retouch.TargetId : 0;
+    }
+
+    public static ImportRetouchDiff PreparedRetouchDiff()
+    {
+        return Retouch != null ? Retouch.Diff : default(ImportRetouchDiff);
+    }
+
+    public static bool PreparedRetouchRequiresPay()
+    {
+        return Retouch != null && Retouch.Diff.RequiresPay;
     }
 
     // 大きさ・重複を見て画像を作り、ステータスまで計算する。所持にはまだ加えない。
@@ -450,6 +500,7 @@ public static class ImportedCharacters
     public static bool TryPrepare(byte[] pngBytes, System.Func<int, bool> isStageCleared, BattleBalanceConfig balance, out string message)
     {
         DiscardPrepared();
+        DiscardPreparedRetouch();
         message = null;
         if (RejectImportCount(out message))
             return false;
@@ -562,6 +613,260 @@ public static class ImportedCharacters
         DeleteImportFiles(id);
     }
 
+    // 既存キャラの絵だけ差し替える準備。枠は増やさない。同じ一辺サイズのみ。
+    public static bool TryPrepareRetouch(uint targetId, byte[] pngBytes, System.Func<int, bool> isStageCleared, BattleBalanceConfig balance, out string message)
+    {
+        DiscardPrepared();
+        DiscardPreparedRetouch();
+        message = null;
+        CharacterClass target = Find(targetId);
+        if (target == null || target.ID != targetId)
+        {
+            message = "そのキャラはいません。";
+            return false;
+        }
+        if (pngBytes == null || pngBytes.Length < 8)
+        {
+            message = "ファイルを読めませんでした。";
+            return false;
+        }
+        if (pngBytes.Length > MaxPngBytes)
+        {
+            message = "ファイルが大きすぎます。";
+            return false;
+        }
+        if (!IsPng(pngBytes))
+        {
+            message = "PNGではありません。";
+            return false;
+        }
+
+        Texture2D probe = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!probe.LoadImage(pngBytes))
+        {
+            UnityEngine.Object.Destroy(probe);
+            message = "PNGを読めませんでした。";
+            return false;
+        }
+        int width = probe.width;
+        int height = probe.height;
+        UnityEngine.Object.Destroy(probe);
+        if (width != height)
+        {
+            message = "正方形ではありません。横 " + width.ToString() + "、縦 " + height.ToString() + " です。";
+            return false;
+        }
+        if (width != target.Size)
+        {
+            message = "手直しは同じ大きさだけです。今は " + target.Size.ToString() + "、選んだ絵は " + width.ToString() + " です。";
+            return false;
+        }
+        string sizeReason = ImportSizeRules.RejectSize(width, height, isStageCleared);
+        if (sizeReason != null)
+        {
+            message = sizeReason;
+            return false;
+        }
+
+        string hash = HashPosterizedPng(pngBytes);
+        if (RejectKnownImageExcept(hash, targetId, out message))
+            return false;
+
+        string directory = Application.persistentDataPath + "/Character/Custom";
+        if (!Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+        string pendingPath = RetouchPendingPath();
+        File.WriteAllBytes(pendingPath, pngBytes);
+
+        CharacterClass preview = new CharacterClass();
+        if (!preview.MakeCharacter(pendingPath, targetId, target.Name) || preview.ID != targetId)
+        {
+            DeleteRetouchPendingFiles();
+            message = "画像をキャラにできませんでした。";
+            return false;
+        }
+        preview.RecalculateBaseStatsKeepingType(balance, target.CharacterType);
+
+        ImportRetouchDiff diff = EvaluateRetouch(target, preview);
+        if (diff.ChangedPixels <= 0)
+        {
+            if (preview.ImageTexture2D != null)
+                UnityEngine.Object.Destroy(preview.ImageTexture2D);
+            DeleteRetouchPendingFiles();
+            message = "絵が変わっていません。";
+            return false;
+        }
+
+        Retouch = new PreparedRetouch
+        {
+            TargetId = targetId,
+            SourceHash = hash,
+            Preview = preview,
+            PngBytes = pngBytes,
+            Diff = diff,
+            KeepType = target.CharacterType,
+        };
+        message = null;
+        return true;
+    }
+
+    public static bool CommitPreparedRetouch(BattleBalanceConfig balance, out string message)
+    {
+        message = null;
+        if (Retouch == null || Retouch.Preview == null || Retouch.PngBytes == null)
+        {
+            message = "画像をキャラにできませんでした。";
+            return false;
+        }
+        CharacterClass target = Find(Retouch.TargetId);
+        if (target == null || target.ID != Retouch.TargetId)
+        {
+            message = "そのキャラはいません。";
+            DiscardPreparedRetouch();
+            return false;
+        }
+
+        string path = OriginalPath(Retouch.TargetId);
+        string directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+        File.WriteAllBytes(path, Retouch.PngBytes);
+        if (!target.ReloadSourceImage(path))
+        {
+            message = "画像を差し替えできませんでした。";
+            DiscardPreparedRetouch();
+            return false;
+        }
+        if (!target.RecalculateBaseStatsKeepingType(balance, Retouch.KeepType))
+        {
+            message = "ステータスを更新できませんでした。";
+            DiscardPreparedRetouch();
+            return false;
+        }
+
+        for (int i = 0; i < Entries.Count; i++)
+        {
+            if (Entries[i].Character != null && Entries[i].Character.ID == Retouch.TargetId)
+            {
+                Entries[i].SourceHash = Retouch.SourceHash;
+                break;
+            }
+        }
+
+        string name = string.IsNullOrWhiteSpace(target.Name) ? "ななし" : target.Name.Trim();
+        DiscardPreparedRetouch();
+        message = name + " を手直ししました。";
+        return true;
+    }
+
+    public static void DiscardPreparedRetouch()
+    {
+        if (Retouch == null)
+            return;
+        CharacterClass preview = Retouch.Preview;
+        Retouch = null;
+        if (preview != null && preview.ImageTexture2D != null)
+            UnityEngine.Object.Destroy(preview.ImageTexture2D);
+        DeleteRetouchPendingFiles();
+    }
+
+    static ImportRetouchDiff EvaluateRetouch(CharacterClass oldCharacter, CharacterClass newCharacter)
+    {
+        ImportRetouchDiff diff = new ImportRetouchDiff();
+        if (oldCharacter == null || newCharacter == null)
+            return diff;
+
+        int size = oldCharacter.Size;
+        if (size < 1)
+            size = newCharacter.Size;
+        diff.Size = size;
+        int area = size * size;
+        if (area < 1)
+            area = 1;
+
+        diff.ChangedPixels = CountChangedPixels(oldCharacter.ImageTexture2D, newCharacter.ImageTexture2D);
+        diff.ChangedRatio = (float)diff.ChangedPixels / area;
+        diff.OldRgbSum = oldCharacter.SumPixelR + oldCharacter.SumPixelG + oldCharacter.SumPixelB;
+        diff.NewRgbSum = newCharacter.SumPixelR + newCharacter.SumPixelG + newCharacter.SumPixelB;
+        diff.OldOpaque = RawOpaqueCount(oldCharacter);
+        diff.NewOpaque = RawOpaqueCount(newCharacter);
+        diff.OldLuc = oldCharacter.Stats != null && oldCharacter.Stats[1] != null ? oldCharacter.Stats[1].LUC : 0;
+        diff.NewLuc = newCharacter.Stats != null && newCharacter.Stats[1] != null ? newCharacter.Stats[1].LUC : 0;
+
+        bool changedMuch = diff.ChangedRatio >= 0.15f;
+        bool rgbUp = RgbIncreased(diff.OldRgbSum, diff.NewRgbSum, 6, 5);
+        bool opaqueUp = OpaqueIncreased(diff.OldOpaque, diff.NewOpaque, 21, 20);
+        bool lucUp = diff.NewLuc >= diff.OldLuc + 2;
+        diff.RequiresPay = changedMuch || rgbUp || opaqueUp || lucUp;
+        return diff;
+    }
+
+    // new * newMul >= old * oldMul なら増加。RGB 20% は 5/6、不透明 5% は 20/21。
+    static bool RgbIncreased(ulong oldSum, ulong newSum, ulong oldMul, ulong newMul)
+    {
+        if (oldSum == 0)
+            return newSum > 0;
+        if (newSum >= ulong.MaxValue / newMul)
+            return true;
+        return newSum * newMul >= oldSum * oldMul;
+    }
+
+    static bool OpaqueIncreased(int oldCount, int newCount, int oldMul, int newMul)
+    {
+        if (oldCount <= 0)
+            return newCount > 0;
+        return (long)newCount * newMul >= (long)oldCount * oldMul;
+    }
+
+    static int RawOpaqueCount(CharacterClass character)
+    {
+        if (character == null)
+            return 0;
+        int area = character.Size * character.Size;
+        if (area < 1)
+            return 0;
+        int transparent = character.APixels > (uint)area ? area : (int)character.APixels;
+        int opaque = area - transparent;
+        return opaque < 0 ? 0 : opaque;
+    }
+
+    static int CountChangedPixels(Texture2D oldTex, Texture2D newTex)
+    {
+        if (oldTex == null || newTex == null)
+            return 0;
+        if (oldTex.width != newTex.width || oldTex.height != newTex.height)
+            return oldTex.width * oldTex.height;
+        Color32[] oldPixels = oldTex.GetPixels32();
+        Color32[] newPixels = newTex.GetPixels32();
+        if (oldPixels == null || newPixels == null)
+            return 0;
+        int count = Mathf.Min(oldPixels.Length, newPixels.Length);
+        int changed = 0;
+        for (int i = 0; i < count; i++)
+        {
+            Color32 a = oldPixels[i];
+            Color32 b = newPixels[i];
+            if (a.r != b.r || a.g != b.g || a.b != b.b || a.a != b.a)
+                changed++;
+        }
+        return changed;
+    }
+
+    static string RetouchPendingPath()
+    {
+        return Application.persistentDataPath + "/Character/Custom/retouch_pending.png";
+    }
+
+    static void DeleteRetouchPendingFiles()
+    {
+        string path = RetouchPendingPath();
+        if (File.Exists(path))
+            File.Delete(path);
+        string normalized = Application.persistentDataPath + "/Character/Custom/Nomalization/Nomalization_retouch_pending.png";
+        if (File.Exists(normalized))
+            File.Delete(normalized);
+    }
+
     // 所持から外す。ID は再利用しない。枚数は Entries の数なので、消すと読み込み枠が戻る。
     public static bool TryRemove(uint id)
     {
@@ -594,6 +899,7 @@ public static class ImportedCharacters
         Pending.Clear();
         HighestId = FirstId - 1;
         Prepared = null;
+        Retouch = null;
     }
 
     public static bool TryReadSaveLine(string line)
@@ -644,6 +950,8 @@ public static class ImportedCharacters
             sw.WriteLine(prefix + "Level," + character.Level.ToString());
             sw.WriteLine(prefix + "Exp," + character.Exp.ToString());
             sw.WriteLine(prefix + "FusionCount," + character.FusionCount.ToString());
+            sw.WriteLine(prefix + "CharacterType," + character.CharacterType.ToString());
+            sw.WriteLine(prefix + "AttributeChangeUsed," + (character.AttributeChangeUsed ? "true" : "false"));
             sw.WriteLine(prefix + "FlagFNT," + (character.FlagFNT ? "true" : "false"));
             sw.WriteLine(prefix + "Whereabouts," + character.Whereabouts.ToString());
             sw.WriteLine(prefix + "CatalogOpened," + (character.CatalogOpened ? "true" : "false"));
@@ -743,7 +1051,12 @@ public static class ImportedCharacters
             if (record.HasName && !string.IsNullOrWhiteSpace(record.Name))
                 character.Name = record.Name.Trim();
 
-            character.RecalculateBaseStats(balance);
+            if (record.HasCharacterType)
+                character.RecalculateBaseStatsKeepingType(balance, record.CharacterType);
+            else
+                character.RecalculateBaseStats(balance);
+            if (record.HasAttributeChangeUsed)
+                character.AttributeChangeUsed = record.AttributeChangeUsed;
 
             string hash = HashPosterizedFile(path);
             if (string.IsNullOrEmpty(hash) && record.HasHash)
@@ -849,6 +1162,22 @@ public static class ImportedCharacters
             }
             return;
         }
+        if (field == "CharacterType")
+        {
+            CharacterType type;
+            if (TryParseCharacterType(value, out type))
+            {
+                record.CharacterType = type;
+                record.HasCharacterType = true;
+            }
+            return;
+        }
+        if (field == "AttributeChangeUsed")
+        {
+            record.AttributeChangeUsed = value == "true";
+            record.HasAttributeChangeUsed = true;
+            return;
+        }
         if (field == "FlagFNT")
         {
             record.FlagFNT = value == "true";
@@ -920,6 +1249,70 @@ public static class ImportedCharacters
         }
     }
 
+    static bool TryParseCharacterType(string value, out CharacterType type)
+    {
+        switch (value)
+        {
+            case "None": type = CharacterType.None; return true;
+            case "Fire": type = CharacterType.Fire; return true;
+            case "Grass": type = CharacterType.Grass; return true;
+            case "Water": type = CharacterType.Water; return true;
+            case "Light": type = CharacterType.Light; return true;
+            case "Dark": type = CharacterType.Dark; return true;
+            default:
+                type = CharacterType.None;
+                return false;
+        }
+    }
+
+    public static bool TryChangeAttribute(uint id, CharacterType type, BattleBalanceConfig balance, out string message)
+    {
+        message = null;
+        if (type == CharacterType.None)
+        {
+            message = "属性を選んでください。";
+            return false;
+        }
+        CharacterClass character = Find(id);
+        if (character == null || character.ID != id)
+        {
+            message = "そのキャラはいません。";
+            return false;
+        }
+        if (character.AttributeChangeUsed)
+        {
+            message = "このキャラの属性チェンジはもう使えません。1体につき1回だけです。";
+            return false;
+        }
+        if (character.CharacterType == type)
+        {
+            message = "すでにその属性です。";
+            return false;
+        }
+        if (!character.RecalculateBaseStatsKeepingType(balance, type))
+        {
+            message = "属性を変えられませんでした。";
+            return false;
+        }
+        character.AttributeChangeUsed = true;
+        string name = string.IsNullOrWhiteSpace(character.Name) ? "ななし" : character.Name.Trim();
+        message = name + " の属性を " + AttributeLabel(type) + " にしました。\nこのキャラへの属性チェンジはもう使えません。";
+        return true;
+    }
+
+    public static string AttributeLabel(CharacterType type)
+    {
+        switch (type)
+        {
+            case CharacterType.Fire: return "火";
+            case CharacterType.Grass: return "草";
+            case CharacterType.Water: return "水";
+            case CharacterType.Dark: return "闇";
+            case CharacterType.Light: return "光";
+            default: return "なし";
+        }
+    }
+
     static uint NextId()
     {
         uint next = HighestId >= FirstId ? HighestId + 1 : FirstId;
@@ -934,10 +1327,18 @@ public static class ImportedCharacters
 
     static bool ContainsHash(string hash)
     {
+        return ContainsHashExcept(hash, 0);
+    }
+
+    static bool ContainsHashExcept(string hash, uint exceptId)
+    {
         if (string.IsNullOrEmpty(hash))
             return false;
         for (int i = 0; i < Entries.Count; i++)
         {
+            CharacterClass character = Entries[i].Character;
+            if (exceptId != 0 && character != null && character.ID == exceptId)
+                continue;
             if (Entries[i].SourceHash == hash)
                 return true;
         }
@@ -946,13 +1347,18 @@ public static class ImportedCharacters
 
     static bool RejectKnownImage(string hash, out string message)
     {
+        return RejectKnownImageExcept(hash, 0, out message);
+    }
+
+    static bool RejectKnownImageExcept(string hash, uint exceptId, out string message)
+    {
         message = null;
         if (string.IsNullOrEmpty(hash))
         {
             message = "画像をキャラにできませんでした。";
             return true;
         }
-        if (ContainsHash(hash))
+        if (ContainsHashExcept(hash, exceptId))
         {
             message = "同じ画像をすでに読み込んでいます。";
             return true;

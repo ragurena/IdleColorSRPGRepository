@@ -172,6 +172,8 @@ public class ControllerProduction : MonoBehaviour
     readonly ChallengeProgress Challenges = new ChallengeProgress();
     bool _challengeDirty;
     bool _challengeTimeDirty;
+    int _challengeAwardStage;
+    int _challengeAwardRange;
     List<bool[,]> ProgressTextureProductionCharacter = new List<bool[,]>();//[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     List<ConsumePixelClass>[] ConsumePixelsProductionCharacter = new List<ConsumePixelClass>[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
     Texture[] ProductionCharacterViewTexture = new Texture[Constants.CHARACTERS_PRODUCTION_CHARACTER_NUM + 1];
@@ -1257,6 +1259,8 @@ public class ControllerProduction : MonoBehaviour
         ClearPixelSpeedTapCounts();
         _challengeDirty = false;
         _challengeTimeDirty = false;
+        _challengeAwardStage = 0;
+        _challengeAwardRange = 0;
         ApplyCharacterLevelCap();
         ApplyFusionCountCap();
 
@@ -2959,6 +2963,194 @@ public class ControllerProduction : MonoBehaviour
     public void DiscardPreparedImport()
     {
         ImportedCharacters.DiscardPrepared();
+    }
+
+    public bool TryPrepareRetouch(uint targetId, byte[] pngBytes, out string message)
+    {
+        if (IsInRunningBattle(targetId))
+        {
+            message = "出撃中なので手直しできません。バトルを終えてからにしてください。";
+            return false;
+        }
+        return ImportedCharacters.TryPrepareRetouch(targetId, pngBytes, IsBattleStageCleared, BattleBalance, out message);
+    }
+
+    public CharacterClass PreparedRetouchCharacter()
+    {
+        return ImportedCharacters.PreparedRetouchCharacter();
+    }
+
+    public CharacterClass RetouchTargetCharacter()
+    {
+        uint id = ImportedCharacters.PreparedRetouchTargetId();
+        return id == 0 ? null : ImportedCharacters.Find(id);
+    }
+
+    public ImportRetouchDiff PreparedRetouchDiff()
+    {
+        return ImportedCharacters.PreparedRetouchDiff();
+    }
+
+    public bool PreparedRetouchRequiresPay()
+    {
+        return ImportedCharacters.PreparedRetouchRequiresPay();
+    }
+
+    public void DiscardPreparedRetouch()
+    {
+        ImportedCharacters.DiscardPreparedRetouch();
+    }
+
+    public int RetouchTicketCount()
+    {
+        return GetItemCount(ItemIds.RetouchTicket);
+    }
+
+    public int AttributeChangeTicketCount()
+    {
+        return GetItemCount(ItemIds.AttributeChangeTicket);
+    }
+
+    // 属性チェンジの解除。広告を最後まで見たら onGranted。チケット消費は後で足す。
+    public void WatchAttributeChangeAd(Action onGranted)
+    {
+        if (_adBusy)
+            return;
+        if (AdWatchConfirm)
+        {
+            ShowConfirm(AdConfirmMessage("広告が流れますよろしいですか？"), () => PlayAttributeChangeAd(onGranted));
+            return;
+        }
+        PlayAttributeChangeAd(onGranted);
+    }
+
+    void PlayAttributeChangeAd(Action onGranted)
+    {
+        if (_adBusy)
+            return;
+#if UNITY_ANDROID || UNITY_EDITOR
+        _adBusy = true;
+        if (!AdService.TryShowRewarded(
+            () =>
+            {
+                _adBusy = false;
+                Idle.NoteAdSuccess();
+                GrantAdWatchBonus();
+                if (onGranted != null)
+                    onGranted();
+            },
+            () => { _adBusy = false; }))
+        {
+            _adBusy = false;
+        }
+#else
+        Debug.LogWarning("広告はAndroidで表示します。");
+#endif
+    }
+
+    public bool ChangeImportedAttribute(uint id, CharacterType type, out string message)
+    {
+        if (IsInRunningBattle(id))
+        {
+            message = "出撃中なので属性を変えられません。バトルを終えてからにしてください。";
+            return false;
+        }
+        bool changed = ImportedCharacters.TryChangeAttribute(id, type, BattleBalance, out message);
+        if (!changed)
+            return false;
+        SaveGame();
+        ShowCharacterOwnedNum();
+        RefreshProductionAssignmentViews();
+        RefreshProductionFigures();
+        if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerCatalog.Refresh();
+        if (ControllerFusion != null && PanelFusion != null && PanelFusion.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerFusion.Refresh();
+        if (ControllerBattleParty != null && PanelBattleParty != null)
+        {
+            CanvasGroup party = PanelBattleParty.GetComponent<CanvasGroup>();
+            if (party != null && party.alpha > 0f)
+                ControllerBattleParty.Refresh();
+        }
+        return true;
+    }
+
+    // 手直しの有料解除。広告を最後まで見たら onGranted。チケット消費は後で足す。
+    public void WatchRetouchUnlockAd(Action onGranted)
+    {
+        if (_adBusy)
+            return;
+        if (AdWatchConfirm)
+        {
+            ShowConfirm(AdConfirmMessage("広告が流れますよろしいですか？"), () => PlayRetouchUnlockAd(onGranted));
+            return;
+        }
+        PlayRetouchUnlockAd(onGranted);
+    }
+
+    void PlayRetouchUnlockAd(Action onGranted)
+    {
+        if (_adBusy)
+            return;
+#if UNITY_ANDROID || UNITY_EDITOR
+        _adBusy = true;
+        if (!AdService.TryShowRewarded(
+            () =>
+            {
+                _adBusy = false;
+                Idle.NoteAdSuccess();
+                GrantAdWatchBonus();
+                if (onGranted != null)
+                    onGranted();
+            },
+            () => { _adBusy = false; }))
+        {
+            _adBusy = false;
+        }
+#else
+        Debug.LogWarning("広告はAndroidで表示します。");
+#endif
+    }
+
+    public bool CommitPreparedRetouch(out string message)
+    {
+        CharacterClass preview = PreparedRetouchCharacter();
+        CharacterClass target = RetouchTargetCharacter();
+        if (preview == null || target == null)
+        {
+            message = "画像をキャラにできませんでした。";
+            return false;
+        }
+        if (IsInRunningBattle(target.ID))
+        {
+            message = "出撃中なので手直しできません。バトルを終えてからにしてください。";
+            return false;
+        }
+        if (!TrySpendImportRgb(preview, out message))
+            return false;
+        bool replaced = ImportedCharacters.CommitPreparedRetouch(BattleBalance, out message);
+        if (!replaced)
+        {
+            RefundImportRgb(preview);
+            return false;
+        }
+        UpdateRGBProductionScene();
+        RefreshMessages();
+        SaveGame();
+        ShowCharacterOwnedNum();
+        RefreshProductionAssignmentViews();
+        RefreshProductionFigures();
+        if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerCatalog.Refresh();
+        if (ControllerFusion != null && PanelFusion != null && PanelFusion.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerFusion.Refresh();
+        if (ControllerBattleParty != null && PanelBattleParty != null)
+        {
+            CanvasGroup party = PanelBattleParty.GetComponent<CanvasGroup>();
+            if (party != null && party.alpha > 0f)
+                ControllerBattleParty.Refresh();
+        }
+        return true;
     }
 
     // 読み込みは、各ピクセルの R・G・B を足した分を所持から払う。
@@ -6129,6 +6321,8 @@ public class ControllerProduction : MonoBehaviour
         if (!Challenges.MarkDone(stageIndex, rangeStart, kind))
             return false;
         _challengeDirty = true;
+        _challengeAwardStage = stageIndex;
+        _challengeAwardRange = rangeStart;
         return true;
     }
 
@@ -6150,14 +6344,38 @@ public class ControllerProduction : MonoBehaviour
         if (!_challengeDirty && !_challengeTimeDirty)
             return;
         bool newStar = _challengeDirty;
+        int awardStage = _challengeAwardStage;
+        int awardRange = _challengeAwardRange;
         _challengeDirty = false;
         _challengeTimeDirty = false;
+        _challengeAwardStage = 0;
+        _challengeAwardRange = 0;
         if (newStar)
         {
             ApplyCharacterLevelCap();
             ApplyFusionCountCap();
+            // 100階クリアで次の区間に進んでも、取った星が見える区間を残す。
+            ShowChallengeAwardWindow(awardStage, awardRange);
+            if (ControllerBattleStage != null)
+                ControllerBattleStage.Refresh();
+            if (ControllerEnhance != null)
+                ControllerEnhance.Refresh();
         }
         SaveGame();
+    }
+
+    // 星を取った100階区間をステージカードに出す。進捗の先頭なら Viewed=0。
+    void ShowChallengeAwardWindow(int stageIndex, int rangeStart)
+    {
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
+            return;
+        int index;
+        if (!ChallengeRules.TryRangeIndex(rangeStart, out index))
+            return;
+        int progress = GetBattleFloorWindowStart(stageIndex);
+        if (rangeStart > progress)
+            return;
+        Challenges.SetViewedWindow(stageIndex, rangeStart == progress ? 0 : rangeStart);
     }
 
     //クリア階の次の階が含まれる10階区切りの始まり。未クリアなら、今の100階の先頭。
@@ -6856,9 +7074,10 @@ public class ControllerProduction : MonoBehaviour
         long level = character.Level < 1 ? 1 : (long)character.Level;
         long exp = character.Exp < 0 ? 0 : (long)character.Exp;
         long basis = character.LevelExpBase();
+        int size = character.Size;
         long expMax = character.ExpMax > (ulong)long.MaxValue ? long.MaxValue : (long)character.ExpMax;
         if (expMax < 1)
-            expMax = config.ExpToNext(level, basis);
+            expMax = config.ExpToNext(level, basis, size);
         int used = 0;
         for (int i = 0; i < count; i++)
         {
@@ -6867,7 +7086,7 @@ public class ControllerProduction : MonoBehaviour
             long pending = each;
             for (int safety = 0; safety < 400; safety++)
             {
-                int got = BattleExperience.Add(ref level, ref exp, ref expMax, pending, config, basis);
+                int got = BattleExperience.Add(ref level, ref exp, ref expMax, pending, config, basis, size);
                 pending = 0;
                 if (level >= config.MaxLevel || exp < expMax || got == 0)
                     break;
@@ -6892,7 +7111,7 @@ public class ControllerProduction : MonoBehaviour
         forecast.ExpBefore = (long)character.Exp;
         forecast.ExpMaxBefore = (long)character.ExpMax;
         if (forecast.ExpMaxBefore < 1)
-            forecast.ExpMaxBefore = config.ExpToNext(forecast.LevelBefore, character.LevelExpBase());
+            forecast.ExpMaxBefore = config.ExpToNext(forecast.LevelBefore, character.LevelExpBase(), character.Size);
         forecast.HpBefore = (long)character.Stats[0].HPMax;
         forecast.AtkBefore = (long)character.Stats[0].ATK;
         forecast.DefBefore = (long)character.Stats[0].DEF;
@@ -6905,12 +7124,13 @@ public class ControllerProduction : MonoBehaviour
         long exp = forecast.ExpBefore < 0 ? 0 : forecast.ExpBefore;
         long expMax = forecast.ExpMaxBefore;
         long opaque = character.LevelExpBase();
+        int size = character.Size;
         long pending = gain < 0 ? 0 : gain;
         try
         {
             for (int safety = 0; safety < 400; safety++)
             {
-                int got = BattleExperience.Add(ref level, ref exp, ref expMax, pending, config, opaque);
+                int got = BattleExperience.Add(ref level, ref exp, ref expMax, pending, config, opaque, size);
                 pending = 0;
                 character.Level = (ulong)level;
                 character.Exp = (ulong)exp;
@@ -6967,7 +7187,7 @@ public class ControllerProduction : MonoBehaviour
             return true;
         long expMax = (long)character.ExpMax;
         if (expMax < 1)
-            expMax = config.ExpToNext(level, character.LevelExpBase());
+            expMax = config.ExpToNext(level, character.LevelExpBase(), character.Size);
         if (expMax < 1)
             expMax = 1;
         long room = expMax - 1;
@@ -6991,7 +7211,7 @@ public class ControllerProduction : MonoBehaviour
         long exp = (long)character.Exp;
         long expMax = (long)character.ExpMax;
         long previousHpMax = unit.HpMax;
-        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config, character.LevelExpBase());
+        int levels = BattleExperience.Add(ref level, ref exp, ref expMax, gain, config, character.LevelExpBase(), character.Size);
 
         if (level < 1)
             level = 1;
