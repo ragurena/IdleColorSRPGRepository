@@ -279,6 +279,14 @@ static class Program
         Check(config.ExpToNext(1, 43) == 43, "exp table lv1");
         Check(config.ExpToNext(2, 43) == 129, "exp table lv2");
         Check(config.ExpToNext(3, 10) == 40, "exp table lv3");
+        Check(BattleBalanceConfig.ExpSizeStep(8) == 1, "exp size step 8");
+        Check(BattleBalanceConfig.ExpSizeStep(16) == 2, "exp size step 16");
+        Check(BattleBalanceConfig.ExpSizeStep(32) == 3, "exp size step 32");
+        Check(Math.Abs(BattleBalanceConfig.ExpLevelExponent(8) - 1.15) < 0.0001, "exp exponent 8");
+        Check(Math.Abs(BattleBalanceConfig.ExpLevelExponent(16) - 1.14) < 0.0001, "exp exponent 16");
+        Check(Math.Abs(BattleBalanceConfig.ExpLevelExponent(32) - 1.13) < 0.0001, "exp exponent 32");
+        Check(config.ExpToNext(2, 100, 16) == 300, "exp table lv2 size16");
+        Check(config.ExpToNext(2, 100, 32) == 300, "exp table lv2 size32");
         Check(BattleRewardCalculator.ExpShare(100, 1) == 100, "exp share 1");
         Check(BattleRewardCalculator.ExpShare(100, 3) == 34, "exp share 3");
         Check(BattleRewardCalculator.ExpShare(100, 0) == 0, "exp share 0");

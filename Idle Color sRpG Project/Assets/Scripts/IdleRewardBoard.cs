@@ -243,7 +243,6 @@ public class IdleRewardBoard : MonoBehaviour
                 + "以下のオフライン報酬を獲得しました！";
         }
         IdlePayout payout = _game.BuildOfflinePayout(cycles, 1);
-        FillOfflineList(payout);
         if (_offlineAd != null)
             _offlineAd.gameObject.SetActive(ad);
         if (_offlineAdNote != null)
@@ -254,8 +253,10 @@ public class IdleRewardBoard : MonoBehaviour
             if (label != null)
                 label.text = ad ? "広告を見ずに閉じる" : "閉じる";
         }
+        PlaceOfflineList(ad);
         _offlinePopup.SetActive(true);
         _offlinePopup.transform.SetAsLastSibling();
+        FillOfflineList(payout);
     }
 
     void WatchOfflineAd()
@@ -393,12 +394,13 @@ public class IdleRewardBoard : MonoBehaviour
         int count = tiles.Count;
         if (count < 1)
             return;
+        UnityEngine.Canvas.ForceUpdateCanvases();
         float rowH = 84f;
         float gap = 10f;
         float blockH = count * rowH + (count - 1) * gap;
         float areaH = _offlineList.rect.height;
         if (areaH < 100f)
-            areaH = 520f;
+            areaH = 448f;
         if (blockH > areaH)
         {
             float scale = areaH / blockH;
@@ -600,15 +602,12 @@ public class IdleRewardBoard : MonoBehaviour
         body.anchorMax = new Vector2(1f, 1f);
         body.pivot = new Vector2(0.5f, 1f);
         body.anchoredPosition = new Vector2(0f, -24f);
-        body.sizeDelta = new Vector2(-48f, 280f);
+        body.sizeDelta = new Vector2(-48f, 200f);
         GameObject list = new GameObject("List", typeof(RectTransform));
         list.transform.SetParent(card, false);
         _offlineList = list.GetComponent<RectTransform>();
         _offlineList.anchorMin = new Vector2(0f, 0f);
         _offlineList.anchorMax = new Vector2(1f, 1f);
-        // 広告ボタンと、その上の付与説明より上に一覧を置く。
-        _offlineList.offsetMin = new Vector2(16f, 320f);
-        _offlineList.offsetMax = new Vector2(-16f, -310f);
         _offlineAdNote = CreateLabel("AdBonus", card, 22, TextAnchor.MiddleCenter);
         _offlineAdNote.text = ControllerProduction.AdWatchBonusNote;
         _offlineAdNote.color = new Color(0.78f, 0.80f, 0.84f, 1f);
@@ -620,9 +619,28 @@ public class IdleRewardBoard : MonoBehaviour
         note.sizeDelta = new Vector2(-48f, 88f);
         _offlineAd = WideButton("ButtonOfflineWatchAd", card, "広告を見て放置報酬を3倍受け取る", new Color(0.25f, 0.45f, 0.75f, 1f), 132f);
         _offlineClose = WideButton("ButtonOfflineClose", card, "広告を見ずに閉じる", new Color(0.45f, 0.45f, 0.48f, 1f), 36f);
+        PlaceOfflineList(true);
         _offlineAd.onClick.AddListener(WatchOfflineAd);
         _offlineClose.onClick.AddListener(CloseOffline);
         _offlinePopup.SetActive(false);
+    }
+
+    // 本文の下端と、広告説明（または閉じるボタン）の上端のあいだで、一覧の上下余白を同じにする。
+    void PlaceOfflineList(bool showAdNote)
+    {
+        if (_offlineList == null)
+            return;
+        const float bodyTop = 24f;
+        const float bodyH = 200f;
+        const float gap = 28f;
+        float bodyBottom = bodyTop + bodyH;
+        float below;
+        if (showAdNote)
+            below = 224f + 88f + gap;
+        else
+            below = 36f + 84f + gap;
+        _offlineList.offsetMin = new Vector2(16f, below);
+        _offlineList.offsetMax = new Vector2(-16f, -(bodyBottom + gap));
     }
 
     static Transform Canvas()

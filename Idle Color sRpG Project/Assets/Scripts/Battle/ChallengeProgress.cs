@@ -310,10 +310,10 @@ public static class ChallengeMarks
     }
 }
 
-// ステージ1〜5、各100階区間。0は未使用。ギャラリーは入れない。
+// ステージ1〜BATTLE_STAGE_NUM、各100階区間。0は未使用。ギャラリーは入れない。
 public sealed class ChallengeProgress
 {
-    public const int StageSlots = 6;
+    public const int StageSlots = 7;
     readonly bool[,,] _done = new bool[StageSlots, 3, ChallengeRules.KindCount];
     readonly float[,] _bossSeconds = new float[StageSlots, 3];
     readonly float[,] _midSeconds = new float[StageSlots, 3];

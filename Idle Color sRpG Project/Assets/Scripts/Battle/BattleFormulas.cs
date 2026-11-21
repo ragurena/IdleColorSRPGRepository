@@ -240,7 +240,7 @@ public static class BattleRewardCalculator
     // ステージが進むごとに各味方へ2。チュートリアルは0、スライムの森は2、チグサとバトル１は4。ギャラリーは足さない。
     public static int ExpStageBonus(int stageIndex)
     {
-        if (stageIndex < 1 || stageIndex > 5)
+        if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
             return 0;
         return (stageIndex - 1) * 2;
     }
@@ -475,10 +475,20 @@ public static class BattleExperience
 {
     public static int Add(ref long level, ref long exp, ref long expMax, long gain, BattleBalanceConfig config, long opaquePixels)
     {
-        return Add(ref level, ref exp, ref expMax, gain, config, opaquePixels, null);
+        return Add(ref level, ref exp, ref expMax, gain, config, opaquePixels, 8, null);
+    }
+
+    public static int Add(ref long level, ref long exp, ref long expMax, long gain, BattleBalanceConfig config, long opaquePixels, int size)
+    {
+        return Add(ref level, ref exp, ref expMax, gain, config, opaquePixels, size, null);
     }
 
     public static int Add(ref long level, ref long exp, ref long expMax, long gain, BattleBalanceConfig config, long opaquePixels, System.Action onLevel)
+    {
+        return Add(ref level, ref exp, ref expMax, gain, config, opaquePixels, 8, onLevel);
+    }
+
+    public static int Add(ref long level, ref long exp, ref long expMax, long gain, BattleBalanceConfig config, long opaquePixels, int size, System.Action onLevel)
     {
         if (gain < 0)
             gain = 0;
@@ -487,7 +497,7 @@ public static class BattleExperience
         if (exp < 0)
             exp = 0;
         if (expMax <= 0)
-            expMax = config.ExpToNext(level, opaquePixels);
+            expMax = config.ExpToNext(level, opaquePixels, size);
 
         exp += gain;
         int levelsGained = 0;
@@ -502,7 +512,7 @@ public static class BattleExperience
             levelsGained++;
             if (onLevel != null)
                 onLevel();
-            expMax = config.ExpToNext(level, opaquePixels);
+            expMax = config.ExpToNext(level, opaquePixels, size);
         }
 
         if (level >= config.MaxLevel)

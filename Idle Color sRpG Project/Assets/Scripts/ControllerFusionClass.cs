@@ -31,6 +31,7 @@ public class ControllerFusionClass : MonoBehaviour
     static readonly Color CellBackground = Color.black;
     static readonly Color CellBackgroundSelected = new Color(0.2f, 0.2f, 0.2f, 1f);
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
+    readonly Dictionary<uint, int> _spriteTex = new Dictionary<uint, int>();
     readonly List<CellEntry> _cells = new List<CellEntry>();
 
     class CellEntry
@@ -478,20 +479,38 @@ public class ControllerFusionClass : MonoBehaviour
         return (long)value;
     }
 
+    public void InvalidatePortrait(uint characterId)
+    {
+        if (characterId == 0)
+            return;
+        Sprite cached;
+        if (_sprites.TryGetValue(characterId, out cached) && cached != null)
+            ControllerProduction.DestroyRuntime(cached);
+        _sprites.Remove(characterId);
+        _spriteTex.Remove(characterId);
+    }
+
     Sprite SpriteOf(CharacterClass character)
     {
-        Sprite cached;
-        if (_sprites.TryGetValue(character.ID, out cached) && cached != null)
-            return cached;
-
         Texture2D tex = character.ImageTexture2D;
         if (tex == null)
             return Resources.Load<Sprite>("NoImageSprite");
 
+        int texId = tex.GetInstanceID();
+        Sprite cached;
+        int cachedTex;
+        if (_spriteTex.TryGetValue(character.ID, out cachedTex) && cachedTex == texId
+            && _sprites.TryGetValue(character.ID, out cached) && cached != null)
+            return cached;
+        InvalidatePortrait(character.ID);
+
         tex.filterMode = FilterMode.Point;
         int size = character.Size > 0 ? character.Size : tex.width;
         Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        ControllerProduction.MarkRuntime(sprite);
         _sprites[character.ID] = sprite;
+        _spriteTex[character.ID] = texId;
         return sprite;
     }
 

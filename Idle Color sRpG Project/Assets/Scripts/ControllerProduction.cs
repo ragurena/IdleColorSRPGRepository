@@ -27,8 +27,8 @@ static class Constants
     public const int CHARACTERS_PRODUCTION_CHARACTER_NUM = PRODUCTION_SLOT_MAX;
     public const int BATTLE_PARTY_SET_NUM = 5;
     public const int BATTLE_FORMATION_SIZE = 3;
-    public const int BATTLE_STAGE_NUM = 5;
-    public const int BATTLE_STAGE_GALLERY = 6;
+    public const int BATTLE_STAGE_NUM = 6;
+    public const int BATTLE_STAGE_GALLERY = 7;
     // 一度に挑戦する幅。100階クリアで次の100階が開く。
     public const int BATTLE_STAGE_FLOOR_MAX = 100;
     public const int BATTLE_STAGE_FLOOR_STEP = 10;
@@ -2886,7 +2886,7 @@ public class ControllerProduction : MonoBehaviour
         ApplyHospitalButtonLock();
     }
 
-    // チュートリアル200階のクエストを受け取ると、回復が押せる。倒れたキャラの回復自体は、開く前も進む。
+    // スライムの森30階のクエストを受け取ると、回復が押せる。倒れたキャラの回復自体は、開く前も進む。
     void ApplyHospitalButtonLock()
     {
         if (ButtonHospital == null)
@@ -3128,12 +3128,17 @@ public class ControllerProduction : MonoBehaviour
         }
         if (!TrySpendImportRgb(preview, out message))
             return false;
+        uint targetId = target.ID;
+        int oldGlowKey = target.ImageTexture2D != null ? target.ImageTexture2D.GetInstanceID() : 0;
         bool replaced = ImportedCharacters.CommitPreparedRetouch(BattleBalance, out message);
         if (!replaced)
         {
             RefundImportRgb(preview);
             return false;
         }
+        ReleaseOwnedListGlow(oldGlowKey);
+        InvalidateCharacterPortraitCaches(targetId);
+        RebuildProducedSilhouetteIfNeeded(targetId);
         UpdateRGBProductionScene();
         RefreshMessages();
         SaveGame();
@@ -3144,6 +3149,8 @@ public class ControllerProduction : MonoBehaviour
             ControllerCatalog.Refresh();
         if (ControllerFusion != null && PanelFusion != null && PanelFusion.GetComponent<CanvasGroup>().alpha > 0f)
             ControllerFusion.Refresh();
+        if (ControllerHospital != null && PanelHospital != null && PanelHospital.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerHospital.Refresh();
         if (ControllerBattleParty != null && PanelBattleParty != null)
         {
             CanvasGroup party = PanelBattleParty.GetComponent<CanvasGroup>();
@@ -3151,6 +3158,63 @@ public class ControllerProduction : MonoBehaviour
                 ControllerBattleParty.Refresh();
         }
         return true;
+    }
+
+    void InvalidateCharacterPortraitCaches(uint characterId)
+    {
+        if (characterId == 0)
+            return;
+        if (ControllerCatalog != null)
+            ControllerCatalog.InvalidatePortrait(characterId);
+        if (ControllerFusion != null)
+            ControllerFusion.InvalidatePortrait(characterId);
+        if (ControllerBattle != null)
+            ControllerBattle.InvalidatePortrait(characterId);
+        if (ControllerHospital != null)
+            ControllerHospital.InvalidatePortrait(characterId);
+    }
+
+    // 手直しで絵が変わったら、生産中の進捗はピクセルを戻して新シルエットからやり直す。
+    void RebuildProducedSilhouetteIfNeeded(uint characterId)
+    {
+        if (characterId == 0 || CharactersIDProducedCharacter == null)
+            return;
+        for (int i = 1; i < CharactersIDProducedCharacter.Length; i++)
+        {
+            if (CharactersIDProducedCharacter[i] != characterId)
+                continue;
+            ReductionPixelsProductionCharacter(i);
+            UpdateProductionCharacterProgressImage(i);
+        }
+    }
+
+    static void RefreshOwnedListPortrait(Transform button, CharacterClass character)
+    {
+        if (button == null || character == null || character.ImageTexture2D == null)
+            return;
+        Image portrait = button.GetComponent<Image>();
+        if (portrait == null)
+            return;
+        Sprite previous = portrait.sprite;
+        if (previous != null && previous.texture == character.ImageTexture2D)
+            return;
+        character.ImageTexture2D.filterMode = FilterMode.Point;
+        int size = character.Size > 0 ? character.Size : character.ImageTexture2D.width;
+        if (size > character.ImageTexture2D.width)
+            size = character.ImageTexture2D.width;
+        if (size > character.ImageTexture2D.height)
+            size = character.ImageTexture2D.height;
+        if (size < 1)
+            return;
+        Sprite sprite = Sprite.Create(character.ImageTexture2D, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+        MarkRuntime(sprite);
+        portrait.sprite = sprite;
+        portrait.type = Image.Type.Simple;
+        portrait.preserveAspect = false;
+        portrait.color = Color.white;
+        // プレハブや Resources の Sprite は Destroy しない。実行時に MarkRuntime したものだけ消す。
+        if (previous != null && previous != sprite)
+            DestroyRuntime(previous);
     }
 
     // 読み込みは、各ピクセルの R・G・B を足した分を所持から払う。
@@ -3418,7 +3482,7 @@ public class ControllerProduction : MonoBehaviour
         ApplyFusionButtonLock();
     }
 
-    // チュートリアル200階のクエストを受け取ると、読み込みが押せる。
+    // 合成15回のクエストを受け取ると、読み込みが押せる。
     void ApplyImportButtonLock()
     {
         if (ButtonImport == null)
@@ -6354,12 +6418,15 @@ public class ControllerProduction : MonoBehaviour
         {
             ApplyCharacterLevelCap();
             ApplyFusionCountCap();
+            LatchQuests();
             // 100階クリアで次の区間に進んでも、取った星が見える区間を残す。
             ShowChallengeAwardWindow(awardStage, awardRange);
             if (ControllerBattleStage != null)
                 ControllerBattleStage.Refresh();
             if (ControllerEnhance != null)
                 ControllerEnhance.Refresh();
+            if (ControllerBattle != null)
+                ControllerBattle.RefreshQuestBoard();
         }
         SaveGame();
     }
@@ -6445,6 +6512,7 @@ public class ControllerProduction : MonoBehaviour
     void NormalizeClearedBattleFloors()
     {
         int need = Constants.BATTLE_STAGE_GALLERY + 1;
+        int oldLen = ClearedBattleFloor != null ? ClearedBattleFloor.Length : 0;
         if (ClearedBattleFloor == null || ClearedBattleFloor.Length < need)
         {
             int[] next = new int[need];
@@ -6455,6 +6523,13 @@ public class ControllerProduction : MonoBehaviour
                     next[i] = ClearedBattleFloor[i];
             }
             ClearedBattleFloor = next;
+        }
+
+        // ギャラリー番号を6→7へ移した。長さ7の旧セーブは[6]がギャラリー進捗。
+        if (oldLen == 7 && ClearedBattleFloor.Length >= 8)
+        {
+            ClearedBattleFloor[7] = ClearedBattleFloor[6];
+            ClearedBattleFloor[6] = 0;
         }
 
         for (int stage = 1; stage <= Constants.BATTLE_STAGE_NUM; stage++)
@@ -6594,7 +6669,8 @@ public class ControllerProduction : MonoBehaviour
 
     // ステージ1は最初から開放。
     // チュートリアル100階でスライムの森、200階でチグサとバトル１が開く。
-    // 4以降は、1つ前のステージをクリアしているときだけ開放。
+    // 4〜5は、1つ前のステージをクリアしているときだけ開放。
+    // 6（チグサとバトル２）はメインクエスト205の受け取りで開放。
     public bool IsBattleStageUnlocked(int stageIndex)
     {
         if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)
@@ -6605,6 +6681,8 @@ public class ControllerProduction : MonoBehaviour
             return IsBattleStageCleared(1);
         if (stageIndex == 3)
             return GetHighestClearedBattleFloor(1) >= Constants.BATTLE_STAGE_FLOOR_MAX * 2;
+        if (stageIndex == 6)
+            return IsMainFeatureOpen(MainFeature.ChigusaBattle2);
         return IsBattleStageCleared(stageIndex - 1);
     }
 
@@ -12177,6 +12255,7 @@ public class ControllerProduction : MonoBehaviour
             Transform existing = list.Find(buttonName);
             if (existing != null)
             {
+                RefreshOwnedListPortrait(existing, character);
                 Text label = OwnedCountLabel(existing);
                 if (label != null)
                     FitOwnedStockLabel(label, "所持 " + character.StockText(true), IsOwnedAtCap(character));
@@ -12193,7 +12272,7 @@ public class ControllerProduction : MonoBehaviour
             GameObject characterButton = Instantiate((GameObject)Resources.Load("PrefabButtonCharacterImage"), list) as GameObject;
             characterButton.name = buttonName;
             characterButton.transform.SetSiblingIndex(shown);
-            characterButton.GetComponentInChildren<Image>().sprite = Sprite.Create(character.ImageTexture2D, new UnityEngine.Rect(0, 0, character.Size, character.Size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            RefreshOwnedListPortrait(characterButton.transform, character);
             Text createdLabel = characterButton.GetComponentInChildren<Text>();
             FitOwnedStockLabel(createdLabel, "所持 " + character.StockText(true), IsOwnedAtCap(character));
             EnsureOwnedAttributeGlow(characterButton.transform, character);
@@ -13061,7 +13140,8 @@ public class ControllerProduction : MonoBehaviour
             return;
         ShownProductionWorker shown = button.GetComponent<ShownProductionWorker>();
         if (shown != null && shown.PersonId == 0 && shown.CharacterId == character.ID
-            && shown.OwnedSprite != null && button.image.sprite == shown.OwnedSprite)
+            && shown.OwnedSprite != null && button.image.sprite == shown.OwnedSprite
+            && shown.OwnedSprite.texture == character.ImageTexture2D)
             return;
 
         HidePersonPortrait(button);
@@ -14356,10 +14436,90 @@ public class ControllerProduction : MonoBehaviour
         return count;
     }
 
+    // 作者開放を ID35 から ID32 へ移した。35を受け取り済みなら32も受け取り済みにする（報酬は二重に渡さない）。
+    void MigrateAuthorUnlockToQuest32()
+    {
+        QuestRecord old35;
+        if (!Quests.TryGet(35, out old35) || !old35.Claimed)
+            return;
+        QuestRecord neu = Quests.GetOrCreate(32);
+        if (neu.Claimed)
+            return;
+        neu.Cleared = true;
+        neu.Claimed = true;
+    }
+
+    // 読み込み開放を ID55 から ID42 へ移した。55を受け取り済みなら42も受け取り済みにする（報酬は二重に渡さない）。
+    void MigrateImportUnlockToQuest42()
+    {
+        QuestRecord old55;
+        if (!Quests.TryGet(55, out old55) || !old55.Claimed)
+            return;
+        QuestRecord neu = Quests.GetOrCreate(42);
+        if (neu.Claimed)
+            return;
+        neu.Cleared = true;
+        neu.Claimed = true;
+    }
+
+    // 回復開放を ID65 から ID52 へ移し、65はスライムの森100階へ変えた。
+    // 旧65受け取り済みなら52を受け取り済みにし、65は新しい条件で取り直せるようにする。
+    void MigrateRecoveryUnlockToQuest52()
+    {
+        QuestRecord old65;
+        if (!Quests.TryGet(65, out old65) || !old65.Claimed)
+            return;
+        QuestRecord neu = Quests.GetOrCreate(52);
+        if (neu.Claimed)
+            return;
+        neu.Cleared = true;
+        neu.Claimed = true;
+        old65.Claimed = false;
+        old65.Cleared = false;
+    }
+
+    // ステージクリアのサブを表示順用のIDへ移した。受け取り済みなら新IDへ引き継ぐ。
+    void MigrateStageSideQuestIds()
+    {
+        MoveQuestRecord(5320, 5240);
+        MoveQuestRecord(5420, 5250);
+        MoveQuestRecord(5520, 5260);
+        MoveQuestRecord(5330, 5270);
+        MoveQuestRecord(5430, 5280);
+        MoveQuestRecord(5530, 5290);
+    }
+
+    void MoveQuestRecord(int fromId, int toId)
+    {
+        if (fromId == toId || fromId < 1 || toId < 1)
+            return;
+        QuestRecord from;
+        if (!Quests.TryGet(fromId, out from))
+            return;
+        if (!from.Cleared && !from.Claimed && !from.Locked && from.Choice == 0)
+            return;
+        QuestRecord to = Quests.GetOrCreate(toId);
+        if (!to.Cleared)
+            to.Cleared = from.Cleared;
+        if (!to.Claimed)
+        {
+            to.Claimed = from.Claimed;
+            if (from.Claimed && to.Choice == 0)
+                to.Choice = from.Choice;
+        }
+        if (from.Locked)
+            to.Locked = true;
+        Quests.Records.Remove(fromId);
+    }
+
     void EnsureQuestDefaults()
     {
         ApplyCharacterLevelCap();
         ApplyFusionCountCap();
+        MigrateAuthorUnlockToQuest32();
+        MigrateImportUnlockToQuest42();
+        MigrateRecoveryUnlockToQuest52();
+        MigrateStageSideQuestIds();
         if (Quests.DefaultsApplied)
         {
             ApplyStoredImportCap();
@@ -14658,7 +14818,37 @@ public class ControllerProduction : MonoBehaviour
             return LowestPrimaryPixel();
         if (def.Metric == QuestMetric.MiniSlimes)
             return LowestMiniSlimeOwned();
+        if (def.Metric == QuestMetric.StageRangeStars)
+            return (ulong)CountStageRangesWithStarThroughSouga();
         return 0;
+    }
+
+    // チュートリアル〜ソウガ（ステージ1〜5）の100・200・300区間で、星が1つ以上ある区間数。最大15。
+    public int CountStageRangesWithStarThroughSouga()
+    {
+        int count = 0;
+        for (int stage = 1; stage <= 5; stage++)
+        {
+            for (int range = 0; range < ChallengeRules.RangeCount; range++)
+            {
+                int start = range * Constants.BATTLE_STAGE_FLOOR_MAX + 1;
+                if (HasAnyChallengeStar(stage, start))
+                    count++;
+            }
+        }
+        return count;
+    }
+
+    public bool HasAnyChallengeStar(int stageIndex, int rangeStart)
+    {
+        List<ChallengeKind> slots = new List<ChallengeKind>();
+        ChallengeRules.CollectSlots(stageIndex, rangeStart, slots);
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (Challenges.IsDone(stageIndex, rangeStart, slots[i]))
+                return true;
+        }
+        return false;
     }
 
     public bool IsMainFeatureOpen(int feature)

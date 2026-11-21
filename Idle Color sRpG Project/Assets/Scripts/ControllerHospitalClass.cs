@@ -690,6 +690,17 @@ public class ControllerHospitalClass : MonoBehaviour
         return text;
     }
 
+    public void InvalidatePortrait(uint characterId)
+    {
+        if (characterId == 0)
+            return;
+        Sprite existing;
+        if (_sprites.TryGetValue(characterId, out existing) && existing != null)
+            ControllerProduction.DestroyRuntime(existing);
+        _sprites.Remove(characterId);
+        _spriteTex.Remove(characterId);
+    }
+
     Sprite SpriteFor(CharacterClass character)
     {
         if (character == null || character.ImageTexture2D == null)
@@ -700,11 +711,7 @@ public class ControllerHospitalClass : MonoBehaviour
         int cached;
         if (_spriteTex.TryGetValue(character.ID, out cached) && cached == texId && _sprites.TryGetValue(character.ID, out existing) && existing != null)
             return existing;
-        if (_sprites.TryGetValue(character.ID, out existing) && existing != null)
-        {
-            ControllerProduction.DestroyRuntime(existing);
-            _sprites.Remove(character.ID);
-        }
+        InvalidatePortrait(character.ID);
         Sprite sprite = Sprite.Create(
             character.ImageTexture2D,
             new Rect(0f, 0f, character.ImageTexture2D.width, character.ImageTexture2D.height),

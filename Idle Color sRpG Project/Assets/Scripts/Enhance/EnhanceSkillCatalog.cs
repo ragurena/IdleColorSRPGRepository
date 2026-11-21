@@ -82,7 +82,7 @@ public static class EnhanceSkillCatalog
             Name = "R自動生産",
             Description = "赤ピクセルを毎秒レベル個、自動生産する",
             UnlockStars = 3,
-            CostBase = 100,
+            CostBase = 20,
             CostKind = EnhanceCostKind.Pow12,
             CapKind = EnhanceCapKind.LevelCap,
             Icon = EnhanceIconKind.ChipR
@@ -93,7 +93,7 @@ public static class EnhanceSkillCatalog
             Name = "G自動生産",
             Description = "緑ピクセルを毎秒レベル個、自動生産する",
             UnlockStars = 3,
-            CostBase = 100,
+            CostBase = 20,
             CostKind = EnhanceCostKind.Pow12,
             CapKind = EnhanceCapKind.LevelCap,
             Icon = EnhanceIconKind.ChipG
@@ -104,7 +104,7 @@ public static class EnhanceSkillCatalog
             Name = "B自動生産",
             Description = "青ピクセルを毎秒レベル個、自動生産する",
             UnlockStars = 3,
-            CostBase = 100,
+            CostBase = 20,
             CostKind = EnhanceCostKind.Pow12,
             CapKind = EnhanceCapKind.LevelCap,
             Icon = EnhanceIconKind.ChipB

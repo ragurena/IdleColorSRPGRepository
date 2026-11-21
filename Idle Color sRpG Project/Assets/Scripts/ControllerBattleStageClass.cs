@@ -10,7 +10,7 @@ public class ControllerBattleStageClass : MonoBehaviour
     public const string CELL_IMAGE_PREFIX = "ImageBattleStageCell";
 
     //ステージ番号は 1～BATTLE_STAGE_NUM。0 は未出撃
-    static readonly string[] StageNames = { "", "チュートリアル", "スライムの森", "チグサとバトル１", "モアとバトル１", "ソウガとバトル１", "ギャラリー" };
+    static readonly string[] StageNames = { "", "チュートリアル", "スライムの森", "チグサとバトル１", "モアとバトル１", "ソウガとバトル１", "チグサとバトル２", "ギャラリー" };
 
     public static string GetStageName(int stageIndex)
     {

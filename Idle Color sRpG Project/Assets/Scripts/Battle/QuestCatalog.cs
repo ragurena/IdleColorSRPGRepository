@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 // クエストの定義。一覧は番号の小さい順。増やすときは空いている番号で All に1行足す。一度決めた番号は変えない。
 public enum QuestMetric
@@ -15,7 +16,9 @@ public enum QuestMetric
     RgbHeld,
     BlackPixels,
     PrimaryPixels,
-    MiniSlimes
+    MiniSlimes,
+    // チュートリアル〜ソウガの各100階区間で、星が1つ以上ある区間の数。
+    StageRangeStars
 }
 
 public enum QuestRewardKind
@@ -56,6 +59,7 @@ public static class MainFeature
     public const int Recovery = 7;
     public const int Author = 8;
     public const int Import = 9;
+    public const int ChigusaBattle2 = 10;
 }
 
 public sealed class QuestDef
@@ -231,33 +235,43 @@ public static class QuestCatalog
         // 階層繰り返しの開放
         MainQuest(30, "黒猫を仲間にしながら、チュートリアルを10階クリアする", QuestMetric.StageFloor, 1, 10, QuestRewardKind.UnlockFeature, MainFeature.FloorRepeat),
         // 作者の開放
-        MainQuest(35, "敵を100体倒す", QuestMetric.EnemyDefeats, 0, 100, QuestRewardKind.UnlockFeature, MainFeature.Author),
+        MainQuest(32, "R・G・Bをそれぞれ50,000以上所持する", QuestMetric.RgbHeld, 0, 50000, QuestRewardKind.UnlockFeature, MainFeature.Author),
+        // 全ピクセル500個
+        MainQuest(35, "敵を100体倒す", QuestMetric.EnemyDefeats, 0, 100, QuestRewardKind.GrantPalette, 500),
         // 合成機能開放
         MainQuest(40, "キャラを10体以上生成する", QuestMetric.CharacterCompletions, 0, 10, QuestRewardKind.FusionUnlock, 0),
+        // キャラ読み込みの開放
+        MainQuest(42, "合成を15回以上する", QuestMetric.FusionCount, 0, 15, QuestRewardKind.UnlockFeature, MainFeature.Import),
         // スライムの森の開放、ピクセル生成枠+1、キャラ生成枠+1
         MainQuest(45, "「チュートリアル」ステージの100階をクリアする", QuestMetric.StageFloor, 1, 100, QuestRewardKind.BothSlots, 1),
-        // チグサとバトル１の開放、キャラ読み込みの開放
-        MainQuest(55, "「チュートリアル」ステージの200階をクリアする", QuestMetric.StageFloor, 1, 200, QuestRewardKind.UnlockFeature, MainFeature.Import),
         // 回復の開放
-        MainQuest(65, "「チュートリアル」ステージの300階をクリアする", QuestMetric.StageFloor, 1, 300, QuestRewardKind.UnlockFeature, MainFeature.Recovery),
+        MainQuest(52, "「スライムの森」ステージの30階をクリアする", QuestMetric.StageFloor, 2, 30, QuestRewardKind.UnlockFeature, MainFeature.Recovery),
+        // チグサとバトル１の開放、縁結びのお守り
+        MainQuest(55, "「チュートリアル」ステージの200階をクリアする", QuestMetric.StageFloor, 1, 200, QuestRewardKind.UnlockFeature, 0, ItemIds.EnmusubiOmamori, 1),
+        // 全ピクセル500個
+        MainQuest(65, "「スライムの森」ステージの100階をクリアする", QuestMetric.StageFloor, 2, 100, QuestRewardKind.GrantPalette, 500),
+        // モアとバトル１の開放、ピクセル生成枠+1、キャラ生成枠+1
+        MainQuest(85, "「チグサとバトル１」ステージの100階をクリアする", QuestMetric.StageFloor, 3, 100, QuestRewardKind.BothSlots, 1),
+        // ソウガとバトル１の開放、ピクセル生成枠+1、キャラ生成枠+1
+        MainQuest(105, "「モアとバトル１」ステージの100階をクリアする", QuestMetric.StageFloor, 4, 100, QuestRewardKind.BothSlots, 1),
+        // ピクセル生成枠+1、キャラ生成枠+1
+        MainQuest(115, "「ソウガとバトル１」ステージの100階をクリアする", QuestMetric.StageFloor, 5, 100, QuestRewardKind.BothSlots, 1),
+        // チグサとバトル２の開放。対象はチュートリアル〜ソウガの100・200・300の15区間。
+        MainQuest(205, "チュートリアル100からソウガとバトル１の300まで、各100階区間で星を1つ以上獲得する", QuestMetric.StageRangeStars, 0, 15, QuestRewardKind.UnlockFeature, MainFeature.ChigusaBattle2),
 
-        // ステージクリア。100階、200階、300階。同じステージは100階をクリアすると次が出る。
-        // 100階はピクセル生成枠+1、キャラ生成枠+1。200階は全ピクセル200個、300階は全ピクセル300個。
+        // ステージクリア（サブ）。表示順はID昇順。メインにある階は出さない。
+        // 200階は全ピクセル200個、300階は全ピクセル300個。
         // 広告でピクセル生成+0.5、キャラ生成+0.3。
         // レベル上限と合成上限は、100階クリアごとに5上がる。この引数では付けない。
-        // 次のステージ開放は100階だけ。スライムの森は出さない。
-        Stage(5200, 2, 100),
-        Stage(5220, 2, 200),
-        Stage(5230, 2, 300),
-        Stage(5300, 3, 100), // モアとバトル１の開放
-        Stage(5320, 3, 200),
-        Stage(5330, 3, 300),
-        Stage(5400, 4, 100), // ソウガとバトル１の開放
-        Stage(5420, 4, 200),
-        Stage(5430, 4, 300),
-        Stage(5500, 5, 100),
-        Stage(5520, 5, 200),
-        Stage(5530, 5, 300),
+        Stage(5210, 1, 300), // チュートリアル300
+        Stage(5220, 2, 200), // スライムの森200
+        Stage(5230, 2, 300), // スライムの森300
+        Stage(5240, 3, 200), // チグサ200
+        Stage(5250, 4, 200), // モア200
+        Stage(5260, 5, 200), // ソウガ200
+        Stage(5270, 3, 300), // チグサ300
+        Stage(5280, 4, 300), // モア300
+        Stage(5290, 5, 300), // ソウガ300
 
         // ギャラリークリア。100階は枠+1。200階以降は、その階の数だけ全ピクセル。
         // 広告でピクセル生成+0.5、キャラ生成+0.3。
@@ -330,9 +344,9 @@ public static class QuestCatalog
         Pixel(5233, 20000,   10000),
 
         // キャラ生成。キャラ読込上限+0.5。第3引数がある行は縁結びのお守りをその数。広告でキャラ生成+0.3。
-        Character(  5054,  100, 1),
+        Character(  5054,  100),
         Character(  5074,  250),
-        Character(  5094,  500),
+        Character(  5094,  500, 1),
         Character( 5114,  750),
         Character( 5134, 1000, 1),
         Character( 5154, 1250),
@@ -352,7 +366,8 @@ public static class QuestCatalog
         Character( 5434, 8000),
         Character( 5454, 9000),
         Character( 5474, 10000, 1),
-        Character( 5494, 100000, 1),
+        Character( 5494, 50000, 1),
+        Character( 5694, 100000, 1),
 
         // 敵を倒す。
         // 100体はメインクエスト。
@@ -613,6 +628,17 @@ public static class QuestCatalog
         return body;
     }
 
+    // 報酬の1行に付けるアイコン。縁結びはアイテム絵、それ以外は機能アイコン。
+    public static Sprite RewardIcon(string line)
+    {
+        if (string.IsNullOrEmpty(line))
+            return null;
+        string charm = ItemIds.DisplayName(ItemIds.EnmusubiOmamori);
+        if ((!string.IsNullOrEmpty(charm) && line.IndexOf(charm) >= 0) || line.IndexOf("縁結び") >= 0)
+            return ItemImages.Enmusubi();
+        return ControllerProduction.FeatureIcon(RewardIconFile(line));
+    }
+
     // 報酬の1行に付けられる機能アイコン。無い行は null。
     public static string RewardIconFile(string line)
     {
@@ -720,8 +746,6 @@ public static class QuestCatalog
                 return "次のステージ「" + ControllerBattleStageClass.GetStageName(3) + "」の開放";
             return "";
         }
-        if (def.Main)
-            return "";
         // 次のステージは100階クリアで開く。200階と300階では重ねて出さない。
         if (def.Target != Constants.BATTLE_STAGE_FLOOR_MAX)
             return "";
@@ -788,9 +812,9 @@ public static class QuestCatalog
         return new QuestDef(id, "1辺" + size.ToString() + "pxのキャラを" + UiNumber.Format(count) + "体読込", QuestMetric.ImportedOfSize, size, count, QuestRewardKind.FusionAndPixelSlot, 1, true);
     }
 
-    static QuestDef MainQuest(int id, string title, QuestMetric metric, int arg, long target, QuestRewardKind reward, long amount)
+    static QuestDef MainQuest(int id, string title, QuestMetric metric, int arg, long target, QuestRewardKind reward, long amount, int itemId = 0, int itemCount = 0)
     {
-        return new QuestDef(id, title, metric, arg, target, reward, amount, true, true);
+        return new QuestDef(id, title, metric, arg, target, reward, amount, true, true, 0, 0, itemId, itemCount);
     }
 
     static string FeatureUnlockText(long feature)
@@ -813,6 +837,8 @@ public static class QuestCatalog
             return "作者の開放";
         if (feature == MainFeature.Import)
             return "キャラ読み込みの開放";
+        if (feature == MainFeature.ChigusaBattle2)
+            return "次のステージ「" + ControllerBattleStageClass.GetStageName(6) + "」の開放";
         return "";
     }
 }

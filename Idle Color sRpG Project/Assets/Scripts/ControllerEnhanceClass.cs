@@ -36,6 +36,8 @@ public class ControllerEnhanceClass : MonoBehaviour
         public Text Description;
         public Text Level;
         public Text Effect;
+        public Image EffectWhiteChip;
+        public Text EffectUnlockCost;
         public Button Action;
         public Text ActionLabel;
         public RectTransform ButtonCostGroup;
@@ -134,14 +136,41 @@ public class ControllerEnhanceClass : MonoBehaviour
         }
         if (row.Effect != null)
         {
+            const float effectLeft = -420f;
             if (!unlocked)
             {
-                row.Effect.text = "効果 " + EnhanceSkillCatalog.EffectText(row.Id, 1) + "（Lv1時）";
-                PlaceLeft(row.Effect.rectTransform, -420f, -50f, 620f, 40f);
+                long firstCost = EnhanceSkillCatalog.UpgradeCost(def, 1);
+                string cost = firstCost > 0 && firstCost < long.MaxValue
+                    ? UiNumber.Format(firstCost)
+                    : "-";
+                row.Effect.text = "効果 " + EnhanceSkillCatalog.EffectText(row.Id, 1) + "（Lv1時　";
+                PlaceLeft(row.Effect.rectTransform, effectLeft, -50f, 620f, 40f);
+                float textW = row.Effect.preferredWidth;
+                if (textW < 1f)
+                    textW = 200f;
+                PlaceLeft(row.Effect.rectTransform, effectLeft, -50f, textW + 2f, 40f);
+                float chipLeft = effectLeft + textW + 2f;
+                if (row.EffectWhiteChip != null)
+                {
+                    row.EffectWhiteChip.gameObject.SetActive(true);
+                    row.EffectWhiteChip.color = Color.white;
+                    ControllerProduction.StyleColorChip(row.EffectWhiteChip);
+                    Place(row.EffectWhiteChip.rectTransform, chipLeft + 13f, -50f, 26f, 26f);
+                }
+                if (row.EffectUnlockCost != null)
+                {
+                    row.EffectUnlockCost.gameObject.SetActive(true);
+                    row.EffectUnlockCost.text = cost + "）";
+                    PlaceLeft(row.EffectUnlockCost.rectTransform, chipLeft + 40f, -50f, 140f, 40f);
+                }
             }
             else
             {
-                PlaceLeft(row.Effect.rectTransform, -420f, -78f, 620f, 40f);
+                if (row.EffectWhiteChip != null)
+                    row.EffectWhiteChip.gameObject.SetActive(false);
+                if (row.EffectUnlockCost != null)
+                    row.EffectUnlockCost.gameObject.SetActive(false);
+                PlaceLeft(row.Effect.rectTransform, effectLeft, -78f, 620f, 40f);
                 string now = EnhanceSkillCatalog.EffectText(row.Id, level);
                 if (level >= levelCap)
                     row.Effect.text = "効果 " + now;
@@ -395,6 +424,12 @@ public class ControllerEnhanceClass : MonoBehaviour
         entry.Level.supportRichText = true;
         entry.Effect = CreateText("Effect", row.transform, 24, TextAnchor.MiddleLeft);
         PlaceLeft(entry.Effect.rectTransform, -420f, -78f, 620f, 40f);
+        entry.EffectWhiteChip = CreateWhiteChip(row.transform, "EffectWhiteChip");
+        Place(entry.EffectWhiteChip.rectTransform, 0f, -50f, 26f, 26f);
+        entry.EffectWhiteChip.gameObject.SetActive(false);
+        entry.EffectUnlockCost = CreateText("EffectUnlockCost", row.transform, 24, TextAnchor.MiddleLeft);
+        PlaceLeft(entry.EffectUnlockCost.rectTransform, 0f, -50f, 140f, 40f);
+        entry.EffectUnlockCost.gameObject.SetActive(false);
 
         entry.Action = CreateButton("ButtonAction", "解放", row.transform);
         Place(entry.Action.GetComponent<RectTransform>(), 380f, 0f, 180f, 180f);

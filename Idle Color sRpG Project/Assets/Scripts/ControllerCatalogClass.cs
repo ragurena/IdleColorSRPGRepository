@@ -40,7 +40,9 @@ public class ControllerCatalogClass : MonoBehaviour
     const float FrameThin = 3f;
     const float FrameSelected = 8f;
     readonly Dictionary<uint, Sprite> _openedSprites = new Dictionary<uint, Sprite>();
+    readonly Dictionary<uint, int> _openedSpriteTex = new Dictionary<uint, int>();
     readonly Dictionary<uint, Sprite> _silhouetteSprites = new Dictionary<uint, Sprite>();
+    readonly Dictionary<uint, int> _silhouetteSpriteTex = new Dictionary<uint, int>();
     readonly List<CellEntry> _cells = new List<CellEntry>();
 
     class CellEntry
@@ -482,15 +484,41 @@ public class ControllerCatalogClass : MonoBehaviour
         return IsKnown(character) ? OpenedSprite(character) : SilhouetteSprite(character);
     }
 
-    Sprite SilhouetteSprite(CharacterClass character)
+    public void InvalidatePortrait(uint characterId)
+    {
+        if (characterId == 0)
+            return;
+        ReleaseCachedSprite(_openedSprites, _openedSpriteTex, characterId, false);
+        ReleaseCachedSprite(_silhouetteSprites, _silhouetteSpriteTex, characterId, true);
+    }
+
+    static void ReleaseCachedSprite(Dictionary<uint, Sprite> sprites, Dictionary<uint, int> texIds, uint characterId, bool destroyTexture)
     {
         Sprite cached;
-        if (_silhouetteSprites.TryGetValue(character.ID, out cached) && cached != null)
-            return cached;
+        if (sprites.TryGetValue(characterId, out cached) && cached != null)
+        {
+            Texture texture = destroyTexture ? cached.texture : null;
+            ControllerProduction.DestroyRuntime(cached);
+            if (destroyTexture && texture != null)
+                ControllerProduction.DestroyRuntime(texture);
+        }
+        sprites.Remove(characterId);
+        texIds.Remove(characterId);
+    }
 
+    Sprite SilhouetteSprite(CharacterClass character)
+    {
         Texture2D tex = character.ImageTexture2D;
         if (tex == null)
             return Resources.Load<Sprite>("NoImageSprite");
+
+        int texId = tex.GetInstanceID();
+        Sprite cached;
+        int cachedTex;
+        if (_silhouetteSpriteTex.TryGetValue(character.ID, out cachedTex) && cachedTex == texId
+            && _silhouetteSprites.TryGetValue(character.ID, out cached) && cached != null)
+            return cached;
+        ReleaseCachedSprite(_silhouetteSprites, _silhouetteSpriteTex, character.ID, true);
 
         int size = character.Size > 0 ? character.Size : tex.width;
         if (size > tex.width)
@@ -502,27 +530,39 @@ public class ControllerCatalogClass : MonoBehaviour
             pixels[i] = new Color(1f, 1f, 1f, pixels[i].a);
         Texture2D white = new Texture2D(size, size, TextureFormat.RGBA32, false);
         white.filterMode = FilterMode.Point;
+        white.hideFlags = HideFlags.HideAndDontSave;
         white.SetPixels(pixels);
         white.Apply();
+        ControllerProduction.MarkRuntime(white);
         Sprite sprite = Sprite.Create(white, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        ControllerProduction.MarkRuntime(sprite);
         _silhouetteSprites[character.ID] = sprite;
+        _silhouetteSpriteTex[character.ID] = texId;
         return sprite;
     }
 
     Sprite OpenedSprite(CharacterClass character)
     {
-        Sprite cached;
-        if (_openedSprites.TryGetValue(character.ID, out cached) && cached != null)
-            return cached;
-
         Texture2D tex = character.ImageTexture2D;
         if (tex == null)
             return Resources.Load<Sprite>("NoImageSprite");
 
+        int texId = tex.GetInstanceID();
+        Sprite cached;
+        int cachedTex;
+        if (_openedSpriteTex.TryGetValue(character.ID, out cachedTex) && cachedTex == texId
+            && _openedSprites.TryGetValue(character.ID, out cached) && cached != null)
+            return cached;
+        ReleaseCachedSprite(_openedSprites, _openedSpriteTex, character.ID, false);
+
         tex.filterMode = FilterMode.Point;
         int size = character.Size > 0 ? character.Size : tex.width;
         Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        ControllerProduction.MarkRuntime(sprite);
         _openedSprites[character.ID] = sprite;
+        _openedSpriteTex[character.ID] = texId;
         return sprite;
     }
 

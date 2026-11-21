@@ -43,6 +43,7 @@ public sealed class ItemBoard
     readonly List<int> _ids = new List<int>();
     readonly List<uint> _characters = new List<uint>();
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
+    readonly Dictionary<uint, int> _spriteTex = new Dictionary<uint, int>();
     readonly Dictionary<uint, OrbCell> _cells = new Dictionary<uint, OrbCell>();
     int _itemId;
     int _quantity = 1;
@@ -720,14 +721,29 @@ public sealed class ItemBoard
         return picked;
     }
 
+    public void InvalidatePortrait(uint characterId)
+    {
+        if (characterId == 0)
+            return;
+        Sprite cached;
+        if (_sprites.TryGetValue(characterId, out cached) && cached != null)
+            ControllerProduction.DestroyRuntime(cached);
+        _sprites.Remove(characterId);
+        _spriteTex.Remove(characterId);
+    }
+
     Sprite SpriteOf(CharacterClass character)
     {
         if (character == null || character.ImageTexture2D == null || character.Size < 1)
             return null;
-        Sprite cached;
-        if (_sprites.TryGetValue(character.ID, out cached) && cached != null)
-            return cached;
         Texture2D tex = character.ImageTexture2D;
+        int texId = tex.GetInstanceID();
+        Sprite cached;
+        int cachedTex;
+        if (_spriteTex.TryGetValue(character.ID, out cachedTex) && cachedTex == texId
+            && _sprites.TryGetValue(character.ID, out cached) && cached != null)
+            return cached;
+        InvalidatePortrait(character.ID);
         tex.filterMode = FilterMode.Point;
         int size = character.Size;
         if (size > tex.width)
@@ -737,7 +753,10 @@ public sealed class ItemBoard
         if (size < 1)
             return null;
         Sprite sprite = Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        ControllerProduction.MarkRuntime(sprite);
         _sprites[character.ID] = sprite;
+        _spriteTex[character.ID] = texId;
         return sprite;
     }
 

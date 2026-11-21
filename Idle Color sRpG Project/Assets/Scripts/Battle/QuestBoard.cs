@@ -296,11 +296,15 @@ public sealed class QuestBoard
             if (!show)
                 continue;
             line.Label.text = lines[i];
-            Sprite sprite = ControllerProduction.FeatureIcon(QuestCatalog.RewardIconFile(lines[i]));
+            Sprite sprite = QuestCatalog.RewardIcon(lines[i]);
             bool icon = sprite != null;
             line.Icon.gameObject.SetActive(icon);
             if (icon)
+            {
                 line.Icon.sprite = sprite;
+                line.Icon.preserveAspect = true;
+                line.Icon.color = Color.white;
+            }
             float textLeft = icon ? 50f : 0f;
             float textWidth = width - 16f - 370f - textLeft;
             if (textWidth < 80f)

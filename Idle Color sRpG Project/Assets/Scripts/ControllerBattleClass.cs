@@ -111,6 +111,7 @@ public class ControllerBattleClass : MonoBehaviour
     readonly List<BattleUnit> _expPopUnits = new List<BattleUnit>();
     readonly List<long> _expPopAmounts = new List<long>();
     readonly Dictionary<uint, Sprite> _sprites = new Dictionary<uint, Sprite>();
+    readonly Dictionary<uint, int> _spriteTex = new Dictionary<uint, int>();
     CellView[,] _allies;
     CellView[,] _enemies;
     Image[] _battlePeople;
@@ -1848,21 +1849,41 @@ public class ControllerBattleClass : MonoBehaviour
         return null;
     }
 
-    Sprite SpriteOf(uint characterId)
+    public void InvalidatePortrait(uint characterId)
     {
+        if (characterId == 0)
+            return;
         Sprite cached;
         if (_sprites.TryGetValue(characterId, out cached) && cached != null)
-            return cached;
+            ControllerProduction.DestroyRuntime(cached);
+        _sprites.Remove(characterId);
+        _spriteTex.Remove(characterId);
+        if (_items != null)
+            _items.InvalidatePortrait(characterId);
+    }
 
+    Sprite SpriteOf(uint characterId)
+    {
         CharacterClass character = _production.GetCharacter(characterId);
         Texture2D tex = character != null ? character.ImageTexture2D : null;
         if (tex == null)
             return Resources.Load<Sprite>("NoImageSprite");
 
+        int texId = tex.GetInstanceID();
+        Sprite cached;
+        int cachedTex;
+        if (_spriteTex.TryGetValue(characterId, out cachedTex) && cachedTex == texId
+            && _sprites.TryGetValue(characterId, out cached) && cached != null)
+            return cached;
+        InvalidatePortrait(characterId);
+
         tex.filterMode = FilterMode.Point;
         int size = character.Size > 0 ? character.Size : tex.width;
         Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        ControllerProduction.MarkRuntime(sprite);
         _sprites[characterId] = sprite;
+        _spriteTex[characterId] = texId;
         return sprite;
     }
 
@@ -2903,10 +2924,10 @@ public class ControllerBattleClass : MonoBehaviour
             exp = (long)character.Exp;
             need = (long)character.ExpMax;
             if (need < 1 && _config != null)
-                need = _config.ExpToNext((long)character.Level, character.LevelExpBase());
+                need = _config.ExpToNext((long)character.Level, character.LevelExpBase(), character.Size);
         }
         else if (_config != null)
-            need = _config.ExpToNext(unit.Level, unit.OpaquePixels);
+            need = _config.ExpToNext(unit.Level, unit.OpaquePixels, unit.Size);
         if (need < 1)
             need = 1;
         SetGauge(slot.Exp, exp, need);
