@@ -13,12 +13,12 @@ static class PersonTests
         failures += Check(PersonFormulas.AmountAtLevel(10, 3, config, config.PixelLevelGrowthDivisor) == 20, "pixel lv3");
         failures += Check(PersonFormulas.AmountAtLevel(25, 3, config, config.PixelLevelGrowthDivisor) == 50, "pixel specialty lv3");
         failures += Check(PersonFormulas.AmountAtLevel(50, 3, config) == 75, "fire lv3");
-        failures += Check(PersonFormulas.ExpToNext(1, 1.7, config) == 100, "exp lv1");
-        failures += Check(PersonFormulas.ExpToNext(2, 1.7, config) == 325, "exp rgb 2");
-        failures += Check(PersonFormulas.ExpToNext(1, 1.6, config, 3) == 300, "pixel exp base lv1");
-        failures += Check(PersonFormulas.ExpToNext(2, 1.6, config, 3) == 910, "pixel exp base lv2");
-        failures += Check(PersonFormulas.ExpToNext(1, 1.5, config, 8) == 800, "character exp base lv1");
-        failures += Check(PersonFormulas.ExpToNext(2, 1.5, config, 8) == 2263, "character exp base lv2");
+        failures += Check(PersonFormulas.ExpToNext(1, 1.7, config) == 50, "exp lv1");
+        failures += Check(PersonFormulas.ExpToNext(2, 1.7, config) == 163, "exp rgb 2");
+        failures += Check(PersonFormulas.ExpToNext(1, 1.6, config, 3) == 150, "pixel exp base lv1");
+        failures += Check(PersonFormulas.ExpToNext(2, 1.6, config, 3) == 455, "pixel exp base lv2");
+        failures += Check(PersonFormulas.ExpToNext(1, 1.5, config, 8) == 400, "character exp base lv1");
+        failures += Check(PersonFormulas.ExpToNext(2, 1.5, config, 8) == 1132, "character exp base lv2");
         failures += Check(PersonFormulas.PixelCompletionExp(0, 0, 0) == 3, "pixel exp black");
         failures += Check(PersonFormulas.PixelCompletionExp(32, 0, 0) == 3, "pixel exp 32");
         failures += Check(PersonFormulas.PixelCompletionExp(64, 64, 0) == 3, "pixel exp 64");

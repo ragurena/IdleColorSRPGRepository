@@ -99,6 +99,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
     public void Open()
     {
         Refresh();
+        if (Panel != null)
+            GameAudio.BindAllButtons(Panel.transform);
     }
 
     public void Close()

@@ -54,13 +54,14 @@ public static class CharacterRoster
         new CharacterDefinition(28, "シャチ_32.png", "シャチ", false),
         new CharacterDefinition(29, "オオカミ_64.png", "オオカミ", false),
         new CharacterDefinition(30, "ブラックドラゴン_128.png", "ブラックドラゴン", false),
-        new CharacterDefinition(31, "0064_slimeking_G.png", "GreenSlimeKing", false),
-        new CharacterDefinition(32, "0064_slimeking_B.png", "BlueSlimeKing", false),
-        new CharacterDefinition(33, "0016_akaneko.png", "赤ネコ", false),
-        new CharacterDefinition(34, "0016_midorineko.png", "緑ネコ", false),
-        new CharacterDefinition(35, "0016_aoneko.png", "青ネコ", false),
-        new CharacterDefinition(36, "0016_kuroneko.png", "黒ネコ", false),
-        new CharacterDefinition(37, "0016_shironeko.png", "白ネコ", false),
+        // テスト用。もう使わないので登録から外す（ID 枠はセーブ互換のため残す）。
+        // new CharacterDefinition(31, "0064_slimeking_G.png", "GreenSlimeKing", false),
+        // new CharacterDefinition(32, "0064_slimeking_B.png", "BlueSlimeKing", false),
+        // new CharacterDefinition(33, "0016_akaneko.png", "赤ネコ", false),
+        // new CharacterDefinition(34, "0016_midorineko.png", "緑ネコ", false),
+        // new CharacterDefinition(35, "0016_aoneko.png", "青ネコ", false),
+        // new CharacterDefinition(36, "0016_kuroneko.png", "黒ネコ", false),
+        // new CharacterDefinition(37, "0016_shironeko.png", "白ネコ", false),
     };
 
     public static void RegisterAll(CharacterClass[] characters)

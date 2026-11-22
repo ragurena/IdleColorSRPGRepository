@@ -34,6 +34,7 @@ static class HospitalTests
         failures += ZeroPixelsReturn();
         failures += CareDoesNotHitNewcomer();
         failures += NurseLearns();
+        failures += RecoverAdCharges();
         return failures;
     }
 
@@ -47,8 +48,33 @@ static class HospitalTests
         failures += Check(HospitalMath.FormatSeconds(16384 * 5) == "22:45:20", "128x128 time");
         failures += Check(HospitalMath.FormatSeconds(65536 * 5) == "91:01:20", "256x256 time");
         failures += Check(HospitalMath.FormatSeconds(262144 * 5) == "364:05:20", "512x512 time");
+        failures += Check(HospitalMath.FormatChargeClock(599000) == "9:59", "charge clock 9:59");
+        failures += Check(HospitalMath.FormatChargeClock(600000) == "10:00", "charge clock 10:00");
         failures += Check(HospitalMath.Gauge01(100, 4096) == 100f / 4096f, "gauge");
         failures += Check(HospitalMath.Gauge01(4096, 4096) == 1f, "gauge full");
+        return failures;
+    }
+
+    static int RecoverAdCharges()
+    {
+        int failures = 0;
+        HospitalState hospital = new HospitalState();
+        failures += Check(hospital.RecoverAdCharges(0) == HospitalState.AdRecoverChargeMax, "starts full");
+        failures += Check(hospital.FormatRecoverAdLabel(0) == "3 / 3", "full label");
+        failures += Check(hospital.TrySpendRecoverAd(1000), "spend full");
+        failures += Check(hospital.RecoverAdCharges(1000) == 2, "after spend");
+        failures += Check(hospital.RecoverAdRemainMs(1000) == HospitalState.AdRecoverChargeIntervalMs, "timer starts");
+        failures += Check(hospital.FormatRecoverAdLabel(1000) == "2 / 3  10:00", "charging label");
+        failures += Check(hospital.RecoverAdCharges(1000 + HospitalState.AdRecoverChargeIntervalMs) == 3, "refilled after 10 min");
+        failures += Check(hospital.TrySpendRecoverAd(0) && hospital.TrySpendRecoverAd(0) && hospital.TrySpendRecoverAd(0), "spend three");
+        failures += Check(!hospital.TrySpendRecoverAd(0), "empty blocks");
+        failures += Check(hospital.RecoverAdCharges(HospitalState.AdRecoverChargeIntervalMs * 2 + 500) == 2, "offline refill two");
+        HospitalState loaded = new HospitalState();
+        loaded.Reset();
+        loaded.TryApply(new string[] { "HospitalRecoverAd", "1", "500000" });
+        loaded.Repair();
+        failures += Check(loaded.RecoverAdCharges(1000) == 1, "saved charges");
+        failures += Check(loaded.FormatRecoverAdLabel(1000) == "1 / 3  8:19", "saved label");
         return failures;
     }
 

@@ -669,6 +669,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         slider.maxValue = Constants.BATTLE_STAGE_FLOOR_MAX / Constants.BATTLE_STAGE_FLOOR_STEP;
         slider.onValueChanged.AddListener(_ => OnFloorSliderChanged(fromSlider));
         StyleFloorSlider(slider);
+        GameAudio.BindSlider(slider);
         if (fromSlider)
             RememberFloorFromSliderSize();
     }
@@ -753,7 +754,8 @@ public class ControllerBattleStageClass : MonoBehaviour
             }
         }
 
-        Refresh();
+        // ドラッグ中は一覧全体を作り直さず、選択範囲の文字だけ即時更新する。
+        PaintFloorRangeText();
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1176,30 +1178,42 @@ public class ControllerBattleStageClass : MonoBehaviour
             }
         }
 
-        if (TextBattleFloorRange != null)
-        {
-            GetSelectedFloorRange(out int floorFrom, out int floorTo);
-            TextBattleFloorRange.text = floorFrom.ToString() + "階 〜 " + floorTo.ToString() + "階";
-            int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
-            int windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
-            int lastBandStart = windowStart + Constants.BATTLE_STAGE_FLOOR_MAX - Constants.BATTLE_STAGE_FLOOR_STEP;
-            if (maxFrom < lastBandStart)
-            {
-                int highest = ControllerProduction.GetHighestClearedBattleFloor(CurrentStageIndex);
-                if (highest <= 0)
-                    TextBattleFloorRange.text += "\n（開始は1階まで）";
-                else
-                    TextBattleFloorRange.text += "\n（" + highest.ToString() + "階クリア、開始は" + maxFrom.ToString() + "階まで）";
-            }
+        PaintFloorRangeText();
+    }
 
-            int activeFloorFrom = ControllerProduction.GetActiveBattleFloorFrom();
-            int activeFloorTo = ControllerProduction.GetActiveBattleFloorTo();
-            if (activeStage == CurrentStageIndex && activeFloorFrom > 0
-                && (activeFloorFrom != floorFrom || activeFloorTo != floorTo))
-            {
-                TextBattleFloorRange.text += "\n出撃中 " + activeFloorFrom.ToString() + "階 〜 " + activeFloorTo.ToString() + "階";
-            }
+    void PaintFloorRangeText()
+    {
+        if (TextBattleFloorRange == null || ControllerProduction == null)
+            return;
+        GetSelectedFloorRange(out int floorFrom, out int floorTo);
+        TextBattleFloorRange.text = floorFrom.ToString() + "階 〜 " + floorTo.ToString() + "階";
+        int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
+        int windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
+        int lastBandStart = windowStart + Constants.BATTLE_STAGE_FLOOR_MAX - Constants.BATTLE_STAGE_FLOOR_STEP;
+        if (maxFrom < lastBandStart)
+        {
+            int highest = ControllerProduction.GetHighestClearedBattleFloor(CurrentStageIndex);
+            if (highest <= 0)
+                TextBattleFloorRange.text += "\n（開始は1階まで）";
+            else
+                TextBattleFloorRange.text += "\n（" + highest.ToString() + "階クリア、開始は" + maxFrom.ToString() + "階まで）";
         }
+
+        int activeStage = ControllerProduction.GetActiveBattleStage();
+        int activeFloorFrom = ControllerProduction.GetActiveBattleFloorFrom();
+        int activeFloorTo = ControllerProduction.GetActiveBattleFloorTo();
+        if (activeStage == CurrentStageIndex && activeFloorFrom > 0
+            && (activeFloorFrom != floorFrom || activeFloorTo != floorTo))
+        {
+            TextBattleFloorRange.text += "\n出撃中 " + activeFloorFrom.ToString() + "階 〜 " + activeFloorTo.ToString() + "階";
+        }
+    }
+
+    // クリアで開始できる上限が伸びたとき。選択はそのまま、バーの長さと文字だけ合わせる。
+    public void RefreshFloorSliderLimit()
+    {
+        ApplyFloorFromLimit();
+        PaintFloorRangeText();
     }
 
     void ApplyFloorFromLimit()
@@ -1212,10 +1226,18 @@ public class ControllerBattleStageClass : MonoBehaviour
         int maxBand = (maxFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         if (maxBand < 1)
             maxBand = 1;
+        int totalBands = Constants.BATTLE_STAGE_FLOOR_MAX / Constants.BATTLE_STAGE_FLOOR_STEP;
+        if (totalBands < 1)
+            totalBands = 1;
+        if (maxBand > totalBands)
+            maxBand = totalBands;
 
         int fromBand = Mathf.RoundToInt(SliderBattleFloorFrom.value);
         if (fromBand > maxBand)
             fromBand = maxBand;
+        if (fromBand < 1)
+            fromBand = 1;
+        SliderBattleFloorFrom.minValue = 1;
         SliderBattleFloorFrom.maxValue = maxBand;
         SliderBattleFloorFrom.SetValueWithoutNotify(fromBand);
         ResizeFloorFromSlider(maxBand);
@@ -1225,7 +1247,12 @@ public class ControllerBattleStageClass : MonoBehaviour
         int toBand = Mathf.RoundToInt(SliderBattleFloorTo.value);
         fromBand = Mathf.RoundToInt(SliderBattleFloorFrom.value);
         if (toBand < fromBand)
-            SliderBattleFloorTo.SetValueWithoutNotify(fromBand);
+            toBand = fromBand;
+        if (toBand > totalBands)
+            toBand = totalBands;
+        SliderBattleFloorTo.minValue = 1;
+        SliderBattleFloorTo.maxValue = totalBands;
+        SliderBattleFloorTo.SetValueWithoutNotify(toBand);
     }
 
     //選べる開始階が浅いときは、バーの長さもその分だけ短くする。左端は動かさない
@@ -1361,6 +1388,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         button.transition = Selectable.Transition.None;
         button.onClick = new Button.ButtonClickedEvent();
         button.onClick.AddListener(() => OpenChallengeStars(stageIndex));
+        GameAudio.BindUi(button);
         return image;
     }
 

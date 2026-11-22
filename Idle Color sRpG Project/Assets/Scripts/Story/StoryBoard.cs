@@ -54,6 +54,7 @@ public sealed class StoryBoard
         if (overlay != null)
             overlay.SetAsLastSibling();
         _root.transform.SetAsLastSibling();
+        GameAudio.EnterStoryBgm();
         ShowList();
     }
 
@@ -65,6 +66,7 @@ public sealed class StoryBoard
             _root.SetActive(false);
         _chapter = null;
         _pageIndex = -1;
+        GameAudio.LeaveStoryBgm();
     }
 
     void BuildList()
@@ -511,7 +513,9 @@ public sealed class StoryBoard
         text.color = Color.white;
         text.raycastTarget = false;
         Stretch(text.rectTransform);
-        return obj.GetComponent<Button>();
+        Button button = obj.GetComponent<Button>();
+        GameAudio.BindUi(button);
+        return button;
     }
 
     Text CreateText(string name, Transform parent, int size, TextAnchor anchor)

@@ -15,7 +15,8 @@ public class PersonBalanceConfig
     public int LevelGrowthDivisor = 10;
     // ピクセル生産のレベル成長。共通の LevelGrowthDivisor の半分なので、1レベルごとの増加は倍。
     public int PixelLevelGrowthDivisor = 5;
-    public int ExpBase = 100;
+    // 必要経験値の初期値。小さいほど作者のレベルが上がりやすい。
+    public int ExpBase = 50;
     // ピクセル生産の必要経験値は、初期値 ExpBase をこの倍にしてからレベルで増やす。
     public int PixelExpBaseMultiplier = 3;
     // キャラ作成の必要経験値は、初期値 ExpBase をこの倍にしてからレベルで増やす。

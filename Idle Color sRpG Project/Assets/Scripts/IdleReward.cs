@@ -14,7 +14,8 @@ public sealed class IdleRewardState
     public const int OfflinePerPurchaseMinutes = 60;
     public const int OfflineChunkMinutes = 10;
     public const int OfflineAdAfterMinutes = 40;
-    public const int Percent = 10;
+    // 放置制限中は生産量を減らさず、生産サイクルをこの回数に1回だけ進める。
+    public const int ProductionSlowDivisor = 3;
 
     public const int BankR = 0;
     public const int BankG = 1;
@@ -191,17 +192,10 @@ public sealed class IdleRewardState
         return payout;
     }
 
+    // 量は落とさない。放置制限の減速は生産サイクル間引きで行う。
     public long Scale(long amount, int bank)
     {
-        if (!Limited || amount <= 0)
-            return amount < 0 ? 0 : amount;
-        if (bank < 0 || bank >= BankCount)
-            return amount;
-        long add = Mul(amount, Percent);
-        _bankMilli[bank] = AddCapped(_bankMilli[bank], add);
-        long whole = _bankMilli[bank] / 100L;
-        _bankMilli[bank] -= whole * 100L;
-        return whole;
+        return amount < 0 ? 0 : amount;
     }
 
     public void NoteAdSuccess()

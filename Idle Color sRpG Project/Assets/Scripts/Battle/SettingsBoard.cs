@@ -34,6 +34,11 @@ public sealed class SettingsBoard
     readonly Button[] _awakeChoices = new Button[2];
     readonly Button[] _returnChoices = new Button[2];
     Text _saveStatus;
+    Text _bgmValue;
+    Text _seValue;
+    Slider _bgmSlider;
+    Slider _seSlider;
+    bool _paintVolume;
 
     public bool IsOpen
     {
@@ -161,8 +166,24 @@ public sealed class SettingsBoard
         returnOff.onClick.AddListener(() => SelectReturnToStage(false));
         _returnChoices[1] = returnOff;
 
+        Text bgmLabel = CreateText("TextSettingsBgmVolume", _root.transform, 26, TextAnchor.MiddleCenter);
+        bgmLabel.text = "BGM音量";
+        StretchTop(bgmLabel.rectTransform, 24f, 24f, 1096f, 40f);
+        _bgmValue = CreateText("TextSettingsBgmValue", _root.transform, 24, TextAnchor.MiddleRight);
+        PlaceTop(_bgmValue.rectTransform, 1096f, 430f, 120f, 40f);
+        _bgmSlider = CreateVolumeSlider("SliderSettingsBgm", _root.transform, 1140f, GameAudio.DefaultBgmVolume);
+        _bgmSlider.onValueChanged.AddListener(OnBgmSlider);
+
+        Text seLabel = CreateText("TextSettingsSeVolume", _root.transform, 26, TextAnchor.MiddleCenter);
+        seLabel.text = "SE音量";
+        StretchTop(seLabel.rectTransform, 24f, 24f, 1220f, 40f);
+        _seValue = CreateText("TextSettingsSeValue", _root.transform, 24, TextAnchor.MiddleRight);
+        PlaceTop(_seValue.rectTransform, 1220f, 430f, 120f, 40f);
+        _seSlider = CreateVolumeSlider("SliderSettingsSe", _root.transform, 1264f, GameAudio.DefaultSeVolume);
+        _seSlider.onValueChanged.AddListener(OnSeSlider);
+
         Button save = CreateButton("ButtonSettingsSave", _root.transform, "セーブ", new Color(0.25f, 0.45f, 0.75f, 1f));
-        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 1100f, 96f);
+        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 1360f, 96f);
         Text saveLabel = save.GetComponentInChildren<Text>();
         if (saveLabel != null)
             saveLabel.fontSize = 28;
@@ -173,7 +194,7 @@ public sealed class SettingsBoard
         });
 
         Button deleteSave = CreateButton("ButtonSettingsDeleteSave", _root.transform, "セーブ削除", new Color(0.75f, 0.28f, 0.24f, 1f));
-        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 1100f, 96f);
+        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 1360f, 96f);
         Text deleteLabel = deleteSave.GetComponentInChildren<Text>();
         if (deleteLabel != null)
             deleteLabel.fontSize = 28;
@@ -186,7 +207,7 @@ public sealed class SettingsBoard
         _saveStatus = CreateText("TextSettingsSaveStatus", _root.transform, 22, TextAnchor.MiddleCenter);
         _saveStatus.text = "";
         _saveStatus.color = new Color(0.78f, 0.80f, 0.84f, 1f);
-        StretchTop(_saveStatus.rectTransform, 24f, 24f, 1212f, 48f);
+        StretchTop(_saveStatus.rectTransform, 24f, 24f, 1472f, 48f);
 
         // RELEASE_REMOVE_TEST_GRANTS: 設定画面下部のテストボタン。リリース用ビルドの前に消す。
         Text testLabel = CreateText("TextSettingsTest", _root.transform, 22, TextAnchor.MiddleCenter);
@@ -201,6 +222,7 @@ public sealed class SettingsBoard
         PaintAdConfirm();
         PaintKeepAwake();
         PaintReturnToStage();
+        PaintVolume();
         _root.SetActive(false);
     }
 
@@ -223,6 +245,7 @@ public sealed class SettingsBoard
         PaintAdConfirm();
         PaintKeepAwake();
         PaintReturnToStage();
+        PaintVolume();
         SetSaveStatus("");
     }
 
@@ -371,6 +394,103 @@ public sealed class SettingsBoard
         }
     }
 
+    void PaintVolume()
+    {
+        _paintVolume = true;
+        int bgm = GameAudio.BgmVolume;
+        int se = GameAudio.SeVolume;
+        if (_bgmSlider != null)
+            _bgmSlider.value = bgm;
+        if (_seSlider != null)
+            _seSlider.value = se;
+        if (_bgmValue != null)
+            _bgmValue.text = VolumeLabel(bgm);
+        if (_seValue != null)
+            _seValue.text = VolumeLabel(se);
+        _paintVolume = false;
+    }
+
+    void OnBgmSlider(float value)
+    {
+        if (_paintVolume)
+            return;
+        int step = Mathf.RoundToInt(value);
+        GameAudio.SetBgmVolume(step);
+        if (_bgmValue != null)
+            _bgmValue.text = VolumeLabel(GameAudio.BgmVolume);
+    }
+
+    void OnSeSlider(float value)
+    {
+        if (_paintVolume)
+            return;
+        int step = Mathf.RoundToInt(value);
+        GameAudio.SetSeVolume(step);
+        if (_seValue != null)
+            _seValue.text = VolumeLabel(GameAudio.SeVolume);
+        GameAudio.PlayUi();
+    }
+
+    static string VolumeLabel(int step)
+    {
+        if (step <= 0)
+            return "消音";
+        return step.ToString() + " / " + GameAudio.VolumeMax.ToString();
+    }
+
+    Slider CreateVolumeSlider(string name, Transform parent, float yFromTop, int defaultStep)
+    {
+        GameObject root = new GameObject(name, typeof(RectTransform), typeof(Slider));
+        root.transform.SetParent(parent, false);
+        RectTransform rootRect = root.GetComponent<RectTransform>();
+        StretchTop(rootRect, 48f, 48f, yFromTop, 48f);
+
+        GameObject bg = new GameObject("Background", typeof(RectTransform), typeof(Image));
+        bg.transform.SetParent(root.transform, false);
+        Image bgImage = bg.GetComponent<Image>();
+        bgImage.color = new Color(0.12f, 0.14f, 0.18f, 1f);
+        Stretch(bg.GetComponent<RectTransform>());
+
+        GameObject fillArea = new GameObject("Fill Area", typeof(RectTransform));
+        fillArea.transform.SetParent(root.transform, false);
+        RectTransform fillAreaRect = fillArea.GetComponent<RectTransform>();
+        Stretch(fillAreaRect);
+        fillAreaRect.offsetMin = new Vector2(10f, 10f);
+        fillAreaRect.offsetMax = new Vector2(-10f, -10f);
+
+        GameObject fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+        fill.transform.SetParent(fillArea.transform, false);
+        Image fillImage = fill.GetComponent<Image>();
+        fillImage.color = Selected;
+        Stretch(fill.GetComponent<RectTransform>());
+
+        GameObject handleArea = new GameObject("Handle Slide Area", typeof(RectTransform));
+        handleArea.transform.SetParent(root.transform, false);
+        RectTransform handleAreaRect = handleArea.GetComponent<RectTransform>();
+        Stretch(handleAreaRect);
+        handleAreaRect.offsetMin = new Vector2(16f, 0f);
+        handleAreaRect.offsetMax = new Vector2(-16f, 0f);
+
+        GameObject handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+        handle.transform.SetParent(handleArea.transform, false);
+        Image handleImage = handle.GetComponent<Image>();
+        handleImage.color = Color.white;
+        RectTransform handleRect = handle.GetComponent<RectTransform>();
+        handleRect.sizeDelta = new Vector2(36f, 36f);
+
+        Slider slider = root.GetComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = GameAudio.VolumeMax;
+        slider.wholeNumbers = true;
+        slider.value = defaultStep;
+        slider.fillRect = fill.GetComponent<RectTransform>();
+        slider.handleRect = handleRect;
+        slider.targetGraphic = handleImage;
+        slider.direction = Slider.Direction.LeftToRight;
+        GameAudio.BindSlider(slider);
+        return slider;
+    }
+
     static int Normalize(int cap)
     {
         if (cap == 2 || cap == 4 || cap == 8)
@@ -505,6 +625,7 @@ public sealed class SettingsBoard
         text.color = Color.white;
         text.raycastTarget = false;
         Stretch(text.rectTransform);
+        GameAudio.BindUi(button);
         return button;
     }
 

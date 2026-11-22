@@ -848,16 +848,18 @@ public class ControllerCharacterSelectClass : MonoBehaviour
 
         bool plainPortrait = argButtonTmp.name.Contains("ButtonCharacterProducedCharacter")
             || argButtonTmp.name.Contains("ButtonCharacterColor");
+        // バトル編成の候補一覧には、生産・出撃の透かしアイコンを載せない。
+        bool battlePartyPick = ControllerBattlePartyClass.IsCellButton(argButtonTmp);
 
         //出撃中のキャラは生産へ割り当てられない。一覧には残して、グレーで押せなくする
         if (!plainPortrait && (IsLockedOutOfProduction((uint)argCharacterIndex, argButtonTmp)
-            || (ControllerBattlePartyClass.IsCellButton(argButtonTmp) && GetComponent<ControllerProduction>() != null && GetComponent<ControllerProduction>().IsHospitalNurse((uint)argCharacterIndex))))
+            || (battlePartyPick && GetComponent<ControllerProduction>() != null && GetComponent<ControllerProduction>().IsHospitalNurse((uint)argCharacterIndex))))
         {
             GrayOutCharacterButton(GameObjectCharacterButton);
             if (warnIfUsedInOtherProduction && IsNurseOnAnotherCard((uint)argCharacterIndex, argButtonTmp))
                 AddFaintWarningMark(GameObjectCharacterButton, Place.Hospital);
             CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
-            if (buttonCharacter.Whereabouts == Place.Battle)
+            if (!battlePartyPick && buttonCharacter.Whereabouts == Place.Battle)
                 AddPlaceIcon(GameObjectCharacterButton, Place.Battle);
             RaiseNewMark(GameObjectCharacterButton);
             return;
@@ -885,14 +887,16 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         }
         if (!plainPortrait && assignedWorker)
             DarkenAssignedPortrait(GameObjectCharacterButton);
-        if (!plainPortrait && assignment == Place.None && buttonCharacter.Whereabouts == Place.Battle)
+        if (!plainPortrait && !battlePartyPick && assignment == Place.None && buttonCharacter.Whereabouts == Place.Battle)
             assignment = Place.Battle;
 
         //クリックイベントを追加
         uint CharacterID = (uint)(argCharacterIndex);//匿名メソッドの外部変数のキャプチャの関係で、別の変数に代入
-        GameObjectCharacterButton.GetComponent<Button>().onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
+        Button characterButton = GameObjectCharacterButton.GetComponent<Button>();
+        characterButton.onClick.AddListener(() => SelectCharacterCharacter(CharacterID, argButtonTmp));
+        GameAudio.BindUi(characterButton);
         CatalogNewMark.Apply(GameObjectCharacterButton.transform, buttonCharacter);
-        if (!plainPortrait && assignment != Place.None)
+        if (!plainPortrait && !battlePartyPick && assignment != Place.None)
             AddAssignmentMark(GameObjectCharacterButton, CharacterID, assignment, true);
     }
 

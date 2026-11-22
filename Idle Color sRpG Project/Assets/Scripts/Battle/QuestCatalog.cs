@@ -18,7 +18,9 @@ public enum QuestMetric
     PrimaryPixels,
     MiniSlimes,
     // チュートリアル〜ソウガの各100階区間で、星が1つ以上ある区間の数。
-    StageRangeStars
+    StageRangeStars,
+    // 経験値玉を使った回数（個数ではなく使用操作の合計個数）。
+    ExpOrbUses
 }
 
 public enum QuestRewardKind
@@ -124,6 +126,7 @@ public sealed class QuestSave
     public ulong CharacterCompletions;
     public long GalleryClears;
     public ulong EnemyDefeats;
+    public ulong ExpOrbUses;
     public readonly Dictionary<int, ulong> RecruitDefeats = new Dictionary<int, ulong>();
     public bool FusionUnlocked;
     public int FusionEfficiency;
@@ -138,6 +141,8 @@ public sealed class QuestSave
     public bool HasCharacter;
     public bool HasGallery;
     public bool HasEnemy;
+    public bool HasExpOrbUses;
+    public bool MigratedSwap52And55;
     public bool HasFusionUnlocked;
     public bool HasFusionEfficiency;
     public bool HasImport;
@@ -157,6 +162,7 @@ public sealed class QuestSave
         CharacterCompletions = 0;
         GalleryClears = 0;
         EnemyDefeats = 0;
+        ExpOrbUses = 0;
         RecruitDefeats.Clear();
         FusionUnlocked = false;
         FusionEfficiency = 0;
@@ -170,6 +176,8 @@ public sealed class QuestSave
         HasCharacter = false;
         HasGallery = false;
         HasEnemy = false;
+        HasExpOrbUses = false;
+        MigratedSwap52And55 = false;
         HasFusionUnlocked = false;
         HasFusionEfficiency = false;
         HasImport = false;
@@ -241,13 +249,19 @@ public static class QuestCatalog
         // 合成機能開放
         MainQuest(40, "キャラを10体以上生成する", QuestMetric.CharacterCompletions, 0, 10, QuestRewardKind.FusionUnlock, 0),
         // キャラ読み込みの開放
-        MainQuest(42, "合成を15回以上する", QuestMetric.FusionCount, 0, 15, QuestRewardKind.UnlockFeature, MainFeature.Import),
+        MainQuest(42, "合成を5回以上する", QuestMetric.FusionCount, 0, 5, QuestRewardKind.UnlockFeature, MainFeature.Import),
         // スライムの森の開放、ピクセル生成枠+1、キャラ生成枠+1
         MainQuest(45, "「チュートリアル」ステージの100階をクリアする", QuestMetric.StageFloor, 1, 100, QuestRewardKind.BothSlots, 1),
-        // 回復の開放
-        MainQuest(52, "「スライムの森」ステージの30階をクリアする", QuestMetric.StageFloor, 2, 30, QuestRewardKind.UnlockFeature, MainFeature.Recovery),
-        // チグサとバトル１の開放、縁結びのお守り
-        MainQuest(55, "「チュートリアル」ステージの200階をクリアする", QuestMetric.StageFloor, 1, 200, QuestRewardKind.UnlockFeature, 0, ItemIds.EnmusubiOmamori, 1),
+        // 全ピクセル500個
+        MainQuest(46, "R・G・Bをそれぞれ100,000以上所持する", QuestMetric.RgbHeld, 0, 100000, QuestRewardKind.GrantPalette, 500),
+        // 経験値玉サイズ8を100個
+        MainQuest(47, "経験値玉を1個以上使用する", QuestMetric.ExpOrbUses, 0, 1, QuestRewardKind.UnlockFeature, 0, ItemIds.ExpOrb8, 100),
+        // ボタンタップ生成+10%、生産できるピクセルをすべて50個（旧サブ5016）
+        MainQuest(48, "合成を10回以上する", QuestMetric.FusionCount, 0, 10, QuestRewardKind.TapAndPalette, 50),
+        // チグサとバトル１の開放、縁結びのお守り（旧55と入れ替え）
+        MainQuest(52, "「チュートリアル」ステージの200階をクリアする", QuestMetric.StageFloor, 1, 200, QuestRewardKind.UnlockFeature, 0, ItemIds.EnmusubiOmamori, 1),
+        // 回復の開放（旧52と入れ替え）
+        MainQuest(55, "「スライムの森」ステージの30階をクリアする", QuestMetric.StageFloor, 2, 30, QuestRewardKind.UnlockFeature, MainFeature.Recovery),
         // 全ピクセル500個
         MainQuest(65, "「スライムの森」ステージの100階をクリアする", QuestMetric.StageFloor, 2, 100, QuestRewardKind.GrantPalette, 500),
         // モアとバトル１の開放、ピクセル生成枠+1、キャラ生成枠+1
@@ -397,7 +411,7 @@ public static class QuestCatalog
         // 合成。
         // ボタンタップ生成+10%、生産できるピクセルをすべて行の最後の数だけ。
         // 枠は増やさない。広告でキャラ生成+0.3。
-        Fusion(  5016,  10,  50),
+        // 10回はメイン48へ移した。
         Fusion(  5056,  25, 100),
         Fusion(  5086,  50, 150),
         Fusion( 5116,  75, 200),
@@ -436,7 +450,7 @@ public static class QuestCatalog
 
         // ステージのキャラを仲間にする。
         // ピクセル生成枠+1かキャラ生成枠+1を選ぶ。広告でピクセル生成+0.5、キャラ生成+0.3。
-        Companion( 5037,  6),
+
         Companion(5157,  8),
         Companion(5257, 10),
         Companion(5357, 15),

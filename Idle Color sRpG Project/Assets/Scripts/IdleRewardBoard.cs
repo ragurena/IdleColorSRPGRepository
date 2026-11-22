@@ -108,7 +108,7 @@ public class IdleRewardBoard : MonoBehaviour
                 long leftMin = (leftMs + 59999L) / 60000L;
                 if (leftMin < 1)
                     leftMin = 1;
-                _banner.text = "放置中…あと" + leftMin.ToString() + "分で放置効率が10％に減少します";
+                _banner.text = "放置中…あと" + leftMin.ToString() + "分で放置効率が激減します";
             }
         }
     }
@@ -153,7 +153,7 @@ public class IdleRewardBoard : MonoBehaviour
             return;
         if (_idleBody != null)
         {
-            _idleBody.text = "長時間放置のため、生産や成長を10％にしています。\n"
+            _idleBody.text = "長時間放置のため、生産や成長を激減しています。\n"
                 + "放置上限：" + _game.Idle.FormatActiveCapDetail() + "\n"
                 + "広告を見たり、課金すると、放置できる時間が伸びます。";
         }

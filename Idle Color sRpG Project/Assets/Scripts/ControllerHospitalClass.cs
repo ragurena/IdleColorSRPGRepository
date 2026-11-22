@@ -107,7 +107,16 @@ public class ControllerHospitalClass : MonoBehaviour
             _waitEmpty.gameObject.SetActive(waiting == 0);
         if (_recoverAd != null && _production != null)
         {
-            bool ready = hospital.BedPatientCount > 0 || hospital.WaitingCount > 0;
+            long nowMs = HospitalState.NowUnixMs();
+            bool hasPatients = hospital.BedPatientCount > 0 || hospital.WaitingCount > 0;
+            bool ready = hasPatients && hospital.HasRecoverAdCharge(nowMs);
+            Text recoverLabel = _recoverAd.GetComponentInChildren<Text>();
+            if (recoverLabel != null)
+            {
+                recoverLabel.text = "広告視聴で回復中のキャラ+回復待ちの5キャラを即時回復させる\n"
+                    + hospital.FormatRecoverAdLabel(nowMs);
+                recoverLabel.color = ready ? Color.white : new Color(0.45f, 0.45f, 0.45f, 1f);
+            }
             _production.StyleRepresentativeButton(_recoverAd, new Color(0.42f, 1f, 0.22f, 1f), ready);
             _recoverAd.interactable = ready;
         }
@@ -561,12 +570,13 @@ public class ControllerHospitalClass : MonoBehaviour
         EnsureWhiteFrame(waitScroll.transform, 3f);
         _waitEmpty = CreateText(waitScroll.transform, "TextHospitalWaitEmpty", "待機していません", 32, TextAnchor.MiddleCenter);
         Stretch(_waitEmpty.rectTransform);
-        _recoverAd = CreateButton(Panel.transform, "ButtonHospitalRecoverAd", "広告視聴で回復中のキャラ+回復待ちの5キャラを即時回復させる", Vector2.zero, new Vector2(1000f, 112f), false);
+        _recoverAd = CreateButton(Panel.transform, "ButtonHospitalRecoverAd", "広告視聴で回復中のキャラ+回復待ちの5キャラを即時回復させる\n3 / 3", Vector2.zero, new Vector2(1000f, 156f), false);
         _recoverAd.onClick.AddListener(PushRecoverAd);
         Text recoverLabel = _recoverAd.GetComponentInChildren<Text>();
         if (recoverLabel != null)
         {
-            recoverLabel.fontSize = 30;
+            recoverLabel.fontSize = 28;
+            recoverLabel.lineSpacing = 1.05f;
             recoverLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             recoverLabel.verticalOverflow = VerticalWrapMode.Overflow;
         }
@@ -606,7 +616,7 @@ public class ControllerHospitalClass : MonoBehaviour
                 bottom = aboveBar;
         }
 
-        const float recoverHeight = 112f;
+        const float recoverHeight = 156f;
         const float recoverGap = 12f;
         if (_recoverAd != null)
             PlaceRect(_recoverAd.GetComponent<RectTransform>(), 0f, bottom + recoverHeight * 0.5f, 1000f, recoverHeight);
@@ -671,6 +681,7 @@ public class ControllerHospitalClass : MonoBehaviour
         Stretch(text.rectTransform);
         if (frame)
             EnsureWhiteFrame(obj.transform, 3f);
+        GameAudio.BindUi(button);
         return button;
     }
 

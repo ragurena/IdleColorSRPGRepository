@@ -72,6 +72,7 @@ public class ControllerProduction : MonoBehaviour
     bool _messageDirtyUi;
     bool _messageRefreshing;
     bool _saving;
+    bool _saveAgain;
     ControllerCatalogClass ControllerCatalog;
     ControllerFusionClass ControllerFusion;
     ControllerImportCharacterClass ControllerImport;
@@ -494,6 +495,7 @@ public class ControllerProduction : MonoBehaviour
             ActiveBattleFloorTo = 0;
         }
         DropFormerStarterOwnership(acceptedVersion);
+        RetireUnusedTestMonsters();
         if (acceptedSave && SaveClass.IsOlderThan(acceptedVersion, "0.0.6"))
             SaveGame();
         EnsureQuestDefaults();
@@ -625,6 +627,8 @@ public class ControllerProduction : MonoBehaviour
 
         _autosaveElapsed = 0f;
         _autosaveReady = true;
+        GameAudio.Ensure();
+        GameAudio.BindAllButtons();
         Debug.Log("ControllerProduction End");
         if (_startScreen != null)
         {
@@ -640,6 +644,7 @@ public class ControllerProduction : MonoBehaviour
     // Update is called once per frame
     private float TimeOut = 1;
     private float TimeElapsed = 0;
+    int _idleProductionPhase;
     const float AutosaveInterval = 180f;
     float _autosaveElapsed;
     bool _autosaveReady;
@@ -677,6 +682,19 @@ public class ControllerProduction : MonoBehaviour
         if (TimeElapsed >= TimeOut)
         {
             TimeElapsed = 0;
+            // 放置制限中は量を落とさず、3サイクルに1回だけ生産を進める。
+            if (Idle != null && Idle.Limited)
+            {
+                _idleProductionPhase++;
+                if (_idleProductionPhase < IdleRewardState.ProductionSlowDivisor)
+                {
+                    CharacterWorkerFx.SetProgressClock(TimeElapsed, TimeOut);
+                    return;
+                }
+                _idleProductionPhase = 0;
+            }
+            else
+                _idleProductionPhase = 0;
             CharacterWorkerFx.NoteProgressTick();
             if (_onRgbSlot == null)
                 _onRgbSlot = NoteRgbSlot;
@@ -852,18 +870,24 @@ public class ControllerProduction : MonoBehaviour
 
     public bool SaveGame()
     {
+        // セーブ中の再入は「成功」と見せかけて捨てると、強化などが古い内容のまま確定する。
+        // 終わったあともう一度書く。
         if (_saving)
+        {
+            _saveAgain = true;
             return true;
+        }
         if (SaveBlocked)
             return false;
         _saving = true;
+        bool saved = false;
         try
         {
         CatchHospitalForSave();
         EnsureQuestDefaults();
         LatchQuests();
         SaveClass SC = new SaveClass();
-        bool saved = SC.Save(CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
+        saved = SC.Save(CharactersAll, Constants.CHARACTERS_ALL_NUM + 1,
             CurR, CurG, CurB,
             MaxR, MaxG, MaxB,
             CostMaxRUp, CostMaxGUp, CostMaxBUp,
@@ -914,14 +938,12 @@ public class ControllerProduction : MonoBehaviour
             _messageUnsaved = false;
             SaveFailureNotified = false;
             HideSaveNotice();
-            return true;
         }
-        if (!SaveFailureNotified)
+        else if (!SaveFailureNotified)
         {
             SaveFailureNotified = true;
             ShowSaveNotice("保存できませんでした。以前のセーブは残っています。");
         }
-        return false;
         }
         finally
         {
@@ -932,7 +954,14 @@ public class ControllerProduction : MonoBehaviour
                 if (ControllerBattle != null)
                     ControllerBattle.OnMessagesChanged(true);
             }
+            if (_saveAgain && !SaveBlocked)
+            {
+                _saveAgain = false;
+                if (SaveGame())
+                    saved = true;
+            }
         }
+        return saved;
     }
 
     PersonSaveData CapturePeople()
@@ -1144,6 +1173,9 @@ public class ControllerProduction : MonoBehaviour
             version = info.DataVersion ?? "";
             Hospital.FillMissingNurseSizes(HospitalNurseSize);
             Hospital.CatchUp(HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+            // MaxLevel が初期値5のままだと、Auto強化などが Lv5 に切り詰められて消える。
+            ApplyCharacterLevelCap();
+            ApplyFusionCountCap();
             Enhance.ClampToCaps(CharacterLevelCapInt());
             ApplyAcademyToAllCharacters();
             SaveBlocked = false;
@@ -1256,6 +1288,7 @@ public class ControllerProduction : MonoBehaviour
         ClearedBattleStage = 0;
         Challenges.Clear();
         Enhance.Clear();
+        GameAudio.ResetToDefault();
         ClearPixelSpeedTapCounts();
         _challengeDirty = false;
         _challengeTimeDirty = false;
@@ -1585,21 +1618,30 @@ public class ControllerProduction : MonoBehaviour
     public void PushButtonR()
     {
         Debug.Log("ButtonRが押された");
+        ulong before = CurR;
         GainRgb(ref CurR, MaxR, AddUlong(IncreaseValueR, EnhanceRgbTapBonus()), 0);
+        if (CurR > before)
+            GameAudio.PlaySpeedUp();
         UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
     }
     // ButtonGが押されたら
     public void PushButtonG()
     {
         Debug.Log("ButtonGが押された");
+        ulong before = CurG;
         GainRgb(ref CurG, MaxG, AddUlong(IncreaseValueG, EnhanceRgbTapBonus()), 1);
+        if (CurG > before)
+            GameAudio.PlaySpeedUp();
         UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
     }
     // ButtonBが押されたら
     public void PushButtonB()
     {
         Debug.Log("ButtonBが押された");
+        ulong before = CurB;
         GainRgb(ref CurB, MaxB, AddUlong(IncreaseValueB, EnhanceRgbTapBonus()), 2);
+        if (CurB > before)
+            GameAudio.PlaySpeedUp();
         UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
     }
 
@@ -2886,7 +2928,7 @@ public class ControllerProduction : MonoBehaviour
         ApplyHospitalButtonLock();
     }
 
-    // スライムの森30階のクエストを受け取ると、回復が押せる。倒れたキャラの回復自体は、開く前も進む。
+    // スライムの森30階のクエスト（ID55）を受け取ると、回復が押せる。倒れたキャラの回復自体は、開く前も進む。
     void ApplyHospitalButtonLock()
     {
         if (ButtonHospital == null)
@@ -5141,6 +5183,8 @@ public class ControllerProduction : MonoBehaviour
             || ProgressProductionPixel[ProductionPixelIndex, 1] != beforeR
             || ProgressProductionPixel[ProductionPixelIndex, 2] != beforeG
             || ProgressProductionPixel[ProductionPixelIndex, 3] != beforeB;
+        if (advanced)
+            GameAudio.PlaySpeedUp();
         SyncPixelWorkerMotion(ProductionPixelIndex, completed, advanced);
         RefreshProductionFigures();
         RefreshCharacterStopPixels();
@@ -5340,6 +5384,8 @@ public class ControllerProduction : MonoBehaviour
                 paint = (uint)total;
         }
         ProductionCharacter(Trigger.User, ProductionCharacterIndex, paint, out ProductionCharacterFlag, out _, out paintedPixel);
+        if (paintedPixel || ProductionCharacterFlag)
+            GameAudio.PlaySpeedUp();
         SyncCharacterWorkerMotion(ProductionCharacterIndex, ProductionCharacterFlag, paintedPixel);
         if (paintedPixel || ProductionCharacterFlag)
             UpdateProductionCharacterProgressImage(ProductionCharacterIndex);
@@ -6166,6 +6212,7 @@ public class ControllerProduction : MonoBehaviour
     {
         if (!Enhance.TryBeginAction())
             return false;
+        bool changed = false;
         try
         {
             EnhanceSkillDef def = EnhanceSkillCatalog.Get(id);
@@ -6175,46 +6222,83 @@ public class ControllerProduction : MonoBehaviour
                 return false;
             if (!Enhance.Unlock(id))
                 return false;
-            SaveGame();
-            NotifyEnhanceChanged(id);
-            return true;
+            changed = true;
         }
         finally
         {
             Enhance.EndAction();
         }
+        if (!changed)
+            return false;
+        // busy を外してから保存する。保存中の再入で強化が落ちないようにする。
+        if (!SaveGame())
+            Debug.LogError("強化の解放をセーブできませんでした。");
+        NotifyEnhanceChanged(id);
+        return true;
     }
 
     public bool TryUpgradeEnhance(EnhanceSkillId id)
     {
         if (!Enhance.TryBeginAction())
             return false;
+        bool changed = false;
+        int levelBefore = 0;
+        long cost = 0;
         try
         {
             EnhanceSkillDef def = EnhanceSkillCatalog.Get(id);
             if (def == null || !Enhance.IsUnlocked(id))
                 return false;
             int cap = EnhanceLevelCap(id);
-            int level = Enhance.Level(id);
-            if (level >= cap)
+            levelBefore = Enhance.Level(id);
+            if (levelBefore >= cap)
                 return false;
-            long cost = EnhanceSkillCatalog.UpgradeCost(def, level + 1);
+            cost = EnhanceSkillCatalog.UpgradeCost(def, levelBefore + 1);
             if (cost < 1 || cost == long.MaxValue)
                 return false;
-            if (!TrySpendWhitePixels(cost))
-                return false;
+            // 先にレベルを上げ、支払い失敗時だけ戻す。
             if (!Enhance.LevelUp(id, cap))
                 return false;
+            if (!TrySpendWhitePixels(cost))
+            {
+                Enhance.SetLevel(id, levelBefore);
+                return false;
+            }
             if (id == EnhanceSkillId.HpBonus || id == EnhanceSkillId.AtkBonus || id == EnhanceSkillId.DefBonus)
                 ApplyAcademyToAllCharacters();
-            SaveGame();
-            NotifyEnhanceChanged(id);
-            return true;
+            changed = true;
         }
         finally
         {
             Enhance.EndAction();
         }
+        if (!changed)
+            return false;
+        if (!SaveGame())
+        {
+            Debug.LogError("強化をセーブできませんでした。レベルを戻します。");
+            Enhance.SetLevel(id, levelBefore);
+            GrantWhitePixels(cost);
+            NotifyEnhanceChanged(id);
+            return false;
+        }
+        NotifyEnhanceChanged(id);
+        return true;
+    }
+
+    void GrantWhitePixels(long count)
+    {
+        if (count < 1 || CurPixels == null)
+            return;
+        int r = EnhanceSkillCatalog.WhiteR;
+        int g = EnhanceSkillCatalog.WhiteG;
+        int b = EnhanceSkillCatalog.WhiteB;
+        ulong add = (ulong)count;
+        ulong have = CurPixels[r, g, b];
+        if (ulong.MaxValue - have < add)
+            CurPixels[r, g, b] = ulong.MaxValue;
+        else
+            CurPixels[r, g, b] = have + add;
     }
 
     void NotifyEnhanceChanged(EnhanceSkillId id)
@@ -6503,6 +6587,8 @@ public class ControllerProduction : MonoBehaviour
             ApplyCharacterLevelCap();
             ApplyFusionCountCap();
         }
+        if (advanced && ControllerBattleStage != null)
+            ControllerBattleStage.RefreshFloorSliderLimit();
         if (Story != null)
             Story.CatchUp(this);
         RefreshMessages();
@@ -6610,6 +6696,22 @@ public class ControllerProduction : MonoBehaviour
         if (stageIndex == Constants.BATTLE_STAGE_GALLERY && window != progress)
             return false;
         return true;
+    }
+
+    // テスト用 ID 31〜37（スライムキング・色ネコ）。登録から外したので所持も消す。
+    void RetireUnusedTestMonsters()
+    {
+        for (uint id = 31; id <= 37; id++)
+        {
+            CharacterClass character = ImportedCharacters.FindAny(CharactersAll, id);
+            if (character == null)
+                continue;
+            character.OwnedNumCur = 0;
+            character.OwnedNumMax = 0;
+            character.Whereabouts = Place.None;
+            ReleaseCharacterFromProduction(id);
+            ClearBattlePartyCharacter(id);
+        }
     }
 
     // 0.0.4 より前は ID 4 以降も初期所持だった。仲間化で持ったネコ（いまの ID 33 以降）はそのまま残す。
@@ -7117,6 +7219,7 @@ public class ControllerProduction : MonoBehaviour
             return false;
         CharacterClass character = GetCharacter(characterId);
         KeepItemCount(itemId, GetItemCount(itemId) - forecast.Count);
+        NoteExpOrbUses(forecast.Count);
         character.Level = (ulong)forecast.LevelAfter;
         character.Exp = (ulong)forecast.ExpAfter;
         character.ExpMax = (ulong)forecast.ExpMaxAfter;
@@ -7125,8 +7228,23 @@ public class ControllerProduction : MonoBehaviour
             ControllerBattle.ApplyAllyFusion(character);
         if (forecast.Levels > 0)
             RefreshMessages();
+        LatchQuests();
+        if (ControllerBattle != null)
+            ControllerBattle.RefreshQuestBoard();
         SaveGame();
         return true;
+    }
+
+    void NoteExpOrbUses(int count)
+    {
+        if (count < 1)
+            return;
+        Quests.HasExpOrbUses = true;
+        ulong add = (ulong)count;
+        if (Quests.ExpOrbUses > ulong.MaxValue - add)
+            Quests.ExpOrbUses = ulong.MaxValue;
+        else
+            Quests.ExpOrbUses += add;
     }
 
     bool CanSpendExpOrb(CharacterClass character, int itemId, int count)
@@ -7491,7 +7609,9 @@ public class ControllerProduction : MonoBehaviour
 
     public void WatchAdToRecoverHospital()
     {
-        if (_adBusy || _hospitalAdPending || !HasRestingHospitalPatients())
+        if (_adBusy || _hospitalAdPending || Hospital == null || !HasRestingHospitalPatients())
+            return;
+        if (!Hospital.HasRecoverAdCharge(HospitalState.NowUnixMs()))
             return;
         if (AdWatchConfirm)
         {
@@ -7507,6 +7627,8 @@ public class ControllerProduction : MonoBehaviour
     void PlayHospitalRecoverAd()
     {
         if (_adBusy || _hospitalAdPending || Hospital == null)
+            return;
+        if (!Hospital.HasRecoverAdCharge(HospitalState.NowUnixMs()))
             return;
         _hospitalAdPatients = Hospital.CopyAdRecoverIds();
         if (_hospitalAdPatients == null || _hospitalAdPatients.Length == 0)
@@ -7534,11 +7656,18 @@ public class ControllerProduction : MonoBehaviour
         _adBusy = false;
         ulong[] ids = _hospitalAdPatients;
         _hospitalAdPatients = null;
+        long nowMs = HospitalState.NowUnixMs();
+        if (Hospital == null || !Hospital.TrySpendRecoverAd(nowMs))
+        {
+            if (ControllerHospital != null)
+                ControllerHospital.RefreshIfVisible();
+            return;
+        }
         Idle.NoteAdSuccess();
         GrantAdWatchBonus();
-        if (Hospital != null && ids != null && ids.Length > 0)
+        if (ids != null && ids.Length > 0)
         {
-            int returned = Hospital.InstantRecover(ids, HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+            int returned = Hospital.InstantRecover(ids, nowMs, TryReturnHospitalSpirit);
             if (returned > 0)
                 ShowCharacterOwnedNum();
         }
@@ -7727,7 +7856,7 @@ public class ControllerProduction : MonoBehaviour
         if (paused)
         {
             Idle.MarkBackground(HospitalState.NowUnixMs());
-            AdvanceHospital(true);
+            FlushSaveOnLeave();
         }
         else
         {
@@ -7742,7 +7871,7 @@ public class ControllerProduction : MonoBehaviour
         if (!focused)
         {
             Idle.MarkBackground(HospitalState.NowUnixMs());
-            AdvanceHospital(true);
+            FlushSaveOnLeave();
         }
         else
         {
@@ -7755,7 +7884,29 @@ public class ControllerProduction : MonoBehaviour
     void OnApplicationQuit()
     {
         Idle.MarkBackground(HospitalState.NowUnixMs());
-        AdvanceHospital(true);
+        FlushSaveOnLeave();
+    }
+
+    // 再生停止・フォーカス喪失でも強化が残るように、病院更新の成否に頼らず必ず保存する。
+    void FlushSaveOnLeave()
+    {
+        if (!_autosaveReady || SaveBlocked)
+            return;
+        if (!_hospitalBusy && Hospital != null)
+        {
+            _hospitalBusy = true;
+            try
+            {
+                Hospital.CatchUp(HospitalState.NowUnixMs(), TryReturnHospitalSpirit);
+            }
+            finally
+            {
+                _hospitalBusy = false;
+            }
+        }
+        _saving = false;
+        _saveAgain = false;
+        SaveGame();
     }
 
     void FinishIdleLoad()
@@ -9922,6 +10073,7 @@ public class ControllerProduction : MonoBehaviour
         PanelCanvasGroup.blocksRaycasts = true;
         if (argPanel == PanelSelectCharacter)
             argPanel.transform.SetAsLastSibling();
+        GameAudio.BindAllButtons(argPanel.transform);
     }
     //パネルの非表示
     public void NotShowPanel(GameObject argPanel)
@@ -11340,6 +11492,8 @@ public class ControllerProduction : MonoBehaviour
 
     void ClearRepresentativeButton(Button button)
     {
+        if (button != null)
+            button.interactable = false;
         StopButtonPressGlow(button);
         Transform neon = button.transform.Find("NeonFrame");
         if (neon != null)
@@ -14464,6 +14618,7 @@ public class ControllerProduction : MonoBehaviour
 
     // 回復開放を ID65 から ID52 へ移し、65はスライムの森100階へ変えた。
     // 旧65受け取り済みなら52を受け取り済みにし、65は新しい条件で取り直せるようにする。
+    // その後 MigrateSwapMainQuest52And55 で回復は55へ移る。
     void MigrateRecoveryUnlockToQuest52()
     {
         QuestRecord old65;
@@ -14476,6 +14631,56 @@ public class ControllerProduction : MonoBehaviour
         neu.Claimed = true;
         old65.Claimed = false;
         old65.Cleared = false;
+    }
+
+    // メイン52と55を入れ替えた。受け取り済みの記録も入れ替える。1回だけ。
+    void MigrateSwapMainQuest52And55()
+    {
+        if (Quests.MigratedSwap52And55)
+            return;
+        Quests.MigratedSwap52And55 = true;
+        QuestRecord a;
+        QuestRecord b;
+        bool hasA = Quests.TryGet(52, out a);
+        bool hasB = Quests.TryGet(55, out b);
+        if (!hasA && !hasB)
+            return;
+        QuestRecord copyA = CopyQuestRecord(hasA ? a : null);
+        QuestRecord copyB = CopyQuestRecord(hasB ? b : null);
+        WriteQuestRecord(52, copyB);
+        WriteQuestRecord(55, copyA);
+    }
+
+    // 合成10回のサブ5016をメイン48へ移した。
+    void MigrateFusion10ToMainQuest48()
+    {
+        MoveQuestRecord(5016, 48);
+    }
+
+    static QuestRecord CopyQuestRecord(QuestRecord source)
+    {
+        QuestRecord copy = new QuestRecord();
+        if (source == null)
+            return copy;
+        copy.Cleared = source.Cleared;
+        copy.Claimed = source.Claimed;
+        copy.Choice = source.Choice;
+        copy.Locked = source.Locked;
+        return copy;
+    }
+
+    void WriteQuestRecord(int id, QuestRecord source)
+    {
+        if (source == null || (!source.Cleared && !source.Claimed && !source.Locked && source.Choice == 0))
+        {
+            Quests.Records.Remove(id);
+            return;
+        }
+        QuestRecord record = Quests.GetOrCreate(id);
+        record.Cleared = source.Cleared;
+        record.Claimed = source.Claimed;
+        record.Choice = source.Choice;
+        record.Locked = source.Locked;
     }
 
     // ステージクリアのサブを表示順用のIDへ移した。受け取り済みなら新IDへ引き継ぐ。
@@ -14519,6 +14724,8 @@ public class ControllerProduction : MonoBehaviour
         MigrateAuthorUnlockToQuest32();
         MigrateImportUnlockToQuest42();
         MigrateRecoveryUnlockToQuest52();
+        MigrateSwapMainQuest52And55();
+        MigrateFusion10ToMainQuest48();
         MigrateStageSideQuestIds();
         if (Quests.DefaultsApplied)
         {
@@ -14820,6 +15027,8 @@ public class ControllerProduction : MonoBehaviour
             return LowestMiniSlimeOwned();
         if (def.Metric == QuestMetric.StageRangeStars)
             return (ulong)CountStageRangesWithStarThroughSouga();
+        if (def.Metric == QuestMetric.ExpOrbUses)
+            return Quests.ExpOrbUses;
         return 0;
     }
 

@@ -78,7 +78,19 @@ public class ControllerBattleClass : MonoBehaviour
     Transform _questOverlay;
     GameObject _questBanner;
     Image _questBannerFill;
+    RectTransform _questBannerClip;
     Text _questBannerText;
+    string _questBannerTitle = "";
+    bool _questBannerScroll;
+    float _questBannerTextWidth;
+    float _questBannerViewWidth;
+    float _questBannerOffset;
+    float _questBannerHold;
+    int _questBannerPhase;
+    const float QuestBannerPad = 12f;
+    const float QuestBannerScrollSpeed = 42f;
+    const float QuestBannerStartHold = 0.9f;
+    const float QuestBannerEndHold = 1.1f;
     GameObject _questBadge;
     Text _questBadgeText;
     readonly List<QuestDef> _questCandidates = new List<QuestDef>();
@@ -121,6 +133,7 @@ public class ControllerBattleClass : MonoBehaviour
         public GameObject Root;
         public Image Portrait;
         public Text Info;
+        public Text Stock;
         public Slider Hp;
         public Text HpText;
         public Slider Exp;
@@ -1934,6 +1947,9 @@ public class ControllerBattleClass : MonoBehaviour
         TickSpeedUnlock();
         TickChallengeTimer();
         TickDrops();
+        TickQuestBannerMarquee();
+        if (_questBoard != null)
+            _questBoard.Tick();
         if (!_stageWiping || _stageWipeMaterial == null)
             return;
         _stageWipeTime += Time.deltaTime;
@@ -2315,7 +2331,7 @@ public class ControllerBattleClass : MonoBehaviour
 
         if (_logText != null)
         {
-            RectTransform log = _logText.rectTransform;
+            RectTransform log = _logClip != null ? _logClip : _logText.rectTransform;
             float logH = log.sizeDelta.y;
             if (logH < 128f)
                 logH = 128f;
@@ -2415,6 +2431,7 @@ public class ControllerBattleClass : MonoBehaviour
         banner.sizeDelta = new Vector2(right - left, bannerDrawH);
         banner.anchoredPosition = new Vector2((left + right) * 0.5f, bannerCenter) - anchorFromPivot;
         AlignTopButtons(parent, banner.anchoredPosition.y, bannerDrawH);
+        LayoutQuestBannerMarquee(false);
     }
 
     static void AlignTopButtons(RectTransform parent, float bannerCenterY, float bannerHeight)
@@ -2651,11 +2668,28 @@ public class ControllerBattleClass : MonoBehaviour
         info.raycastTarget = false;
         RectTransform infoRect = info.rectTransform;
         infoRect.anchorMin = new Vector2(0f, 1f);
-        infoRect.anchorMax = new Vector2(1f, 1f);
+        infoRect.anchorMax = new Vector2(0f, 1f);
         infoRect.pivot = new Vector2(0f, 1f);
-        infoRect.offsetMin = new Vector2(2f, -30f);
-        infoRect.offsetMax = new Vector2(-2f, 0f);
+        infoRect.anchoredPosition = new Vector2(2f, 0f);
+        infoRect.sizeDelta = new Vector2(52f, 30f);
         slot.Info = info;
+
+        // 所持数は Lv の直後（半角スペース程度）から右端まで。桁が増えても Best Fit で収める。
+        Text stock = CreateText("Stock", root.transform, 20, TextAnchor.MiddleLeft);
+        stock.supportRichText = true;
+        stock.horizontalOverflow = HorizontalWrapMode.Wrap;
+        stock.verticalOverflow = VerticalWrapMode.Truncate;
+        stock.resizeTextForBestFit = true;
+        stock.resizeTextMinSize = 10;
+        stock.resizeTextMaxSize = 26;
+        stock.raycastTarget = false;
+        RectTransform stockRect = stock.rectTransform;
+        stockRect.anchorMin = new Vector2(0f, 1f);
+        stockRect.anchorMax = new Vector2(1f, 1f);
+        stockRect.pivot = new Vector2(0f, 1f);
+        stockRect.offsetMin = new Vector2(60f, -30f);
+        stockRect.offsetMax = new Vector2(-2f, 0f);
+        slot.Stock = stock;
 
         slot.Hp = CreateGauge("Hp", root.transform, new Color(0.28f, 0.05f, 0.05f, 1f), new Color(0.92f, 0.16f, 0.14f, 1f));
         PlaceFrontBarFromBottom(slot.Hp.GetComponent<RectTransform>(), 18f, 24f);
@@ -2719,26 +2753,64 @@ public class ControllerBattleClass : MonoBehaviour
     {
         if (_logText == null)
             return;
-        RectTransform log = _logText.rectTransform;
+        // ログ本体ではなく外側（板 / LogClip）を右へずらす。内側テキストは触らない。
+        RectTransform target = ResolveLogOuter();
+        if (target == null)
+            return;
         const float inset = 96f;
-        log.anchoredPosition = new Vector2(log.anchoredPosition.x + inset * 0.5f, log.anchoredPosition.y);
-        float width = log.sizeDelta.x - inset;
+        target.anchoredPosition = new Vector2(target.anchoredPosition.x + inset * 0.5f, target.anchoredPosition.y);
+        float width = target.sizeDelta.x - inset;
         if (width < 80f)
             width = 80f;
-        log.sizeDelta = new Vector2(width, log.sizeDelta.y);
+        target.sizeDelta = new Vector2(width, target.sizeDelta.y);
+        RectTransform plate = ResolveLogPlate();
+        if (plate != null && plate != target)
+        {
+            plate.anchoredPosition = target.anchoredPosition;
+            plate.sizeDelta = target.sizeDelta;
+        }
+    }
+
+    // ログ板は常にパネル直下。LogClip 内に作った板は使わない。
+    RectTransform ResolveLogPlate()
+    {
+        if (_frontPlate != null)
+            return _frontPlate;
+        if (_logText == null)
+            return null;
+        Transform panel = null;
+        if (_logClip != null)
+            panel = _logClip.parent;
+        else if (_logText.transform.parent != null)
+            panel = _logText.transform.parent;
+        if (panel == null)
+            return null;
+        Transform plate = panel.Find("Image" + _logText.gameObject.name + "Back");
+        return plate as RectTransform;
+    }
+
+    RectTransform ResolveLogOuter()
+    {
+        if (_logClip != null)
+            return _logClip;
+        return _logText != null ? _logText.rectTransform : null;
     }
 
     void FitFrontStatus()
     {
         if (_frontHost == null || _logText == null)
             return;
-        RectTransform log = _logText.rectTransform;
-        Transform plate = log.parent.Find("Image" + log.gameObject.name + "Back");
-        RectTransform source = plate as RectTransform;
+        RectTransform source = ResolveLogPlate();
         if (source == null)
-            source = log;
-        if (_frontHost.parent != source.parent)
-            _frontHost.SetParent(source.parent, false);
+            source = ResolveLogOuter();
+        if (source == null)
+            return;
+        // LogClip の中に入れない。板と同じ親（パネル）に置く。
+        Transform hostParent = source.parent;
+        if (_logClip != null && hostParent == _logClip)
+            hostParent = _logClip.parent;
+        if (hostParent != null && _frontHost.parent != hostParent)
+            _frontHost.SetParent(hostParent, false);
         _frontHost.anchorMin = source.anchorMin;
         _frontHost.anchorMax = source.anchorMax;
         _frontHost.pivot = source.pivot;
@@ -2788,8 +2860,10 @@ public class ControllerBattleClass : MonoBehaviour
         RectTransform log = _logClip != null ? _logClip : _logText.rectTransform;
         float pivotY = log.pivot.y;
         float posY = top - height * (1f - pivotY);
-        log.anchoredPosition = new Vector2(log.anchoredPosition.x, posY);
-        log.sizeDelta = new Vector2(log.sizeDelta.x, height);
+        float posX = _frontPlate != null ? _frontPlate.anchoredPosition.x : log.anchoredPosition.x;
+        float width = _frontPlate != null ? _frontPlate.sizeDelta.x : log.sizeDelta.x;
+        log.anchoredPosition = new Vector2(posX, posY);
+        log.sizeDelta = new Vector2(width, height);
         _logText.verticalOverflow = VerticalWrapMode.Overflow;
     }
 
@@ -2884,6 +2958,11 @@ public class ControllerBattleClass : MonoBehaviour
         return "<b><size=26>" + number + "</size></b>";
     }
 
+    static string FrontStockNumber(string number)
+    {
+        return "<b>" + number + "</b>";
+    }
+
     void PaintFrontSlot(FrontSlot slot, BattleUnit unit)
     {
         Sprite sprite = SpriteOf(unit.CharacterId);
@@ -2907,10 +2986,27 @@ public class ControllerBattleClass : MonoBehaviour
         }
         if (slot.Info != null)
         {
-            slot.Info.text = "Lv" + FrontEmphasis(UiNumber.Format(level))
-                + "    ×1: " + FrontEmphasis(UiNumber.Format(full))
-                + "  ×0.8: " + FrontEmphasis(UiNumber.Format(eight))
-                + "  ×0.5: " + FrontEmphasis(UiNumber.Format(half));
+            slot.Info.text = "Lv" + FrontEmphasis(UiNumber.Format(level));
+            RectTransform infoRect = slot.Info.rectTransform;
+            float infoW = slot.Info.preferredWidth;
+            if (infoW < 36f)
+                infoW = 36f;
+            infoRect.sizeDelta = new Vector2(infoW, 30f);
+            if (slot.Stock != null)
+            {
+                // Lv との間は半角スペース程度。
+                const float gap = 8f;
+                RectTransform stockRect = slot.Stock.rectTransform;
+                float stockLeft = infoRect.anchoredPosition.x + infoW + gap;
+                stockRect.offsetMin = new Vector2(stockLeft, -30f);
+                stockRect.offsetMax = new Vector2(-2f, 0f);
+            }
+        }
+        if (slot.Stock != null)
+        {
+            slot.Stock.text = "×1: " + FrontStockNumber(UiNumber.Format(full))
+                + "  ×0.8: " + FrontStockNumber(UiNumber.Format(eight))
+                + "  ×0.5: " + FrontStockNumber(UiNumber.Format(half));
         }
 
         SetGauge(slot.Hp, unit.Hp, unit.HpMax);
@@ -2940,9 +3036,16 @@ public class ControllerBattleClass : MonoBehaviour
     {
         if (text == null)
             return;
+        // ログは LogClip の外（パネル）に板を置く。Clip 内に作ると前列が左に切れる。
+        RectTransform sourceRect = text.rectTransform;
         Transform parent = text.transform.parent;
+        if (text == _logText && _logClip != null)
+        {
+            sourceRect = _logClip;
+            parent = _logClip.parent;
+        }
         string name = "Image" + text.gameObject.name + "Back";
-        Transform existing = parent.Find(name);
+        Transform existing = parent != null ? parent.Find(name) : null;
         RectTransform back;
         if (existing == null)
         {
@@ -2953,12 +3056,11 @@ public class ControllerBattleClass : MonoBehaviour
         else
             back = existing as RectTransform;
 
-        RectTransform textRect = text.rectTransform;
-        back.anchorMin = textRect.anchorMin;
-        back.anchorMax = textRect.anchorMax;
-        back.pivot = textRect.pivot;
-        back.anchoredPosition = textRect.anchoredPosition;
-        back.sizeDelta = textRect.sizeDelta;
+        back.anchorMin = sourceRect.anchorMin;
+        back.anchorMax = sourceRect.anchorMax;
+        back.pivot = sourceRect.pivot;
+        back.anchoredPosition = sourceRect.anchoredPosition;
+        back.sizeDelta = sourceRect.sizeDelta;
         if (text == _header)
         {
             Image plate = back.GetComponent<Image>();
@@ -2967,7 +3069,7 @@ public class ControllerBattleClass : MonoBehaviour
             EnsureHeaderFill(back);
         }
 
-        int textIndex = textRect.GetSiblingIndex();
+        int textIndex = sourceRect.GetSiblingIndex();
         int backIndex = back.GetSiblingIndex();
         int desired = backIndex < textIndex ? textIndex - 1 : textIndex;
         if (backIndex != desired)
@@ -3160,10 +3262,16 @@ public class ControllerBattleClass : MonoBehaviour
         fillRect.pivot = new Vector2(0f, 0.5f);
         _questBannerFill.raycastTarget = false;
 
-        _questBannerText = CreateText("Text", track.transform, 24, TextAnchor.MiddleCenter);
-        Stretch(_questBannerText.rectTransform);
-        _questBannerText.horizontalOverflow = HorizontalWrapMode.Wrap;
-        _questBannerText.verticalOverflow = VerticalWrapMode.Truncate;
+        GameObject clipObject = new GameObject("Clip", typeof(RectTransform), typeof(RectMask2D));
+        clipObject.transform.SetParent(track.transform, false);
+        _questBannerClip = clipObject.GetComponent<RectTransform>();
+        Stretch(_questBannerClip);
+        _questBannerClip.offsetMin = new Vector2(QuestBannerPad, 0f);
+        _questBannerClip.offsetMax = new Vector2(-QuestBannerPad, 0f);
+
+        _questBannerText = CreateText("Text", clipObject.transform, 24, TextAnchor.MiddleCenter);
+        _questBannerText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _questBannerText.verticalOverflow = VerticalWrapMode.Overflow;
         _questBannerText.raycastTarget = false;
         Outline outline = _questBannerText.gameObject.AddComponent<Outline>();
         outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
@@ -3234,10 +3342,16 @@ public class ControllerBattleClass : MonoBehaviour
         if (shown == null)
         {
             _questBanner.SetActive(false);
+            _questBannerTitle = "";
             return;
         }
         _questBanner.SetActive(true);
-        _questBannerText.text = shown.Title;
+        bool titleChanged = !string.Equals(_questBannerTitle, shown.Title, StringComparison.Ordinal);
+        if (titleChanged)
+        {
+            _questBannerTitle = shown.Title;
+            _questBannerText.text = shown.Title;
+        }
         bool cleared = _production.IsQuestCleared(shown);
         _questBannerFill.color = cleared
             ? new Color(0.95f, 0.78f, 0.18f, 1f)
@@ -3248,6 +3362,97 @@ public class ControllerBattleClass : MonoBehaviour
         if (rate > 1f)
             rate = 1f;
         _questBannerFill.rectTransform.anchorMax = new Vector2(rate, 1f);
+        LayoutQuestBannerMarquee(titleChanged);
+    }
+
+    // 長いタイトルは左へ流し、末尾まで見せたら先頭へ戻す。
+    void LayoutQuestBannerMarquee(bool restart)
+    {
+        if (_questBannerText == null || _questBannerClip == null || _questBanner == null || !_questBanner.activeSelf)
+            return;
+        Canvas.ForceUpdateCanvases();
+        float view = _questBannerClip.rect.width;
+        if (view < 8f)
+            view = Mathf.Max(8f, _questBanner.GetComponent<RectTransform>().rect.width - QuestBannerPad * 2f);
+        float textWidth = _questBannerText.preferredWidth;
+        if (textWidth < 8f && !string.IsNullOrEmpty(_questBannerText.text))
+            textWidth = _questBannerText.fontSize * _questBannerText.text.Length * 0.55f;
+        _questBannerViewWidth = view;
+        _questBannerTextWidth = textWidth;
+        bool scroll = textWidth > view + 1f;
+        RectTransform textRect = _questBannerText.rectTransform;
+        if (!scroll)
+        {
+            _questBannerScroll = false;
+            _questBannerOffset = 0f;
+            _questBannerHold = 0f;
+            _questBannerPhase = 0;
+            _questBannerText.alignment = TextAnchor.MiddleCenter;
+            textRect.anchorMin = new Vector2(0.5f, 0f);
+            textRect.anchorMax = new Vector2(0.5f, 1f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.sizeDelta = new Vector2(textWidth, 0f);
+            textRect.anchoredPosition = Vector2.zero;
+            return;
+        }
+
+        _questBannerText.alignment = TextAnchor.MiddleLeft;
+        textRect.anchorMin = new Vector2(0f, 0f);
+        textRect.anchorMax = new Vector2(0f, 1f);
+        textRect.pivot = new Vector2(0f, 0.5f);
+        textRect.sizeDelta = new Vector2(textWidth, 0f);
+        if (restart || !_questBannerScroll)
+        {
+            _questBannerScroll = true;
+            _questBannerOffset = 0f;
+            _questBannerHold = QuestBannerStartHold;
+            _questBannerPhase = 0;
+        }
+        float max = textWidth - view;
+        if (_questBannerOffset > max)
+            _questBannerOffset = max;
+        if (_questBannerOffset < 0f)
+            _questBannerOffset = 0f;
+        textRect.anchoredPosition = new Vector2(-_questBannerOffset, 0f);
+    }
+
+    void TickQuestBannerMarquee()
+    {
+        if (!_questBannerScroll || _questBannerText == null || _questBannerClip == null)
+            return;
+        if (_questBanner == null || !_questBanner.activeInHierarchy)
+            return;
+        float view = _questBannerClip.rect.width;
+        if (Mathf.Abs(view - _questBannerViewWidth) > 0.5f)
+            LayoutQuestBannerMarquee(false);
+        if (!_questBannerScroll)
+            return;
+        float max = _questBannerTextWidth - _questBannerViewWidth;
+        if (max <= 0f)
+            return;
+        float dt = Time.unscaledDeltaTime;
+        if (_questBannerHold > 0f)
+        {
+            _questBannerHold -= dt;
+            return;
+        }
+        if (_questBannerPhase == 0)
+        {
+            _questBannerOffset += QuestBannerScrollSpeed * dt;
+            if (_questBannerOffset >= max)
+            {
+                _questBannerOffset = max;
+                _questBannerHold = QuestBannerEndHold;
+                _questBannerPhase = 1;
+            }
+        }
+        else
+        {
+            _questBannerOffset = 0f;
+            _questBannerHold = QuestBannerStartHold;
+            _questBannerPhase = 0;
+        }
+        _questBannerText.rectTransform.anchoredPosition = new Vector2(-_questBannerOffset, 0f);
     }
 
     void RefreshQuestBadge(int claimable)
@@ -3931,6 +4136,7 @@ public class ControllerBattleClass : MonoBehaviour
         Stretch(text.rectTransform);
         text.text = label;
         text.color = Color.white;
+        GameAudio.BindUi(button);
         return button;
     }
 

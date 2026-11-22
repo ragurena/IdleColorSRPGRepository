@@ -471,6 +471,7 @@ public class ControllerEnhanceClass : MonoBehaviour
         Place(text.rectTransform, 0f, -40f, 180f, 48f);
         text.text = label;
         text.raycastTarget = false;
+        GameAudio.BindUi(button);
         return button;
     }
 

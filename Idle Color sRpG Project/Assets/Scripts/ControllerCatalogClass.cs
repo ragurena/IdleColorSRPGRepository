@@ -76,6 +76,8 @@ public class ControllerCatalogClass : MonoBehaviour
         if (_selectedId == 0)
             _selectedId = FirstId();
         Refresh();
+        if (Panel != null)
+            GameAudio.BindAllButtons(Panel.transform);
     }
 
     public void Refresh()
@@ -162,6 +164,7 @@ public class ControllerCatalogClass : MonoBehaviour
         button.targetGraphic = background;
         uint id = character.ID;
         button.onClick.AddListener(() => Select(id));
+        GameAudio.BindUi(button);
 
         bool known = IsKnown(character);
         GameObject picture = new GameObject("Picture", typeof(RectTransform));
@@ -792,6 +795,7 @@ public class ControllerCatalogClass : MonoBehaviour
         button.targetGraphic = background;
         int id = person.Id;
         button.onClick.AddListener(() => SelectPerson(id));
+        GameAudio.BindUi(button);
 
         GameObject picture = new GameObject("Picture", typeof(RectTransform));
         picture.transform.SetParent(cell.transform, false);

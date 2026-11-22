@@ -135,4 +135,18 @@ public static class HospitalMath
             + ":" + minutes.ToString("00", CultureInfo.InvariantCulture)
             + ":" + secs.ToString("00", CultureInfo.InvariantCulture);
     }
+
+    // 回復広告の次チャージまで。最大10分なので M:SS。
+    public static string FormatChargeClock(long milliseconds)
+    {
+        if (milliseconds < 0)
+            milliseconds = 0;
+        long total = (milliseconds + 999L) / 1000L;
+        if (total < 0)
+            total = 0;
+        long minutes = total / 60;
+        long secs = total % 60;
+        return minutes.ToString(CultureInfo.InvariantCulture)
+            + ":" + secs.ToString("00", CultureInfo.InvariantCulture);
+    }
 }

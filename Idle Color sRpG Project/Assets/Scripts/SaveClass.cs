@@ -83,6 +83,12 @@ public class SaveClass// : MonoBehaviour
                     sw.WriteLine("DataVersion," + GameConfig.DataVersion);
                     sw.WriteLine("SaveFormat," + GameConfig.SaveFormat.ToString());
                     sw.WriteLine("SaveGeneration," + generation.ToString());
+                    // 強化は先頭付近へ。CurPixels の長い走査より前に確定させる。
+                    if (enhance != null)
+                    {
+                        enhance.FreezeForWrite();
+                        enhance.Write(sw);
+                    }
 
         //TODO:CharactersAllのセーブ・ロード
         for (int i = 1; i < CharactersAllIndexNum; i++)
@@ -319,8 +325,7 @@ public class SaveClass// : MonoBehaviour
         }
         if (challenges != null)
             challenges.Write(sw);
-        if (enhance != null)
-            enhance.Write(sw);
+        GameAudio.WriteSave(sw);
 
         if (ItemCounts != null)
         {
@@ -492,6 +497,7 @@ public class SaveClass// : MonoBehaviour
             challenges.Clear();
         if (enhance != null)
             enhance.Clear();
+        GameAudio.ResetToDefault();
 
         // キャラを途中に入れた版より古いセーブは、入れた位置以降の ID をずらす
         string savedVersion = ReadDataVersion(sourcePath);
@@ -535,6 +541,8 @@ public class SaveClass// : MonoBehaviour
             if (challenges != null && challenges.TryRead(values))
                 continue;
             if (enhance != null && enhance.TryRead(values))
+                continue;
+            if (GameAudio.TryReadSave(values))
                 continue;
 
             if (values[0].Equals("DataVersion"))
@@ -1242,6 +1250,8 @@ public class SaveClass// : MonoBehaviour
         sw.WriteLine("CharacterCompletionCount," + quests.CharacterCompletions.ToString());
         sw.WriteLine("GalleryClearCount," + quests.GalleryClears.ToString());
         sw.WriteLine("EnemyDefeatCount," + quests.EnemyDefeats.ToString());
+        sw.WriteLine("ExpOrbUseCount," + quests.ExpOrbUses.ToString());
+        sw.WriteLine("QuestMigratedSwap52And55," + (quests.MigratedSwap52And55 ? "true" : "false"));
         if (quests.RecruitDefeats.Count > 0)
         {
             List<int> sizes = new List<int>(quests.RecruitDefeats.Keys);
@@ -1328,6 +1338,17 @@ public class SaveClass// : MonoBehaviour
         {
             quests.EnemyDefeats = ReadUlong(values);
             quests.HasEnemy = true;
+            return true;
+        }
+        if (key == "ExpOrbUseCount")
+        {
+            quests.ExpOrbUses = ReadUlong(values);
+            quests.HasExpOrbUses = true;
+            return true;
+        }
+        if (key == "QuestMigratedSwap52And55")
+        {
+            quests.MigratedSwap52And55 = values[1] == "true";
             return true;
         }
         if (key.StartsWith("RecruitDefeat[") && key.EndsWith("]"))

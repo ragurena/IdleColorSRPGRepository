@@ -6,6 +6,10 @@ public sealed class EnhanceProgress
 {
     readonly bool[] _unlocked = new bool[EnhanceSkillCatalog.Count];
     readonly int[] _level = new int[EnhanceSkillCatalog.Count];
+    // Save 中に値が変わっても、書き出し開始時点の内容を残す。
+    readonly bool[] _writeUnlocked = new bool[EnhanceSkillCatalog.Count];
+    readonly int[] _writeLevel = new int[EnhanceSkillCatalog.Count];
+    bool _writeFrozen;
     bool _busy;
 
     public void Clear()
@@ -14,7 +18,10 @@ public sealed class EnhanceProgress
         {
             _unlocked[i] = false;
             _level[i] = 0;
+            _writeUnlocked[i] = false;
+            _writeLevel[i] = 0;
         }
+        _writeFrozen = false;
         _busy = false;
     }
 
@@ -33,6 +40,16 @@ public sealed class EnhanceProgress
             return 0;
         int level = _level[index];
         return level < 0 ? 0 : level;
+    }
+
+    public void SetLevel(EnhanceSkillId id, int level)
+    {
+        int index = (int)id;
+        if (index < 0 || index >= _level.Length)
+            return;
+        if (level < 0)
+            level = 0;
+        _level[index] = level;
     }
 
     public bool TryBeginAction()
@@ -91,25 +108,39 @@ public sealed class EnhanceProgress
         }
     }
 
+    // Save の書き出し直前に呼ぶ。長い CurPixels 走査のあいだの変更を混ぜない。
+    public void FreezeForWrite()
+    {
+        for (int i = 0; i < EnhanceSkillCatalog.Count; i++)
+        {
+            _writeUnlocked[i] = _unlocked[i];
+            _writeLevel[i] = _level[i] < 0 ? 0 : _level[i];
+        }
+        _writeFrozen = true;
+    }
+
     public void Write(StreamWriter sw)
     {
         if (sw == null)
             return;
+        if (!_writeFrozen)
+            FreezeForWrite();
         for (int i = 0; i < EnhanceSkillCatalog.Count; i++)
         {
-            if (!_unlocked[i] && _level[i] <= 0)
+            if (!_writeUnlocked[i] && _writeLevel[i] <= 0)
                 continue;
             sw.WriteLine("EnhanceSkill[" + i.ToString(CultureInfo.InvariantCulture) + "],"
-                + (_unlocked[i] ? "1" : "0") + ","
-                + _level[i].ToString(CultureInfo.InvariantCulture));
+                + (_writeUnlocked[i] ? "1" : "0") + ","
+                + _writeLevel[i].ToString(CultureInfo.InvariantCulture));
         }
+        _writeFrozen = false;
     }
 
     public bool TryRead(string[] values)
     {
         if (values == null || values.Length < 2 || string.IsNullOrEmpty(values[0]))
             return false;
-        string key = values[0];
+        string key = values[0].Trim();
         if (!key.StartsWith("EnhanceSkill[") || !key.EndsWith("]"))
             return false;
         string inside = key.Substring("EnhanceSkill[".Length, key.Length - "EnhanceSkill[".Length - 1);
@@ -121,9 +152,9 @@ public sealed class EnhanceProgress
         int unlocked = 0;
         int level = 0;
         if (values.Length >= 2)
-            int.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out unlocked);
+            int.TryParse(values[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out unlocked);
         if (values.Length >= 3)
-            int.TryParse(values[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out level);
+            int.TryParse(values[2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out level);
         _unlocked[index] = unlocked != 0;
         if (level < 0)
             level = 0;

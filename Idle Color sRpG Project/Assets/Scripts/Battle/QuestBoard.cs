@@ -6,6 +6,11 @@ using UnityEngine.UI;
 // 画面の一番手前に出すクエスト一覧。バトル画面が閉じていても開ける。行は定義の数だけ作る。
 public sealed class QuestBoard
 {
+    const float TitlePad = 4f;
+    const float TitleScrollSpeed = 42f;
+    const float TitleStartHold = 0.9f;
+    const float TitleEndHold = 1.1f;
+
     ControllerProduction _production;
     Font _font;
     GameObject _root;
@@ -112,6 +117,15 @@ public sealed class QuestBoard
         Rebuild(false);
     }
 
+    public void Tick()
+    {
+        if (!IsOpen)
+            return;
+        float dt = Time.unscaledDeltaTime;
+        for (int i = 0; i < _rows.Count; i++)
+            TickTitleMarquee(_rows[i], dt);
+    }
+
     void Rebuild(bool toTop)
     {
         float position = 1f;
@@ -184,9 +198,14 @@ public sealed class QuestBoard
         Row row = new Row();
         row.Id = def.Id;
         row.Root = rowObject.GetComponent<RectTransform>();
-        row.Title = CreateText("Title", rowObject.transform, 34, TextAnchor.MiddleLeft);
+        GameObject titleClip = new GameObject("TitleClip", typeof(RectTransform), typeof(RectMask2D));
+        titleClip.transform.SetParent(rowObject.transform, false);
+        row.TitleClip = titleClip.GetComponent<RectTransform>();
+        StretchTop(row.TitleClip, 16f, 370f, 10f, 48f);
+        row.Title = CreateText("Title", titleClip.transform, 34, TextAnchor.MiddleLeft);
         row.Title.color = Color.white;
-        StretchTop(row.Title.rectTransform, 16f, 370f, 10f, 48f);
+        row.Title.horizontalOverflow = HorizontalWrapMode.Overflow;
+        row.Title.verticalOverflow = VerticalWrapMode.Overflow;
         row.Fraction = CreateText("Fraction", rowObject.transform, 30, TextAnchor.MiddleLeft);
         row.Fraction.color = Color.white;
         row.Bar = CreateBar(rowObject.transform);
@@ -245,7 +264,13 @@ public sealed class QuestBoard
         int choice = 0;
         if (_production.TryQuestRecord(def.Id, out record) && record != null)
             choice = record.Choice;
-        row.Title.text = def.Title;
+        bool titleChanged = !string.Equals(row.TitleText, def.Title, StringComparison.Ordinal);
+        if (titleChanged)
+        {
+            row.TitleText = def.Title;
+            row.Title.text = def.Title;
+        }
+        LayoutTitleMarquee(row, titleChanged);
         LayoutReward(row, QuestCatalog.RewardText(def, claimed, choice));
         row.Fraction.text = _production.QuestFraction(def);
         row.Bar.value = _production.QuestBar(def);
@@ -272,6 +297,98 @@ public sealed class QuestBoard
             pixel.text = QuestCatalog.ChoiceLabel(def, 1, _production.QuestWarning(def, 1));
             character.text = QuestCatalog.ChoiceLabel(def, 2, _production.QuestWarning(def, 2));
         }
+    }
+
+    // 長いタイトルは左へ流し、末尾まで見せたら先頭へ戻す。上のバナーと同じ動き。
+    void LayoutTitleMarquee(Row row, bool restart)
+    {
+        if (row == null || row.Title == null || row.TitleClip == null)
+            return;
+        Canvas.ForceUpdateCanvases();
+        float view = row.TitleClip.rect.width - TitlePad * 2f;
+        if (view < 8f)
+        {
+            float rootWidth = row.Root != null ? row.Root.rect.width : 0f;
+            if (rootWidth > 8f)
+                view = Mathf.Max(8f, rootWidth - 16f - 370f - TitlePad * 2f);
+            else
+                view = 520f;
+        }
+        float textWidth = row.Title.preferredWidth;
+        if (textWidth < 8f && !string.IsNullOrEmpty(row.Title.text))
+            textWidth = row.Title.fontSize * row.Title.text.Length * 0.55f;
+        row.TitleView = view;
+        row.TitleWidth = textWidth;
+        RectTransform textRect = row.Title.rectTransform;
+        if (textWidth <= view + 1f)
+        {
+            row.TitleScroll = false;
+            row.TitleOffset = 0f;
+            row.TitleHold = 0f;
+            row.TitlePhase = 0;
+            row.Title.alignment = TextAnchor.MiddleLeft;
+            textRect.anchorMin = new Vector2(0f, 0f);
+            textRect.anchorMax = new Vector2(0f, 1f);
+            textRect.pivot = new Vector2(0f, 0.5f);
+            textRect.sizeDelta = new Vector2(textWidth, 0f);
+            textRect.anchoredPosition = new Vector2(TitlePad, 0f);
+            return;
+        }
+
+        row.Title.alignment = TextAnchor.MiddleLeft;
+        textRect.anchorMin = new Vector2(0f, 0f);
+        textRect.anchorMax = new Vector2(0f, 1f);
+        textRect.pivot = new Vector2(0f, 0.5f);
+        textRect.sizeDelta = new Vector2(textWidth, 0f);
+        if (restart || !row.TitleScroll)
+        {
+            row.TitleScroll = true;
+            row.TitleOffset = 0f;
+            row.TitleHold = TitleStartHold;
+            row.TitlePhase = 0;
+        }
+        float max = textWidth - view;
+        if (row.TitleOffset > max)
+            row.TitleOffset = max;
+        if (row.TitleOffset < 0f)
+            row.TitleOffset = 0f;
+        textRect.anchoredPosition = new Vector2(TitlePad - row.TitleOffset, 0f);
+    }
+
+    void TickTitleMarquee(Row row, float dt)
+    {
+        if (row == null || !row.TitleScroll || row.Title == null || row.TitleClip == null)
+            return;
+        float view = row.TitleClip.rect.width - TitlePad * 2f;
+        if (view > 8f && Mathf.Abs(view - row.TitleView) > 0.5f)
+            LayoutTitleMarquee(row, false);
+        if (!row.TitleScroll)
+            return;
+        float max = row.TitleWidth - row.TitleView;
+        if (max <= 0f)
+            return;
+        if (row.TitleHold > 0f)
+        {
+            row.TitleHold -= dt;
+            return;
+        }
+        if (row.TitlePhase == 0)
+        {
+            row.TitleOffset += TitleScrollSpeed * dt;
+            if (row.TitleOffset >= max)
+            {
+                row.TitleOffset = max;
+                row.TitleHold = TitleEndHold;
+                row.TitlePhase = 1;
+            }
+        }
+        else
+        {
+            row.TitleOffset = 0f;
+            row.TitleHold = TitleStartHold;
+            row.TitlePhase = 0;
+        }
+        row.Title.rectTransform.anchoredPosition = new Vector2(TitlePad - row.TitleOffset, 0f);
     }
 
     void LayoutReward(Row row, string reward)
@@ -463,6 +580,7 @@ public sealed class QuestBoard
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Truncate;
         Stretch(text.rectTransform);
+        GameAudio.BindUi(button);
         return button;
     }
 
@@ -527,7 +645,15 @@ public sealed class QuestBoard
     {
         public int Id;
         public RectTransform Root;
+        public RectTransform TitleClip;
         public Text Title;
+        public string TitleText = "";
+        public bool TitleScroll;
+        public float TitleWidth;
+        public float TitleView;
+        public float TitleOffset;
+        public float TitleHold;
+        public int TitlePhase;
         public readonly List<RewardLineView> Lines = new List<RewardLineView>();
         public Text Fraction;
         public Slider Bar;

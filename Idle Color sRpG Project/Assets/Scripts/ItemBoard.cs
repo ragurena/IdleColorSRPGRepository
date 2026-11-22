@@ -842,7 +842,9 @@ public sealed class ItemBoard
         text.color = Color.white;
         text.raycastTarget = false;
         Stretch(text.rectTransform);
-        return obj.GetComponent<Button>();
+        Button button = obj.GetComponent<Button>();
+        GameAudio.BindUi(button);
+        return button;
     }
 
     Text CreateText(string name, Transform parent, int size, TextAnchor anchor)

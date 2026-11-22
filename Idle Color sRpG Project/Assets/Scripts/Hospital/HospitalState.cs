@@ -28,6 +28,8 @@ public sealed class HospitalState
 {
     public const int InitialBeds = 2;
     public const int AdRecoverWaitCount = 5;
+    public const int AdRecoverChargeMax = 3;
+    public const long AdRecoverChargeIntervalMs = 10L * 60L * 1000L;
     public const int MaxBeds = 8;
     public const int MaxCards = (MaxBeds + 1) / 2;
 
@@ -41,6 +43,8 @@ public sealed class HospitalState
     readonly int[] _nurseSizes = new int[MaxCards + 1];
     readonly List<NurseGrowth> _growth = new List<NurseGrowth>();
     ulong _nextPatientId = 1;
+    int _recoverAdCharges = AdRecoverChargeMax;
+    long _recoverAdNextUnixMs;
 
     sealed class NurseGrowth
     {
@@ -106,6 +110,88 @@ public sealed class HospitalState
         }
         _growth.Clear();
         _nextPatientId = 1;
+        _recoverAdCharges = AdRecoverChargeMax;
+        _recoverAdNextUnixMs = 0;
+    }
+
+    public int RecoverAdCharges(long nowMs)
+    {
+        CatchUpRecoverAd(nowMs);
+        return _recoverAdCharges;
+    }
+
+    public long RecoverAdRemainMs(long nowMs)
+    {
+        CatchUpRecoverAd(nowMs);
+        if (_recoverAdCharges >= AdRecoverChargeMax || _recoverAdNextUnixMs <= 0)
+            return 0;
+        long left = _recoverAdNextUnixMs - nowMs;
+        return left < 0 ? 0 : left;
+    }
+
+    public bool HasRecoverAdCharge(long nowMs)
+    {
+        return RecoverAdCharges(nowMs) > 0;
+    }
+
+    // 広告を最後まで見たあとで1回使う。満タンから減ったときだけ次のタイマーを始める。
+    public bool TrySpendRecoverAd(long nowMs)
+    {
+        CatchUpRecoverAd(nowMs);
+        if (_recoverAdCharges < 1)
+            return false;
+        bool wasFull = _recoverAdCharges >= AdRecoverChargeMax;
+        _recoverAdCharges--;
+        if (wasFull || _recoverAdNextUnixMs <= 0)
+            _recoverAdNextUnixMs = nowMs + AdRecoverChargeIntervalMs;
+        return true;
+    }
+
+    public string FormatRecoverAdLabel(long nowMs)
+    {
+        int charges = RecoverAdCharges(nowMs);
+        string line = charges.ToString(CultureInfo.InvariantCulture)
+            + " / "
+            + AdRecoverChargeMax.ToString(CultureInfo.InvariantCulture);
+        if (charges >= AdRecoverChargeMax)
+            return line;
+        return line + "  " + HospitalMath.FormatChargeClock(RecoverAdRemainMs(nowMs));
+    }
+
+    void CatchUpRecoverAd(long nowMs)
+    {
+        if (nowMs < 0)
+            nowMs = 0;
+        if (_recoverAdCharges > AdRecoverChargeMax)
+            _recoverAdCharges = AdRecoverChargeMax;
+        if (_recoverAdCharges < 0)
+            _recoverAdCharges = 0;
+        if (_recoverAdCharges >= AdRecoverChargeMax)
+        {
+            _recoverAdNextUnixMs = 0;
+            return;
+        }
+        if (_recoverAdNextUnixMs <= 0)
+        {
+            _recoverAdNextUnixMs = nowMs + AdRecoverChargeIntervalMs;
+            return;
+        }
+        int guard = AdRecoverChargeMax + 2;
+        while (guard-- > 0 && _recoverAdCharges < AdRecoverChargeMax && _recoverAdNextUnixMs <= nowMs)
+        {
+            _recoverAdCharges++;
+            if (_recoverAdCharges >= AdRecoverChargeMax)
+            {
+                _recoverAdNextUnixMs = 0;
+                return;
+            }
+            if (_recoverAdNextUnixMs > long.MaxValue - AdRecoverChargeIntervalMs)
+            {
+                _recoverAdNextUnixMs = long.MaxValue;
+                return;
+            }
+            _recoverAdNextUnixMs += AdRecoverChargeIntervalMs;
+        }
     }
 
     public uint NurseOnBed(int bed)
@@ -546,6 +632,16 @@ public sealed class HospitalState
             UnlockedBeds = InitialBeds;
         if (UnlockedBeds > MaxBeds)
             UnlockedBeds = MaxBeds;
+        if (_recoverAdCharges > AdRecoverChargeMax)
+            _recoverAdCharges = AdRecoverChargeMax;
+        if (_recoverAdCharges < 0)
+            _recoverAdCharges = 0;
+        if (_recoverAdNextUnixMs < 0)
+            _recoverAdNextUnixMs = 0;
+        if (_recoverAdCharges >= AdRecoverChargeMax)
+            _recoverAdNextUnixMs = 0;
+        else if (_recoverAdNextUnixMs <= 0)
+            _recoverAdNextUnixMs = NowUnixMs() + AdRecoverChargeIntervalMs;
         bool[] used = new bool[MaxBeds + 1];
         for (int i = 0; i < _patients.Count; i++)
         {
@@ -635,8 +731,10 @@ public sealed class HospitalState
     {
         if (writer == null)
             return;
+        CatchUpRecoverAd(NowUnixMs());
         writer.WriteLine("HospitalBeds," + UnlockedBeds.ToString(CultureInfo.InvariantCulture));
         writer.WriteLine("HospitalNextId," + _nextPatientId.ToString(CultureInfo.InvariantCulture));
+        writer.WriteLine("HospitalRecoverAd," + _recoverAdCharges.ToString(CultureInfo.InvariantCulture) + "," + _recoverAdNextUnixMs.ToString(CultureInfo.InvariantCulture));
         for (int i = 0; i < _grants.Count; i++)
             writer.WriteLine("HospitalGrant," + _grants[i]);
         int unlockedCards = (UnlockedBeds + 1) / 2;
@@ -688,6 +786,25 @@ public sealed class HospitalState
             ulong next;
             if (values.Length >= 2 && ulong.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out next) && next >= 1)
                 _nextPatientId = next;
+            return true;
+        }
+        if (key == "HospitalRecoverAd")
+        {
+            int charges;
+            long next;
+            if (values.Length >= 3
+                && int.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out charges)
+                && long.TryParse(values[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out next))
+            {
+                if (charges > AdRecoverChargeMax)
+                    charges = AdRecoverChargeMax;
+                if (charges < 0)
+                    charges = 0;
+                if (next < 0)
+                    next = 0;
+                _recoverAdCharges = charges;
+                _recoverAdNextUnixMs = charges >= AdRecoverChargeMax ? 0 : next;
+            }
             return true;
         }
         if (key == "HospitalGrant")

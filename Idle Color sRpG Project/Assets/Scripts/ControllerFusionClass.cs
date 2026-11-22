@@ -56,6 +56,8 @@ public class ControllerFusionClass : MonoBehaviour
     public void Open()
     {
         Refresh();
+        if (Panel != null)
+            GameAudio.BindAllButtons(Panel.transform);
     }
 
     public void Refresh()
@@ -178,6 +180,7 @@ public class ControllerFusionClass : MonoBehaviour
         button.colors = colors;
         uint id = character.ID;
         button.onClick.AddListener(() => Select(id));
+        GameAudio.BindUi(button);
 
         GameObject picture = new GameObject("Picture", typeof(RectTransform));
         picture.transform.SetParent(cell.transform, false);
@@ -722,6 +725,7 @@ public class ControllerFusionClass : MonoBehaviour
         Stretch(text.rectTransform);
         text.text = label;
         text.color = Color.white;
+        GameAudio.BindUi(button);
         return button;
     }
 
