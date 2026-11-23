@@ -222,16 +222,26 @@ public sealed class IdleRewardState
 
     public int MaxSeenOrb()
     {
-        int best = 0;
+        List<int> sizes = SeenOrbSizes();
+        return sizes[sizes.Count - 1];
+    }
+
+    // 取得したことのある経験値玉。無いときは最小サイズだけ。
+    public List<int> SeenOrbSizes()
+    {
+        List<int> sizes = new List<int>();
         for (int i = 0; i < SeenOrbs.Count; i++)
         {
             int size = SeenOrbs[i];
-            if (ItemIds.IsExpOrb(size) && size > best)
-                best = size;
+            if (!ItemIds.IsExpOrb(size))
+                continue;
+            if (!sizes.Contains(size))
+                sizes.Add(size);
         }
-        if (best == 0)
-            return ItemIds.ExpOrb8;
-        return best;
+        if (sizes.Count == 0)
+            sizes.Add(ItemIds.ExpOrb8);
+        sizes.Sort();
+        return sizes;
     }
 
     public void SeedOrbs(Dictionary<int, int> itemCounts)

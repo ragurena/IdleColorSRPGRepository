@@ -1884,6 +1884,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             {
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(() => ToggleWorkerKind(captured));
+                GameAudio.ForceBindUi(button);
             });
         }
         else
@@ -1892,6 +1893,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             _personTab.onClick.RemoveAllListeners();
             _characterTab.onClick.AddListener(() => ShowCharacterTab(captured));
             _personTab.onClick.AddListener(() => ShowPersonTab(captured));
+            GameAudio.ForceBindUi(_characterTab);
+            GameAudio.ForceBindUi(_personTab);
         }
         if (_showingCharacters)
             PaintWorkerTabs(true);
@@ -2189,6 +2192,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         }
         int captured = personId;
         button.onClick.AddListener(() => SelectPerson(captured, source));
+        GameAudio.BindUi(button);
     }
 
     bool IsPersonLockedOutOfProduction(int personId, Button source)
@@ -2410,8 +2414,10 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         rect.sizeDelta = new Vector2(280f, 56f);
         rect.anchoredPosition = position;
         buttonObject.GetComponent<Image>().color = new Color(0.75f, 0.78f, 0.84f, 1f);
+        Button tab = buttonObject.GetComponent<Button>();
         if (click != null)
-            buttonObject.GetComponent<Button>().onClick.AddListener(click);
+            tab.onClick.AddListener(click);
+        GameAudio.BindUi(tab);
         GameObject textObject = new GameObject("Text", typeof(RectTransform));
         textObject.transform.SetParent(buttonObject.transform, false);
         RectTransform textRect = textObject.GetComponent<RectTransform>();

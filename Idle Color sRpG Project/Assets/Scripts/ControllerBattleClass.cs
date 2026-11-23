@@ -319,6 +319,8 @@ public class ControllerBattleClass : MonoBehaviour
                     AddLog(step.Log);
                 _production.SyncAllyLivesFromBattle(_units);
                 ShowBattleFloats(step);
+                if (step.Acted && step.Target != null && step.Damage > 0)
+                    GameAudio.PlayHit(BattleSpeed());
                 if (step.Acted && step.Actor != null)
                     yield return PlayAttackMotion(step.Actor, step.Target);
                 if (step.Target != null && !step.Target.IsAlly && !step.Target.IsLiving())
@@ -2346,13 +2348,24 @@ public class ControllerBattleClass : MonoBehaviour
                 if (logH < 64f)
                     logH = 64f;
             }
+            // グレー帯はバトルパネル幅に合わせ、左右 5px だけ余白。
+            const float logSidePad = 5f;
             log.anchoredPosition = new Vector2(0f, logBottom + panelH * 0.5f);
-            log.sizeDelta = new Vector2(panelW - 24f, logH);
+            log.sizeDelta = new Vector2(panelW - logSidePad * 2f, logH);
         }
 
         PlaceTextPlate(_header);
         PlaceTextPlate(_logText);
-        InsetLogForToggle();
+        PadLogTextForToggle();
+        // 前列／ログ帯の幅を、いま置いた板に合わせ直す。
+        RectTransform plate = ResolveLogPlate();
+        if (plate != null)
+        {
+            _frontPlate = plate;
+            _frontPlatePos = plate.anchoredPosition;
+            _frontPlateSize = plate.sizeDelta;
+            _frontPlateSaved = true;
+        }
         FitFrontStatus();
     }
 
@@ -2749,26 +2762,18 @@ public class ControllerBattleClass : MonoBehaviour
         ApplyFrontHeight();
     }
 
-    void InsetLogForToggle()
+    // 前列／ログ切替ボタンのぶんだけ、ログ文字を右へずらす。グレー帯の幅は変えない。
+    void PadLogTextForToggle()
     {
         if (_logText == null)
             return;
-        // ログ本体ではなく外側（板 / LogClip）を右へずらす。内側テキストは触らない。
-        RectTransform target = ResolveLogOuter();
-        if (target == null)
-            return;
+        EnsureLogClip();
+        RectTransform text = _logText.rectTransform;
         const float inset = 96f;
-        target.anchoredPosition = new Vector2(target.anchoredPosition.x + inset * 0.5f, target.anchoredPosition.y);
-        float width = target.sizeDelta.x - inset;
-        if (width < 80f)
-            width = 80f;
-        target.sizeDelta = new Vector2(width, target.sizeDelta.y);
-        RectTransform plate = ResolveLogPlate();
-        if (plate != null && plate != target)
-        {
-            plate.anchoredPosition = target.anchoredPosition;
-            plate.sizeDelta = target.sizeDelta;
-        }
+        text.anchorMin = Vector2.zero;
+        text.anchorMax = Vector2.one;
+        text.offsetMin = new Vector2(inset, 0f);
+        text.offsetMax = Vector2.zero;
     }
 
     // ログ板は常にパネル直下。LogClip 内に作った板は使わない。
@@ -3251,6 +3256,7 @@ public class ControllerBattleClass : MonoBehaviour
         Button banner = track.gameObject.AddComponent<Button>();
         banner.targetGraphic = track;
         banner.onClick.AddListener(ToggleQuest);
+        GameAudio.BindUi(banner);
         _questBanner = track.gameObject;
 
         _questBannerFill = CreateImage("Fill", track.transform, new Color(0.32f, 0.72f, 0.4f, 1f));

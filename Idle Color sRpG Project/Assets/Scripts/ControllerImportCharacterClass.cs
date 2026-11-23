@@ -131,6 +131,8 @@ public class ControllerImportCharacterClass : MonoBehaviour
             _sizes.text = ImportSizeRules.Describe(_production.IsBattleStageCleared);
         PaintPickButton();
         RebuildCells();
+        if (Panel != null)
+            GameAudio.BindAllButtons(Panel.transform);
     }
 
     public void PushPick()
@@ -510,6 +512,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Button retouch = retouchObject.GetComponent<Button>();
         retouch.targetGraphic = retouchObject.GetComponent<Image>();
         retouch.onClick.AddListener(() => PushRetouch(id));
+        GameAudio.BindUi(retouch);
         Text retouchLabel = CreateText("Text", retouchObject.transform, 18, TextAnchor.MiddleCenter);
         Stretch(retouchLabel.rectTransform);
         retouchLabel.text = "手直し";
@@ -532,6 +535,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Button attribute = attributeObject.GetComponent<Button>();
         attribute.targetGraphic = attributeImage;
         attribute.onClick.AddListener(() => PushAttributeChange(id));
+        GameAudio.BindUi(attribute);
         Text attributeLabel = CreateText("Text", attributeObject.transform, 16, TextAnchor.MiddleCenter);
         Stretch(attributeLabel.rectTransform);
         bool attributeUsed = character.AttributeChangeUsed;
@@ -559,6 +563,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Button delete = deleteObject.GetComponent<Button>();
         delete.targetGraphic = deleteObject.GetComponent<Image>();
         delete.onClick.AddListener(() => AskDelete(id, name));
+        GameAudio.BindUi(delete);
         Text deleteLabel = CreateText("Text", deleteObject.transform, 18, TextAnchor.MiddleCenter);
         Stretch(deleteLabel.rectTransform);
         deleteLabel.text = "消す";
@@ -669,6 +674,7 @@ public class ControllerImportCharacterClass : MonoBehaviour
         Button pick = pickObject.GetComponent<Button>();
         pick.targetGraphic = pickObject.GetComponent<Image>();
         pick.onClick.AddListener(PushPick);
+        GameAudio.BindUi(pick);
         Text pickLabel = CreateText("Text", pickObject.transform, 32, TextAnchor.MiddleCenter);
         Stretch(pickLabel.rectTransform);
         pickLabel.text = "ドット絵を読み込む";

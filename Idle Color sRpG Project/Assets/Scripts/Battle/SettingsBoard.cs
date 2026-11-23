@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-// クエストの下のボタンから開く設定。バトル速度の上限、広告を見る前の確認、画面の自動消灯、バトル後の画面を選ぶ。
+// クエストの下のボタンから開く設定。並びは音量 → 広告確認 → スリープ → バトル速度 → バトル遷移 → セーブ。
 // 2倍と4倍は最初から選べる。8倍は広告で1時間。16倍は未開放で、課金解放はまだ無い。
 public sealed class SettingsBoard
 {
@@ -70,38 +70,29 @@ public sealed class SettingsBoard
         PlaceTop(close.GetComponent<RectTransform>(), 12f, 430f, 140f, 68f);
         close.onClick.AddListener(Close);
 
-        Text label = CreateText("TextSettingsSpeedCap", _root.transform, 26, TextAnchor.MiddleCenter);
-        label.text = "バトル速度の上限";
-        StretchTop(label.rectTransform, 24f, 24f, 110f, 48f);
+        // 上から: 音量 → 広告 → スリープ → バトル速度 → バトル遷移 → セーブ
+        Text bgmLabel = CreateText("TextSettingsBgmVolume", _root.transform, 26, TextAnchor.MiddleCenter);
+        bgmLabel.text = "BGM音量";
+        StretchTop(bgmLabel.rectTransform, 24f, 24f, 110f, 40f);
+        _bgmValue = CreateText("TextSettingsBgmValue", _root.transform, 24, TextAnchor.MiddleRight);
+        PlaceTop(_bgmValue.rectTransform, 110f, 430f, 120f, 40f);
+        _bgmSlider = CreateVolumeSlider("SliderSettingsBgm", _root.transform, 154f, GameAudio.DefaultBgmVolume);
+        _bgmSlider.onValueChanged.AddListener(OnBgmSlider);
 
-        for (int i = 0; i < Caps.Length; i++)
-        {
-            int cap = Caps[i];
-            Button choice = CreateButton("ButtonSettingsSpeed" + cap.ToString(), _root.transform, cap.ToString() + "倍", Idle);
-            PlaceRow(choice.GetComponent<RectTransform>(), i, Caps.Length, 180f, 96f);
-            Text choiceLabel = choice.GetComponentInChildren<Text>();
-            if (choiceLabel != null)
-                choiceLabel.fontSize = 28;
-            ColorBlock colors = choice.colors;
-            colors.disabledColor = Color.white;
-            colors.fadeDuration = 0f;
-            choice.colors = colors;
-            choice.onClick.AddListener(() => Select(cap));
-            if (cap == 8)
-                _speed8Icon = CreateVideoIcon(choice.transform);
-            _choices[i] = choice;
-        }
-
-        _speedNote = CreateText("TextSettingsSpeedNote", _root.transform, 22, TextAnchor.MiddleCenter);
-        _speedNote.color = new Color(0.78f, 0.80f, 0.84f, 1f);
-        StretchTop(_speedNote.rectTransform, 24f, 24f, 292f, 80f);
+        Text seLabel = CreateText("TextSettingsSeVolume", _root.transform, 26, TextAnchor.MiddleCenter);
+        seLabel.text = "SE音量";
+        StretchTop(seLabel.rectTransform, 24f, 24f, 234f, 40f);
+        _seValue = CreateText("TextSettingsSeValue", _root.transform, 24, TextAnchor.MiddleRight);
+        PlaceTop(_seValue.rectTransform, 234f, 430f, 120f, 40f);
+        _seSlider = CreateVolumeSlider("SliderSettingsSe", _root.transform, 278f, GameAudio.DefaultSeVolume);
+        _seSlider.onValueChanged.AddListener(OnSeSlider);
 
         Text adLabel = CreateText("TextSettingsAdConfirm", _root.transform, 26, TextAnchor.MiddleCenter);
         adLabel.text = "広告視聴の確認";
-        StretchTop(adLabel.rectTransform, 24f, 24f, 380f, 48f);
+        StretchTop(adLabel.rectTransform, 24f, 24f, 360f, 48f);
 
         Button confirmOn = CreateButton("ButtonSettingsAdConfirmOn", _root.transform, "確認する", Idle);
-        PlaceRow(confirmOn.GetComponent<RectTransform>(), 0, 2, 444f, 96f);
+        PlaceRow(confirmOn.GetComponent<RectTransform>(), 0, 2, 424f, 96f);
         Text confirmOnLabel = confirmOn.GetComponentInChildren<Text>();
         if (confirmOnLabel != null)
             confirmOnLabel.fontSize = 28;
@@ -109,7 +100,7 @@ public sealed class SettingsBoard
         _adChoices[0] = confirmOn;
 
         Button confirmOff = CreateButton("ButtonSettingsAdConfirmOff", _root.transform, "確認しない", Idle);
-        PlaceRow(confirmOff.GetComponent<RectTransform>(), 1, 2, 444f, 96f);
+        PlaceRow(confirmOff.GetComponent<RectTransform>(), 1, 2, 424f, 96f);
         Text confirmOffLabel = confirmOff.GetComponentInChildren<Text>();
         if (confirmOffLabel != null)
             confirmOffLabel.fontSize = 28;
@@ -119,7 +110,7 @@ public sealed class SettingsBoard
         Text adNote = CreateText("TextSettingsAdBonus", _root.transform, 22, TextAnchor.MiddleCenter);
         adNote.text = ControllerProduction.AdWatchBonusNote;
         adNote.color = new Color(0.78f, 0.80f, 0.84f, 1f);
-        StretchTop(adNote.rectTransform, 24f, 24f, 552f, 96f);
+        StretchTop(adNote.rectTransform, 24f, 24f, 532f, 96f);
 
         Text awakeLabel = CreateText("TextSettingsKeepAwake", _root.transform, 26, TextAnchor.MiddleCenter);
         awakeLabel.text = "スリープしない";
@@ -146,12 +137,38 @@ public sealed class SettingsBoard
         awakeOff.onClick.AddListener(() => SelectKeepAwake(false));
         _awakeChoices[1] = awakeOff;
 
+        Text label = CreateText("TextSettingsSpeedCap", _root.transform, 26, TextAnchor.MiddleCenter);
+        label.text = "バトル速度の上限";
+        StretchTop(label.rectTransform, 24f, 24f, 920f, 48f);
+
+        for (int i = 0; i < Caps.Length; i++)
+        {
+            int cap = Caps[i];
+            Button choice = CreateButton("ButtonSettingsSpeed" + cap.ToString(), _root.transform, cap.ToString() + "倍", Idle);
+            PlaceRow(choice.GetComponent<RectTransform>(), i, Caps.Length, 990f, 96f);
+            Text choiceLabel = choice.GetComponentInChildren<Text>();
+            if (choiceLabel != null)
+                choiceLabel.fontSize = 28;
+            ColorBlock colors = choice.colors;
+            colors.disabledColor = Color.white;
+            colors.fadeDuration = 0f;
+            choice.colors = colors;
+            choice.onClick.AddListener(() => Select(cap));
+            if (cap == 8)
+                _speed8Icon = CreateVideoIcon(choice.transform);
+            _choices[i] = choice;
+        }
+
+        _speedNote = CreateText("TextSettingsSpeedNote", _root.transform, 22, TextAnchor.MiddleCenter);
+        _speedNote.color = new Color(0.78f, 0.80f, 0.84f, 1f);
+        StretchTop(_speedNote.rectTransform, 24f, 24f, 1102f, 80f);
+
         Text returnLabel = CreateText("TextSettingsReturnStage", _root.transform, 26, TextAnchor.MiddleCenter);
         returnLabel.text = "バトル終了時バトル設定画面にする";
-        StretchTop(returnLabel.rectTransform, 24f, 24f, 916f, 56f);
+        StretchTop(returnLabel.rectTransform, 24f, 24f, 1210f, 56f);
 
         Button returnOn = CreateButton("ButtonSettingsReturnStageOn", _root.transform, "ON", Idle);
-        PlaceRow(returnOn.GetComponent<RectTransform>(), 0, 2, 980f, 96f);
+        PlaceRow(returnOn.GetComponent<RectTransform>(), 0, 2, 1274f, 96f);
         Text returnOnLabel = returnOn.GetComponentInChildren<Text>();
         if (returnOnLabel != null)
             returnOnLabel.fontSize = 28;
@@ -159,31 +176,15 @@ public sealed class SettingsBoard
         _returnChoices[0] = returnOn;
 
         Button returnOff = CreateButton("ButtonSettingsReturnStageOff", _root.transform, "OFF", Idle);
-        PlaceRow(returnOff.GetComponent<RectTransform>(), 1, 2, 980f, 96f);
+        PlaceRow(returnOff.GetComponent<RectTransform>(), 1, 2, 1274f, 96f);
         Text returnOffLabel = returnOff.GetComponentInChildren<Text>();
         if (returnOffLabel != null)
             returnOffLabel.fontSize = 28;
         returnOff.onClick.AddListener(() => SelectReturnToStage(false));
         _returnChoices[1] = returnOff;
 
-        Text bgmLabel = CreateText("TextSettingsBgmVolume", _root.transform, 26, TextAnchor.MiddleCenter);
-        bgmLabel.text = "BGM音量";
-        StretchTop(bgmLabel.rectTransform, 24f, 24f, 1096f, 40f);
-        _bgmValue = CreateText("TextSettingsBgmValue", _root.transform, 24, TextAnchor.MiddleRight);
-        PlaceTop(_bgmValue.rectTransform, 1096f, 430f, 120f, 40f);
-        _bgmSlider = CreateVolumeSlider("SliderSettingsBgm", _root.transform, 1140f, GameAudio.DefaultBgmVolume);
-        _bgmSlider.onValueChanged.AddListener(OnBgmSlider);
-
-        Text seLabel = CreateText("TextSettingsSeVolume", _root.transform, 26, TextAnchor.MiddleCenter);
-        seLabel.text = "SE音量";
-        StretchTop(seLabel.rectTransform, 24f, 24f, 1220f, 40f);
-        _seValue = CreateText("TextSettingsSeValue", _root.transform, 24, TextAnchor.MiddleRight);
-        PlaceTop(_seValue.rectTransform, 1220f, 430f, 120f, 40f);
-        _seSlider = CreateVolumeSlider("SliderSettingsSe", _root.transform, 1264f, GameAudio.DefaultSeVolume);
-        _seSlider.onValueChanged.AddListener(OnSeSlider);
-
         Button save = CreateButton("ButtonSettingsSave", _root.transform, "セーブ", new Color(0.25f, 0.45f, 0.75f, 1f));
-        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 1360f, 96f);
+        PlaceRow(save.GetComponent<RectTransform>(), 0, 2, 1400f, 96f);
         Text saveLabel = save.GetComponentInChildren<Text>();
         if (saveLabel != null)
             saveLabel.fontSize = 28;
@@ -194,7 +195,7 @@ public sealed class SettingsBoard
         });
 
         Button deleteSave = CreateButton("ButtonSettingsDeleteSave", _root.transform, "セーブ削除", new Color(0.75f, 0.28f, 0.24f, 1f));
-        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 1360f, 96f);
+        PlaceRow(deleteSave.GetComponent<RectTransform>(), 1, 2, 1400f, 96f);
         Text deleteLabel = deleteSave.GetComponentInChildren<Text>();
         if (deleteLabel != null)
             deleteLabel.fontSize = 28;
@@ -207,7 +208,7 @@ public sealed class SettingsBoard
         _saveStatus = CreateText("TextSettingsSaveStatus", _root.transform, 22, TextAnchor.MiddleCenter);
         _saveStatus.text = "";
         _saveStatus.color = new Color(0.78f, 0.80f, 0.84f, 1f);
-        StretchTop(_saveStatus.rectTransform, 24f, 24f, 1472f, 48f);
+        StretchTop(_saveStatus.rectTransform, 24f, 24f, 1512f, 48f);
 
         // RELEASE_REMOVE_TEST_GRANTS: 設定画面下部のテストボタン。リリース用ビルドの前に消す。
         Text testLabel = CreateText("TextSettingsTest", _root.transform, 22, TextAnchor.MiddleCenter);

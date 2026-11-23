@@ -16,8 +16,9 @@ public sealed class GameAudio : MonoBehaviour
     public const int VolumeMax = 10;
     public const int DefaultBgmVolume = 5;
     public const int DefaultSeVolume = 3;
-    // SE は最大でも実音量の 80% まで。
-    const float SeVolumeScale = 0.8f;
+    // MAX 時の実音量上限。SE は以前の 80% からさらに 70%（= 56%）。
+    const float BgmVolumeScale = 0.8f;
+    const float SeVolumeScale = 0.56f;
     // スライダー段階 0〜10 → 実音量(0〜1)。低域を抑えて湾曲させる。
     static readonly float[] VolumeCurve =
     {
@@ -37,6 +38,13 @@ public sealed class GameAudio : MonoBehaviour
     const string StoryBgmPath = "Audio/BGM/maou_bgm_piano18";
     const string UiSePath = "Audio/SE/maou_se_system48";
     const string SpeedSePath = "Audio/SE/maou_se_system46";
+    const string HitSePath = "Audio/SE/maou_se_battle14";
+    // 1.25 のさらに約 1.1 倍で、少し軽い音にする。通常速の基準。
+    const float HitSeSpeed = 1.375f;
+    // バトル倍速が 1→2→4→8… と上がるたびに、この倍率を掛ける。
+    const float HitSeSpeedPerBattleStep = 1.05f;
+    // 被弾SEだけ、通常SE音量の 0.9 倍。
+    const float HitSeVolumeScale = 0.9f;
 
     static GameAudio _instance;
     static readonly HashSet<int> BoundButtons = new HashSet<int>();
@@ -44,10 +52,12 @@ public sealed class GameAudio : MonoBehaviour
 
     AudioSource _bgm;
     AudioSource _se;
+    AudioSource _hit;
     AudioClip _fieldBgmClip;
     AudioClip _storyBgmClip;
     AudioClip _uiSe;
     AudioClip _speedSe;
+    AudioClip _hitSe;
     int _bgmVolume = DefaultBgmVolume;
     int _seVolume = DefaultSeVolume;
     bool _storyBgm;
@@ -82,6 +92,7 @@ public sealed class GameAudio : MonoBehaviour
         _storyBgmClip = Resources.Load<AudioClip>(StoryBgmPath);
         _uiSe = Resources.Load<AudioClip>(UiSePath);
         _speedSe = Resources.Load<AudioClip>(SpeedSePath);
+        _hitSe = Resources.Load<AudioClip>(HitSePath);
         if (_fieldBgmClip == null)
             Debug.LogWarning("通常BGM が読めませんでした: Resources/" + FieldBgmPath);
         if (_storyBgmClip == null)
@@ -90,6 +101,8 @@ public sealed class GameAudio : MonoBehaviour
             Debug.LogWarning("通常SE が読めませんでした: Resources/" + UiSePath);
         if (_speedSe == null)
             Debug.LogWarning("スピードアップSE が読めませんでした: Resources/" + SpeedSePath);
+        if (_hitSe == null)
+            Debug.LogWarning("被弾SE が読めませんでした: Resources/" + HitSePath);
 
         _bgm = gameObject.AddComponent<AudioSource>();
         _bgm.playOnAwake = false;
@@ -101,6 +114,12 @@ public sealed class GameAudio : MonoBehaviour
         _se.playOnAwake = false;
         _se.loop = false;
         _se.spatialBlend = 0f;
+
+        _hit = gameObject.AddComponent<AudioSource>();
+        _hit.playOnAwake = false;
+        _hit.loop = false;
+        _hit.spatialBlend = 0f;
+        _hit.pitch = HitSeSpeed;
 
         ApplyVolumes();
         if (_fieldBgmClip != null && _bgmVolume > 0 && !_bgm.isPlaying)
@@ -154,11 +173,57 @@ public sealed class GameAudio : MonoBehaviour
         Ensure().PlayClip(Ensure()._speedSe);
     }
 
+    // キャラの自動生産用。手動 SpeedUp の半分の音量。
+    public static void PlaySpeedUpAuto()
+    {
+        Ensure().PlayClip(Ensure()._speedSe, 0.5f);
+    }
+
+    // 敵味方どちらが攻撃を受けても鳴らす。バトル倍速が上がるたびに 1.05 倍。
+    public static void PlayHit(int battleSpeed)
+    {
+        Ensure().PlayHitClip(battleSpeed);
+    }
+
+    void PlayHitClip(int battleSpeed)
+    {
+        if (_hitSe == null || _hit == null || _seVolume <= 0)
+            return;
+        _hit.pitch = HitPitchForBattleSpeed(battleSpeed);
+        _hit.PlayOneShot(_hitSe, StepToSeVolume(_seVolume) * HitSeVolumeScale);
+    }
+
+    static float HitPitchForBattleSpeed(int battleSpeed)
+    {
+        float pitch = HitSeSpeed;
+        int speed = battleSpeed < 1 ? 1 : battleSpeed;
+        int step = 1;
+        while (step < speed && step < 1024)
+        {
+            step *= 2;
+            pitch *= HitSeSpeedPerBattleStep;
+        }
+        return pitch;
+    }
+
     public static void BindUi(Button button)
+    {
+        BindUi(button, false);
+    }
+
+    // onClick を作り直したあとに、もう一度通常SEを付け直す。
+    public static void ForceBindUi(Button button)
+    {
+        BindUi(button, true);
+    }
+
+    static void BindUi(Button button, bool force)
     {
         if (button == null || SkipsUiSe(button))
             return;
         int id = button.GetInstanceID();
+        if (force)
+            BoundButtons.Remove(id);
         if (!BoundButtons.Add(id))
             return;
         button.onClick.AddListener(() => PlayUiIfEnabled(button));
@@ -167,6 +232,8 @@ public sealed class GameAudio : MonoBehaviour
     static void PlayUiIfEnabled(Button button)
     {
         if (button == null || !button.IsActive() || !button.interactable)
+            return;
+        if (SkipsUiSe(button))
             return;
         PlayUi();
     }
@@ -238,7 +305,12 @@ public sealed class GameAudio : MonoBehaviour
         string name = button.gameObject.name;
         if (string.IsNullOrEmpty(name))
             return false;
+        // RGB+・バータップ・ピクセルSpeedUp代理タップは生産SE(system46)だけ。通常SEは付けない。
         if (name == "ButtonR" || name == "ButtonG" || name == "ButtonB")
+            return true;
+        if (name.StartsWith("RgbBarTap", System.StringComparison.Ordinal))
+            return true;
+        if (name == "PixelSpeedTap")
             return true;
         if (name.Contains("SpeedUp"))
             return true;
@@ -307,15 +379,22 @@ public sealed class GameAudio : MonoBehaviour
 
     void PlayClip(AudioClip clip)
     {
+        PlayClip(clip, 1f);
+    }
+
+    void PlayClip(AudioClip clip, float volumeScale)
+    {
         if (clip == null || _se == null || _seVolume <= 0)
             return;
-        _se.PlayOneShot(clip, StepToSeVolume(_seVolume));
+        if (volumeScale <= 0f)
+            return;
+        _se.PlayOneShot(clip, StepToSeVolume(_seVolume) * volumeScale);
     }
 
     void ApplyVolumes()
     {
         if (_bgm != null)
-            _bgm.volume = StepToVolume(_bgmVolume);
+            _bgm.volume = StepToBgmVolume(_bgmVolume);
         if (_se != null)
             _se.volume = 1f;
     }
@@ -335,6 +414,11 @@ public sealed class GameAudio : MonoBehaviour
         if (step < 0 || step >= VolumeCurve.Length)
             return 0f;
         return VolumeCurve[step];
+    }
+
+    static float StepToBgmVolume(int step)
+    {
+        return StepToVolume(step) * BgmVolumeScale;
     }
 
     static float StepToSeVolume(int step)

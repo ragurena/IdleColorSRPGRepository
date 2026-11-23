@@ -87,6 +87,7 @@ public class StartScreen : MonoBehaviour
         Button button = backing.gameObject.AddComponent<Button>();
         button.transition = Selectable.Transition.None;
         button.onClick.AddListener(OnPress);
+        GameAudio.BindUi(button);
 
         if (_art != null)
         {

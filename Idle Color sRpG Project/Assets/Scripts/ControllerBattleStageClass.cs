@@ -1354,6 +1354,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         button.colors = colors;
         int direction = previous ? -1 : 1;
         button.onClick.AddListener(() => PushFloorWindow(stageIndex, direction));
+        GameAudio.BindUi(button);
         LayoutFloorArrow(button, previous);
         obj.SetActive(false);
         return button;
@@ -1388,7 +1389,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         button.transition = Selectable.Transition.None;
         button.onClick = new Button.ButtonClickedEvent();
         button.onClick.AddListener(() => OpenChallengeStars(stageIndex));
-        GameAudio.BindUi(button);
+        GameAudio.ForceBindUi(button);
         return image;
     }
 
@@ -1431,6 +1432,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         Button dimButton = _starPopup.GetComponent<Button>();
         dimButton.transition = Selectable.Transition.None;
         dimButton.onClick.AddListener(CloseChallengeStars);
+        GameAudio.BindUi(dimButton);
 
         GameObject card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         card.transform.SetParent(_starPopup.transform, false);
@@ -1457,6 +1459,7 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         Button close = CreateStarPopupButton(card.transform, "閉じる", new Color(0.45f, 0.45f, 0.48f, 1f));
         close.onClick.AddListener(CloseChallengeStars);
+        GameAudio.BindUi(close);
         _starPopup.SetActive(false);
     }
 

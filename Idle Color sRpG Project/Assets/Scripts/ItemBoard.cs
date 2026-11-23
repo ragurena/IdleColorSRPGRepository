@@ -229,6 +229,7 @@ public sealed class ItemBoard
         button.targetGraphic = plate;
         int id = itemId;
         button.onClick.AddListener(() => OpenOrb(id));
+        GameAudio.BindUi(button);
 
         float textLeft = PlaceListIcon(plate.transform, itemId, 96f);
         Text name = CreateText("Name", plate.transform, 28, TextAnchor.MiddleLeft);
@@ -509,6 +510,7 @@ public sealed class ItemBoard
         button.transition = Selectable.Transition.None;
         uint id = characterId;
         button.onClick.AddListener(() => SelectCharacter(id));
+        GameAudio.BindUi(button);
 
         Image icon = CreateImage("Icon", plate.transform, new Color(0.9f, 0.91f, 0.93f, 1f));
         icon.preserveAspect = true;

@@ -920,7 +920,9 @@ public class ControllerCatalogClass : MonoBehaviour
         RectTransform rect = buttonObject.GetComponent<RectTransform>();
         Place(rect, position.x, position.y, 200f, 66f);
         buttonObject.GetComponent<Image>().color = Color.black;
-        buttonObject.GetComponent<Button>().onClick.AddListener(click);
+        Button page = buttonObject.GetComponent<Button>();
+        page.onClick.AddListener(click);
+        GameAudio.BindUi(page);
         EnsureWhiteFrame(buttonObject.transform, FrameThin);
         Text text = CreateText("Text", buttonObject.transform, 28, TextAnchor.MiddleCenter);
         Stretch(text.rectTransform);

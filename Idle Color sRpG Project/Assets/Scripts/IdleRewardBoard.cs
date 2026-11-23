@@ -13,8 +13,8 @@ public class IdleRewardBoard : MonoBehaviour
     Text _banner;
     GameObject _idlePopup;
     Text _idleBody;
-    Image _idleOrbIcon;
-    Text _idleOrbName;
+    Transform _idleOrbCluster;
+    Text _idleOrbCount;
     GameObject _offlinePopup;
     Text _offlineBody;
     RectTransform _offlineList;
@@ -157,15 +157,7 @@ public class IdleRewardBoard : MonoBehaviour
                 + "放置上限：" + _game.Idle.FormatActiveCapDetail() + "\n"
                 + "広告を見たり、課金すると、放置できる時間が伸びます。";
         }
-        int orb = _game != null && _game.Idle != null ? _game.Idle.MaxSeenOrb() : ItemIds.ExpOrb8;
-        if (_idleOrbIcon != null)
-        {
-            _idleOrbIcon.sprite = ItemImages.SpriteOf(orb);
-            _idleOrbIcon.preserveAspect = true;
-            _idleOrbIcon.color = Color.white;
-        }
-        if (_idleOrbName != null)
-            _idleOrbName.text = ItemIds.DisplayName(orb);
+        PaintIdleOrbPreview();
         _idlePopup.SetActive(true);
         _idlePopup.transform.SetAsLastSibling();
         HoldScreenIdleSpeed();
@@ -521,10 +513,20 @@ public class IdleRewardBoard : MonoBehaviour
 
         if (orb)
         {
-            _idleOrbIcon = CreateImage("Icon", cluster.transform, Color.white);
-            _idleOrbIcon.preserveAspect = true;
-            Prefer(_idleOrbIcon.rectTransform, 84f, 84f);
-            _idleOrbName = RewardLabel(cluster.transform, "");
+            GameObject icons = new GameObject("Icons", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            icons.transform.SetParent(cluster.transform, false);
+            HorizontalLayoutGroup iconsLayout = icons.GetComponent<HorizontalLayoutGroup>();
+            iconsLayout.childAlignment = TextAnchor.MiddleCenter;
+            iconsLayout.spacing = 10f;
+            iconsLayout.childControlWidth = false;
+            iconsLayout.childControlHeight = false;
+            iconsLayout.childForceExpandWidth = false;
+            iconsLayout.childForceExpandHeight = false;
+            ContentSizeFitter iconsFit = icons.GetComponent<ContentSizeFitter>();
+            iconsFit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            iconsFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            _idleOrbCluster = icons.transform;
+            _idleOrbCount = RewardLabel(cluster.transform, "各×10");
         }
         else
         {
@@ -542,8 +544,29 @@ public class IdleRewardBoard : MonoBehaviour
             }
             Prefer(icon.rectTransform, 84f, 84f);
             RewardLabel(cluster.transform, "全ピクセル");
+            RewardLabel(cluster.transform, "×100");
         }
-        RewardLabel(cluster.transform, orb ? "×10" : "×100");
+    }
+
+    void PaintIdleOrbPreview()
+    {
+        if (_idleOrbCluster == null)
+            return;
+        for (int i = _idleOrbCluster.childCount - 1; i >= 0; i--)
+            Destroy(_idleOrbCluster.GetChild(i).gameObject);
+
+        List<int> orbs = _game != null && _game.Idle != null
+            ? _game.Idle.SeenOrbSizes()
+            : new List<int> { ItemIds.ExpOrb8 };
+        for (int i = 0; i < orbs.Count; i++)
+        {
+            Image icon = CreateImage("Icon" + orbs[i].ToString(), _idleOrbCluster, Color.white);
+            icon.preserveAspect = true;
+            icon.sprite = ItemImages.SpriteOf(orbs[i]);
+            Prefer(icon.rectTransform, 72f, 72f);
+        }
+        if (_idleOrbCount != null)
+            _idleOrbCount.text = "各×10";
     }
 
     Text RewardLabel(Transform parent, string value)
@@ -554,8 +577,6 @@ public class IdleRewardBoard : MonoBehaviour
         ContentSizeFitter fit = text.gameObject.AddComponent<ContentSizeFitter>();
         fit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        if (string.IsNullOrEmpty(value))
-            _idleOrbName = text;
         return text;
     }
 
@@ -696,7 +717,9 @@ public class IdleRewardBoard : MonoBehaviour
         Text text = CreateLabel("Text", obj.transform, 26, TextAnchor.MiddleCenter);
         text.text = label;
         Stretch(text.rectTransform, 8f, 8f, 8f, 8f);
-        return obj.GetComponent<Button>();
+        Button button = obj.GetComponent<Button>();
+        GameAudio.BindUi(button);
+        return button;
     }
 
     Text CreateLabel(string name, Transform parent, int size, TextAnchor anchor)

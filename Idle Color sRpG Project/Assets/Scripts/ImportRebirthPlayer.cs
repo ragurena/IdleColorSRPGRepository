@@ -991,6 +991,7 @@ public class ImportRebirthPlayer : MonoBehaviour
         _skipButton.targetGraphic = skipImage;
         _skipButton.transition = Selectable.Transition.None;
         _skipButton.onClick.AddListener(PushSkip);
+        GameAudio.BindUi(_skipButton);
 
         _name = CreateText("TextRebirthName", transform, 36, TextAnchor.MiddleCenter);
         Place(_name.rectTransform, 0f, 624f, 960f, 56f);
@@ -1050,6 +1051,7 @@ public class ImportRebirthPlayer : MonoBehaviour
         _backButton = backObject.GetComponent<Button>();
         _backButton.targetGraphic = backImage;
         _backButton.onClick.AddListener(PushBack);
+        GameAudio.BindUi(_backButton);
         Text backLabel = CreateText("Text", backObject.transform, 28, TextAnchor.MiddleCenter);
         Stretch(backLabel.rectTransform);
         backLabel.text = "一覧へ戻る";

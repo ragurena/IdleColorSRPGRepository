@@ -700,39 +700,52 @@ public class ControllerProduction : MonoBehaviour
                 _onRgbSlot = NoteRgbSlot;
             _pendingRgbFx.Clear();
 
+            bool autoProduced = false;
+
             //Rの生産
             _rgbFxPrefix = "ButtonRProductionHelpCharacter";
             _rgbFxTint = RgbProduceFx.ChannelColor(0);
+            ulong beforeR = CurR;
             ulong IncreaseValueRHelp = RgbSlotOutput(PersonIdHelpProductionR, CharactersIDHelpProductionR, 0, _onRgbSlot);
             GainRgb(ref CurR, MaxR, AddUlong(IncreaseValueRHelp, EnhanceAutoAmount(EnhanceSkillId.AutoR)), 0);
+            if (CurR > beforeR)
+                autoProduced = true;
             UpdateRGBProductionOneColor(CurR, MaxR, TextR, SliderR, IncreaseValueR, CostIncreaseValueRUp, TextIncreaseValueRLeft, TextIncreaseValueRRight, TextCostIncreaseValueRUp, SliderCostIncreaseValueRUp, ButtonIncreaseValueRUp, CostMaxRUp, TextCostMaxRUp, SliderCostMaxRUp, ButtonMaxRUp);
 
             //Gの生産
             _rgbFxPrefix = "ButtonGProductionHelpCharacter";
             _rgbFxTint = RgbProduceFx.ChannelColor(1);
+            ulong beforeG = CurG;
             ulong IncreaseValueGHelp = RgbSlotOutput(PersonIdHelpProductionG, CharactersIDHelpProductionG, 1, _onRgbSlot);
             GainRgb(ref CurG, MaxG, AddUlong(IncreaseValueGHelp, EnhanceAutoAmount(EnhanceSkillId.AutoG)), 1);
+            if (CurG > beforeG)
+                autoProduced = true;
             UpdateRGBProductionOneColor(CurG, MaxG, TextG, SliderG, IncreaseValueG, CostIncreaseValueGUp, TextIncreaseValueGLeft, TextIncreaseValueGRight, TextCostIncreaseValueGUp, SliderCostIncreaseValueGUp, ButtonIncreaseValueGUp, CostMaxGUp, TextCostMaxGUp, SliderCostMaxGUp, ButtonMaxGUp);
 
             //Bの生産
             _rgbFxPrefix = "ButtonBProductionHelpCharacter";
             _rgbFxTint = RgbProduceFx.ChannelColor(2);
+            ulong beforeB = CurB;
             ulong IncreaseValueBHelp = RgbSlotOutput(PersonIdHelpProductionB, CharactersIDHelpProductionB, 2, _onRgbSlot);
             GainRgb(ref CurB, MaxB, AddUlong(IncreaseValueBHelp, EnhanceAutoAmount(EnhanceSkillId.AutoB)), 2);
+            if (CurB > beforeB)
+                autoProduced = true;
             UpdateRGBProductionOneColor(CurB, MaxB, TextB, SliderB, IncreaseValueB, CostIncreaseValueBUp, TextIncreaseValueBLeft, TextIncreaseValueBRight, TextCostIncreaseValueBUp, SliderCostIncreaseValueBUp, ButtonIncreaseValueBUp, CostMaxBUp, TextCostMaxBUp, SliderCostMaxBUp, ButtonMaxBUp);
 
             //ピクセルの生産
             for (int i = 1; i <= Slots.PixelSlots; i++)
             {
-                ushort beforeR = ProgressProductionPixel[i, 1];
-                ushort beforeG = ProgressProductionPixel[i, 2];
-                ushort beforeB = ProgressProductionPixel[i, 3];
+                ushort beforePixelR = ProgressProductionPixel[i, 1];
+                ushort beforePixelG = ProgressProductionPixel[i, 2];
+                ushort beforePixelB = ProgressProductionPixel[i, 3];
                 bool completed;
                 ProductionPixel(Trigger.Update, i, out completed);
                 bool advanced = completed
-                    || ProgressProductionPixel[i, 1] != beforeR
-                    || ProgressProductionPixel[i, 2] != beforeG
-                    || ProgressProductionPixel[i, 3] != beforeB;
+                    || ProgressProductionPixel[i, 1] != beforePixelR
+                    || ProgressProductionPixel[i, 2] != beforePixelG
+                    || ProgressProductionPixel[i, 3] != beforePixelB;
+                if (advanced)
+                    autoProduced = true;
                 SyncPixelWorkerMotion(i, completed, advanced);
             }
             UpdateRGBProductionScene();
@@ -795,6 +808,8 @@ public class ControllerProduction : MonoBehaviour
                     UpdateProductionCharacterProgressImage(i);
                 if (PCF)
                     ProductionCharacterFlag = true;
+                if (painted || PCF)
+                    autoProduced = true;
                 SyncCharacterWorkerMotion(i, PCF, painted);
             }
             RefreshProductionFigures();
@@ -803,6 +818,10 @@ public class ControllerProduction : MonoBehaviour
             RefreshCharacterStopPixels();
             if (ControllerBattle != null)
                 ControllerBattle.RefreshQuestBoard();
+
+            // 自動生産が進んだときだけ、手動の半分の音量で生産SE。
+            if (autoProduced)
+                GameAudio.PlaySpeedUpAuto();
 
             //絵を塗り直したあとで出す。跳ねる絵は今のスプライトを使う
             PlayPendingRgbFx();
@@ -2262,7 +2281,30 @@ public class ControllerProduction : MonoBehaviour
             EnsureButtonNeon(button.transform, Color.white, false, false);
         RestoreCatalogBadgeInk(button.transform);
         PlaceSceneIcon(button, open);
-        StyleSceneButtonLabelOutline(SceneButtonLabel(button));
+        if (IsScenePageArrow(button.name))
+            StyleScenePageArrowLabel(SceneButtonLabel(button));
+        else
+            StyleSceneButtonLabelOutline(SceneButtonLabel(button));
+    }
+
+    static bool IsScenePageArrow(string name)
+    {
+        return name == "ButtonSelectScenePagePrev" || name == "ButtonSelectScenePageNext";
+    }
+
+    // ページ矢印も太字。機能ボタンより大きくする。
+    static void StyleScenePageArrowLabel(Text label)
+    {
+        if (label == null)
+            return;
+        label.fontStyle = FontStyle.Bold;
+        label.resizeTextForBestFit = false;
+        label.fontSize = 48;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.horizontalOverflow = HorizontalWrapMode.Overflow;
+        label.verticalOverflow = VerticalWrapMode.Overflow;
+        label.color = new Color(0.93f, 0.94f, 0.96f, 1f);
+        StyleSceneButtonLabelOutline(label);
     }
 
     static readonly string[] SceneIconFiles =
@@ -2419,14 +2461,15 @@ public class ControllerProduction : MonoBehaviour
         bool firstPage = !IsSelectScenePage2(button.name);
         if (firstPage && FirstPageSceneFontSize <= 0 && button.transform.parent != null)
             RefreshFirstPageSceneFontSize(button.transform.parent);
-        int fontSize = 20;
-        float textH = 28f;
+        int fontSize = 24;
+        float textH = 32f;
         if (firstPage)
         {
-            fontSize = FirstPageSceneFontSize > 0 ? FirstPageSceneFontSize : 24;
-            textH = fontSize + 10f;
+            fontSize = FirstPageSceneFontSize > 0 ? FirstPageSceneFontSize : 28;
+            textH = fontSize + 12f;
         }
-        float iconSize = height * 0.58f;
+        // アイコンを少し小さくして、ラベルを大きくする余白を確保する。
+        float iconSize = height * 0.52f;
         float gap = 2f;
         float block = iconSize + gap + textH;
         float iconY = block * 0.5f - iconSize * 0.5f;
@@ -2450,6 +2493,7 @@ public class ControllerProduction : MonoBehaviour
             textRect.sizeDelta = new Vector2(width - 4f, textH);
             label.supportRichText = false;
             label.resizeTextForBestFit = false;
+            label.fontStyle = FontStyle.Bold;
             label.fontSize = fontSize;
             label.alignment = TextAnchor.MiddleCenter;
             label.horizontalOverflow = firstPage ? HorizontalWrapMode.Overflow : HorizontalWrapMode.Wrap;
@@ -2458,6 +2502,7 @@ public class ControllerProduction : MonoBehaviour
             label.gameObject.SetActive(true);
             if (button.name == "ButtonSelectSceneRGBProduction")
                 label.text = "RGB生産";
+            NormalizeSceneButtonLabelFont(label, button);
             StyleSceneButtonLabelOutline(label);
             label.transform.SetAsLastSibling();
         }
@@ -2479,11 +2524,33 @@ public class ControllerProduction : MonoBehaviour
         return null;
     }
 
+    // RGB生産と同じフォントに揃える。太さは Bold。
+    static void NormalizeSceneButtonLabelFont(Text label, Button button)
+    {
+        if (label == null)
+            return;
+        label.fontStyle = FontStyle.Bold;
+        if (button != null && button.transform.parent != null)
+        {
+            Transform rgb = button.transform.parent.Find("ButtonSelectSceneRGBProduction");
+            Text rgbLabel = rgb != null ? SceneButtonLabel(rgb.GetComponent<Button>()) : null;
+            if (rgbLabel != null && rgbLabel.font != null)
+                label.font = rgbLabel.font;
+        }
+        if (label.font == null)
+        {
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (label.font == null)
+                label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        }
+    }
+
     // 画面下の機能ボタン。白い光だとアイコンに溶けるので、文字の周りを黒で縁取る。
     static void StyleSceneButtonLabelOutline(Text label)
     {
         if (label == null)
             return;
+        label.fontStyle = FontStyle.Bold;
         GaugeTextGlow glow = label.GetComponent<GaugeTextGlow>();
         if (glow != null)
             glow.enabled = false;
@@ -2522,9 +2589,9 @@ public class ControllerProduction : MonoBehaviour
             float width = SceneButtonEdge(buttonRect, true);
             float height = SceneButtonEdge(buttonRect, false);
             int cap = SceneLabelSizeCap(height);
-            int fit = FitSingleLineFontSize(label, text, width - 8f, cap, 16);
+            int fit = FitSingleLineFontSize(label, text, width - 4f, cap, 18);
             if (fit < 0)
-                fit = 24;
+                fit = 26;
             if (!found || fit < chosen)
                 chosen = fit;
             found = true;
@@ -2535,13 +2602,13 @@ public class ControllerProduction : MonoBehaviour
 
     static int SceneLabelSizeCap(float height)
     {
-        float iconSize = height * 0.58f;
-        float maxTextH = height - iconSize - 6f;
-        int cap = Mathf.FloorToInt(maxTextH - 10f);
-        if (cap > 40)
-            cap = 40;
-        if (cap < 16)
-            cap = 16;
+        float iconSize = height * 0.52f;
+        float maxTextH = height - iconSize - 4f;
+        int cap = Mathf.FloorToInt(maxTextH - 8f);
+        if (cap > 44)
+            cap = 44;
+        if (cap < 18)
+            cap = 18;
         return cap;
     }
 
@@ -2577,6 +2644,7 @@ public class ControllerProduction : MonoBehaviour
     {
         TextGenerationSettings settings = label.GetGenerationSettings(new Vector2(4096f, 256f));
         settings.fontSize = fontSize;
+        settings.fontStyle = FontStyle.Bold;
         settings.horizontalOverflow = HorizontalWrapMode.Overflow;
         settings.verticalOverflow = VerticalWrapMode.Overflow;
         settings.generateOutOfBounds = true;
@@ -7933,7 +8001,10 @@ public class ControllerProduction : MonoBehaviour
         Idle.NoteAdSuccess();
         Idle.Limited = false;
         Idle.LastInputUnixMs = HospitalState.NowUnixMs();
-        AddBattleItem(Idle.MaxSeenOrb(), 10);
+        // 画面オン放置の広告報酬は、取得済みの全サイズの経験値玉を各10個。
+        List<int> orbs = Idle.SeenOrbSizes();
+        for (int i = 0; i < orbs.Count; i++)
+            AddBattleItem(orbs[i], 10);
         GrantAdWatchBonus();
         SaveGame();
     }
@@ -11373,6 +11444,73 @@ public class ControllerProduction : MonoBehaviour
         StylePixelSpeedButton(right, color);
         EnsureSpeedHoldRepeat(left);
         EnsureSpeedHoldRepeat(right);
+        // RGB作成のバーと同じ。必要量の四角と下のゲージを押しても SpeedUp。
+        EnsurePixelSpeedTaps(row, left != null ? left.GetComponent<Button>() : right != null ? right.GetComponent<Button>() : null);
+    }
+
+    void EnsurePixelSpeedTaps(Transform row, Button source)
+    {
+        if (row == null || source == null)
+            return;
+        Transform colorPanel = row.Find("PanelImagePixelColor");
+        if (colorPanel == null)
+            return;
+
+        EnsurePixelSpeedTapHost(colorPanel.Find("ImagePixelColorR"), source);
+        EnsurePixelSpeedTapHost(colorPanel.Find("ImagePixelColorG"), source);
+        EnsurePixelSpeedTapHost(colorPanel.Find("ImagePixelColorB"), source);
+        EnsurePixelSpeedTapHost(colorPanel.Find("SliderPixelColorR"), source, true);
+        EnsurePixelSpeedTapHost(colorPanel.Find("SliderPixelColorG"), source, true);
+        EnsurePixelSpeedTapHost(colorPanel.Find("SliderPixelColorB"), source, true);
+    }
+
+    void EnsurePixelSpeedTapHost(Transform host, Button source, bool disableSlider = false)
+    {
+        if (host == null || source == null)
+            return;
+        if (disableSlider)
+        {
+            Slider slider = host.GetComponent<Slider>();
+            if (slider != null)
+                slider.interactable = false;
+        }
+
+        Transform existing = host.Find("PixelSpeedTap");
+        GameObject obj;
+        if (existing == null)
+        {
+            obj = new GameObject("PixelSpeedTap", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(RgbBarTap));
+            obj.transform.SetParent(host, false);
+        }
+        else
+            obj = existing.gameObject;
+
+        RectTransform rect = obj.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+
+        Image image = obj.GetComponent<Image>();
+        image.sprite = RgbBarTapFill();
+        image.type = Image.Type.Simple;
+        image.color = new Color(1f, 1f, 1f, 0f);
+        image.raycastTarget = true;
+
+        Button button = obj.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.None;
+        Navigation navigation = button.navigation;
+        navigation.mode = Navigation.Mode.None;
+        button.navigation = navigation;
+
+        RgbBarTap tap = obj.GetComponent<RgbBarTap>();
+        tap.Production = this;
+        tap.Source = source;
+        tap.Bind(button);
+        EnsureRgbHoldRepeat(button, source);
+        obj.transform.SetAsLastSibling();
     }
 
     void StyleCharacterSpeedButtons(Transform row, Color color)
@@ -11384,6 +11522,69 @@ public class ControllerProduction : MonoBehaviour
         StylePixelSpeedButton(right, color);
         EnsureSpeedHoldRepeat(left);
         EnsureSpeedHoldRepeat(right);
+        Button source = left != null ? left.GetComponent<Button>() : right != null ? right.GetComponent<Button>() : null;
+        EnsureCharacterSpeedTaps(row, source);
+    }
+
+    // 進捗画像と消費ピクセル一覧をタップすると SpeedUp。一覧はドラッグでスクロールできる。
+    void EnsureCharacterSpeedTaps(Transform row, Button source)
+    {
+        if (row == null || source == null)
+            return;
+        for (int i = 0; i < row.childCount; i++)
+        {
+            Transform child = row.GetChild(i);
+            if (child.name.Contains("RawImageCharacterProduction"))
+                EnsurePixelSpeedTapHost(child, source);
+            if (child.name.Contains("ScrollViewConsumePixel"))
+                EnsureCharacterSpeedScrollTap(child, source);
+        }
+    }
+
+    void EnsureCharacterSpeedScrollTap(Transform scrollView, Button source)
+    {
+        if (scrollView == null || source == null)
+            return;
+        ScrollRect scroll = scrollView.GetComponent<ScrollRect>();
+        Transform viewport = scroll != null ? scroll.viewport : null;
+        if (viewport == null)
+        {
+            for (int i = 0; i < scrollView.childCount; i++)
+            {
+                if (scrollView.GetChild(i).name.Contains("Viewport"))
+                {
+                    viewport = scrollView.GetChild(i);
+                    break;
+                }
+            }
+        }
+        WireCharacterSpeedScrollTap(viewport, source);
+        Transform content = FindConsumePixelContent(scrollView);
+        WireCharacterSpeedScrollTap(content, source);
+        if (content == null)
+            return;
+        for (int i = 0; i < content.childCount; i++)
+            WireCharacterSpeedScrollTap(content.GetChild(i), source);
+    }
+
+    void WireCharacterSpeedScrollTap(Transform host, Button source)
+    {
+        if (host == null || source == null)
+            return;
+        Image image = host.GetComponent<Image>();
+        if (image == null)
+        {
+            image = host.gameObject.AddComponent<Image>();
+            image.sprite = RgbBarTapFill();
+            image.color = new Color(1f, 1f, 1f, 0f);
+        }
+        image.raycastTarget = true;
+
+        CharacterSpeedScrollTap tap = host.GetComponent<CharacterSpeedScrollTap>();
+        if (tap == null)
+            tap = host.gameObject.AddComponent<CharacterSpeedScrollTap>();
+        tap.Production = this;
+        tap.Source = source;
     }
 
     static void EnsureSpeedHoldRepeat(Transform buttonTransform)
@@ -12268,6 +12469,7 @@ public class ControllerProduction : MonoBehaviour
         List<ConsumePixelClass> pixels = EnsureConsumePixelList(productionIndex);
         if (pixels == null)
             return;
+        SortConsumePixelList(pixels);
         if (content.childCount != pixels.Count)
         {
             for (int i = content.childCount - 1; i >= 0; i--)
@@ -12285,16 +12487,32 @@ public class ControllerProduction : MonoBehaviour
                 GameObject row = Instantiate(prefab, content);
                 ApplyConsumePixelRow(row, pixels[i]);
             }
-            return;
+        }
+        else
+        {
+            for (int i = 0; i < pixels.Count; i++)
+            {
+                Transform child = content.GetChild(i);
+                if (child == null)
+                    continue;
+                ApplyConsumePixelRow(child.gameObject, pixels[i]);
+            }
         }
 
-        for (int i = 0; i < pixels.Count; i++)
+        Transform scrollView = content;
+        while (scrollView != null && !scrollView.name.Contains("ScrollViewConsumePixel"))
+            scrollView = scrollView.parent;
+        if (scrollView == null)
+            return;
+        Transform productionRow = scrollView.parent;
+        Button source = null;
+        if (productionRow != null)
         {
-            Transform child = content.GetChild(i);
-            if (child == null)
-                continue;
-            ApplyConsumePixelRow(child.gameObject, pixels[i]);
+            Transform left = FindPixelSpeedButton(productionRow, "ButtonSpeedUpCharacterProductionLeft");
+            Transform right = FindPixelSpeedButton(productionRow, "ButtonSpeedUpCharacterProductionRight");
+            source = left != null ? left.GetComponent<Button>() : right != null ? right.GetComponent<Button>() : null;
         }
+        EnsureCharacterSpeedScrollTap(scrollView, source);
     }
 
     List<ConsumePixelClass> EnsureConsumePixelList(int productionIndex)
@@ -12306,6 +12524,41 @@ public class ControllerProduction : MonoBehaviour
         if (ConsumePixelsProductionCharacter[productionIndex] == null)
             ConsumePixelsProductionCharacter[productionIndex] = new List<ConsumePixelClass>();
         return ConsumePixelsProductionCharacter[productionIndex];
+    }
+
+    // 必要ピクセル数が多い順。同数なら RGB 合計、それでも同じなら R→G→B の多い方を先に。
+    static void SortConsumePixelList(List<ConsumePixelClass> pixels)
+    {
+        if (pixels == null || pixels.Count < 2)
+            return;
+        pixels.Sort(CompareConsumePixelOrder);
+    }
+
+    static int CompareConsumePixelOrder(ConsumePixelClass a, ConsumePixelClass b)
+    {
+        if (a == null && b == null)
+            return 0;
+        if (a == null)
+            return 1;
+        if (b == null)
+            return -1;
+        int byCount = b.ToBeCurConsumePixelsNum.CompareTo(a.ToBeCurConsumePixelsNum);
+        if (byCount != 0)
+            return byCount;
+
+        int sumA = ColorByte(a.PixelColor.r) + ColorByte(a.PixelColor.g) + ColorByte(a.PixelColor.b);
+        int sumB = ColorByte(b.PixelColor.r) + ColorByte(b.PixelColor.g) + ColorByte(b.PixelColor.b);
+        int bySum = sumB.CompareTo(sumA);
+        if (bySum != 0)
+            return bySum;
+
+        int byR = ColorByte(b.PixelColor.r).CompareTo(ColorByte(a.PixelColor.r));
+        if (byR != 0)
+            return byR;
+        int byG = ColorByte(b.PixelColor.g).CompareTo(ColorByte(a.PixelColor.g));
+        if (byG != 0)
+            return byG;
+        return ColorByte(b.PixelColor.b).CompareTo(ColorByte(a.PixelColor.b));
     }
 
     void ApplyConsumePixelRow(GameObject row, ConsumePixelClass consumePixel)
@@ -15854,6 +16107,7 @@ public class ControllerProduction : MonoBehaviour
                 button.onClick.AddListener(PushButtonAdPixelSlot);
             else
                 button.onClick.AddListener(PushButtonAdCharacterSlot);
+            GameAudio.BindUi(button);
 
             GameObject textObject = new GameObject("Text", typeof(RectTransform));
             textObject.transform.SetParent(buttonObject.transform, false);
@@ -16894,6 +17148,28 @@ public class RgbBarTap : MonoBehaviour, IPointerDownHandler
 
     public void Press()
     {
+        if (Source == null || !Source.isActiveAndEnabled || !Source.interactable)
+            return;
+        Source.onClick.Invoke();
+    }
+}
+
+// スクロール一覧用。ドラッグ中は ScrollRect に任せ、クリックだけ SpeedUp。
+public class CharacterSpeedScrollTap : MonoBehaviour, IPointerDownHandler, IPointerClickHandler
+{
+    public ControllerProduction Production;
+    public Button Source;
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        if (Production != null)
+            Production.PlayButtonPressGlow(Source);
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData != null && eventData.dragging)
+            return;
         if (Source == null || !Source.isActiveAndEnabled || !Source.interactable)
             return;
         Source.onClick.Invoke();

@@ -532,6 +532,7 @@ public class ControllerBattlePartyClass : MonoBehaviour
             int captured = slot;
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => ControllerProduction.PushButtonSelectCharacter(PERSON_BUTTON_PREFIX + captured.ToString()));
+            GameAudio.ForceBindUi(button);
             ButtonPeople[slot] = button;
         }
         StartCoroutine(PlacePersonSlotsAfterLayout());

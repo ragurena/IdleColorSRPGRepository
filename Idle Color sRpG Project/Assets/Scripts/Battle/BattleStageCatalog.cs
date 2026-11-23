@@ -250,10 +250,10 @@ public static class BattleStageCatalog
         //Boss(stage, 80, 19, 8, 1, 2);
         //Boss(stage, 90, 24, 9, 1, 3);
         Boss(stage, 100, 6, 5, 1, 1);
-        Boss(stage, 150, 9, 3, 1, 1);
-        Boss(stage, 200, 9, 5, 1, 1);
-        Boss(stage, 250, 10, 10, 1, 1);
-        Boss(stage, 300, 10, 15, 1, 1);
+        Boss(stage, 150, 9, 5, 1, 1);
+        Boss(stage, 200, 9, 10, 1, 1);
+        Boss(stage, 250, 10, 15, 1, 1);
+        Boss(stage, 300, 10, 20, 1, 1);
         Shards(stage);
         // 100階区切りのキャラドロップ。章、キャラID、アイテム、確率。倒したときに判定する。
         // 章1は1〜100階、章2は101〜200階、章3は201〜300階。
@@ -301,10 +301,10 @@ public static class BattleStageCatalog
 
         //この並びは 階、キャラID、レベル、最少、最多 です。
         Boss(stage, 100, 2, 5, 1, 1);
-        Boss(stage, 150, 4, 10, 1, 1);
-        Boss(stage, 200, 4, 20, 1, 1);
-        Boss(stage, 250, 5, 10, 1, 1);
-        Boss(stage, 300, 5, 20, 1, 1);
+        Boss(stage, 150, 4, 15, 1, 1);
+        Boss(stage, 200, 4, 25, 1, 1);
+        Boss(stage, 250, 5, 15, 1, 1);
+        Boss(stage, 300, 5, 25, 1, 1);
         Shards(stage);
         return stage;
     }
@@ -351,10 +351,10 @@ public static class BattleStageCatalog
 
         //この並びは 階、キャラID、レベル、最少、最多 です。
         Boss(stage, 100, 18, 5, 1, 1);
-        Boss(stage, 150, 19, 15, 1, 1);
-        Boss(stage, 200, 19, 20, 1, 1);
-        Boss(stage, 250, 20, 20, 1, 1);
-        Boss(stage, 300, 20, 30, 1, 1);
+        Boss(stage, 150, 19, 20, 1, 1);
+        Boss(stage, 200, 19, 30, 1, 1);
+        Boss(stage, 250, 20, 30, 1, 1);
+        Boss(stage, 300, 20, 40, 1, 1);
         Shards(stage);
         return stage;
     }
@@ -374,16 +374,16 @@ public static class BattleStageCatalog
         //E の並びは キャラID、レベル、重み、最少、最多
         var stage = Stage(4);
         stage.Background = "moa_room";
-        stage.Bands[0] = Band(E(21, 3, 50, 1, 3), E(22, 3, 20, 0, 2), E(23, 3, 20, 0, 2));
-        stage.Bands[1] = Band(E(21, 3, 20, 1, 3), E(22, 3, 50, 0, 2), E(23, 3, 20, 0, 2));
-        stage.Bands[2] = Band(E(21, 4, 20, 1, 3), E(22, 4, 20, 0, 2), E(23, 4, 50, 0, 2));
-        stage.Bands[3] = Band(E(21, 4, 50, 1, 4), E(22, 4, 30, 0, 3), E(23, 4, 20, 0, 3));
-        stage.Bands[4] = Band(E(21, 5, 30, 1, 4), E(22, 5, 50, 1, 3), E(23, 5, 20, 0, 3));
-        stage.Bands[5] = Band(E(21, 5, 20, 1, 4), E(22, 5, 20, 1, 3), E(23, 5, 50, 0, 3));
-        stage.Bands[6] = Band(E(21, 6, 50, 1, 4), E(22, 6, 30, 1, 4), E(23, 6, 20, 0, 4));
-        stage.Bands[7] = Band(E(21, 6, 50, 1, 4), E(22, 6, 50, 1, 4), E(23, 6, 20, 1, 4));
-        stage.Bands[8] = Band(E(21, 7, 50, 1, 4), E(22, 7, 50, 1, 4), E(23, 7, 30, 1, 4));
-        stage.Bands[9] = Band(E(21, 8, 50, 1, 4), E(22, 8, 50, 1, 4), E(23, 8, 50, 1, 4));
+        stage.Bands[0] = Band(E(21, 2, 20, 1, 2), E(22, 2, 10, 0, 1), E(23, 2, 10, 0, 1));
+        stage.Bands[1] = Band(E(21, 2, 20, 0, 2), E(22, 2, 20, 1, 2), E(23, 2, 10, 0, 1));
+        stage.Bands[2] = Band(E(21, 3, 20, 0, 2), E(22, 3, 20, 0, 2), E(23, 3, 20, 1, 2));
+        stage.Bands[3] = Band(E(21, 3, 20, 1, 2), E(22, 3, 20, 1, 2), E(23, 3, 20, 0, 2));
+        stage.Bands[4] = Band(E(21, 3, 20, 0, 2), E(22, 3, 20, 1, 2), E(23, 3, 20, 1, 2));
+        stage.Bands[5] = Band(E(21, 4, 20, 1, 2), E(22, 4, 20, 0, 2), E(23, 4, 20, 1, 2));
+        stage.Bands[6] = Band(E(21, 4, 20, 1, 3), E(22, 4, 20, 1, 3), E(23, 4, 20, 1, 3));
+        stage.Bands[7] = Band(E(21, 4, 50, 1, 3), E(22, 4, 50, 1, 3), E(23, 4, 30, 1, 3));
+        stage.Bands[8] = Band(E(21, 4, 40, 1, 3), E(22, 4, 40, 1, 3), E(23, 4, 40, 1, 3));
+        stage.Bands[9] = Band(E(21, 5, 50, 1, 3), E(22, 5, 50, 1, 3), E(23, 5, 50, 1, 3));
         // 101〜200階。0〜9のコピー。101階以降はレベル+5。
         stage.Bands[10] = Band(E(21, 20, 50, 1, 2), E(22, 20, 30, 0, 2), E(23, 20, 20, 0, 2));
         stage.Bands[11] = Band(E(21, 21, 30, 1, 2), E(22, 21, 50, 0, 2), E(23, 21, 20, 0, 2), E(24, 15, 5, 0, 1));
@@ -409,10 +409,10 @@ public static class BattleStageCatalog
 
         //この並びは 階、キャラID、レベル、最少、最多 です。
         Boss(stage, 100, 23, 15, 1, 1);
-        Boss(stage, 150, 24, 20, 1, 2);
-        Boss(stage, 200, 24, 30, 1, 2);
-        Boss(stage, 250, 25, 35, 1, 1);
-        Boss(stage, 300, 25, 55, 1, 1);
+        Boss(stage, 150, 24, 25, 1, 1);
+        Boss(stage, 200, 24, 35, 1, 1);
+        Boss(stage, 250, 25, 40, 1, 1);
+        Boss(stage, 300, 25, 60, 1, 1);
         Shards(stage);
         return stage;
     }
@@ -424,16 +424,16 @@ public static class BattleStageCatalog
     {
         var stage = Stage(5);
         stage.Background = "souga_room";
-        stage.Bands[0] = Band(E(26, 30, 50, 1, 3), E(27, 30, 30, 0, 2), E(28, 30, 20, 0, 2));
-        stage.Bands[1] = Band(E(26, 35, 30, 1, 3), E(27, 35, 50, 0, 2), E(28, 35, 20, 0, 2));
-        stage.Bands[2] = Band(E(26, 40, 20, 1, 3), E(27, 40, 20, 0, 2), E(28, 40, 50, 0, 2));
-        stage.Bands[3] = Band(E(26, 45, 50, 1, 4), E(27, 45, 30, 0, 3), E(28, 45, 20, 0, 3));
-        stage.Bands[4] = Band(E(26, 47 ,30, 1, 4), E(27, 47, 50, 1, 3), E(28, 47, 20, 0, 3));
-        stage.Bands[5] = Band(E(26, 50, 20, 1, 4), E(27, 50, 20, 1, 3), E(28, 50, 50, 0, 3));
-        stage.Bands[6] = Band(E(26, 51, 50, 1, 4), E(27, 51, 30, 1, 4), E(28, 51, 20, 0, 4));
-        stage.Bands[7] = Band(E(26, 52, 50, 1, 4), E(27, 52, 50, 1, 4), E(28, 52, 20, 1, 4));
-        stage.Bands[8] = Band(E(26, 53, 50, 1, 4), E(27, 53, 50, 1, 4), E(28, 53, 30, 1, 4));
-        stage.Bands[9] = Band(E(26, 54, 50, 1, 4), E(27, 54, 50, 1, 4), E(28, 54, 50, 1, 4));
+        stage.Bands[0] = Band(E(26, 25, 20, 1, 2), E(27, 25, 20, 0, 2), E(28, 25, 20, 0, 2));
+        stage.Bands[1] = Band(E(26, 30, 20, 0, 2), E(27, 30, 20, 1, 2), E(28, 30, 20, 0, 2));
+        stage.Bands[2] = Band(E(26, 32, 20, 0, 2), E(27, 32, 20, 0, 2), E(28, 32, 20, 1, 2));
+        stage.Bands[3] = Band(E(26, 34, 30, 1, 2), E(27, 34, 30, 1, 2), E(28, 34, 30, 0, 2));
+        stage.Bands[4] = Band(E(26, 36 ,30, 0, 2), E(27, 36, 30, 1, 2), E(28, 36, 30, 1, 2));
+        stage.Bands[5] = Band(E(26, 38, 30, 1, 2), E(27, 38, 30, 0, 2), E(28, 38, 30, 1, 2));
+        stage.Bands[6] = Band(E(26, 40, 40, 1, 2), E(27, 40, 40, 1, 2), E(28, 40, 40, 1, 2));
+        stage.Bands[7] = Band(E(26, 42, 40, 1, 3), E(27, 42, 40, 1, 3), E(28, 42, 40, 1, 3));
+        stage.Bands[8] = Band(E(26, 43, 40, 1, 3), E(27, 43, 40, 1, 3), E(28, 43, 40, 1, 3));
+        stage.Bands[9] = Band(E(26, 45, 50, 1, 3), E(27, 45, 50, 1, 3), E(28, 45, 50, 1, 3));
         // 101〜200階。0〜9のコピー。101階以降はレベル+5。
         stage.Bands[10] = Band(E(26, 55, 50, 1, 2), E(27, 55, 30, 0, 2), E(28, 55, 20, 0, 2));
         stage.Bands[11] = Band(E(26, 56, 30, 1, 2), E(27, 56, 50, 0, 2), E(28, 56, 20, 0, 2), E(29, 50, 5, 0, 1));
@@ -458,11 +458,11 @@ public static class BattleStageCatalog
         stage.Bands[29] = Band(E(26, 77, 50, 1, 4), E(27, 77, 50, 0, 4), E(28, 77, 50, 0, 4), E(29, 59, 80, 1, 1), E(30, 69, 30, 1, 1));
 
         //この並びは 階、キャラID、レベル、最少、最多 です。
-        Boss(stage, 100, 28, 60, 1, 2);
-        Boss(stage, 150, 29, 65, 1, 2);
-        Boss(stage, 200, 29, 75, 1, 2);
-        Boss(stage, 250, 30, 90, 1, 1);
-        Boss(stage, 300, 30, 100, 1, 1);
+        Boss(stage, 100, 28, 50, 1, 1);
+        Boss(stage, 150, 29, 70, 1, 1);
+        Boss(stage, 200, 29, 80, 1, 1);
+        Boss(stage, 250, 30, 100, 1, 1);
+        Boss(stage, 300, 30, 110, 1, 1);
         Shards(stage);
         return stage;
     }

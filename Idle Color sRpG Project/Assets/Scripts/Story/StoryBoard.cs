@@ -231,6 +231,7 @@ public sealed class StoryBoard
         button.targetGraphic = plate;
         int chapterId = chapter.Id;
         button.onClick.AddListener(() => OpenChapter(chapterId));
+        GameAudio.BindUi(button);
 
         Sprite banner = StoryImages.SpriteOf(chapter.BannerFile);
         if (banner != null)
