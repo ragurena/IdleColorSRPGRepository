@@ -428,6 +428,8 @@ public static class ImportedCharacters
             message = "画像をキャラにできませんでした。";
             return false;
         }
+        if (RejectTooFewOpaque(character, id, out message))
+            return false;
         AssignImportedAuthor(character);
 
         if (id > HighestId)
@@ -552,6 +554,8 @@ public static class ImportedCharacters
             message = "画像をキャラにできませんでした。";
             return false;
         }
+        if (RejectTooFewOpaque(character, id, out message))
+            return false;
         character.RecalculateBaseStats(balance);
         AssignImportedAuthor(character);
         Prepared = new PreparedImport { Id = id, SourceHash = hash, Character = character };
@@ -828,6 +832,23 @@ public static class ImportedCharacters
         int transparent = character.APixels > (uint)area ? area : (int)character.APixels;
         int opaque = area - transparent;
         return opaque < 0 ? 0 : opaque;
+    }
+
+    // 一辺の二乗に対して非透過が15%以下なら、読み込みを拒む。15%ちょうども含む。
+    static bool RejectTooFewOpaque(CharacterClass character, uint id, out string message)
+    {
+        message = null;
+        int area = character != null ? character.Size * character.Size : 0;
+        int opaque = RawOpaqueCount(character);
+        if (area < 1 || (long)opaque * 20 <= (long)area * 3)
+        {
+            if (character != null && character.ImageTexture2D != null)
+                UnityEngine.Object.Destroy(character.ImageTexture2D);
+            DeleteImportFiles(id);
+            message = "非透過ピクセルが少なすぎます、サイズを下げるかピクセル数を増やしてください";
+            return true;
+        }
+        return false;
     }
 
     static int CountChangedPixels(Texture2D oldTex, Texture2D newTex)

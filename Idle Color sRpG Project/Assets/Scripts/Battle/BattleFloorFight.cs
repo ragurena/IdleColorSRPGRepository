@@ -283,8 +283,9 @@ public static class BattleDefeatProcessor
                 personal = BattleRewardCalculator.ExpGainForStars(personal, stars);
                 personal = BattleRewardCalculator.ExpGainForFloor(personal, floor);
                 personal = BattleRewardCalculator.ExpGainForStage(personal, stageIndex);
-                if (personal <= 0)
-                    continue;
+                // レベル差で0になっても、まだ成長できる味方は1もらう。上限で満タンの味方はここまで来ない。
+                if (personal < 1)
+                    personal = 1;
                 sink.GrantExp(ally, personal);
             }
         }

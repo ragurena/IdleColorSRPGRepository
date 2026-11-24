@@ -45,6 +45,8 @@ public sealed class GameAudio : MonoBehaviour
     const float HitSeSpeedPerBattleStep = 1.05f;
     // 被弾SEだけ、通常SE音量の 0.9 倍。
     const float HitSeVolumeScale = 0.9f;
+    // 生産SE（system46）は、通常SE音量の 0.8 倍。
+    const float ProductionSeVolumeScale = 0.8f;
 
     static GameAudio _instance;
     static readonly HashSet<int> BoundButtons = new HashSet<int>();
@@ -170,13 +172,13 @@ public sealed class GameAudio : MonoBehaviour
 
     public static void PlaySpeedUp()
     {
-        Ensure().PlayClip(Ensure()._speedSe);
+        Ensure().PlayClip(Ensure()._speedSe, ProductionSeVolumeScale);
     }
 
-    // キャラの自動生産用。手動 SpeedUp の半分の音量。
+    // キャラの自動生産用。手動の生産SEの半分の音量。
     public static void PlaySpeedUpAuto()
     {
-        Ensure().PlayClip(Ensure()._speedSe, 0.5f);
+        Ensure().PlayClip(Ensure()._speedSe, ProductionSeVolumeScale * 0.5f);
     }
 
     // 敵味方どちらが攻撃を受けても鳴らす。バトル倍速が上がるたびに 1.05 倍。

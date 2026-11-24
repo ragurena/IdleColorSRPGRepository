@@ -62,6 +62,7 @@ public class ControllerBattleClass : MonoBehaviour
     readonly List<BattleUnit> _frontUnits = new List<BattleUnit>();
     Button _fastButton;
     Text _speedRemain;
+    Text _rushLabel;
     int _speedRemainShown = -1;
     bool _speed8Using;
     Button _withdrawButton;
@@ -281,9 +282,15 @@ public class ControllerBattleClass : MonoBehaviour
             _itemDropHomeSet = false;
             ClearBattleFloats();
             if (_stop)
+            {
+                BreakRush();
                 break;
+            }
             if (!HasLivingAlly())
+            {
+                BreakRush();
                 break;
+            }
 
             RemoveEnemies();
             SpawnEnemies(content, floor);
@@ -351,6 +358,7 @@ public class ControllerBattleClass : MonoBehaviour
 
             if (fight.Outcome != BattleOutcome.FloorCleared)
             {
+                BreakRush();
                 Refresh(stageName, floor, floorFrom, floorTo);
                 yield return new WaitForSeconds(Interval());
                 Finish();
@@ -381,7 +389,10 @@ public class ControllerBattleClass : MonoBehaviour
                 }
             }
             if (!HasLivingAlly())
+            {
                 partyGone = true;
+                BreakRush();
+            }
             Refresh(stageName, floor, floorFrom, floorTo);
             if (advanced)
                 _production.SaveGame();
@@ -436,6 +447,15 @@ public class ControllerBattleClass : MonoBehaviour
         if (end > cap)
             end = cap;
         _rushOk = startFloor == range && floorFrom == range && floorTo == end;
+        RefreshRushLabel();
+    }
+
+    void BreakRush()
+    {
+        if (!_rushOk)
+            return;
+        _rushOk = false;
+        RefreshRushLabel();
     }
 
     void ClearChallengeRun()
@@ -449,6 +469,28 @@ public class ControllerBattleClass : MonoBehaviour
         _bossNormal = 0f;
         _midNormal = 0f;
         RefreshChallengeHud();
+        RefreshRushLabel();
+    }
+
+    void RefreshRushLabel()
+    {
+        if (_rushLabel == null)
+            return;
+        bool show = _running && _rushOk;
+        if (_rushLabel.gameObject.activeSelf != show)
+            _rushLabel.gameObject.SetActive(show);
+        if (show)
+            PlaceRushLabel();
+    }
+
+    void PlaceRushLabel()
+    {
+        if (_rushLabel == null)
+            return;
+        float y = -4f;
+        if (_speedRemain != null && _speedRemain.gameObject.activeSelf)
+            y = _speedRemain.rectTransform.anchoredPosition.y - _speedRemain.rectTransform.sizeDelta.y - 2f;
+        _rushLabel.rectTransform.anchoredPosition = new Vector2(0f, y);
     }
 
     void OnChallengeFloorStarted(int floor)
@@ -1666,6 +1708,7 @@ public class ControllerBattleClass : MonoBehaviour
         if (!_running)
             return false;
         _stop = true;
+        BreakRush();
         return true;
     }
 
@@ -2162,6 +2205,7 @@ public class ControllerBattleClass : MonoBehaviour
             if (_logText != null)
                 _logText.text = "";
         }
+        RefreshRushLabel();
         DrawSide(_allies, true);
         DrawSide(_enemies, false);
         RefreshQuestBanner();
@@ -2251,6 +2295,20 @@ public class ControllerBattleClass : MonoBehaviour
         remainRect.anchoredPosition = new Vector2(0f, -2f);
         remainRect.sizeDelta = new Vector2(120f, 28f);
         _speedRemain.gameObject.SetActive(false);
+        _rushLabel = CreateText("TextBattleRush", _fastButton.transform, 24, TextAnchor.MiddleCenter);
+        _rushLabel.text = "一気中";
+        _rushLabel.raycastTarget = false;
+        _rushLabel.color = new Color(1f, 0.92f, 0.35f, 1f);
+        Outline rushOutline = _rushLabel.gameObject.AddComponent<Outline>();
+        rushOutline.effectColor = new Color(0f, 0f, 0f, 0.95f);
+        rushOutline.effectDistance = new Vector2(1.5f, -1.5f);
+        RectTransform rushRect = _rushLabel.rectTransform;
+        rushRect.anchorMin = new Vector2(0.5f, 0f);
+        rushRect.anchorMax = new Vector2(0.5f, 0f);
+        rushRect.pivot = new Vector2(0.5f, 1f);
+        rushRect.anchoredPosition = new Vector2(0f, -4f);
+        rushRect.sizeDelta = new Vector2(140f, 32f);
+        _rushLabel.gameObject.SetActive(false);
         ApplySpeedButton();
 
         PlaceTextPlate(_header);
@@ -3744,6 +3802,7 @@ public class ControllerBattleClass : MonoBehaviour
             _speedRemainShown = -1;
             if (_speedRemain.gameObject.activeSelf)
                 _speedRemain.gameObject.SetActive(false);
+            PlaceRushLabel();
             return;
         }
         long ms = _production != null ? _production.BattleSpeed8RemainingMs() : 0;
@@ -3758,6 +3817,7 @@ public class ControllerBattleClass : MonoBehaviour
         int minutes = total / 60;
         int seconds = total % 60;
         _speedRemain.text = minutes.ToString("00") + ":" + seconds.ToString("00");
+        PlaceRushLabel();
     }
 
     bool Speed8Active()

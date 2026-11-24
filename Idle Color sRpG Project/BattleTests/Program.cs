@@ -405,6 +405,14 @@ static class Program
         sink.EarnedStarsCount = 0;
         BattleDefeatProcessor.Process(ally, enemy, units, config, rng, sink, 150, 2);
         Check(sink.ExpGrants.Count == 1 && sink.ExpGrants[0] == 10, "floor 3 and slime 2 stack");
+
+        sink.ExpGrants.Clear();
+        sink.ExpUnitIds.Clear();
+        sink.EarnedStarsCount = 4;
+        ally.Level = 80;
+        enemy.Level = 1;
+        BattleDefeatProcessor.Process(ally, enemy, units, config, rng, sink);
+        Check(sink.ExpGrants.Count == 1 && sink.ExpGrants[0] == 1, "level gap still grants 1");
     }
 
     static void TestTurnOrder(BattleBalanceConfig config)

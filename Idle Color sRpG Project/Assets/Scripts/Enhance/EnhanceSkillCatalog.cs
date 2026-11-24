@@ -30,7 +30,8 @@ public enum EnhanceCapKind
     LevelCap = 0,
     LevelCapTimes5 = 1,
     LevelCapDiv5Min1 = 2,
-    Fixed50 = 3
+    LevelCapDiv10Min1 = 3,
+    Fixed50 = 4
 }
 
 public enum EnhanceIconKind
@@ -115,9 +116,9 @@ public static class EnhanceSkillCatalog
             Name = "ピクセル生成タップボーナス",
             Description = "スピードアップの累計タップ×レベルを、生成完了時に追加する",
             UnlockStars = 3,
-            CostBase = 500,
-            CostKind = EnhanceCostKind.Pow11,
-            CapKind = EnhanceCapKind.LevelCapDiv5Min1,
+            CostBase = 2500,
+            CostKind = EnhanceCostKind.Pow15,
+            CapKind = EnhanceCapKind.LevelCapDiv10Min1,
             Icon = EnhanceIconKind.Pixel
         },
         new EnhanceSkillDef
@@ -214,6 +215,11 @@ public static class EnhanceSkillCatalog
             case EnhanceCapKind.LevelCapDiv5Min1:
                 {
                     int cap = characterLevelCap / 5;
+                    return cap < 1 ? 1 : cap;
+                }
+            case EnhanceCapKind.LevelCapDiv10Min1:
+                {
+                    int cap = characterLevelCap / 10;
                     return cap < 1 ? 1 : cap;
                 }
             case EnhanceCapKind.Fixed50:
