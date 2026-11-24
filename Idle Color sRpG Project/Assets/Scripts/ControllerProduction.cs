@@ -29,6 +29,7 @@ static class Constants
     public const int BATTLE_FORMATION_SIZE = 3;
     public const int BATTLE_STAGE_NUM = 6;
     public const int BATTLE_STAGE_GALLERY = 7;
+    public const int BATTLE_STAGE_SHARED = 8;
     // 一度に挑戦する幅。100階クリアで次の100階が開く。
     public const int BATTLE_STAGE_FLOOR_MAX = 100;
     public const int BATTLE_STAGE_FLOOR_STEP = 10;
@@ -486,6 +487,7 @@ public class ControllerProduction : MonoBehaviour
                 ImportedCharacters.FindAny(CharactersAll, (uint)(i)).RecalculateBaseStats(BattleBalance);
         }
         ImportedCharacters.Restore(BattleBalance);
+        ShareStageLibrary.Restore(BattleBalance);
 
         if (ActiveBattlePartySet == 0 || !IsKnownBattleStage(ActiveBattleStage))
             ActiveBattleStage = 0;
@@ -1074,6 +1076,23 @@ public class ControllerProduction : MonoBehaviour
                 Debug.LogError("減色画像を作り直せませんでした。 " + exception.Message);
             }
         });
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character == null || character.ID < ShareStageLibrary.CompanionFirstId)
+                return;
+            string source = ShareStageLibrary.CompanionPath(character.ID);
+            if (!File.Exists(source))
+                return;
+            try
+            {
+                if (character.ReloadSourceImage(source))
+                    character.RecalculateBaseStats(BattleBalance);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("共有の仲間の画像を作り直せませんでした。 " + exception.Message);
+            }
+        });
         yield return PaceStartScreen();
     }
 
@@ -1082,6 +1101,7 @@ public class ControllerProduction : MonoBehaviour
     {
         SaveFiles.DeleteManaged();
         ImportedCharacters.DeleteStoredFiles();
+        ShareStageLibrary.DeleteStoredFiles();
         SaveBlocked = true;
         SaveFailureNotified = true;
         HideSaveNotice();
@@ -1220,6 +1240,7 @@ public class ControllerProduction : MonoBehaviour
             }
         }
         ImportedCharacters.ClearForReload();
+        ShareStageLibrary.ClearForReload();
         CharacterRoster.RegisterAll(CharactersAll);
 
         ClearArray(CharactersIDHelpProductionR);
@@ -1846,6 +1867,7 @@ public class ControllerProduction : MonoBehaviour
             return;
 
         ShowPanel(PanelBattleStage);
+        ShareStageBoard.HideIfAny();
         if (ControllerBattleStage != null)
         {
             int keepSet = 0;
@@ -1974,6 +1996,26 @@ public class ControllerProduction : MonoBehaviour
         NotShowBattleStagePanel();
         NotShowCatalogPanel();
         NotShowFusionPanel();
+        NotShowHospitalPanel();
+        NotShowEnhancePanel();
+    }
+
+    public void PushButtonSelectSceneImportStage()
+    {
+        if (!IsMainFeatureOpen(MainFeature.Battle))
+            return;
+
+        NotShowBattleStagePanel();
+        ShareStageBoard.OpenLoadScreen();
+
+        NotShowPanel(PanelRGBProduction);
+        NotShowPanel(PanelPixelProduction);
+        ClearPixelListPixelProduction();
+        NotShowPanel(PanelCharacterProduction);
+        NotShowPanel(PanelBattleParty);
+        NotShowCatalogPanel();
+        NotShowFusionPanel();
+        NotShowImportPanel();
         NotShowHospitalPanel();
         NotShowEnhancePanel();
     }
@@ -2230,6 +2272,16 @@ public class ControllerProduction : MonoBehaviour
             importButton.onClick.AddListener(PushButtonSelectSceneImport);
             ButtonImport = importButton;
             ApplyImportButtonLock();
+        }
+        Transform stageLoadObject = FindChildTrimmed(bar.transform, "ButtonImportStagePage2");
+        Button stageLoad = stageLoadObject != null ? stageLoadObject.GetComponent<Button>() : null;
+        if (stageLoad == null)
+            Debug.LogWarning("PanelSelectScene の子に ButtonImportStagePage2 がありません");
+        else
+        {
+            SilenceSceneSwitch(stageLoad);
+            stageLoad.onClick.RemoveListener(PushButtonSelectSceneImportStage);
+            stageLoad.onClick.AddListener(PushButtonSelectSceneImportStage);
         }
         EnsureHospitalSceneButton(bar.transform, importButton);
 
@@ -2874,6 +2926,20 @@ public class ControllerProduction : MonoBehaviour
         if (existing == null)
             return null;
         return existing.GetComponent<Button>();
+    }
+
+    static Transform FindChildTrimmed(Transform parent, string name)
+    {
+        if (parent == null || string.IsNullOrEmpty(name))
+            return null;
+        string want = name.Trim();
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            Transform child = parent.GetChild(i);
+            if (child.name.Trim() == want)
+                return child;
+        }
+        return parent.Find(name);
     }
 
     Button EnsureSceneBarButton(Transform parent, string name, string label, Vector2 position, Vector2 size, Color color)
@@ -3725,11 +3791,21 @@ public class ControllerProduction : MonoBehaviour
             ControllerBattleStage.ClearBattleEndedNote();
         if (PanelBattleStage != null)
             NotShowPanel(PanelBattleStage);
+        ShareStageBoard.HideIfAny();
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //キャラクターセレクト
     //キャラクター選択ボタンが押されたら
+    public void OpenShareStageCharacterPick(Button cell, uint currentCharacterId)
+    {
+        if (cell == null || PanelSelectCharacter == null || ControllerCharacterSelect == null)
+            return;
+        ButtonCharacterTmp = cell;
+        ShowPanel(PanelSelectCharacter);
+        ControllerCharacterSelect.ShowPanelSelectShareStage(cell, currentCharacterId);
+    }
+
     public void PushButtonSelectCharacter(string argButtonName)
     {
         //どのボタンで呼び出されたか保存
@@ -3832,6 +3908,14 @@ public class ControllerProduction : MonoBehaviour
             SetBattlePartyCharacterFromSelectCharacter(ControllerCharacterSelect.GetSelectedCharacterID());
             return;
         }
+        if (ShareStageBoard.IsCell(ButtonCharacterTmp))
+        {
+            ShareStageBoard.ApplyPickedCell(ButtonCharacterTmp, ControllerCharacterSelect.GetSelectedCharacterID());
+            ButtonCharacterTmp = null;
+            ControllerCharacterSelect.NotShowPanelSelectCharacter();
+            NotShowPanel(PanelSelectCharacter);
+            return;
+        }
 
         int producedIndex = -1;
         uint previousProducedId = 0;
@@ -3897,6 +3981,14 @@ public class ControllerProduction : MonoBehaviour
         if (ControllerBattlePartyClass.IsCellButton(ButtonCharacterTmp))
         {
             SetBattlePartyCharacterFromSelectCharacter(0);
+            return;
+        }
+        if (ShareStageBoard.IsCell(ButtonCharacterTmp))
+        {
+            ShareStageBoard.ApplyPickedCell(ButtonCharacterTmp, 0);
+            ButtonCharacterTmp = null;
+            ControllerCharacterSelect.NotShowPanelSelectCharacter();
+            NotShowPanel(PanelSelectCharacter);
             return;
         }
 
@@ -4184,6 +4276,7 @@ public class ControllerProduction : MonoBehaviour
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
             TryAddShortColorUser(need, CharactersAll[i], ownedOnly);
         ImportedCharacters.ForEach(character => TryAddShortColorUser(need, character, ownedOnly));
+        ShareStageLibrary.ForEachCompanion(character => TryAddShortColorUser(need, character, ownedOnly));
     }
 
     void TryAddShortColorUser(ShortColorNeed need, CharacterClass character, bool ownedOnly)
@@ -5852,6 +5945,84 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
+    public BattleBalanceConfig BattleBalancePublic()
+    {
+        return BattleBalance;
+    }
+
+    public void OpenBattleStage()
+    {
+        PushButtonSelectSceneBattleStage();
+    }
+
+    public string SharedBackgroundName()
+    {
+        SharedStageRecord stage = ShareStageLibrary.ActiveStage();
+        return stage != null ? stage.Background : "";
+    }
+
+    public bool EnterSharedBattle(string key, int setIndex)
+    {
+        SharedStageRecord stage = ShareStageLibrary.Find(key);
+        if (stage == null || stage.Mine || stage.Characters.Count < 1)
+            return false;
+        int floorFrom = ShareStageRules.WindowStart(stage.ClearedFloor);
+        int floorTo = ShareStageRules.WindowEnd(stage.ClearedFloor);
+        if (!HasBattlePartyMember(setIndex))
+            return false;
+        if (!EnterBattle(setIndex))
+            return false;
+        ShareStageLibrary.Freeze(stage);
+        ShareStageLibrary.SetActive(key);
+        ActiveBattleStage = Constants.BATTLE_STAGE_SHARED;
+        ActiveBattleFloorFrom = floorFrom;
+        ActiveBattleFloorTo = floorTo;
+        ActiveBattleFloor = floorFrom;
+        SaveGame();
+        return true;
+    }
+
+    public bool GrantSharedStageStar(bool clear)
+    {
+        if (!clear || !ShareStageLibrary.TryAwardStar())
+            return false;
+        ApplyCharacterLevelCap();
+        ApplyFusionCountCap();
+        SaveGame();
+        if (ControllerEnhance != null)
+            ControllerEnhance.Refresh();
+        return true;
+    }
+
+    public string GrantShareReward(PiquaDocument document)
+    {
+        if (document == null || document.Characters.Count < 1)
+            return "報酬を渡せませんでした。";
+        if (!ShareStageLibrary.TryClaimReward(ShareStageLibrary.Today()))
+            return "きょうの共有報酬は、もう受け取っています。";
+        for (int i = 0; i < document.Characters.Count; i++)
+        {
+            int itemId = BattleBalance.ResolveExpOrbItemId(document.Characters[i].Size);
+            AddBattleItem(itemId, 10);
+        }
+        GrantGradationPixels(100);
+        SaveGame();
+        return "経験値玉を、キャラクターごとに10個。全ピクセルを100個受け取りました。";
+    }
+
+    public string RecruitSharedEnemy(uint characterId)
+    {
+        int cap = BattleBalance != null ? BattleBalance.MaxLives : 1;
+        string message = ShareStageLibrary.RecruitTemp(characterId, BattleBalance, cap);
+        if (!string.IsNullOrEmpty(message))
+        {
+            ShowCharacterOwnedNum();
+            RefreshCatalogBadge();
+            RefreshMessages();
+        }
+        return message;
+    }
+
     //10階区切り。始まりは 1,11,21... 終わりは 10,20,30... で、終わりは始まり以上
     public static bool IsBattleFloorRange(int floorFrom, int floorTo)
     {
@@ -6114,6 +6285,8 @@ public class ControllerProduction : MonoBehaviour
 
     public int GetHighestClearedBattleFloor(int stageIndex)
     {
+        if (stageIndex == Constants.BATTLE_STAGE_SHARED)
+            return ShareStageLibrary.ActiveClearedFloor();
         if (ClearedBattleFloor == null || stageIndex < 1 || stageIndex >= ClearedBattleFloor.Length)
             return 0;
         return ClearedBattleFloor[stageIndex];
@@ -6130,6 +6303,8 @@ public class ControllerProduction : MonoBehaviour
     // 100階クリアで次の100階。ギャラリー以外は201〜300が最後。
     public int GetBattleFloorWindowStart(int stageIndex)
     {
+        if (stageIndex == Constants.BATTLE_STAGE_SHARED)
+            return ShareStageRules.WindowStart(ShareStageLibrary.ActiveClearedFloor());
         int cleared = GetHighestClearedBattleFloor(stageIndex);
         if (cleared < 0)
             cleared = 0;
@@ -6510,6 +6685,14 @@ public class ControllerProduction : MonoBehaviour
             if (ControllerBattle != null)
                 ControllerBattle.ApplyAllyFusion(character);
         });
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character == null)
+                return;
+            character.ApplyAcademyBonus(hp, atk, def);
+            if (ControllerBattle != null)
+                ControllerBattle.ApplyAllyFusion(character);
+        });
     }
 
     void TryGrantEnhanceHalfCharacter(CharacterClass produced)
@@ -6703,11 +6886,14 @@ public class ControllerProduction : MonoBehaviour
     public bool IsKnownBattleStage(int stageIndex)
     {
         return (stageIndex >= 1 && stageIndex <= Constants.BATTLE_STAGE_NUM)
-            || stageIndex == Constants.BATTLE_STAGE_GALLERY;
+            || stageIndex == Constants.BATTLE_STAGE_GALLERY
+            || stageIndex == Constants.BATTLE_STAGE_SHARED;
     }
 
     public bool CanEnterStage(int stageIndex)
     {
+        if (stageIndex == Constants.BATTLE_STAGE_SHARED)
+            return ShareStageLibrary.ActiveStage() != null;
         if (stageIndex == Constants.BATTLE_STAGE_GALLERY)
             return HasClearedImportQuest();
         return IsBattleStageUnlocked(stageIndex);
@@ -6743,6 +6929,11 @@ public class ControllerProduction : MonoBehaviour
         int step = Constants.BATTLE_STAGE_FLOOR_STEP;
         if (step < 1)
             step = 1;
+        if (stageIndex == Constants.BATTLE_STAGE_SHARED)
+        {
+            SharedStageRecord shared = ShareStageLibrary.ActiveStage();
+            return shared != null && ShareStageRules.IsPlayableWindow(shared.ClearedFloor, floorFrom, floorTo);
+        }
         if (!IsKnownBattleStage(stageIndex))
             return false;
         if (floorFrom < 1 || floorTo < floorFrom || floorTo > StageFloorCap(stageIndex))
@@ -6927,6 +7118,12 @@ public class ControllerProduction : MonoBehaviour
             if (character != null && character.Whereabouts == Place.Battle)
                 character.Whereabouts = Place.None;
         });
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character != null && character.Whereabouts == Place.Battle)
+                character.Whereabouts = Place.None;
+        });
+        ShareStageLibrary.ClearActive();
         ActiveBattlePartySet = 0;
         ActiveBattleStage = 0;
         ActiveBattleFloorFrom = 0;
@@ -7202,6 +7399,11 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
+    public bool SharedCharmForces(uint characterId)
+    {
+        return EnmusubiArmed && ShareStageLibrary.CharmForces(characterId);
+    }
+
     public bool CharmForcesUnownedRecruit(uint characterId)
     {
         if (!EnmusubiArmed)
@@ -7250,6 +7452,7 @@ public class ControllerProduction : MonoBehaviour
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
             RememberOwnedSize(CharactersAll[i], size, into);
         ForEachImportedCharacter(character => RememberOwnedSize(character, size, into));
+        ShareStageLibrary.ForEachCompanion(character => RememberOwnedSize(character, size, into));
         into.Sort();
     }
 
@@ -9038,6 +9241,7 @@ public class ControllerProduction : MonoBehaviour
                 TryAddFreeRgbWorker(CharactersAll[i], busy, seen, free);
         }
         ImportedCharacters.ForEach(character => TryAddFreeRgbWorker(character, busy, seen, free));
+        ShareStageLibrary.ForEachCompanion(character => TryAddFreeRgbWorker(character, busy, seen, free));
     }
 
     static void AddBusyWorkers(HashSet<uint> busy, uint[] ids)
@@ -9603,6 +9807,8 @@ public class ControllerProduction : MonoBehaviour
 
     IEnumerator ButtonPressGlow(Button button)
     {
+        if (button == null)
+            yield break;
         Image wash = EnsurePressWash(button.transform);
         RgbButtonPressGlow press = button.GetComponent<RgbButtonPressGlow>();
         bool tinted = press != null && press.UseTint;
@@ -9612,6 +9818,8 @@ public class ControllerProduction : MonoBehaviour
         float time = 0f;
         while (time < duration)
         {
+            if (button == null || wash == null)
+                yield break;
             time += Time.deltaTime;
             float u = time / duration;
             float wave = u < 0.2f ? u / 0.2f : Mathf.Pow(1f - (u - 0.2f) / 0.8f, 1.35f);
@@ -9622,7 +9830,8 @@ public class ControllerProduction : MonoBehaviour
                 PaintButtonNeonStrength(button.transform, channel, 1f + 0.55f * wave);
             yield return null;
         }
-        wash.color = new Color(1f, 1f, 1f, 0f);
+        if (wash != null)
+            wash.color = new Color(1f, 1f, 1f, 0f);
         if (button != null)
         {
             bool upgrade = button.name.Contains("Max") || button.name.Contains("Increase");
@@ -12692,6 +12901,7 @@ public class ControllerProduction : MonoBehaviour
         for (int i = 1; i <= Constants.CHARACTERS_ALL_NUM; i++)
             addOwned(CharactersAll[i]);
         ImportedCharacters.ForEach(addOwned);
+        ShareStageLibrary.ForEachCompanion(addOwned);
 
         bool removed = RemoveStaleOwnedListButtons(list);
         if (added || removed)
@@ -14669,6 +14879,7 @@ public class ControllerProduction : MonoBehaviour
         long cap = FusionBonus.InitialCap;
         cap += (long)ClearedHundredFloorBlocks() * FusionBonus.CapPerHundredFloors;
         cap += Challenges.EarnedStars();
+        cap += ShareStageLibrary.TotalStars();
         if (cap > FusionBonus.CapCeiling)
             cap = FusionBonus.CapCeiling;
         int floorCap = cap > int.MaxValue ? int.MaxValue : (int)cap;
@@ -14708,6 +14919,7 @@ public class ControllerProduction : MonoBehaviour
         long added = (long)ClearedHundredFloorBlocks() * BattleBalanceConfig.LevelCapPerHundredFloors;
         cap += added;
         cap += Challenges.EarnedStars();
+        cap += ShareStageLibrary.TotalStars();
         if (cap > BattleBalanceConfig.LevelCapCeiling)
             cap = BattleBalanceConfig.LevelCapCeiling;
         QuestDef[] all = QuestCatalog.All;
@@ -15127,6 +15339,11 @@ public class ControllerProduction : MonoBehaviour
             if (character != null && character.ID != 0)
                 character.RebuildLevelStats(BattleBalance);
         });
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character != null && character.ID != 0)
+                character.RebuildLevelStats(BattleBalance);
+        });
     }
 
     void LatchQuests()
@@ -15331,12 +15548,27 @@ public class ControllerProduction : MonoBehaviour
         SetFeatureButton("ButtonSelectScenePixelProduction", IsMainFeatureOpen(MainFeature.PixelScreen));
         SetFeatureButton("ButtonSelectSceneCharacterProduction", IsMainFeatureOpen(MainFeature.CharacterScreen));
         SetFeatureButton("ButtonSelectSceneBattleStage", IsMainFeatureOpen(MainFeature.Battle));
+        ApplyStageLoadButtonLock();
         ApplyHospitalButtonLock();
         ApplyImportButtonLock();
         if (ControllerBattleParty != null)
             ControllerBattleParty.ApplyAuthorLock();
         if (ControllerBattle != null)
             ControllerBattle.RefreshFeatureLocks();
+    }
+
+    void ApplyStageLoadButtonLock()
+    {
+        GameObject bar = GameObject.Find("PanelSelectScene");
+        if (bar == null)
+            return;
+        Transform child = FindChildTrimmed(bar.transform, "ButtonImportStagePage2");
+        if (child == null)
+            return;
+        Button button = child.GetComponent<Button>();
+        if (button == null)
+            return;
+        StyleSceneNavButton(button, IsMainFeatureOpen(MainFeature.Battle));
     }
 
     void SetFeatureButton(string name, bool open)
@@ -15569,6 +15801,11 @@ public class ControllerProduction : MonoBehaviour
             if (character != null)
                 sum = AddUlong(sum, character.FusionCount);
         });
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character != null)
+                sum = AddUlong(sum, character.FusionCount);
+        });
         return sum;
     }
 
@@ -15589,6 +15826,11 @@ public class ControllerProduction : MonoBehaviour
             }
         }
         ImportedCharacters.ForEach(character =>
+        {
+            if (character != null)
+                sum = AddUlong(sum, character.OwnedNumCur);
+        });
+        ShareStageLibrary.ForEachCompanion(character =>
         {
             if (character != null)
                 sum = AddUlong(sum, character.OwnedNumCur);

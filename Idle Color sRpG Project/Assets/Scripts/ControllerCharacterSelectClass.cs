@@ -153,7 +153,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             TextSelectCharacter3.color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
         }
         else
-        if (ControllerBattlePartyClass.IsCellButton(ButtonTmp))
+        if (ControllerBattlePartyClass.IsCellButton(ButtonTmp) || ShareStageBoard.IsCell(ButtonTmp))
         {
             ShowBattleStats(argCharacterID);
         }
@@ -211,6 +211,31 @@ public class ControllerCharacterSelectClass : MonoBehaviour
             }
         }
         AddImportedCharacterButtons(ButtonTmp, false);
+    }
+
+    public void ShowPanelSelectShareStage(Button ButtonTmp, uint argCurrentCharacterID)
+    {
+        ClearCharacterList();
+        RestoreStatLineHome();
+        HideWorkerTabs();
+        GameObject[] tagged = GameObject.FindGameObjectsWithTag("SelectCharacter");
+        for (int i = 0; i < tagged.Length; i++)
+        {
+            if (tagged[i].name.Equals("ButtonConfirmSelectLeft") || tagged[i].name.Equals("ButtonConfirmSelectRight"))
+                tagged[i].GetComponent<Button>().interactable = false;
+            else if (tagged[i].name.Equals("ButtonRemoveLeft") || tagged[i].name.Equals("ButtonRemoveRight"))
+                tagged[i].GetComponent<Button>().interactable = argCurrentCharacterID != 0;
+        }
+        ShowBattleStats(argCurrentCharacterID);
+        CharacterClass currentCharacter = ImportedCharacters.Find(argCurrentCharacterID);
+        if (currentCharacter != null && currentCharacter.ImageTexture2D != null)
+            ShowCharacterPreview(argCurrentCharacterID);
+        ImportedCharacters.ForEach(character =>
+        {
+            if (!ShareStageBoard.IsOwnCharacter(character))
+                return;
+            CreateCharacterButton((int)character.ID, ButtonTmp, false);
+        });
     }
 
     //バトル用ステータスの表示。0なら項目名だけ
@@ -714,6 +739,12 @@ public class ControllerCharacterSelectClass : MonoBehaviour
                 return;
             CreateCharacterButton((int)character.ID, source, warnIfUsedInOtherProduction);
         });
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character == null || character.OwnedNumMax == 0)
+                return;
+            CreateCharacterButton((int)character.ID, source, warnIfUsedInOtherProduction);
+        });
     }
     //キャラクターボタンの作成
     private void CreateCharacterButton(int argCharacterIndex, Button argButtonTmp, bool warnIfUsedInOtherProduction)
@@ -844,6 +875,21 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             GameObjectCharacterButton.GetComponentInChildren<Text>().text = "HP " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].HPMax + " / ATK " + ImportedCharacters.FindAny(CharactersAll, (uint)(argCharacterIndex)).Stats[0].ATK;
             GameObjectCharacterButton.GetComponentInChildren<Text>().color = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+
+        if (ShareStageBoard.IsCell(argButtonTmp))
+        {
+            Text shareLabel = GameObjectCharacterButton.GetComponentInChildren<Text>();
+            if (shareLabel != null)
+            {
+                shareLabel.text = buttonCharacter.Name;
+                shareLabel.color = Color.black;
+            }
+            uint shareId = (uint)argCharacterIndex;
+            Button shareButton = GameObjectCharacterButton.GetComponent<Button>();
+            shareButton.onClick.AddListener(() => SelectCharacterCharacter(shareId, argButtonTmp));
+            GameAudio.BindUi(shareButton);
+            return;
         }
 
         bool plainPortrait = argButtonTmp.name.Contains("ButtonCharacterProducedCharacter")

@@ -63,6 +63,16 @@ sealed class RecordingSink : IBattleRewardSink
         Calls.Add("item");
     }
 
+    public bool AllowsRecruit()
+    {
+        return true;
+    }
+
+    public bool UsesRecruitPity()
+    {
+        return true;
+    }
+
     public void Recruit(uint characterId)
     {
         Calls.Add("recruit");

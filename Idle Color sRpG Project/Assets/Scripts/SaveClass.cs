@@ -341,6 +341,7 @@ public class SaveClass// : MonoBehaviour
             hospital.Write(sw);
 
         ImportedCharacters.WriteSave(sw);
+        ShareStageLibrary.WriteSave(sw);
         if (people != null)
             people.Write(sw);
 
@@ -490,6 +491,7 @@ public class SaveClass// : MonoBehaviour
         try
         {
         ImportedCharacters.BeginLoad();
+        ShareStageLibrary.BeginLoad();
         if (hospital != null)
             hospital.Reset();
         Debug.Log("ロード : " + sourcePath);
@@ -528,6 +530,8 @@ public class SaveClass// : MonoBehaviour
 
             string line = sr.ReadLine();
             if (ImportedCharacters.TryReadSaveLine(line))
+                continue;
+            if (ShareStageLibrary.TryReadSaveLine(line))
                 continue;
             if (people != null && line.StartsWith("BattlePartyPerson["))
             {

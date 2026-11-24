@@ -15,6 +15,8 @@ public interface IBattleRewardSink
     // レベル上限で経験値が満タンの味方は false。割り振り人数から外す。
     bool CanReceiveExp(BattleUnit ally);
     void GrantItem(int itemId, int count);
+    bool AllowsRecruit();
+    bool UsesRecruitPity();
     void Recruit(uint characterId);
     void NoteDefeated(uint characterId, int size);
     void NoteAllyFainted(uint characterId);
@@ -294,12 +296,16 @@ public static class BattleDefeatProcessor
         if (rng.NextDouble() < orbProbability)
             sink.GrantItem(config.ResolveExpOrbItemId(enemy.Size), 1);
 
-        bool forced = sink.ForcesUnownedRecruit(enemy.CharacterId);
-        double recruitProbability = BattleRewardCalculator.RecruitProbability(killer.Luc, killer.Obs, config);
-        if (forced || sink.IsGuaranteedRecruit(enemy.Size) || (rng != null && rng.NextDouble() < recruitProbability))
-            sink.Recruit(enemy.CharacterId);
-        if (forced)
-            sink.EndForcedRecruit();
+        if (sink.AllowsRecruit())
+        {
+            bool forced = sink.ForcesUnownedRecruit(enemy.CharacterId);
+            double recruitProbability = BattleRewardCalculator.RecruitProbability(killer.Luc, killer.Obs, config);
+            bool pity = sink.UsesRecruitPity() && sink.IsGuaranteedRecruit(enemy.Size);
+            if (forced || pity || (rng != null && rng.NextDouble() < recruitProbability))
+                sink.Recruit(enemy.CharacterId);
+            if (forced)
+                sink.EndForcedRecruit();
+        }
 
         sink.NoteDefeated(enemy.CharacterId, enemy.Size);
     }

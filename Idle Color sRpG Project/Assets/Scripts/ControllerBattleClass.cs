@@ -16,6 +16,7 @@ public class ControllerBattleClass : MonoBehaviour
     Image.Type _fieldType;
     bool _fieldStored;
     int _shownStageIndex;
+    string _shownSharedBackground;
     bool _stageWiping;
     float _stageWipeTime;
     Image _stageWipeImage;
@@ -259,11 +260,13 @@ public class ControllerBattleClass : MonoBehaviour
     {
         _running = true;
         _battleStageIndex = stageIndex;
-        StageBattleContent content = stageIndex == Constants.BATTLE_STAGE_GALLERY
+        StageBattleContent content = stageIndex == Constants.BATTLE_STAGE_GALLERY || stageIndex == Constants.BATTLE_STAGE_SHARED
             ? new StageBattleContent { StageIndex = stageIndex }
             : BattleStageCatalog.Get(stageIndex);
         _stageContent = content;
-        string stageName = ControllerBattleStageClass.GetStageName(stageIndex);
+        string stageName = stageIndex == Constants.BATTLE_STAGE_SHARED
+            ? (ShareStageLibrary.ActiveStage() != null ? ShareStageLibrary.ActiveStage().Name : "共有ステージ")
+            : ControllerBattleStageClass.GetStageName(stageIndex);
         var sink = new RewardSink(this);
         bool clearedStage = false;
         bool partyGone = false;
@@ -374,12 +377,25 @@ public class ControllerBattleClass : MonoBehaviour
             if (drops.Count > 0)
                 yield return PlayFloorItemDrops(drops);
 
-            bool advanced = _production.MarkBattleFloorCleared(stageIndex, floor);
-            OnChallengeFloorCleared(stageIndex, floor);
-            _production.FlushChallengeAwards();
-            _production.GrantPersonBattleFloor();
+            bool advanced = stageIndex == Constants.BATTLE_STAGE_SHARED
+                ? _production != null && ShareStageLibrary.MarkFloorCleared(floor)
+                : _production.MarkBattleFloorCleared(stageIndex, floor);
+            if (stageIndex == Constants.BATTLE_STAGE_SHARED)
+            {
+                if (floor == ShareStageRules.FloorCount && _production.GrantSharedStageStar(_nodmgArmed && !_nodmgFailed))
+                {
+                    AddLog("星を1つ得た");
+                    RefreshChallengeHud();
+                }
+            }
+            else
+            {
+                OnChallengeFloorCleared(stageIndex, floor);
+                _production.FlushChallengeAwards();
+                _production.GrantPersonBattleFloor();
+            }
             _production.SetActiveBattleFloor(floor + 1);
-            if (stageIndex != Constants.BATTLE_STAGE_GALLERY && floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
+            if (stageIndex != Constants.BATTLE_STAGE_GALLERY && stageIndex != Constants.BATTLE_STAGE_SHARED && floor >= Constants.BATTLE_STAGE_FLOOR_MAX)
             {
                 clearedStage = true;
                 if (!announcedClear)
@@ -498,6 +514,14 @@ public class ControllerBattleClass : MonoBehaviour
         _timedThisFloor = false;
         _bossNormal = 0f;
         _midNormal = 0f;
+        if (_battleStageIndex == Constants.BATTLE_STAGE_SHARED)
+        {
+            int nodmgFloor = ChallengeRules.NoDamageFloor(ChallengeRules.RangeStartOf(ShareStageRules.FloorCount));
+            if (floor == nodmgFloor && ShareStageLibrary.StarAvailable())
+                _nodmgArmed = true;
+            RefreshChallengeHud();
+            return;
+        }
         if (_battleStageIndex < 1 || _battleStageIndex > Constants.BATTLE_STAGE_NUM)
             return;
         int range = ChallengeRules.RangeStartOf(floor);
@@ -654,9 +678,13 @@ public class ControllerBattleClass : MonoBehaviour
     {
         if (_challengeHud == null)
             return;
+        bool shared = _running && _battleStageIndex == Constants.BATTLE_STAGE_SHARED;
+        int sharedFloor = shared && _production != null ? _production.GetActiveBattleFloor() : 0;
+        bool sharedStar = shared && sharedFloor >= ChallengeRules.NoDamageFloor(ChallengeRules.RangeStartOf(ShareStageRules.FloorCount))
+            && sharedFloor <= ShareStageRules.FloorCount;
         bool feature = _running && _production != null && _production.IsFloorRangeSelectUnlocked()
             && _battleStageIndex >= 1 && _battleStageIndex <= Constants.BATTLE_STAGE_NUM;
-        bool showNodmg = feature && _nodmgArmed;
+        bool showNodmg = (feature && _nodmgArmed) || sharedStar;
         bool showTime = feature && (_timingBoss || _timingMid);
         _challengeHud.gameObject.SetActive(showNodmg || showTime);
         if (!showNodmg && !showTime)
@@ -664,14 +692,29 @@ public class ControllerBattleClass : MonoBehaviour
         if (_nodmgIcon != null)
         {
             _nodmgIcon.gameObject.SetActive(showNodmg);
+            _nodmgIcon.sprite = sharedStar ? ChallengeMarks.Star() : ChallengeMarks.Circle();
             _nodmgIcon.color = _nodmgFailed
                 ? new Color(0.85f, 0.2f, 0.18f, 1f)
-                : new Color(0.25f, 0.82f, 0.35f, 1f);
+                : sharedStar
+                    ? new Color(0.95f, 0.78f, 0.2f, 1f)
+                    : new Color(0.25f, 0.82f, 0.35f, 1f);
         }
         if (_nodmgText != null)
         {
             _nodmgText.gameObject.SetActive(showNodmg);
-            _nodmgText.text = _nodmgFailed ? "たおれてしまった" : "誰も倒れていない";
+            if (sharedStar)
+            {
+                string count = ShareStageLibrary.ActiveStars().ToString();
+                if (_nodmgArmed)
+                    count += _nodmgFailed ? "  たおれてしまった" : "  誰も倒れていない";
+                _nodmgText.text = count;
+                _nodmgText.rectTransform.sizeDelta = new Vector2(280f, 0f);
+            }
+            else
+            {
+                _nodmgText.text = _nodmgFailed ? "たおれてしまった" : "誰も倒れていない";
+                _nodmgText.rectTransform.sizeDelta = new Vector2(180f, 0f);
+            }
             _nodmgText.color = _nodmgFailed
                 ? new Color(1f, 0.45f, 0.4f, 1f)
                 : new Color(0.75f, 1f, 0.78f, 1f);
@@ -771,7 +814,12 @@ public class ControllerBattleClass : MonoBehaviour
         var picks = new List<EnemySpawnEntry>();
         double multiplier = 1.0;
         var rng = new SystemBattleRandom();
-        if (content.StageIndex == Constants.BATTLE_STAGE_GALLERY)
+        if (content.StageIndex == Constants.BATTLE_STAGE_SHARED)
+        {
+            picks = new List<EnemySpawnEntry>();
+            ShareStageLibrary.FillSpawns(floor, count => rng.NextInt(0, count), picks);
+        }
+        else if (content.StageIndex == Constants.BATTLE_STAGE_GALLERY)
         {
             picks = RollGalleryEnemies(floor, rng);
         }
@@ -1755,7 +1803,10 @@ public class ControllerBattleClass : MonoBehaviour
         int stageIndex = _battleStageIndex != 0 ? _battleStageIndex : _production.GetActiveBattleStage();
         if (stageIndex == 0)
             return;
-        string stageName = ControllerBattleStageClass.GetStageName(stageIndex);
+        SharedStageRecord shared = stageIndex == Constants.BATTLE_STAGE_SHARED ? ShareStageLibrary.ActiveStage() : null;
+        string stageName = shared != null
+            ? (string.IsNullOrEmpty(shared.Name) ? shared.AuthorName : shared.Name)
+            : ControllerBattleStageClass.GetStageName(stageIndex);
         SetStageTitle(stageName, _production.GetActiveBattleFloor(), _production.GetActiveBattleFloorFrom(), _production.GetActiveBattleFloorTo());
     }
 
@@ -1968,15 +2019,21 @@ public class ControllerBattleClass : MonoBehaviour
             _fieldStored = true;
         }
 
-        if (stageIndex == _shownStageIndex)
+        string sharedBackground = stageIndex == Constants.BATTLE_STAGE_SHARED && _production != null
+            ? _production.SharedBackgroundName()
+            : null;
+        if (stageIndex == _shownStageIndex && sharedBackground == _shownSharedBackground)
             return;
 
-        Sprite sprite = BattleStageCatalog.BackgroundSprite(stageIndex);
+        Sprite sprite = stageIndex == Constants.BATTLE_STAGE_SHARED
+            ? BattleStageCatalog.BackgroundByName(sharedBackground)
+            : BattleStageCatalog.BackgroundSprite(stageIndex);
         int previous = _shownStageIndex;
         bool wipe = previous > 0 && stageIndex > 0 && sprite != null;
         if (_stageWiping)
             FinishStageWipe();
         _shownStageIndex = stageIndex;
+        _shownSharedBackground = sharedBackground;
         if (!wipe)
         {
             HideStageWipe();
@@ -4305,14 +4362,37 @@ public class ControllerBattleClass : MonoBehaviour
             }
         }
 
+        public bool AllowsRecruit()
+        {
+            if (_view._battleStageIndex != Constants.BATTLE_STAGE_SHARED)
+                return true;
+            return ShareStageLibrary.RecruitAllowed();
+        }
+
+        public bool UsesRecruitPity()
+        {
+            return _view._battleStageIndex != Constants.BATTLE_STAGE_SHARED;
+        }
+
         public void Recruit(uint characterId)
         {
+            if (ShareBattleRoster.IsTemp(characterId))
+            {
+                string message = _view._production.RecruitSharedEnemy(characterId);
+                if (!string.IsNullOrEmpty(message) && message.IndexOf("までです", System.StringComparison.Ordinal) < 0 && message.IndexOf("できません", System.StringComparison.Ordinal) < 0)
+                    _view._cueWalk = true;
+                if (!string.IsNullOrEmpty(message))
+                    _view.AddLog(message);
+                return;
+            }
             _view._production.RecruitFromBattle(characterId, _view._units);
             _view._cueWalk = true;
         }
 
         public void NoteDefeated(uint characterId, int size)
         {
+            if (ShareBattleRoster.IsTemp(characterId))
+                return;
             _view._production.NoteEnemyDefeat(size);
             _view._production.MarkCatalogDefeated(characterId);
             _view.GrantCharacterDrops(characterId);
@@ -4343,7 +4423,11 @@ public class ControllerBattleClass : MonoBehaviour
 
         public bool ForcesUnownedRecruit(uint characterId)
         {
-            return _view._production != null && _view._production.CharmForcesUnownedRecruit(characterId);
+            if (_view._production == null)
+                return false;
+            if (ShareBattleRoster.IsTemp(characterId))
+                return _view._production.SharedCharmForces(characterId);
+            return _view._production.CharmForcesUnownedRecruit(characterId);
         }
 
         public void EndForcedRecruit()

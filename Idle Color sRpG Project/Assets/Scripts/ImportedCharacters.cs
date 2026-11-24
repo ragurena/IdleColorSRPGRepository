@@ -341,6 +341,10 @@ public static class ImportedCharacters
 
     public static CharacterClass FindAny(CharacterClass[] builtIn, uint id)
     {
+        if (ShareBattleRoster.IsTemp(id))
+            return ShareBattleRoster.Find(id);
+        if (id >= ShareStageLibrary.CompanionFirstId)
+            return ShareStageLibrary.FindCompanion(id);
         if (id >= FirstId)
             return Find(id);
         if (builtIn == null || id >= builtIn.Length)
@@ -415,6 +419,11 @@ public static class ImportedCharacters
             return false;
 
         uint id = NextId();
+        if (id >= ShareStageLibrary.CompanionFirstId)
+        {
+            message = "読み込めるキャラクターの数を超えています。";
+            return false;
+        }
         string directory = Application.persistentDataPath + "/Character/Custom";
         if (!Directory.Exists(directory))
             Directory.CreateDirectory(directory);
@@ -542,6 +551,11 @@ public static class ImportedCharacters
             return false;
 
         uint id = NextId();
+        if (id >= ShareStageLibrary.CompanionFirstId)
+        {
+            message = "読み込めるキャラクターの数を超えています。";
+            return false;
+        }
         string directory = Application.persistentDataPath + "/Character/Custom";
         if (!Directory.Exists(directory))
             Directory.CreateDirectory(directory);

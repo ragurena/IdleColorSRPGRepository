@@ -162,6 +162,11 @@ public static class BattleStageCatalog
     static readonly Dictionary<string, Sprite> BackgroundSprites = new Dictionary<string, Sprite>();
     static readonly HashSet<string> MissingBackgrounds = new HashSet<string>();
 
+    public static Sprite BackgroundByName(string resourceName)
+    {
+        return LoadBackground(resourceName);
+    }
+
     public static Sprite BackgroundSprite(int stageIndex)
     {
         if (stageIndex < 1 || stageIndex > Constants.BATTLE_STAGE_NUM)

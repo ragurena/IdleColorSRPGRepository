@@ -1,0 +1,8 @@
+name = "piqua-share"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+# バケットは非公開。鍵はアプリに置かない。Worker のバインドだけを使う。
+[[r2_buckets]]
+binding = "SHARE_BUCKET"
+bucket_name = "piqua-share"

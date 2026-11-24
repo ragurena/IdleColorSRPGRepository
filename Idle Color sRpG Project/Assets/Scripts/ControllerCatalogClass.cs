@@ -120,6 +120,15 @@ public class ControllerCatalogClass : MonoBehaviour
                 joined++;
             _cells.Add(CreateCell(character));
         });
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character == null || character.ID < ShareStageLibrary.CompanionFirstId)
+                return;
+            total++;
+            if (character.OwnedNumMax != 0)
+                joined++;
+            _cells.Add(CreateCell(character));
+        });
 
         if (_count != null)
             _count.text = "仲間にした数 " + UiNumber.Format(joined) + " / " + UiNumber.Format(total);

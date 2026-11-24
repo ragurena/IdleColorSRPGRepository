@@ -94,6 +94,14 @@ public class ControllerFusionClass : MonoBehaviour
             if (character.ID == _selectedId)
                 selectedStillThere = true;
         });
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character == null || character.OwnedNumMax < 1)
+                return;
+            _cells.Add(CreateCell(character));
+            if (character.ID == _selectedId)
+                selectedStillThere = true;
+        });
 
         if (selectedStillThere)
             ShowDetail();
