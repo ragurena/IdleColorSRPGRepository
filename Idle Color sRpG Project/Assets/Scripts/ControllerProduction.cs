@@ -6021,6 +6021,8 @@ public class ControllerProduction : MonoBehaviour
         SaveGame();
         if (ControllerEnhance != null)
             ControllerEnhance.Refresh();
+        if (ControllerBattleStage != null)
+            ControllerBattleStage.Refresh();
         return true;
     }
 
@@ -6622,30 +6624,65 @@ public class ControllerProduction : MonoBehaviour
         return amount < 0 ? 0UL : (ulong)amount;
     }
 
-    ulong EnhancePixelCompletionExtra(int slot)
+    // 生成ボーナスはそのまま足す。タップボーナスは通常の半分のRGBを払えたときだけ足す。
+    // 払えないときは追加しない。スピードアップの進行と、完了時の通常個数はここでは触らない。
+    void GrantEnhancePixelExtras(int slot, int pixelR, int pixelG, int pixelB)
     {
         long gen = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.PixelGenBonus, EnhanceEffectLevel(EnhanceSkillId.PixelGenBonus));
+        if (gen > 0)
+            AddPixelsCapped(pixelR, pixelG, pixelB, (ulong)gen);
+
+        ulong tapBonus = PixelSpeedTapBonusCount(slot);
+        if (tapBonus == 0)
+            return;
+        if (!TrySpendHalfRgb(pixelR, pixelG, pixelB, tapBonus))
+            return;
+        AddPixelsCapped(pixelR, pixelG, pixelB, tapBonus);
+    }
+
+    ulong PixelSpeedTapBonusCount(int slot)
+    {
         long tapLevel = EnhanceSkillCatalog.EffectAmount(EnhanceSkillId.PixelSpeedTapBonus, EnhanceEffectLevel(EnhanceSkillId.PixelSpeedTapBonus));
         long taps = 0;
         if (slot >= 0 && slot < PixelSpeedTapCounts.Length)
             taps = PixelSpeedTapCounts[slot];
-        long tapBonus = 0;
-        if (tapLevel > 0 && taps > 0)
-        {
-            if (taps > long.MaxValue / tapLevel)
-                tapBonus = long.MaxValue;
-            else
-                tapBonus = taps * tapLevel;
-        }
-        long total = gen;
-        if (tapBonus > 0)
-        {
-            if (total > long.MaxValue - tapBonus)
-                total = long.MaxValue;
-            else
-                total += tapBonus;
-        }
-        return total < 0 ? 0UL : (ulong)total;
+        if (tapLevel <= 0 || taps <= 0)
+            return 0;
+        if (taps > long.MaxValue / tapLevel)
+            return ulong.MaxValue;
+        return (ulong)(taps * tapLevel);
+    }
+
+    // 追加個数ぶんの通常RGB（色×個数）の半分。端数は切り上げ。計算できない大きさは払えない。
+    bool TrySpendHalfRgb(int pixelR, int pixelG, int pixelB, ulong count)
+    {
+        if (!HalfChannelCost(pixelR, count, out ulong costR))
+            return false;
+        if (!HalfChannelCost(pixelG, count, out ulong costG))
+            return false;
+        if (!HalfChannelCost(pixelB, count, out ulong costB))
+            return false;
+        if (CurR < costR || CurG < costG || CurB < costB)
+            return false;
+        CurR -= costR;
+        CurG -= costG;
+        CurB -= costB;
+        return true;
+    }
+
+    static bool HalfChannelCost(int channel, ulong count, out ulong cost)
+    {
+        cost = 0;
+        if (channel <= 0 || count == 0)
+            return true;
+        ulong unit = (ulong)channel;
+        if (count > ulong.MaxValue / unit)
+            return false;
+        ulong full = unit * count;
+        if (full == ulong.MaxValue)
+            return false;
+        cost = (full + 1UL) / 2UL;
+        return true;
     }
 
     int EnhanceCharacterTapBonus()
@@ -8772,7 +8809,7 @@ public class ControllerProduction : MonoBehaviour
             ClearPixelSpend(argIndex);
 
             AddPixelsCapped(pixelR, pixelG, pixelB, createPixels);
-            AddPixelsCapped(pixelR, pixelG, pixelB, EnhancePixelCompletionExtra(argIndex));
+            GrantEnhancePixelExtras(argIndex, pixelR, pixelG, pixelB);
             ClearPixelSpeedTap(argIndex);
             if (pixelPerson != null)
                 pixelPerson.AddPixelCompletion(pixelR, pixelG, pixelB, PersonBalance);

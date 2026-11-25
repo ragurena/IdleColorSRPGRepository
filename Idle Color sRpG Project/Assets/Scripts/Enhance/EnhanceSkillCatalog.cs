@@ -114,7 +114,7 @@ public static class EnhanceSkillCatalog
         {
             Id = EnhanceSkillId.PixelSpeedTapBonus,
             Name = "ピクセル生成タップボーナス",
-            Description = "スピードアップの累計タップ×レベルを、生成完了時に追加する",
+            Description = "完了時、タップ数×レベル個を半分のRGBで追加。不足ならなし",
             UnlockStars = 3,
             CostBase = 2500,
             CostKind = EnhanceCostKind.Pow15,
@@ -258,7 +258,7 @@ public static class EnhanceSkillCatalog
             case EnhanceSkillId.AutoB:
                 return "毎秒 +" + amount.ToString();
             case EnhanceSkillId.PixelSpeedTapBonus:
-                return "完了時 タップ数×" + amount.ToString();
+                return "タップ×" + amount.ToString() + "（半分）";
             case EnhanceSkillId.PixelGenBonus:
                 return "完了時 +" + amount.ToString();
             case EnhanceSkillId.CharTapBonus:

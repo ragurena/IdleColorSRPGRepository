@@ -621,9 +621,9 @@ public static class ShareStageLibrary
         {
             stage.RunCap = CapFromCharacters(stage);
             int nextBonus;
-            stronger = existing != null && ShareStageRules.RaiseBonusAfterStar(stage.Stars, stage.LevelBonus, out nextBonus);
-            if (stronger)
+            if (existing != null && ShareStageRules.RaiseBonusAfterStar(stage.Stars, stage.LevelBonus, out nextBonus))
             {
+                stronger = true;
                 stage.LevelBonus = nextBonus;
                 stage.RunBonus = nextBonus;
             }
