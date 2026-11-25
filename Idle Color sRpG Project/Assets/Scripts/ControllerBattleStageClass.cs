@@ -541,7 +541,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         Text label = button.GetComponentInChildren<Text>();
         if (label != null)
         {
-            label.text = "共有\nステージ";
+            label.text = "読込\nステージ";
             label.alignment = TextAnchor.MiddleCenter;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Overflow;
@@ -1016,7 +1016,8 @@ public class ControllerBattleStageClass : MonoBehaviour
         bool resume = ControllerProduction.IsBattleRunning();
         if (resume)
             ControllerProduction.EndRunningBattle();
-        if (ControllerProduction.EnterSharedBattle(_sharedKey, CurrentSetIndex))
+        GetSelectedFloorRange(out int floorFrom, out int floorTo);
+        if (ControllerProduction.EnterSharedBattle(_sharedKey, CurrentSetIndex, floorFrom, floorTo))
         {
             if (!ControllerProduction.BeginAutoBattle())
                 ControllerProduction.LeaveBattle();
@@ -1193,13 +1194,28 @@ public class ControllerBattleStageClass : MonoBehaviour
 
         int activeFloorFrom = ControllerProduction.GetActiveBattleFloorFrom();
         int activeFloorTo = ControllerProduction.GetActiveBattleFloorTo();
-        int windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
-        int windowEnd = ControllerProduction.GetViewedFloorWindowEnd(CurrentStageIndex);
-        if (activeStage == CurrentStageIndex && ControllerProduction.IsSortieFloorRange(activeStage, activeFloorFrom, activeFloorTo)
-            && activeFloorFrom >= windowStart && activeFloorTo <= windowEnd)
-            SetFloorSliders(activeFloorFrom, activeFloorTo);
+        if (_sharedList)
+        {
+            SharedStageRecord picked = ShareStageLibrary.Find(_sharedKey);
+            int sharedStart = picked != null ? ShareStageRules.WindowStart(picked.ClearedFloor) : 1;
+            int sharedEnd = picked != null ? ShareStageRules.WindowEnd(picked.ClearedFloor) : sharedStart + 99;
+            if (picked != null && activeStage == Constants.BATTLE_STAGE_SHARED
+                && ShareStageRules.IsPlayableWindow(picked.ClearedFloor, activeFloorFrom, activeFloorTo)
+                && activeFloorFrom >= sharedStart && activeFloorTo <= sharedEnd)
+                SetFloorSliders(activeFloorFrom, activeFloorTo);
+            else
+                SetFloorSliders(sharedStart, sharedStart + Constants.BATTLE_STAGE_FLOOR_STEP - 1);
+        }
         else
-            SetFloorSliders(windowStart, windowStart + Constants.BATTLE_STAGE_FLOOR_STEP - 1);
+        {
+            int windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
+            int windowEnd = ControllerProduction.GetViewedFloorWindowEnd(CurrentStageIndex);
+            if (activeStage == CurrentStageIndex && ControllerProduction.IsSortieFloorRange(activeStage, activeFloorFrom, activeFloorTo)
+                && activeFloorFrom >= windowStart && activeFloorTo <= windowEnd)
+                SetFloorSliders(activeFloorFrom, activeFloorTo);
+            else
+                SetFloorSliders(windowStart, windowStart + Constants.BATTLE_STAGE_FLOOR_STEP - 1);
+        }
 
         Refresh();
     }
@@ -1384,7 +1400,7 @@ public class ControllerBattleStageClass : MonoBehaviour
         {
             Text tabLabel = _sharedTab.GetComponentInChildren<Text>();
             if (tabLabel != null)
-                tabLabel.text = _sharedList ? "通常\nステージ" : "共有\nステージ";
+                tabLabel.text = _sharedList ? "通常\nステージ" : "読込\nステージ";
             SetSelectScreen(_sharedTab, false);
         }
         RestoreFloorSliders();
@@ -1434,9 +1450,18 @@ public class ControllerBattleStageClass : MonoBehaviour
                 TextBattleFloorRange.text = "共有ステージ";
                 return;
             }
-            int sharedFrom = ShareStageRules.WindowStart(picked.ClearedFloor);
-            int sharedTo = ShareStageRules.WindowEnd(picked.ClearedFloor);
-            TextBattleFloorRange.text = sharedFrom.ToString() + "階 〜 " + sharedTo.ToString() + "階\n星 " + picked.Stars.ToString();
+            GetSelectedFloorRange(out int sharedFrom, out int sharedTo);
+            TextBattleFloorRange.text = sharedFrom.ToString() + "階 〜 " + sharedTo.ToString() + "階";
+            int sharedMax = ShareStageRules.MaxStart(picked.ClearedFloor);
+            int sharedWindow = ShareStageRules.WindowStart(picked.ClearedFloor);
+            int sharedLast = sharedWindow + Constants.BATTLE_STAGE_FLOOR_MAX - Constants.BATTLE_STAGE_FLOOR_STEP;
+            if (sharedMax < sharedLast)
+            {
+                if (picked.ClearedFloor <= 0)
+                    TextBattleFloorRange.text += "\n（開始は" + sharedWindow.ToString() + "階まで）";
+                else
+                    TextBattleFloorRange.text += "\n（" + picked.ClearedFloor.ToString() + "階クリア、開始は" + sharedMax.ToString() + "階まで）";
+            }
             if (picked.Key == ShareStageLibrary.ActiveKey
                 && ControllerProduction.GetActiveBattleStage() == Constants.BATTLE_STAGE_SHARED)
             {
@@ -1483,8 +1508,8 @@ public class ControllerBattleStageClass : MonoBehaviour
         if (SliderBattleFloorFrom == null || ControllerProduction == null)
             return;
 
-        int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
-        int windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
+        int maxFrom = SliderMaxFloorFrom();
+        int windowStart = SliderWindowStart();
         int maxBand = (maxFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         if (maxBand < 1)
             maxBand = 1;
@@ -1540,9 +1565,31 @@ public class ControllerBattleStageClass : MonoBehaviour
         rect.anchoredPosition = new Vector2(FloorFromSliderLeft + width * rect.pivot.x, rect.anchoredPosition.y);
     }
 
+    int SliderWindowStart()
+    {
+        if (_sharedList)
+        {
+            SharedStageRecord picked = ShareStageLibrary.Find(_sharedKey);
+            if (picked != null)
+                return ShareStageRules.WindowStart(picked.ClearedFloor);
+        }
+        return ControllerProduction != null ? ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex) : 1;
+    }
+
+    int SliderMaxFloorFrom()
+    {
+        if (_sharedList)
+        {
+            SharedStageRecord picked = ShareStageLibrary.Find(_sharedKey);
+            if (picked != null)
+                return ShareStageRules.MaxStart(picked.ClearedFloor);
+        }
+        return ControllerProduction != null ? ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex) : 1;
+    }
+
     void SetFloorSliders(int floorFrom, int floorTo)
     {
-        int windowStart = ControllerProduction != null ? ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex) : 1;
+        int windowStart = SliderWindowStart();
         int fromBand = (floorFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         int toBand = (floorTo - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
         if (SliderBattleFloorFrom != null)
@@ -1560,8 +1607,8 @@ public class ControllerBattleStageClass : MonoBehaviour
         int windowStart = 1;
         if (ControllerProduction != null)
         {
-            windowStart = ControllerProduction.GetViewedFloorWindowStart(CurrentStageIndex);
-            int maxFrom = ControllerProduction.GetMaxBattleFloorFrom(CurrentStageIndex);
+            windowStart = SliderWindowStart();
+            int maxFrom = SliderMaxFloorFrom();
             int maxBand = (maxFrom - windowStart) / Constants.BATTLE_STAGE_FLOOR_STEP + 1;
             if (fromBand > maxBand)
                 fromBand = maxBand;
@@ -1664,6 +1711,45 @@ public class ControllerBattleStageClass : MonoBehaviour
         if (_starPopup == null)
             return;
         FillStarPopup(stageIndex, start);
+        _starPopup.SetActive(true);
+        _starPopup.transform.SetAsLastSibling();
+    }
+
+    public void OpenSharedChallengeStar(string stageName, bool done)
+    {
+        EnsureStarPopup();
+        if (_starPopup == null)
+            return;
+        if (string.IsNullOrEmpty(stageName))
+            stageName = "共有ステージ";
+        int rangeStart = 201;
+        int end = ChallengeRules.RangeEnd(rangeStart);
+        for (int i = _starPopupRows.childCount - 1; i >= 0; i--)
+            Destroy(_starPopupRows.GetChild(i).gameObject);
+        const float rowH = 96f;
+        const float titleH = 88f;
+        const float closeH = 108f;
+        _starPopupTitle.text = stageName + "　" + rangeStart.ToString() + "~" + end.ToString() + "階";
+        _starPopupCard.sizeDelta = new Vector2(980f, 28f + titleH + rowH + closeH);
+        RectTransform titleRect = _starPopupTitle.rectTransform;
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -16f);
+        titleRect.sizeDelta = new Vector2(-48f, titleH - 16f);
+        _starPopupRows.anchoredPosition = new Vector2(0f, -titleH);
+        _starPopupRows.sizeDelta = new Vector2(-36f, rowH);
+        AddChallengeStarRow(0, ChallengeKind.NoDamage, rangeStart, done, rowH);
+        Transform close = _starPopupCard.Find("ButtonClose");
+        if (close != null)
+        {
+            RectTransform closeRect = close.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(0.08f, 0f);
+            closeRect.anchorMax = new Vector2(0.92f, 0f);
+            closeRect.pivot = new Vector2(0.5f, 0f);
+            closeRect.anchoredPosition = new Vector2(0f, 24f);
+            closeRect.sizeDelta = new Vector2(0f, 84f);
+        }
         _starPopup.SetActive(true);
         _starPopup.transform.SetAsLastSibling();
     }
@@ -2388,6 +2474,15 @@ public class ControllerBattleStageClass : MonoBehaviour
             portrait.Image.sprite = companion ? StageEnemySprite(character) : StageEnemySilhouette(character);
             portrait.Image.color = companion ? Color.white : Color.black;
             portrait.Image.enabled = portrait.Image.sprite != null;
+        }
+        for (int i = 0; i < ButtonBattleStages.Length; i++)
+        {
+            Button button = ButtonBattleStages[i];
+            if (button == null)
+                continue;
+            Text label = button.GetComponentInChildren<Text>();
+            if (label != null)
+                label.transform.SetAsLastSibling();
         }
     }
 

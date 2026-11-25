@@ -1085,8 +1085,9 @@ public class ControllerProduction : MonoBehaviour
                 return;
             try
             {
+                CharacterType kept = character.CharacterType;
                 if (character.ReloadSourceImage(source))
-                    character.RecalculateBaseStats(BattleBalance);
+                    character.RecalculateBaseStatsKeepingType(BattleBalance, kept);
             }
             catch (Exception exception)
             {
@@ -2813,6 +2814,11 @@ public class ControllerProduction : MonoBehaviour
             if (character != null && character.ID == (uint)i && character.CatalogNew)
                 count++;
         }
+        ShareStageLibrary.ForEachCompanion(character =>
+        {
+            if (character != null && character.CatalogNew)
+                count++;
+        });
         return count;
     }
 
@@ -3766,6 +3772,15 @@ public class ControllerProduction : MonoBehaviour
         return BattleRewardCalculator.IsGuaranteedRecruitCount(count + 1, size);
     }
 
+    public void MarkSharedCatalogDefeated(uint tempId)
+    {
+        if (!ShareStageLibrary.NoteTempDefeated(tempId))
+            return;
+        SaveGame();
+        if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerCatalog.Refresh();
+    }
+
     public void MarkCatalogDefeated(uint characterId)
     {
         CharacterClass character = GetCharacter(characterId);
@@ -3785,12 +3800,17 @@ public class ControllerProduction : MonoBehaviour
         return group != null && group.alpha > 0f;
     }
 
-    void NotShowBattleStagePanel()
+    public void HideBattleStageKeepingShare()
     {
         if (ControllerBattleStage != null)
             ControllerBattleStage.ClearBattleEndedNote();
         if (PanelBattleStage != null)
             NotShowPanel(PanelBattleStage);
+    }
+
+    void NotShowBattleStagePanel()
+    {
+        HideBattleStageKeepingShare();
         ShareStageBoard.HideIfAny();
     }
 
@@ -5968,6 +5988,16 @@ public class ControllerProduction : MonoBehaviour
             return false;
         int floorFrom = ShareStageRules.WindowStart(stage.ClearedFloor);
         int floorTo = ShareStageRules.WindowEnd(stage.ClearedFloor);
+        return EnterSharedBattle(key, setIndex, floorFrom, floorTo);
+    }
+
+    public bool EnterSharedBattle(string key, int setIndex, int floorFrom, int floorTo)
+    {
+        SharedStageRecord stage = ShareStageLibrary.Find(key);
+        if (stage == null || stage.Mine || stage.Characters.Count < 1)
+            return false;
+        if (!ShareStageRules.IsPlayableWindow(stage.ClearedFloor, floorFrom, floorTo))
+            return false;
         if (!HasBattlePartyMember(setIndex))
             return false;
         if (!EnterBattle(setIndex))
@@ -7258,6 +7288,8 @@ public class ControllerProduction : MonoBehaviour
         {
             CharacterClass character = CharactersAll[i];
             if (character == null || character.ID == 0)
+                continue;
+            if (!CharacterRoster.Contains(character.ID))
                 continue;
             character.GainOwned(amount, cap);
         }

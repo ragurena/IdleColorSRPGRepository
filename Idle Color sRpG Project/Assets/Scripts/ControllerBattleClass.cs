@@ -692,29 +692,16 @@ public class ControllerBattleClass : MonoBehaviour
         if (_nodmgIcon != null)
         {
             _nodmgIcon.gameObject.SetActive(showNodmg);
-            _nodmgIcon.sprite = sharedStar ? ChallengeMarks.Star() : ChallengeMarks.Circle();
+            _nodmgIcon.sprite = ChallengeMarks.Circle();
             _nodmgIcon.color = _nodmgFailed
                 ? new Color(0.85f, 0.2f, 0.18f, 1f)
-                : sharedStar
-                    ? new Color(0.95f, 0.78f, 0.2f, 1f)
-                    : new Color(0.25f, 0.82f, 0.35f, 1f);
+                : new Color(0.25f, 0.82f, 0.35f, 1f);
         }
         if (_nodmgText != null)
         {
             _nodmgText.gameObject.SetActive(showNodmg);
-            if (sharedStar)
-            {
-                string count = ShareStageLibrary.ActiveStars().ToString();
-                if (_nodmgArmed)
-                    count += _nodmgFailed ? "  たおれてしまった" : "  誰も倒れていない";
-                _nodmgText.text = count;
-                _nodmgText.rectTransform.sizeDelta = new Vector2(280f, 0f);
-            }
-            else
-            {
-                _nodmgText.text = _nodmgFailed ? "たおれてしまった" : "誰も倒れていない";
-                _nodmgText.rectTransform.sizeDelta = new Vector2(180f, 0f);
-            }
+            _nodmgText.text = _nodmgFailed ? "たおれてしまった" : "誰も倒れていない";
+            _nodmgText.rectTransform.sizeDelta = new Vector2(180f, 0f);
             _nodmgText.color = _nodmgFailed
                 ? new Color(1f, 0.45f, 0.4f, 1f)
                 : new Color(0.75f, 1f, 0.78f, 1f);
@@ -4392,7 +4379,10 @@ public class ControllerBattleClass : MonoBehaviour
         public void NoteDefeated(uint characterId, int size)
         {
             if (ShareBattleRoster.IsTemp(characterId))
+            {
+                _view._production.MarkSharedCatalogDefeated(characterId);
                 return;
+            }
             _view._production.NoteEnemyDefeat(size);
             _view._production.MarkCatalogDefeated(characterId);
             _view.GrantCharacterDrops(characterId);

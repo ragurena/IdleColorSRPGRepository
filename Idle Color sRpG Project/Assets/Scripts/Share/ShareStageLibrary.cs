@@ -373,6 +373,7 @@ public static class ShareStageLibrary
         PendingAuthors.Clear();
         for (int i = 0; i < Stages.Count; i++)
             FillCharacterIds(Stages[i]);
+        FoldSameAuthors();
         Companions.Clear();
         HighestCompanionId = CompanionFirstId - 1;
         for (int i = 0; i < PendingCompanions.Count; i++)
@@ -383,6 +384,7 @@ public static class ShareStageLibrary
             RestoreCompanion(record, balance);
         }
         PendingCompanions.Clear();
+        EnsureCatalogCharacters(balance);
         if (ActiveStage() == null)
             _activeKey = "";
     }
@@ -537,8 +539,8 @@ public static class ShareStageLibrary
             error = "自分のステージは読み込めません。";
             return false;
         }
-        string key = document.AuthorId + "_" + document.StageId;
-        SharedStageRecord existing = Find(key);
+        SharedStageRecord existing = FindPlayableByAuthor(document.AuthorId);
+        string key = existing != null && !string.IsNullOrEmpty(existing.Key) ? existing.Key : document.AuthorId;
         if (existing == null && PlayableCount() >= ShareStageRules.MaxStoredStages)
         {
             error = "共有ステージは" + ShareStageRules.MaxStoredStages.ToString(CultureInfo.InvariantCulture) + "件までです。";
@@ -586,6 +588,9 @@ public static class ShareStageLibrary
         int runCap = existing != null ? existing.RunCap : 30;
         int stars = existing != null ? existing.Stars : 0;
         int levelBonus = existing != null ? existing.LevelBonus : 0;
+        bool levelsUpdated = existing != null && CharacterLevelsDiffer(existing, document);
+        bool createdNewer = existing != null && ShareStageRules.IsNewerInstant(document.CreatedAt, existing.CreatedAt);
+        bool refreshLevel = existing == null || (levelsUpdated && createdNewer);
         CopyMeta(stage, document);
         stage.Key = key;
         stage.Mine = false;
@@ -594,13 +599,6 @@ public static class ShareStageLibrary
         stage.RunCap = runCap;
         stage.Stars = stars;
         stage.LevelBonus = levelBonus;
-        int nextBonus;
-        bool stronger = ShareStageRules.RaiseBonusAfterStar(stage.Stars, stage.LevelBonus, out nextBonus);
-        if (stronger)
-        {
-            stage.LevelBonus = nextBonus;
-            stage.RunBonus = nextBonus;
-        }
         stage.Characters.Clear();
         for (int i = 0; i < document.Characters.Count; i++)
         {
@@ -618,28 +616,76 @@ public static class ShareStageLibrary
                 CharacterId = CharacterIds.IdOf(document.AuthorId, hash)
             });
         }
+        bool stronger = false;
+        if (refreshLevel)
+        {
+            stage.RunCap = CapFromCharacters(stage);
+            int nextBonus;
+            stronger = existing != null && ShareStageRules.RaiseBonusAfterStar(stage.Stars, stage.LevelBonus, out nextBonus);
+            if (stronger)
+            {
+                stage.LevelBonus = nextBonus;
+                stage.RunBonus = nextBonus;
+            }
+            else
+                stage.RunBonus = stage.LevelBonus;
+        }
         if (existing == null)
             Stages.Add(stage);
+        EnsureCatalogCharacters(balance);
         error = stronger
             ? "読み込みました。敵が少し強くなります。"
             : "読み込みました。";
         return true;
     }
 
+    static bool CharacterLevelsDiffer(SharedStageRecord stage, PiquaDocument document)
+    {
+        if (stage == null || document == null)
+            return false;
+        if (stage.Characters.Count != document.Characters.Count)
+            return true;
+        int count = stage.Characters.Count;
+        int[] before = new int[count];
+        int[] after = new int[count];
+        for (int i = 0; i < count; i++)
+        {
+            before[i] = stage.Characters[i] != null ? stage.Characters[i].Level : 0;
+            after[i] = document.Characters[i] != null ? document.Characters[i].Level : 0;
+        }
+        Array.Sort(before);
+        Array.Sort(after);
+        for (int i = 0; i < count; i++)
+        {
+            if (before[i] != after[i])
+                return true;
+        }
+        return false;
+    }
+
+    static int CapFromCharacters(SharedStageRecord stage)
+    {
+        int min = 1;
+        bool any = false;
+        if (stage != null)
+        {
+            for (int i = 0; i < stage.Characters.Count; i++)
+            {
+                int level = stage.Characters[i].Level;
+                if (!any || level < min)
+                    min = level;
+                any = true;
+            }
+        }
+        return ShareStageRules.LevelCap(min);
+    }
+
     public static void Freeze(SharedStageRecord stage)
     {
         if (stage == null)
             return;
-        int min = 1;
-        bool any = false;
-        for (int i = 0; i < stage.Characters.Count; i++)
-        {
-            int level = stage.Characters[i].Level;
-            if (!any || level < min)
-                min = level;
-            any = true;
-        }
-        stage.RunCap = ShareStageRules.LevelCap(min);
+        if (stage.RunCap < 30)
+            stage.RunCap = 30;
         stage.RunBonus = stage.LevelBonus;
     }
 
@@ -753,10 +799,17 @@ public static class ShareStageLibrary
             companion = FindByCharacterId(id);
         if (companion != null && companion.Character != null)
         {
+            bool first = companion.Character.OwnedNumMax == 0;
             int lives = companion.Character.OwnedNumCur > int.MaxValue ? int.MaxValue : (int)companion.Character.OwnedNumCur;
             if (lives < lifeCap)
                 lives++;
             companion.Character.SetOwnedCur(lives, lifeCap);
+            if (first)
+            {
+                companion.Character.CatalogOpened = true;
+                companion.Character.CatalogNew = true;
+                return companion.Character.Name + " が仲間になった";
+            }
             return companion.Character.Name + " の所持が1増えた";
         }
         if (Companions.Count >= ShareStageRules.MaxCompanionCount)
@@ -782,7 +835,11 @@ public static class ShareStageLibrary
         character.AuthorSpecified = true;
         character.CatalogOpened = true;
         character.CatalogNew = true;
-        if (balance != null)
+        CharacterClass source = ShareBattleRoster.Find(tempId);
+        CharacterType fileType = source != null ? source.CharacterType : CharacterType.None;
+        if (source != null)
+            character.RecalculateBaseStatsKeepingType(balance, fileType);
+        else if (balance != null)
             character.RecalculateBaseStats(balance);
         if (id > HighestCompanionId)
             HighestCompanionId = id;
@@ -803,6 +860,22 @@ public static class ShareStageLibrary
     public static string Today()
     {
         return DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    public static bool TryReadAttribute(string value, out CharacterType type)
+    {
+        switch (value)
+        {
+            case "None": type = CharacterType.None; return true;
+            case "Fire": type = CharacterType.Fire; return true;
+            case "Grass": type = CharacterType.Grass; return true;
+            case "Water": type = CharacterType.Water; return true;
+            case "Light": type = CharacterType.Light; return true;
+            case "Dark": type = CharacterType.Dark; return true;
+            default:
+                type = CharacterType.None;
+                return false;
+        }
     }
 
     public static string Sha256(byte[] body)
@@ -836,25 +909,24 @@ public static class ShareStageLibrary
                 error = "不正なキャラクターデータです。";
                 return false;
             }
-            if (balance != null)
+            CharacterType fileType;
+            bool keepType = TryReadAttribute(character.Attribute, out fileType);
+            if (keepType)
+                made.RecalculateBaseStatsKeepingType(balance, fileType);
+            else if (balance != null)
                 made.RecalculateBaseStats(balance);
             if (made.Stats == null || made.Stats[1] == null)
             {
                 error = "不正なキャラクターデータです。";
                 return false;
             }
-            bool same = made.CharacterType.ToString() == character.Attribute
-                && (long)made.Stats[1].HPMax == character.Hp
-                && (long)made.Stats[1].ATK == character.Atk
-                && (long)made.Stats[1].DEF == character.Def
-                && made.Stats[1].SPD == character.Spd
-                && (long)made.Stats[1].LUC == character.Luc
-                && (long)made.Stats[1].OBS == character.Obs;
-            if (!same)
-            {
-                error = "不正なキャラクターデータです。";
-                return false;
-            }
+            // 数値は絵から取り直す。属性は、チェンジ後のものをファイルから読む。
+            character.Hp = (long)made.Stats[1].HPMax;
+            character.Atk = (long)made.Stats[1].ATK;
+            character.Def = (long)made.Stats[1].DEF;
+            character.Spd = made.Stats[1].SPD;
+            character.Luc = (long)made.Stats[1].LUC;
+            character.Obs = (long)made.Stats[1].OBS;
             return true;
         }
         finally
@@ -888,6 +960,97 @@ public static class ShareStageLibrary
         if (!ShareStageRules.IsUuid(stageId))
             return null;
         return Find("mine_" + stageId);
+    }
+
+    static SharedStageRecord FindPlayableByAuthor(string authorId)
+    {
+        if (!ShareStageRules.IsUuid(authorId))
+            return null;
+        for (int i = 0; i < Stages.Count; i++)
+        {
+            SharedStageRecord stage = Stages[i];
+            if (stage == null || stage.Mine)
+                continue;
+            if (string.Equals(stage.AuthorId, authorId, StringComparison.OrdinalIgnoreCase))
+                return stage;
+        }
+        return null;
+    }
+
+    // 同じユーザーIDの読み込みステージは1枚にまとめる。進行は残し、キャラは新しいファイルのほう。
+    static void FoldSameAuthors()
+    {
+        for (int i = 0; i < Stages.Count; i++)
+        {
+            SharedStageRecord keep = Stages[i];
+            if (keep == null || keep.Mine || !ShareStageRules.IsUuid(keep.AuthorId))
+                continue;
+            for (int j = Stages.Count - 1; j > i; j--)
+            {
+                SharedStageRecord other = Stages[j];
+                if (other == null || other.Mine)
+                    continue;
+                if (!string.Equals(other.AuthorId, keep.AuthorId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                AbsorbAuthor(keep, other);
+                if (!string.IsNullOrEmpty(other.Key) && _activeKey == other.Key)
+                    _activeKey = keep.AuthorId;
+                Stages.RemoveAt(j);
+            }
+            string previous = keep.Key;
+            keep.Key = keep.AuthorId;
+            if (!string.IsNullOrEmpty(previous) && _activeKey == previous)
+                _activeKey = keep.Key;
+        }
+    }
+
+    static void AbsorbAuthor(SharedStageRecord keep, SharedStageRecord other)
+    {
+        bool newer = string.CompareOrdinal(other.UpdatedAt ?? "", keep.UpdatedAt ?? "") > 0;
+        int stars = keep.Stars > other.Stars ? keep.Stars : other.Stars;
+        int bonus = keep.LevelBonus > other.LevelBonus ? keep.LevelBonus : other.LevelBonus;
+        int cleared = keep.ClearedFloor > other.ClearedFloor ? keep.ClearedFloor : other.ClearedFloor;
+        if (newer)
+            CopyFace(keep, other);
+        keep.Stars = stars;
+        keep.LevelBonus = bonus > stars ? stars : bonus;
+        keep.ClearedFloor = cleared;
+        keep.RunBonus = keep.LevelBonus;
+    }
+
+    static void CopyFace(SharedStageRecord into, SharedStageRecord from)
+    {
+        into.StageId = from.StageId;
+        into.AuthorName = from.AuthorName;
+        into.Name = from.Name;
+        into.Comment = from.Comment;
+        into.MainR = from.MainR;
+        into.MainG = from.MainG;
+        into.MainB = from.MainB;
+        into.Background = from.Background;
+        into.Revision = from.Revision;
+        into.CreatedAt = from.CreatedAt;
+        into.UpdatedAt = from.UpdatedAt;
+        into.ContentHash = from.ContentHash;
+        into.FileId = from.FileId;
+        into.Characters.Clear();
+        for (int i = 0; i < from.Characters.Count; i++)
+        {
+            SharedStageCharacterData source = from.Characters[i];
+            if (source == null)
+                continue;
+            into.Characters.Add(new SharedStageCharacterData
+            {
+                Slot = source.Slot,
+                Name = source.Name,
+                Size = source.Size,
+                Level = source.Level,
+                FusionCount = source.FusionCount,
+                Attribute = source.Attribute,
+                PngHash = source.PngHash,
+                CharacterId = source.CharacterId
+            });
+        }
     }
 
     static SharedCompanion FindByJoin(string joinKey)
@@ -924,6 +1087,86 @@ public static class ShareStageLibrary
         string rest = joinKey.Substring(bar + 1);
         int bar2 = rest.IndexOf('|');
         hash = bar2 >= 0 ? rest.Substring(bar2 + 1) : rest;
+    }
+
+    static void EnsureCatalogCharacters(BattleBalanceConfig balance)
+    {
+        for (int s = 0; s < Stages.Count; s++)
+        {
+            SharedStageRecord stage = Stages[s];
+            if (stage == null || stage.Mine)
+                continue;
+            for (int i = 0; i < stage.Characters.Count; i++)
+                EnsureCatalogCharacter(stage, stage.Characters[i], balance);
+        }
+        ClearUnownedCatalogNew();
+    }
+
+    static void ClearUnownedCatalogNew()
+    {
+        for (int i = 0; i < Companions.Count; i++)
+        {
+            CharacterClass character = Companions[i].Character;
+            if (character == null || character.OwnedNumMax != 0 || !character.CatalogNew)
+                continue;
+            character.CatalogNew = false;
+            character.CatalogOpened = false;
+        }
+    }
+
+    public static bool NoteTempDefeated(uint tempId)
+    {
+        string joinKey = ShareBattleRoster.JoinKey(tempId);
+        if (string.IsNullOrEmpty(joinKey))
+            return false;
+        SharedCompanion companion = FindByJoin(joinKey);
+        if (companion == null || companion.Character == null || companion.Character.CatalogOpened)
+            return false;
+        companion.Character.CatalogOpened = true;
+        return true;
+    }
+
+    // 読み込んだ他ユーザーのキャラを図鑑に出す。所持は 0 のままなので、編成や合成には入らない。
+    static void EnsureCatalogCharacter(SharedStageRecord stage, SharedStageCharacterData data, BattleBalanceConfig balance)
+    {
+        if (stage == null || data == null || data.CharacterId < CompanionFirstId || string.IsNullOrEmpty(data.PngHash))
+            return;
+        string joinKey = stage.AuthorId + "|" + data.PngHash;
+        if (FindByJoin(joinKey) != null || FindByCharacterId(data.CharacterId) != null)
+            return;
+        if (Companions.Count >= ShareStageRules.MaxCompanionCount)
+            return;
+        string source = PngPath(data.PngHash);
+        if (!File.Exists(source))
+            return;
+        string path = CompanionPath(data.CharacterId);
+        string directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+        if (!File.Exists(path))
+            File.Copy(source, path);
+        CharacterClass character = new CharacterClass();
+        string unique = UniqueName(string.IsNullOrWhiteSpace(data.Name) ? "ななし" : data.Name);
+        if (!character.MakeCharacter(path, data.CharacterId, unique) || character.ID != data.CharacterId)
+            return;
+        character.Level = 1;
+        character.FusionCount = 0;
+        character.Exp = 0;
+        character.OwnedNumCur = 0;
+        character.OwnedNumMax = 0;
+        character.EnsureStock();
+        character.AuthorPersonId = 0;
+        character.AuthorSpecified = true;
+        character.CatalogOpened = false;
+        character.CatalogNew = false;
+        CharacterType fileType;
+        if (TryReadAttribute(data.Attribute, out fileType))
+            character.RecalculateBaseStatsKeepingType(balance, fileType);
+        else if (balance != null)
+            character.RecalculateBaseStats(balance);
+        if (data.CharacterId > HighestCompanionId)
+            HighestCompanionId = data.CharacterId;
+        Companions.Add(new SharedCompanion { Character = character, JoinKey = joinKey, PngHash = data.PngHash });
     }
 
     static void FillCharacterIds(SharedStageRecord stage)
@@ -1438,6 +1681,9 @@ public static class ShareBattleRoster
             CharacterClass character = new CharacterClass();
             if (!character.MakeCharacter(path, id, data.Name))
                 continue;
+            CharacterType fileType;
+            if (ShareStageLibrary.TryReadAttribute(data.Attribute, out fileType))
+                character.RecalculateBaseStatsKeepingType(null, fileType);
             character.SetOwnedCur(0, BattleBalanceConfig.MaxOwnedCount);
             Temps[id] = character;
             Names[id] = data.Name;

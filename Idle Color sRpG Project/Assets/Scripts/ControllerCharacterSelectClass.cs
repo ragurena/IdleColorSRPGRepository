@@ -205,10 +205,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         //編成に入っているだけでは Whereabouts は変わらない。最大所持数が 1 以上を候補にする
         for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
         {
-            if (ImportedCharacters.FindAny(CharactersAll, (uint)(indexCharacter)).OwnedNumMax != 0)
-            {
+            if (CanListBuiltIn(indexCharacter))
                 CreateCharacterButton(indexCharacter, ButtonTmp, false);
-            }
         }
         AddImportedCharacterButtons(ButtonTmp, false);
     }
@@ -698,10 +696,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
-                if (ImportedCharacters.FindAny(CharactersAll, (uint)(indexCharacter)).OwnedNumMax != 0)
-                {
+                if (CanListBuiltIn(indexCharacter))
                     CreateCharacterButton(indexCharacter, ButtonTmp, true);
-                }
             }
             AddImportedCharacterButtons(ButtonTmp, true);
         }
@@ -711,10 +707,8 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         {
             for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
             {
-                if (ImportedCharacters.FindAny(CharactersAll, (uint)(indexCharacter)).OwnedNumMax != 0)
-                {
+                if (CanListBuiltIn(indexCharacter))
                     CreateCharacterButton(indexCharacter, ButtonTmp, true);
-                }
             }
             AddImportedCharacterButtons(ButtonTmp, true);
         }
@@ -729,6 +723,17 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         }
         else
             HideWorkerTabs();
+    }
+
+    bool CanListBuiltIn(int index)
+    {
+        if (index < 1 || index > Constants.CHARACTERS_ALL_NUM)
+            return false;
+        if (!CharacterRoster.Contains((uint)index))
+            return false;
+        CharacterClass character = ImportedCharacters.FindAny(CharactersAll, (uint)index);
+        return character != null && character.ID == (uint)index && character.OwnedNumMax != 0
+            && !string.IsNullOrWhiteSpace(character.ImagePath);
     }
 
     void AddImportedCharacterButtons(Button source, bool warnIfUsedInOtherProduction)
@@ -2154,8 +2159,7 @@ public class ControllerCharacterSelectClass : MonoBehaviour
         ClearCharacterList();
         for (int indexCharacter = 0; indexCharacter < Constants.CHARACTERS_ALL_NUM + 1; indexCharacter++)
         {
-            CharacterClass character = ImportedCharacters.FindAny(CharactersAll, (uint)indexCharacter);
-            if (character != null && character.OwnedNumMax != 0)
+            if (CanListBuiltIn(indexCharacter))
                 CreateCharacterButton(indexCharacter, source, true);
         }
         AddImportedCharacterButtons(source, true);

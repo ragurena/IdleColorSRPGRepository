@@ -64,6 +64,16 @@ public static class CharacterRoster
         // new CharacterDefinition(37, "0016_shironeko.png", "白ネコ", false),
     };
 
+    public static bool Contains(uint id)
+    {
+        for (int i = 0; i < All.Length; i++)
+        {
+            if (All[i].Id == id)
+                return true;
+        }
+        return false;
+    }
+
     public static void RegisterAll(CharacterClass[] characters)
     {
         if (characters == null)

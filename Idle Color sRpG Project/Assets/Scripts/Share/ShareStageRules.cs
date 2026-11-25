@@ -169,13 +169,36 @@ public static class ShareStageRules
         return WindowStart(clearedFloor) + 99;
     }
 
+    // 今の100階のうち、クリア階の次が含まれる10階区切りの始まり。未クリアなら先頭。
+    public static int MaxStart(int clearedFloor)
+    {
+        int window = WindowStart(clearedFloor);
+        int relative = clearedFloor - (window - 1);
+        if (relative < 0)
+            relative = 0;
+        int next = relative + 1;
+        if (next > 100)
+            next = 100;
+        int from = window + ((next - 1) / 10) * 10;
+        int last = window + 90;
+        if (from > last)
+            from = last;
+        if (from < window)
+            from = window;
+        return from;
+    }
+
     public static bool IsPlayableWindow(int clearedFloor, int floorFrom, int floorTo)
     {
-        if (floorFrom != 1 && floorFrom != 101 && floorFrom != 201)
+        int window = WindowStart(clearedFloor);
+        int windowEnd = WindowEnd(clearedFloor);
+        if (floorFrom < window || floorTo > windowEnd || floorTo < floorFrom)
             return false;
-        if (floorTo != floorFrom + 99)
+        if ((floorFrom - window) % 10 != 0)
             return false;
-        return floorFrom <= WindowStart(clearedFloor);
+        if ((floorTo - window + 1) % 10 != 0)
+            return false;
+        return floorFrom <= MaxStart(clearedFloor);
     }
 
     // ギャラリーと同じ出現数。1〜10階は1体、91〜100階は9体。100階ごとに繰り返す。
@@ -239,6 +262,18 @@ public static class ShareStageRules
     public static string FormatInstant(DateTime instant)
     {
         return instant.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+    }
+
+    // 作成日が、前回読み込んだファイルより新しければ true。読めない日付は新しくしない。
+    public static bool IsNewerInstant(string next, string previous)
+    {
+        DateTime after;
+        if (!TryParseInstant(next, out after))
+            return false;
+        DateTime before;
+        if (!TryParseInstant(previous, out before))
+            return true;
+        return after > before;
     }
 
     // 初回と、記録より新しい更新日だけ回数を増やす。同じ日と古い日は増やさない。

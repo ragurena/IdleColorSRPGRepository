@@ -35,8 +35,6 @@ public class BattleBalanceConfig
 
     public static int EnemyFusionCount(long levelCap)
     {
-        if (LevelCapPerHundredFloors < 1)
-            return 0;
         if (levelCap < InitialLevelCap)
             levelCap = InitialLevelCap;
         long steps = (levelCap - InitialLevelCap) / LevelCapPerHundredFloors;

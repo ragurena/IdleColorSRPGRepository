@@ -34,6 +34,12 @@ public class ShareStageBoard : MonoBehaviour
     readonly Dictionary<uint, Sprite> _cellSprites = new Dictionary<uint, Sprite>();
     GameObject _formation;
     GameObject _previewFormation;
+    GameObject _loadedFormation;
+    Button _loadedOk;
+    readonly List<Sprite> _loadedSprites = new List<Sprite>();
+    readonly List<Texture2D> _loadedTextures = new List<Texture2D>();
+    readonly List<LoadedArrival> _arrivals = new List<LoadedArrival>();
+    int _arrivalGeneration;
     Button[,] _cells;
     uint[,] _cellIds;
     readonly List<CharacterClass> _picked = new List<CharacterClass>();
@@ -101,7 +107,7 @@ public class ShareStageBoard : MonoBehaviour
 
     void Build(Transform panel)
     {
-        Button open = CreateButton("ButtonSharedStageTab", panel, "共有\nステージ", new Color(0.16f, 0.38f, 0.92f, 1f));
+        Button open = CreateButton("ButtonSharedStageTab", panel, "読込\nステージ", new Color(0.16f, 0.38f, 0.92f, 1f));
         if (_stage != null)
             _stage.PlaceSharedStageButton(open);
 
@@ -157,6 +163,7 @@ public class ShareStageBoard : MonoBehaviour
 
     public void Close()
     {
+        HideLoadedResult();
         if (_root != null)
             _root.SetActive(false);
         _busy = false;
@@ -188,6 +195,8 @@ public class ShareStageBoard : MonoBehaviour
     {
         if (_root == null)
             return;
+        if (_production != null)
+            _production.HideBattleStageKeepingShare();
         _root.SetActive(true);
         transform.SetAsLastSibling();
         GameObject bar = GameObject.Find("PanelSelectScene");
@@ -222,10 +231,11 @@ public class ShareStageBoard : MonoBehaviour
         {
             int from = ShareStageRules.WindowStart(stage.ClearedFloor);
             int to = ShareStageRules.WindowEnd(stage.ClearedFloor);
-            string label = ShownName(stage.Name, stage.AuthorName) + "\n" + from.ToString() + "〜" + to.ToString() + "階\n"
-                + stage.AuthorName + "  星 " + stage.Stars.ToString();
+            string label = ShownName(stage.Name, stage.AuthorName) + "\n" + from.ToString() + "〜" + to.ToString() + "階";
             if (stage.Key == activeKey)
                 label += "\n出撃中";
+            else if (stage.ClearedFloor >= ShareStageRules.FloorCount)
+                label += "\nクリア";
             rows.Add(new ShareListRow
             {
                 Kind = 3,
@@ -283,14 +293,39 @@ public class ShareStageBoard : MonoBehaviour
     {
         card.Label.text = row.Label;
         bool stageCard = row.Kind == 3 || row.Kind == 4;
-        Sprite background = stageCard && row.Stage != null ? BattleStageCatalog.BackgroundByName(row.Stage.Background) : null;
+        MatchStageButtonChrome(card.Button);
+        string backgroundName = stageCard && row.Stage != null ? row.Stage.Background : "";
+        if (string.IsNullOrEmpty(backgroundName))
+            backgroundName = "kougisitu";
+        Sprite background = stageCard ? BattleStageCatalog.BackgroundByName(backgroundName) : null;
         bool showFace = background != null;
         card.Face.gameObject.SetActive(showFace);
         card.Face.sprite = background;
+        card.Face.color = new Color(0.38f, 0.38f, 0.38f, 1f);
+        card.Face.transform.SetAsFirstSibling();
+        ColorBlock colors = card.Button.colors;
+        colors.fadeDuration = 0f;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = Color.white;
+        colors.pressedColor = Color.white;
+        colors.disabledColor = Color.white;
+        card.Button.colors = colors;
         card.Button.image.color = row.Selected ? new Color(1f, 0.85f, 0.4f, 1f) : Color.white;
-        card.Label.color = showFace ? Color.white : new Color(0.2f, 0.2f, 0.2f, 1f);
-        card.Outline.enabled = showFace;
+        card.Label.color = Color.white;
+        card.Outline.enabled = true;
         card.Button.interactable = row.Kind != 0;
+        bool starWindow = stageCard && row.Stage != null && ShareStageRules.WindowStart(row.Stage.ClearedFloor) == 201;
+        bool starDone = starWindow && row.Stage.Stars > row.Stage.LevelBonus;
+        int starTotal = stageCard && row.Stage != null ? row.Stage.Stars : 0;
+        string stageName = stageCard && row.Stage != null ? ShownName(row.Stage.Name, row.Stage.AuthorName) : "";
+        PaintCardStars(card, starWindow, starDone, starTotal);
+        bool openStar = starWindow;
+        card.StarPress = () =>
+        {
+            if (!openStar || _stage == null)
+                return;
+            _stage.OpenSharedChallengeStar(stageName, starDone);
+        };
 
         Sprite[] pics = new Sprite[card.Portraits.Length];
         int shown = 0;
@@ -305,9 +340,23 @@ public class ShareStageBoard : MonoBehaviour
                 shown++;
             }
         }
-        const float size = 56f;
         const float gap = 4f;
-        float x = -(8f + shown * size + Mathf.Max(0, shown - 1) * gap);
+        const float pad = 8f;
+        float size = 188f * 2f / 3f * 0.7f;
+        RectTransform buttonRect = card.Button.GetComponent<RectTransform>();
+        float cardWidth = buttonRect != null ? buttonRect.rect.width : 0f;
+        if (cardWidth < 200f)
+            cardWidth = 1000f;
+        float room = cardWidth * 0.46f;
+        if (shown > 0)
+        {
+            float need = shown * size + Mathf.Max(0, shown - 1) * gap;
+            if (need > room)
+                size = (room - Mathf.Max(0, shown - 1) * gap) / shown;
+            if (size < 36f)
+                size = 36f;
+        }
+        float x = -(pad + shown * size + Mathf.Max(0, shown - 1) * gap);
         for (int i = 0; i < card.Portraits.Length; i++)
         {
             Image pic = card.Portraits[i];
@@ -320,11 +369,12 @@ public class ShareStageBoard : MonoBehaviour
             pic.sprite = pics[i];
             pic.enabled = true;
             pic.color = Color.white;
-            pic.rectTransform.anchoredPosition = new Vector2(x + size * 0.5f, 8f + size * 0.5f);
+            pic.rectTransform.sizeDelta = new Vector2(size, size);
+            pic.rectTransform.anchoredPosition = new Vector2(x + size * 0.5f, pad + size * 0.5f);
             x += size + gap;
         }
-        float pad = shown > 0 ? 8f + shown * size + Mathf.Max(0, shown - 1) * gap + 12f : 16f;
-        card.Label.rectTransform.offsetMax = new Vector2(-pad, -12f);
+        MatchStageLabel(card.Label);
+        RaiseCardReadout(card);
 
         string key = row.Key;
         card.Press = () =>
@@ -380,20 +430,21 @@ public class ShareStageBoard : MonoBehaviour
         textObject.transform.SetParent(obj.transform, false);
         Text text = textObject.GetComponent<Text>();
         text.font = font != null ? font : _font;
-        text.fontSize = 32;
+        text.fontSize = 48;
         text.alignment = TextAnchor.MiddleCenter;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Truncate;
+        text.lineSpacing = 1f;
         text.resizeTextForBestFit = true;
-        text.resizeTextMinSize = 18;
-        text.resizeTextMaxSize = 32;
+        text.resizeTextMinSize = 10;
+        text.resizeTextMaxSize = 48;
         text.raycastTarget = false;
         text.color = new Color(0.2f, 0.2f, 0.2f, 1f);
         RectTransform textRect = text.rectTransform;
         textRect.anchorMin = Vector2.zero;
         textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = new Vector2(16f, 12f);
-        textRect.offsetMax = new Vector2(-16f, -12f);
+        textRect.offsetMin = new Vector2(64f, 0f);
+        textRect.offsetMax = new Vector2(-64f, 0f);
         Outline outline = textObject.GetComponent<Outline>();
         outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
         outline.effectDistance = new Vector2(1.5f, -1.5f);
@@ -417,7 +468,209 @@ public class ShareStageBoard : MonoBehaviour
             pic.enabled = false;
             card.Portraits[i] = pic;
         }
+        card.StarPlate = CreateStarPlate(obj.transform, () =>
+        {
+            if (card.StarPress != null)
+                card.StarPress();
+        });
+        for (int i = 0; i < card.Stars.Length; i++)
+        {
+            card.StarGlows[i] = CreateCardStar(obj.transform, "StarGlow" + i.ToString());
+            card.Stars[i] = CreateCardStar(obj.transform, "Star" + i.ToString());
+        }
+        card.StarCount = CreateStarCount(obj.transform, font);
         return card;
+    }
+
+    static Image CreateCardStar(Transform parent, string name)
+    {
+        GameObject star = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        star.transform.SetParent(parent, false);
+        Image image = star.GetComponent<Image>();
+        image.sprite = ChallengeMarks.Star();
+        image.raycastTarget = false;
+        image.enabled = false;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        return image;
+    }
+
+    static Image CreateStarPlate(Transform parent, UnityEngine.Events.UnityAction onClick)
+    {
+        GameObject obj = new GameObject("StarPlate", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
+        obj.transform.SetParent(parent, false);
+        LayoutElement layout = obj.GetComponent<LayoutElement>();
+        layout.ignoreLayout = true;
+        Image image = obj.GetComponent<Image>();
+        image.sprite = ChallengeMarks.Square();
+        image.color = new Color(0f, 0f, 0f, 0.62f);
+        image.raycastTarget = true;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0f, 0f);
+        Button button = obj.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.None;
+        button.onClick.AddListener(onClick);
+        GameAudio.ForceBindUi(button);
+        obj.SetActive(false);
+        return image;
+    }
+
+    static Text CreateStarCount(Transform parent, Font font)
+    {
+        GameObject obj = new GameObject("StarCount", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text), typeof(Outline));
+        obj.transform.SetParent(parent, false);
+        Text text = obj.GetComponent<Text>();
+        text.font = font;
+        text.fontSize = 36;
+        text.fontStyle = FontStyle.Bold;
+        text.alignment = TextAnchor.MiddleLeft;
+        text.color = Color.white;
+        text.raycastTarget = false;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        Outline outline = obj.GetComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
+        RectTransform rect = text.rectTransform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0f, 0.5f);
+        obj.SetActive(false);
+        return text;
+    }
+
+    static void PaintCardStars(ShareListCard card, bool windowHasStar, bool earned, int total)
+    {
+        const float size = 60f;
+        const float left = 24f;
+        const float bottom = 20f;
+        if (card.StarPlate != null)
+        {
+            card.StarPlate.gameObject.SetActive(windowHasStar);
+            if (windowHasStar)
+            {
+                RectTransform plate = card.StarPlate.rectTransform;
+                plate.sizeDelta = new Vector2(size + 16f, size + 12f);
+                plate.anchoredPosition = new Vector2(left - 8f, bottom - 6f);
+                card.StarPlate.transform.SetAsLastSibling();
+            }
+        }
+        for (int i = 0; i < card.Stars.Length; i++)
+        {
+            bool show = windowHasStar && i == 0;
+            bool lit = show && earned;
+            PlaceCardStar(card.StarGlows[i], left + size * 0.5f, bottom + size * 0.5f, lit ? size + 28f : size + 16f, show, lit ? new Color(1f, 1f, 0.82f, 1f) : new Color(0f, 0f, 0f, 0.9f));
+            PlaceCardStar(card.Stars[i], left + size * 0.5f, bottom + size * 0.5f + 1f, size, show, lit ? new Color(1f, 0.86f, 0.2f, 1f) : new Color(0.62f, 0.62f, 0.66f, 1f));
+        }
+        if (card.StarCount != null)
+        {
+            card.StarCount.gameObject.SetActive(windowHasStar);
+            if (windowHasStar)
+            {
+                card.StarCount.text = total.ToString();
+                RectTransform rect = card.StarCount.rectTransform;
+                rect.sizeDelta = new Vector2(96f, size);
+                rect.anchoredPosition = new Vector2(left + size + 18f, bottom + size * 0.5f);
+                card.StarCount.transform.SetAsLastSibling();
+            }
+        }
+    }
+
+    static void RaiseCardReadout(ShareListCard card)
+    {
+        if (card.Label != null)
+            card.Label.transform.SetAsLastSibling();
+        if (card.StarPlate != null && card.StarPlate.gameObject.activeSelf)
+            card.StarPlate.transform.SetAsLastSibling();
+        for (int i = 0; i < card.Stars.Length; i++)
+        {
+            if (card.StarGlows[i] != null && card.StarGlows[i].enabled)
+                card.StarGlows[i].transform.SetAsLastSibling();
+            if (card.Stars[i] != null && card.Stars[i].enabled)
+                card.Stars[i].transform.SetAsLastSibling();
+        }
+        if (card.StarCount != null && card.StarCount.gameObject.activeSelf)
+            card.StarCount.transform.SetAsLastSibling();
+    }
+
+    static void PlaceCardStar(Image image, float x, float y, float size, bool visible, Color color)
+    {
+        if (image == null)
+            return;
+        image.enabled = visible;
+        if (!visible)
+            return;
+        image.color = color;
+        RectTransform rect = image.rectTransform;
+        rect.sizeDelta = new Vector2(size, size);
+        rect.anchoredPosition = new Vector2(x, y);
+        image.transform.SetAsLastSibling();
+    }
+
+    static void MatchStageLabel(Text label)
+    {
+        if (label == null)
+            return;
+        Text sample = null;
+        Transform content = label.transform.parent != null ? label.transform.parent.parent : null;
+        if (content != null)
+        {
+            for (int i = 0; i < content.childCount; i++)
+            {
+                Transform child = content.GetChild(i);
+                if (child.name.StartsWith("ShareStageCard"))
+                    continue;
+                sample = child.GetComponentInChildren<Text>(true);
+                if (sample != null)
+                    break;
+            }
+        }
+        label.alignment = TextAnchor.MiddleCenter;
+        label.horizontalOverflow = HorizontalWrapMode.Wrap;
+        label.verticalOverflow = VerticalWrapMode.Truncate;
+        label.resizeTextForBestFit = true;
+        label.lineSpacing = sample != null ? sample.lineSpacing : 1f;
+        label.fontStyle = sample != null ? sample.fontStyle : FontStyle.Normal;
+        label.alignByGeometry = sample != null && sample.alignByGeometry;
+        if (sample != null && sample.font != null)
+            label.font = sample.font;
+        int min = sample != null && sample.resizeTextMinSize > 0 ? sample.resizeTextMinSize : 10;
+        int max = sample != null && sample.resizeTextMaxSize > 0 ? sample.resizeTextMaxSize : 48;
+        label.resizeTextMinSize = min;
+        label.resizeTextMaxSize = max;
+        label.fontSize = max;
+        RectTransform rect = label.rectTransform;
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.offsetMin = new Vector2(64f, 0f);
+        rect.offsetMax = new Vector2(-64f, 0f);
+    }
+
+    static void MatchStageButtonChrome(Button button)
+    {
+        if (button == null)
+            return;
+        Transform content = button.transform.parent;
+        if (content == null)
+            return;
+        for (int i = 0; i < content.childCount; i++)
+        {
+            Transform child = content.GetChild(i);
+            if (child.name.StartsWith("ShareStageCard"))
+                continue;
+            Image sample = child.GetComponent<Image>();
+            if (sample == null || sample.sprite == null)
+                continue;
+            button.image.sprite = sample.sprite;
+            button.image.type = sample.type;
+            return;
+        }
     }
 
     Sprite Portrait(string hash)
@@ -521,7 +774,12 @@ public class ShareStageBoard : MonoBehaviour
         public Image Face;
         public Outline Outline;
         public readonly Image[] Portraits = new Image[9];
+        public readonly Image[] Stars = new Image[5];
+        public readonly Image[] StarGlows = new Image[5];
+        public Image StarPlate;
+        public Text StarCount;
         public Action Press;
+        public Action StarPress;
     }
 
     struct ShareListRow
@@ -1140,8 +1398,10 @@ public class ShareStageBoard : MonoBehaviour
 
     void ShowLoad()
     {
+        HideLoadedResult();
         EnsureFields();
         HideFields();
+        SetScrollActive(true);
         SetListTop(420f);
         _url.gameObject.SetActive(true);
         _url.text = "";
@@ -1256,60 +1516,702 @@ public class ShareStageBoard : MonoBehaviour
         }
         if (_production != null)
             _production.SaveGame();
-        _url.gameObject.SetActive(false);
-        StartCoroutine(PlayLoaded(document, error));
+        ShowLoaded(document);
     }
 
-    IEnumerator PlayLoaded(PiquaDocument document, string note)
+    void ShowLoaded(PiquaDocument document)
     {
-        _title.text = ShownName(document.StageName, document.AuthorName);
-        _body.text = "";
-        _status.text = "";
-        ClearList();
-        GameObject flash = new GameObject("ShareLoadFx", typeof(RectTransform), typeof(Image));
-        flash.transform.SetParent(_root.transform, false);
-        Stretch(flash.GetComponent<RectTransform>());
-        Image glow = flash.GetComponent<Image>();
-        glow.color = new Color(document.MainR / 255f, document.MainG / 255f, document.MainB / 255f, 0.15f);
-        Text heading = CreateText(flash.transform, ShownName(document.StageName, document.AuthorName), 48, TextAnchor.MiddleCenter);
-        Place(heading.rectTransform, 180f, 100f, 24f, 24f);
-        bool skip = false;
-        Button skipButton = CreateButton("ButtonShareSkip", flash.transform, "スキップ", new Color(0.2f, 0.2f, 0.24f, 1f));
-        RectTransform skipRect = skipButton.GetComponent<RectTransform>();
-        skipRect.anchorMin = new Vector2(1f, 0f);
-        skipRect.anchorMax = new Vector2(1f, 0f);
-        skipRect.pivot = new Vector2(1f, 0f);
-        skipRect.anchoredPosition = new Vector2(-24f, 24f);
-        skipRect.sizeDelta = new Vector2(220f, 88f);
-        skipButton.onClick.AddListener(() => skip = true);
-        for (int i = 0; i < document.Characters.Count; i++)
-        {
-            Text line = CreateText(flash.transform, document.Characters[i].Name, 36, TextAnchor.MiddleCenter);
-            Place(line.rectTransform, 320f + i * 64f, 56f, 24f, 24f);
-            float until = Time.unscaledTime + 0.35f;
-            while (Time.unscaledTime < until && !skip)
-                yield return null;
-            if (skip)
-                break;
-        }
-        if (!skip)
-        {
-            Text done = CreateText(flash.transform, "STAGE LOADED!", 42, TextAnchor.MiddleCenter);
-            Place(done.rectTransform, 980f, 80f, 24f, 24f);
-            float until = Time.unscaledTime + 0.8f;
-            while (Time.unscaledTime < until && !skip)
-                yield return null;
-        }
-        Destroy(flash);
-        _status.text = note;
+        Present();
+        HideFields();
+        HidePreviewFormation();
         if (_url != null)
             _url.gameObject.SetActive(false);
-        HideFields();
-        Close();
-        if (_stage != null)
-            _stage.SelectSharedStage(document.AuthorId + "_" + document.StageId, note);
+        ClearList();
+        SetScrollActive(false);
+        _body.text = "";
+        _status.text = "";
+        _title.text = document == null ? "" : ShownName(document.StageName, document.AuthorName);
+        BuildLoadedFormation(document);
+        _arrivalGeneration++;
+        StartCoroutine(PlayLoadedArrivals(_arrivalGeneration));
+        EnsureLoadedOk();
+        if (_loadedOk != null)
+        {
+            _loadedOk.gameObject.SetActive(true);
+            _loadedOk.transform.SetAsLastSibling();
+        }
+    }
+
+    void EnsureLoadedOk()
+    {
+        if (_loadedOk != null)
+            return;
+        _loadedOk = CreateButton("ButtonShareLoadedOk", _root.transform, "OK", Color.white);
+        RectTransform rect = _loadedOk.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.offsetMin = new Vector2(24f, 16f);
+        rect.offsetMax = new Vector2(-24f, 112f);
+        _loadedOk.onClick.AddListener(ShowLoad);
         if (_production != null)
-            _production.OpenBattleStage();
+            _production.StyleRepresentativeButton(_loadedOk, Color.white, true);
+        Text label = _loadedOk.GetComponentInChildren<Text>();
+        if (label != null)
+        {
+            label.color = Color.white;
+            label.transform.SetAsLastSibling();
+        }
+    }
+
+    void BuildLoadedFormation(PiquaDocument document)
+    {
+        HideLoadedFormation();
+        const float titleSpace = 108f;
+        const float buttonSpace = 150f;
+        const float gap = 10f;
+        Canvas.ForceUpdateCanvases();
+        RectTransform rootRect = _root != null ? _root.GetComponent<RectTransform>() : null;
+        float height = rootRect != null ? rootRect.rect.height : 0f;
+        if (height < 400f)
+            height = 1200f;
+        float room = height - buttonSpace - titleSpace;
+        float cell = Mathf.Floor((room - gap * 2f) / 3f);
+        if (cell > 220f)
+            cell = 220f;
+        if (cell < 96f)
+            cell = 96f;
+        float span = cell * 3f + gap * 2f;
+        float free = height - titleSpace - buttonSpace - span;
+        if (free < 0f)
+            free = 0f;
+        float gridTop = titleSpace + free * 0.5f;
+        GameObject obj = new GameObject("ShareStageLoadedFormation", typeof(RectTransform), typeof(GridLayoutGroup));
+        obj.transform.SetParent(_root.transform, false);
+        RectTransform rect = obj.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.sizeDelta = new Vector2(span, span);
+        rect.anchoredPosition = new Vector2(0f, -gridTop);
+        GridLayoutGroup layout = obj.GetComponent<GridLayoutGroup>();
+        layout.cellSize = new Vector2(cell, cell);
+        layout.spacing = new Vector2(gap, gap);
+        layout.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        layout.startAxis = GridLayoutGroup.Axis.Horizontal;
+        layout.childAlignment = TextAnchor.UpperCenter;
+        layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        layout.constraintCount = 3;
+        PiquaCharacter[] placed = new PiquaCharacter[9];
+        if (document != null)
+        {
+            for (int i = 0; i < document.Characters.Count; i++)
+            {
+                PiquaCharacter character = document.Characters[i];
+                if (character == null)
+                    continue;
+                int index = character.Slot - 1;
+                if (index < 0 || index >= placed.Length)
+                    continue;
+                placed[index] = character;
+            }
+        }
+        for (int i = 0; i < placed.Length; i++)
+            BuildLoadedCell(obj.transform, placed[i], i, cell);
+        _loadedFormation = obj;
+    }
+
+    void BuildLoadedCell(Transform parent, PiquaCharacter character, int slot, float size)
+    {
+        GameObject cell = new GameObject("LoadedCell", typeof(RectTransform), typeof(Image));
+        cell.transform.SetParent(parent, false);
+        Image back = cell.GetComponent<Image>();
+        back.sprite = WhiteSprite();
+        back.type = Image.Type.Simple;
+        back.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+        back.raycastTarget = false;
+        if (character == null)
+            return;
+        GameObject motionObject = new GameObject("Motion", typeof(RectTransform));
+        motionObject.transform.SetParent(cell.transform, false);
+        RectTransform motion = motionObject.GetComponent<RectTransform>();
+        motion.anchorMin = new Vector2(0.5f, 0.5f);
+        motion.anchorMax = new Vector2(0.5f, 0.5f);
+        motion.pivot = new Vector2(0.5f, 0.5f);
+        motion.sizeDelta = new Vector2(size, size);
+        GameObject faceObject = new GameObject("Face", typeof(RectTransform), typeof(Image));
+        faceObject.transform.SetParent(motion, false);
+        RectTransform faceRect = faceObject.GetComponent<RectTransform>();
+        faceRect.anchorMin = Vector2.zero;
+        faceRect.anchorMax = Vector2.one;
+        faceRect.offsetMin = Vector2.zero;
+        faceRect.offsetMax = Vector2.zero;
+        Image face = faceObject.GetComponent<Image>();
+        face.preserveAspect = true;
+        face.raycastTarget = false;
+        Sprite sprite = SpriteFromPng(character.Png);
+        face.sprite = sprite != null ? sprite : WhiteSprite();
+        face.color = Color.white;
+        face.enabled = false;
+        GameObject plate = new GameObject("Info", typeof(RectTransform), typeof(Image));
+        plate.transform.SetParent(cell.transform, false);
+        plate.SetActive(false);
+        Image plateImage = plate.GetComponent<Image>();
+        plateImage.sprite = WhiteSprite();
+        plateImage.type = Image.Type.Simple;
+        plateImage.color = new Color(0f, 0f, 0f, 0.62f);
+        plateImage.raycastTarget = false;
+        RectTransform plateRect = plate.GetComponent<RectTransform>();
+        plateRect.anchorMin = new Vector2(0f, 0f);
+        plateRect.anchorMax = new Vector2(1f, 0f);
+        plateRect.pivot = new Vector2(0.5f, 0f);
+        plateRect.offsetMin = Vector2.zero;
+        plateRect.offsetMax = new Vector2(0f, 52f);
+        string caption = "Lv " + UiNumber.Format(character.Level) + " / 合成 " + UiNumber.Format(character.FusionCount) + "回";
+        Text label = CreateText(plate.transform, caption, 28, TextAnchor.MiddleCenter);
+        Stretch(label.rectTransform);
+        label.color = Color.white;
+        label.fontStyle = FontStyle.Bold;
+        label.resizeTextForBestFit = true;
+        label.resizeTextMinSize = 18;
+        label.resizeTextMaxSize = 28;
+        LoadedArrival arrival = new LoadedArrival();
+        arrival.Motion = motion;
+        arrival.Face = face;
+        arrival.Plate = plate;
+        arrival.Source = sprite != null ? sprite.texture : null;
+        arrival.Slot = slot;
+        arrival.Attribute = character.Attribute;
+        arrival.Size = size;
+        _arrivals.Add(arrival);
+    }
+
+    IEnumerator PlayLoadedArrivals(int generation)
+    {
+        for (int i = 0; i < _arrivals.Count; i++)
+            StartCoroutine(PlayLoadedArrival(_arrivals[i], generation));
+        yield break;
+    }
+
+    IEnumerator PlayLoadedArrival(LoadedArrival arrival, int generation)
+    {
+        float wait = arrival.Slot * 0.12f;
+        float elapsed = 0f;
+        while (elapsed < wait)
+        {
+            if (generation != _arrivalGeneration)
+                yield break;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        if (generation != _arrivalGeneration || arrival.Motion == null)
+            yield break;
+        List<ArrivalGrain> grains = new List<ArrivalGrain>();
+        List<GameObject> sparks = new List<GameObject>();
+        Texture2D canvas = null;
+        RawImage picture = null;
+        try
+        {
+            if (!BeginArrival(arrival, grains, out canvas, out picture))
+            {
+                RevealArrival(arrival);
+                yield break;
+            }
+            float fall = 0f;
+            int landed = 0;
+            while (landed < grains.Count)
+            {
+                if (generation != _arrivalGeneration || arrival.Motion == null)
+                    yield break;
+                landed = MoveArrival(grains, canvas, fall);
+                fall += Time.deltaTime;
+                yield return null;
+            }
+            if (picture != null)
+                picture.texture = canvas;
+            yield return StartCoroutine(ArrivalFlash(arrival, picture, generation));
+            if (generation != _arrivalGeneration || arrival.Motion == null)
+                yield break;
+            yield return StartCoroutine(ArrivalSparkle(arrival, sparks, generation));
+            if (generation != _arrivalGeneration || arrival.Motion == null)
+                yield break;
+            float scale = arrival.Size / 300f;
+            yield return StartCoroutine(ArrivalHop(arrival, 26f * scale, 0.28f, generation));
+            if (generation != _arrivalGeneration || arrival.Motion == null)
+                yield break;
+            yield return StartCoroutine(ArrivalHop(arrival, 12f * scale, 0.22f, generation));
+            if (generation != _arrivalGeneration || arrival.Motion == null)
+                yield break;
+            RevealArrival(arrival);
+        }
+        finally
+        {
+            ClearArrivalFx(grains, sparks, canvas, picture);
+        }
+    }
+
+    bool BeginArrival(LoadedArrival arrival, List<ArrivalGrain> grains, out Texture2D canvas, out RawImage picture)
+    {
+        canvas = null;
+        picture = null;
+        Texture2D source = arrival.Source;
+        if (source == null || arrival.Motion == null)
+            return false;
+        Color32[] pixels;
+        try
+        {
+            pixels = source.GetPixels32();
+        }
+        catch (UnityException)
+        {
+            return false;
+        }
+        int width = source.width;
+        int height = source.height;
+        if (pixels == null || width < 1 || height < 1 || pixels.Length != width * height)
+            return false;
+        canvas = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        canvas.filterMode = FilterMode.Point;
+        canvas.wrapMode = TextureWrapMode.Clamp;
+        canvas.hideFlags = HideFlags.HideAndDontSave;
+        Color32[] blank = new Color32[pixels.Length];
+        canvas.SetPixels32(blank);
+        canvas.Apply(false);
+        GameObject pictureObject = new GameObject("Assemble", typeof(RectTransform), typeof(RawImage));
+        pictureObject.transform.SetParent(arrival.Motion, false);
+        RectTransform pictureRect = pictureObject.GetComponent<RectTransform>();
+        pictureRect.anchorMin = Vector2.zero;
+        pictureRect.anchorMax = Vector2.one;
+        pictureRect.offsetMin = Vector2.zero;
+        pictureRect.offsetMax = Vector2.zero;
+        picture = pictureObject.GetComponent<RawImage>();
+        picture.texture = canvas;
+        picture.raycastTarget = false;
+        float body = arrival.Size;
+        float cellX = body / width;
+        float cellY = body / height;
+        float sway = body * (12f / 300f);
+        int showPerRow = width <= 16 ? width : (width <= 32 ? 8 : 5);
+        Color neon = ArrivalNeon(arrival.Attribute);
+        for (int y = 0; y < height; y++)
+        {
+            List<int> columns = new List<int>();
+            for (int x = 0; x < width; x++)
+            {
+                if (pixels[y * width + x].a != 0)
+                    columns.Add(x);
+            }
+            for (int i = columns.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                int swap = columns[i];
+                columns[i] = columns[j];
+                columns[j] = swap;
+            }
+            float rowStart = height <= 1 ? 0.05f : 0.05f + 1.25f * y / (height - 1f);
+            int shown = 0;
+            for (int n = 0; n < columns.Count; n++)
+            {
+                int x = columns[n];
+                ArrivalGrain grain = new ArrivalGrain();
+                grain.Index = y * width + x;
+                grain.Color = pixels[grain.Index];
+                float fallTime = 0.5f + UnityEngine.Random.Range(-0.06f, 0.08f);
+                if (fallTime < 0.36f)
+                    fallTime = 0.36f;
+                grain.Start = rowStart + UnityEngine.Random.Range(0f, 0.18f);
+                grain.Land = grain.Start + fallTime;
+                grain.ToX = -body * 0.5f + (x + 0.5f) * cellX;
+                grain.ToY = -body * 0.5f + (y + 0.5f) * cellY;
+                grain.FromX = grain.ToX + UnityEngine.Random.Range(-sway * 1.5f, sway * 1.5f);
+                grain.FromY = body * 0.5f + UnityEngine.Random.Range(0f, sway * 3f);
+                grain.Phase = UnityEngine.Random.Range(0f, 6.2832f);
+                grain.Sway = sway;
+                if (shown < showPerRow)
+                {
+                    float dot = cellX < cellY ? cellX : cellY;
+                    if (dot < 3f)
+                        dot = 3f;
+                    grain.Object = SpawnArrivalGrain(arrival.Motion, grain, dot, neon);
+                    shown++;
+                }
+                grains.Add(grain);
+            }
+        }
+        return grains.Count > 0;
+    }
+
+    GameObject SpawnArrivalGrain(Transform parent, ArrivalGrain grain, float size, Color neon)
+    {
+        GameObject root = new GameObject("FallDot", typeof(RectTransform));
+        root.transform.SetParent(parent, false);
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = Vector2.zero;
+        grain.Neon = ArrivalGlow(root.transform, size * 2.4f, neon);
+        grain.White = ArrivalGlow(root.transform, size * 1.35f, Color.white);
+        grain.Core = ArrivalGlow(root.transform, size, grain.Color).rectTransform;
+        root.SetActive(false);
+        return root;
+    }
+
+    Image ArrivalGlow(Transform parent, float size, Color color)
+    {
+        GameObject glow = new GameObject("Glow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        glow.transform.SetParent(parent, false);
+        RectTransform rect = glow.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(size, size);
+        Image image = glow.GetComponent<Image>();
+        image.sprite = WhiteSprite();
+        image.color = color;
+        image.raycastTarget = false;
+        return image;
+    }
+
+    int MoveArrival(List<ArrivalGrain> grains, Texture2D canvas, float elapsed)
+    {
+        int landed = 0;
+        bool dirty = false;
+        Color32[] pixels = null;
+        for (int i = 0; i < grains.Count; i++)
+        {
+            ArrivalGrain grain = grains[i];
+            if (grain.Landed)
+            {
+                landed++;
+                continue;
+            }
+            if (elapsed < grain.Start)
+                continue;
+            if (grain.Object != null && !grain.Object.activeSelf)
+                grain.Object.SetActive(true);
+            float span = grain.Land - grain.Start;
+            float u = span <= 0.0001f ? 1f : Mathf.Clamp01((elapsed - grain.Start) / span);
+            if (grain.Core != null)
+            {
+                Vector2 head = ArrivalPoint(grain, u);
+                grain.Core.anchoredPosition = head;
+                PlaceArrivalTrail(grain.White, grain, u, 0.1f, 1f);
+                PlaceArrivalTrail(grain.Neon, grain, u, 0.24f, 0.9f);
+            }
+            if (u < 1f && elapsed < grain.Land)
+                continue;
+            grain.Landed = true;
+            landed++;
+            if (pixels == null && canvas != null)
+                pixels = canvas.GetPixels32();
+            if (pixels != null && grain.Index >= 0 && grain.Index < pixels.Length)
+            {
+                pixels[grain.Index] = grain.Color;
+                dirty = true;
+            }
+            if (grain.Object != null)
+            {
+                Destroy(grain.Object);
+                grain.Object = null;
+            }
+        }
+        if (dirty && canvas != null && pixels != null)
+        {
+            canvas.SetPixels32(pixels);
+            canvas.Apply(false);
+        }
+        return landed;
+    }
+
+    static void PlaceArrivalTrail(Image trail, ArrivalGrain grain, float u, float behind, float alpha)
+    {
+        if (trail == null)
+            return;
+        float back = u - behind;
+        if (back < 0f)
+            back = 0f;
+        trail.rectTransform.anchoredPosition = ArrivalPoint(grain, back);
+        Color color = trail.color;
+        float fade = (1f - u) * alpha;
+        if (fade < 0f)
+            fade = 0f;
+        color.a = fade;
+        trail.color = color;
+    }
+
+    static Vector2 ArrivalPoint(ArrivalGrain grain, float u)
+    {
+        if (u < 0f)
+            u = 0f;
+        if (u > 1f)
+            u = 1f;
+        float eased = Mathf.SmoothStep(0f, 1f, u);
+        float sway = Mathf.Sin(grain.Phase + u * 6.2832f) * (1f - u) * grain.Sway;
+        float x = Mathf.Lerp(grain.FromX, grain.ToX, eased) + sway;
+        float y = Mathf.Lerp(grain.FromY, grain.ToY, eased);
+        return new Vector2(x, y);
+    }
+
+    IEnumerator ArrivalFlash(LoadedArrival arrival, RawImage picture, int generation)
+    {
+        Color neon = ArrivalNeon(arrival.Attribute);
+        float t = 0f;
+        const float seconds = 0.33f;
+        while (t < seconds)
+        {
+            if (generation != _arrivalGeneration || arrival.Motion == null)
+                yield break;
+            t += Time.deltaTime;
+            float pulse = Mathf.Sin(Mathf.Clamp01(t / seconds) * Mathf.PI);
+            if (picture != null)
+                picture.color = Color.Lerp(Color.white, neon, pulse * 0.35f);
+            arrival.Motion.localScale = Vector3.one * (1f + 0.1f * pulse);
+            yield return null;
+        }
+        if (picture != null)
+            picture.color = Color.white;
+        if (arrival.Motion != null)
+            arrival.Motion.localScale = Vector3.one;
+    }
+
+    IEnumerator ArrivalSparkle(LoadedArrival arrival, List<GameObject> sparks, int generation)
+    {
+        Color neon = ArrivalNeon(arrival.Attribute);
+        float scale = arrival.Size / 300f;
+        const int count = 10;
+        RectTransform[] rects = new RectTransform[count];
+        Image[] images = new Image[count];
+        Vector2[] from = new Vector2[count];
+        Vector2[] to = new Vector2[count];
+        for (int i = 0; i < count; i++)
+        {
+            float ang = i / (float)count * 6.2832f + UnityEngine.Random.Range(-0.12f, 0.12f);
+            float dist = UnityEngine.Random.Range(90f, 230f) * scale;
+            bool core = i % 2 == 0;
+            float size = (core ? UnityEngine.Random.Range(16f, 28f) : UnityEngine.Random.Range(28f, 52f)) * scale;
+            if (size < 4f)
+                size = 4f;
+            Color color = core ? Color.white : neon;
+            GameObject spark = new GameObject("Spark", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            spark.transform.SetParent(arrival.Motion, false);
+            RectTransform rect = spark.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(size, size);
+            Vector2 dir = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+            from[i] = dir * (18f * scale);
+            to[i] = dir * dist;
+            rect.anchoredPosition = from[i];
+            Image image = spark.GetComponent<Image>();
+            image.sprite = WhiteSprite();
+            image.raycastTarget = false;
+            image.color = color;
+            rects[i] = rect;
+            images[i] = image;
+            sparks.Add(spark);
+        }
+        float t = 0f;
+        const float seconds = 0.55f;
+        while (t < seconds)
+        {
+            if (generation != _arrivalGeneration || arrival.Motion == null)
+                yield break;
+            t += Time.deltaTime;
+            float u = Mathf.Clamp01(t / seconds);
+            float fade = Mathf.Sin(Mathf.Clamp01(u * 1.15f) * Mathf.PI);
+            float travel = Mathf.SmoothStep(0f, 1f, u);
+            for (int i = 0; i < count; i++)
+            {
+                if (rects[i] == null)
+                    continue;
+                rects[i].anchoredPosition = Vector2.Lerp(from[i], to[i], travel);
+                float twinkle = 0.75f + 0.45f * Mathf.Sin(u * 16f + i);
+                rects[i].localScale = Vector3.one * twinkle * (1.15f - u * 0.35f);
+                if (images[i] != null)
+                {
+                    Color color = images[i].color;
+                    color.a = fade;
+                    images[i].color = color;
+                }
+            }
+            yield return null;
+        }
+        for (int i = sparks.Count - 1; i >= 0; i--)
+        {
+            if (sparks[i] != null)
+                Destroy(sparks[i]);
+            sparks.RemoveAt(i);
+        }
+    }
+
+    IEnumerator ArrivalHop(LoadedArrival arrival, float height, float duration, int generation)
+    {
+        float t = 0f;
+        while (t < duration)
+        {
+            if (generation != _arrivalGeneration || arrival.Motion == null)
+                yield break;
+            t += Time.deltaTime;
+            float u = duration <= 0.0001f ? 1f : Mathf.Clamp01(t / duration);
+            float y = 4f * height * u * (1f - u);
+            Vector2 pos = arrival.Motion.anchoredPosition;
+            pos.y = y;
+            arrival.Motion.anchoredPosition = pos;
+            float pinch = 0f;
+            if (u > 0.78f)
+                pinch = Mathf.Sin((u - 0.78f) / 0.22f * Mathf.PI);
+            arrival.Motion.localScale = new Vector3(1f + 0.1f * pinch, 1f - 0.16f * pinch, 1f);
+            yield return null;
+        }
+        if (arrival.Motion != null)
+        {
+            arrival.Motion.anchoredPosition = Vector2.zero;
+            arrival.Motion.localScale = Vector3.one;
+        }
+    }
+
+    static void RevealArrival(LoadedArrival arrival)
+    {
+        if (arrival.Face != null)
+            arrival.Face.enabled = true;
+        if (arrival.Plate != null)
+        {
+            arrival.Plate.SetActive(true);
+            arrival.Plate.transform.SetAsLastSibling();
+        }
+        if (arrival.Motion != null)
+        {
+            arrival.Motion.anchoredPosition = Vector2.zero;
+            arrival.Motion.localScale = Vector3.one;
+        }
+    }
+
+    static void ClearArrivalFx(List<ArrivalGrain> grains, List<GameObject> sparks, Texture2D canvas, RawImage picture)
+    {
+        if (grains != null)
+        {
+            for (int i = 0; i < grains.Count; i++)
+            {
+                if (grains[i].Object != null)
+                    Destroy(grains[i].Object);
+            }
+        }
+        if (sparks != null)
+        {
+            for (int i = 0; i < sparks.Count; i++)
+            {
+                if (sparks[i] != null)
+                    Destroy(sparks[i]);
+            }
+        }
+        if (picture != null)
+            Destroy(picture.gameObject);
+        if (canvas != null)
+            Destroy(canvas);
+    }
+
+    static Color ArrivalNeon(string attribute)
+    {
+        if (attribute == "Fire")
+            return new Color(1f, 0.18f, 0.05f, 1f);
+        if (attribute == "Grass")
+            return new Color(0.15f, 1f, 0.28f, 1f);
+        if (attribute == "Water")
+            return new Color(0.15f, 0.55f, 1f, 1f);
+        if (attribute == "Light")
+            return new Color(1f, 0.92f, 0.35f, 1f);
+        if (attribute == "Dark")
+            return new Color(0.36f, 0.04f, 0.52f, 1f);
+        return Color.white;
+    }
+
+    sealed class LoadedArrival
+    {
+        public RectTransform Motion;
+        public Image Face;
+        public GameObject Plate;
+        public Texture2D Source;
+        public int Slot;
+        public string Attribute;
+        public float Size;
+    }
+
+    sealed class ArrivalGrain
+    {
+        public int Index;
+        public Color32 Color;
+        public float Start;
+        public float Land;
+        public float FromX;
+        public float FromY;
+        public float ToX;
+        public float ToY;
+        public float Phase;
+        public float Sway;
+        public bool Landed;
+        public GameObject Object;
+        public RectTransform Core;
+        public Image White;
+        public Image Neon;
+    }
+
+    Sprite SpriteFromPng(byte[] png)
+    {
+        if (png == null || png.Length == 0)
+            return null;
+        Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!texture.LoadImage(png))
+        {
+            Destroy(texture);
+            return null;
+        }
+        texture.filterMode = FilterMode.Point;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        _loadedTextures.Add(texture);
+        _loadedSprites.Add(sprite);
+        return sprite;
+    }
+
+    void HideLoadedResult()
+    {
+        HideLoadedFormation();
+        if (_loadedOk != null)
+            _loadedOk.gameObject.SetActive(false);
+        SetScrollActive(true);
+    }
+
+    void HideLoadedFormation()
+    {
+        _arrivalGeneration++;
+        _arrivals.Clear();
+        if (_loadedFormation != null)
+        {
+            Destroy(_loadedFormation);
+            _loadedFormation = null;
+        }
+        for (int i = 0; i < _loadedSprites.Count; i++)
+        {
+            if (_loadedSprites[i] != null)
+                Destroy(_loadedSprites[i]);
+        }
+        _loadedSprites.Clear();
+        for (int i = 0; i < _loadedTextures.Count; i++)
+        {
+            if (_loadedTextures[i] != null)
+                Destroy(_loadedTextures[i]);
+        }
+        _loadedTextures.Clear();
+    }
+
+    void SetScrollActive(bool active)
+    {
+        if (_list == null || _list.parent == null)
+            return;
+        _list.parent.gameObject.SetActive(active);
     }
 
     static string UploadFailure(UnityWebRequest request)
