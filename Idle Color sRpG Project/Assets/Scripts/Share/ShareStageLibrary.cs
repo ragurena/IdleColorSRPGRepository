@@ -16,6 +16,7 @@ public sealed class SharedStageCharacterData
     public string Attribute = "None";
     public string PngHash = "";
     public uint CharacterId;
+    public uint SourceId;
 }
 
 public sealed class SharedStageRecord
@@ -51,6 +52,7 @@ public sealed class SharedCompanionRecord
     public string Name = "";
     public string JoinKey = "";
     public string PngHash = "";
+    public uint SourceId;
     public ulong OwnedNumMax;
     public ulong OwnedNumCur;
     public ulong Level = 1;
@@ -79,6 +81,7 @@ public static class ShareStageLibrary
     static readonly List<SharedCompanionRecord> PendingCompanions = new List<SharedCompanionRecord>();
     static readonly List<AuthorSave> PendingAuthors = new List<AuthorSave>();
     static readonly List<SharedCompanion> Companions = new List<SharedCompanion>();
+    static readonly List<uint> ReplacedPictures = new List<uint>();
     static readonly Dictionary<string, string> SeenDates = new Dictionary<string, string>();
     static uint HighestCompanionId;
     static string _userId = "";
@@ -92,12 +95,14 @@ public static class ShareStageLibrary
         public CharacterClass Character;
         public string JoinKey;
         public string PngHash;
+        public uint SourceId;
     }
 
     sealed class AuthorSave
     {
         public string AuthorId = "";
         public readonly List<string> Hashes = new List<string>();
+        public readonly List<uint> Sources = new List<uint>();
     }
 
     public static int LoadCount
@@ -205,6 +210,15 @@ public static class ShareStageLibrary
                 count++;
         }
         return count;
+    }
+
+    public static void TakeReplacedPictures(List<uint> into)
+    {
+        if (into == null)
+            return;
+        for (int i = 0; i < ReplacedPictures.Count; i++)
+            into.Add(ReplacedPictures[i]);
+        ReplacedPictures.Clear();
     }
 
     public static void ForEachCompanion(Action<CharacterClass> visit)
@@ -368,7 +382,7 @@ public static class ShareStageLibrary
             AuthorSave saved = PendingAuthors[i];
             if (saved == null)
                 continue;
-            CharacterIds.LoadAuthor(saved.AuthorId, saved.Hashes);
+            CharacterIds.LoadAuthor(saved.AuthorId, saved.Hashes, saved.Sources);
         }
         PendingAuthors.Clear();
         for (int i = 0; i < Stages.Count; i++)
@@ -384,6 +398,15 @@ public static class ShareStageLibrary
             RestoreCompanion(record, balance);
         }
         PendingCompanions.Clear();
+        for (int i = 0; i < Companions.Count; i++)
+        {
+            SharedCompanion companion = Companions[i];
+            if (companion == null || companion.SourceId != 0 || companion.Character == null)
+                continue;
+            uint source = CharacterIds.SourceOf(companion.Character.ID);
+            if (source != 0)
+                companion.SourceId = source;
+        }
         EnsureCatalogCharacters(balance);
         if (ActiveStage() == null)
             _activeKey = "";
@@ -477,6 +500,7 @@ public static class ShareStageLibrary
             entry.Spd = character.Stats[1].SPD;
             entry.Luc = (long)character.Stats[1].LUC;
             entry.Obs = (long)character.Stats[1].OBS;
+            entry.SourceId = character.ID;
             entry.Png = png;
             built.Characters.Add(entry);
         }
@@ -528,6 +552,7 @@ public static class ShareStageLibrary
     public static bool TryAccept(PiquaDocument document, BattleBalanceConfig balance, out string error)
     {
         error = null;
+        ReplacedPictures.Clear();
         EnsureUser();
         if (document == null)
         {
@@ -555,32 +580,83 @@ public static class ShareStageLibrary
                 return false;
             }
         }
-        List<string> hashes = new List<string>();
+        string[] hashes = new string[document.Characters.Count];
+        List<string> addHashes = new List<string>();
+        List<uint> addSources = new List<uint>();
+        List<int> bindAt = new List<int>();
         for (int i = 0; i < document.Characters.Count; i++)
-            hashes.Add(Sha256(document.Characters[i].Png));
+        {
+            PiquaCharacter character = document.Characters[i];
+            hashes[i] = Sha256(character.Png);
+            if (character.SourceId == 0)
+                continue;
+            for (int j = 0; j < i; j++)
+            {
+                if (document.Characters[j].SourceId != character.SourceId)
+                    continue;
+                error = "不正なキャラクターデータです。";
+                return false;
+            }
+        }
+        for (int i = 0; i < document.Characters.Count; i++)
+        {
+            uint sourceId = document.Characters[i].SourceId;
+            if (sourceId != 0 && CharacterIds.IdOfSource(document.AuthorId, sourceId) != 0)
+                continue;
+            if (sourceId != 0 && CharacterIds.IdOf(document.AuthorId, hashes[i]) != 0)
+            {
+                if (!CharacterIds.CanBindSource(document.AuthorId, sourceId, hashes[i]))
+                {
+                    error = "不正なキャラクターデータです。";
+                    return false;
+                }
+                bindAt.Add(i);
+                continue;
+            }
+            addHashes.Add(hashes[i]);
+            addSources.Add(sourceId);
+        }
         int authorsBefore = CharacterIds.AuthorCount;
         int hashesBefore = CharacterIds.OpenCount(document.AuthorId);
-        if (!CharacterIds.TryAdd(document.AuthorId, hashes, out error))
+        if (!CharacterIds.TryAdd(document.AuthorId, addHashes, addSources, out error))
             return false;
-        int before = _loadCount;
         if (!ShareStageRules.NoteLoad(ref _loadCount, SeenDates, document.AuthorId, document.StageId, document.UpdatedAt))
         {
             CharacterIds.Revert(document.AuthorId, authorsBefore, hashesBefore);
             error = "ファイルが破損しています。";
             return false;
         }
+        for (int i = 0; i < bindAt.Count; i++)
+        {
+            int index = bindAt[i];
+            if (CharacterIds.TryBindSource(document.AuthorId, document.Characters[index].SourceId, hashes[index]))
+                continue;
+            CharacterIds.Revert(document.AuthorId, authorsBefore, hashesBefore);
+            error = "不正なキャラクターデータです。";
+            return false;
+        }
         for (int i = 0; i < document.Characters.Count; i++)
         {
-            PiquaCharacter character = document.Characters[i];
-            string hash = Sha256(character.Png);
-            string path = PngPath(hash);
+            string path = PngPath(hashes[i]);
             if (!File.Exists(path))
             {
                 string directory = Path.GetDirectoryName(path);
                 if (!Directory.Exists(directory))
                     Directory.CreateDirectory(directory);
-                File.WriteAllBytes(path, character.Png);
+                File.WriteAllBytes(path, document.Characters[i].Png);
             }
+        }
+        for (int i = 0; i < document.Characters.Count; i++)
+        {
+            uint sourceId = document.Characters[i].SourceId;
+            uint localId = sourceId != 0
+                ? CharacterIds.IdOfSource(document.AuthorId, sourceId)
+                : CharacterIds.IdOf(document.AuthorId, hashes[i]);
+            if (localId != 0)
+                continue;
+            CharacterIds.Revert(document.AuthorId, authorsBefore, hashesBefore);
+            error = "不正なキャラクターデータです。";
+            return false;
         }
         SharedStageRecord stage = existing ?? new SharedStageRecord();
         int cleared = existing != null ? existing.ClearedFloor : 0;
@@ -603,7 +679,10 @@ public static class ShareStageLibrary
         for (int i = 0; i < document.Characters.Count; i++)
         {
             PiquaCharacter character = document.Characters[i];
-            string hash = Sha256(character.Png);
+            string hash = hashes[i];
+            uint localId = character.SourceId != 0
+                ? CharacterIds.IdOfSource(document.AuthorId, character.SourceId)
+                : CharacterIds.IdOf(document.AuthorId, hash);
             stage.Characters.Add(new SharedStageCharacterData
             {
                 Slot = character.Slot,
@@ -613,7 +692,8 @@ public static class ShareStageLibrary
                 FusionCount = character.FusionCount,
                 Attribute = character.Attribute,
                 PngHash = hash,
-                CharacterId = CharacterIds.IdOf(document.AuthorId, hash)
+                CharacterId = localId,
+                SourceId = character.SourceId
             });
         }
         bool stronger = false;
@@ -775,7 +855,7 @@ public static class ShareStageLibrary
         string joinKey = ShareBattleRoster.JoinKey(tempId);
         if (string.IsNullOrEmpty(joinKey))
             return false;
-        SharedCompanion companion = FindByJoin(joinKey);
+        SharedCompanion companion = FindCompanion(joinKey);
         if (companion == null || companion.Character == null)
             return true;
         return companion.Character.OwnedNumCur < 1;
@@ -789,14 +869,15 @@ public static class ShareStageLibrary
         if (string.IsNullOrEmpty(joinKey) || png == null)
             return null;
         string authorId;
+        uint sourceId;
         string hash;
-        SplitJoin(joinKey, out authorId, out hash);
-        uint id = CharacterIds.IdOf(authorId, hash);
+        SplitJoin(joinKey, out authorId, out sourceId, out hash);
+        uint id = sourceId != 0
+            ? CharacterIds.IdOfSource(authorId, sourceId)
+            : CharacterIds.IdOf(authorId, hash);
         if (id == 0)
             return "仲間にできませんでした。";
-        SharedCompanion companion = FindByJoin(joinKey);
-        if (companion == null)
-            companion = FindByCharacterId(id);
+        SharedCompanion companion = FindCompanion(joinKey);
         if (companion != null && companion.Character != null)
         {
             bool first = companion.Character.OwnedNumMax == 0;
@@ -843,7 +924,13 @@ public static class ShareStageLibrary
             character.RecalculateBaseStats(balance);
         if (id > HighestCompanionId)
             HighestCompanionId = id;
-        Companions.Add(new SharedCompanion { Character = character, JoinKey = joinKey, PngHash = string.IsNullOrEmpty(hash) ? Sha256(png) : hash });
+        Companions.Add(new SharedCompanion
+        {
+            Character = character,
+            JoinKey = joinKey,
+            PngHash = string.IsNullOrEmpty(hash) ? Sha256(png) : hash,
+            SourceId = sourceId
+        });
         return character.Name + " が仲間になった";
     }
 
@@ -1048,7 +1135,8 @@ public static class ShareStageLibrary
                 FusionCount = source.FusionCount,
                 Attribute = source.Attribute,
                 PngHash = source.PngHash,
-                CharacterId = source.CharacterId
+                CharacterId = source.CharacterId,
+                SourceId = source.SourceId
             });
         }
     }
@@ -1074,9 +1162,17 @@ public static class ShareStageLibrary
         return null;
     }
 
-    static void SplitJoin(string joinKey, out string authorId, out string hash)
+    public static string MakeJoinKey(string authorId, uint sourceId, string hash)
+    {
+        if (sourceId != 0)
+            return authorId + "|" + sourceId.ToString(CultureInfo.InvariantCulture) + "|" + (hash ?? "");
+        return authorId + "|" + (hash ?? "");
+    }
+
+    static void SplitJoin(string joinKey, out string authorId, out uint sourceId, out string hash)
     {
         authorId = "";
+        sourceId = 0;
         hash = "";
         if (string.IsNullOrEmpty(joinKey))
             return;
@@ -1086,7 +1182,66 @@ public static class ShareStageLibrary
         authorId = joinKey.Substring(0, bar);
         string rest = joinKey.Substring(bar + 1);
         int bar2 = rest.IndexOf('|');
-        hash = bar2 >= 0 ? rest.Substring(bar2 + 1) : rest;
+        if (bar2 >= 0)
+        {
+            uint parsed;
+            if (uint.TryParse(rest.Substring(0, bar2), NumberStyles.None, CultureInfo.InvariantCulture, out parsed))
+                sourceId = parsed;
+            hash = rest.Substring(bar2 + 1);
+        }
+        else
+            hash = rest;
+    }
+
+    static SharedCompanion FindCompanion(string joinKey)
+    {
+        if (string.IsNullOrEmpty(joinKey))
+            return null;
+        string authorId;
+        uint sourceId;
+        string hash;
+        SplitJoin(joinKey, out authorId, out sourceId, out hash);
+        if (sourceId != 0)
+        {
+            SharedCompanion bySource = FindBySource(authorId, sourceId);
+            if (bySource != null)
+                return bySource;
+            SharedCompanion byId = FindByCharacterId(CharacterIds.IdOfSource(authorId, sourceId));
+            if (byId != null)
+            {
+                if (byId.SourceId == 0)
+                    byId.SourceId = sourceId;
+                return byId;
+            }
+        }
+        SharedCompanion byJoin = FindByJoin(joinKey);
+        if (byJoin != null)
+            return byJoin;
+        return FindByCharacterId(CharacterIds.IdOf(authorId, hash));
+    }
+
+    static SharedCompanion FindBySource(string authorId, uint sourceId)
+    {
+        if (sourceId == 0)
+            return null;
+        for (int i = 0; i < Companions.Count; i++)
+        {
+            SharedCompanion companion = Companions[i];
+            if (companion == null || companion.SourceId != sourceId)
+                continue;
+            if (SameJoinAuthor(companion.JoinKey, authorId))
+                return companion;
+        }
+        return null;
+    }
+
+    static bool SameJoinAuthor(string joinKey, string authorId)
+    {
+        if (string.IsNullOrEmpty(joinKey) || string.IsNullOrEmpty(authorId))
+            return false;
+        int bar = joinKey.IndexOf('|');
+        string prefix = bar >= 0 ? joinKey.Substring(0, bar) : joinKey;
+        return string.Equals(prefix, authorId, StringComparison.OrdinalIgnoreCase);
     }
 
     static void EnsureCatalogCharacters(BattleBalanceConfig balance)
@@ -1119,7 +1274,7 @@ public static class ShareStageLibrary
         string joinKey = ShareBattleRoster.JoinKey(tempId);
         if (string.IsNullOrEmpty(joinKey))
             return false;
-        SharedCompanion companion = FindByJoin(joinKey);
+        SharedCompanion companion = FindCompanion(joinKey);
         if (companion == null || companion.Character == null || companion.Character.CatalogOpened)
             return false;
         companion.Character.CatalogOpened = true;
@@ -1131,9 +1286,19 @@ public static class ShareStageLibrary
     {
         if (stage == null || data == null || data.CharacterId < CompanionFirstId || string.IsNullOrEmpty(data.PngHash))
             return;
-        string joinKey = stage.AuthorId + "|" + data.PngHash;
-        if (FindByJoin(joinKey) != null || FindByCharacterId(data.CharacterId) != null)
+        string joinKey = MakeJoinKey(stage.AuthorId, data.SourceId, data.PngHash);
+        SharedCompanion existing = data.SourceId != 0 ? FindBySource(stage.AuthorId, data.SourceId) : null;
+        if (existing == null)
+            existing = FindByCharacterId(data.CharacterId);
+        if (existing == null && data.SourceId == 0)
+            existing = FindByJoin(joinKey);
+        if (existing != null)
+        {
+            if (existing.SourceId == 0 && data.SourceId != 0)
+                existing.SourceId = data.SourceId;
+            ReplaceCompanionPicture(existing, stage, data, balance);
             return;
+        }
         if (Companions.Count >= ShareStageRules.MaxCompanionCount)
             return;
         string source = PngPath(data.PngHash);
@@ -1166,7 +1331,39 @@ public static class ShareStageLibrary
             character.RecalculateBaseStats(balance);
         if (data.CharacterId > HighestCompanionId)
             HighestCompanionId = data.CharacterId;
-        Companions.Add(new SharedCompanion { Character = character, JoinKey = joinKey, PngHash = data.PngHash });
+        Companions.Add(new SharedCompanion
+        {
+            Character = character,
+            JoinKey = joinKey,
+            PngHash = data.PngHash,
+            SourceId = data.SourceId
+        });
+    }
+
+    // 同じ仲間の再読み込み。所持とレベルは残し、絵と色由来の基礎値だけ新しいPNGにする。
+    static void ReplaceCompanionPicture(SharedCompanion existing, SharedStageRecord stage, SharedStageCharacterData data, BattleBalanceConfig balance)
+    {
+        if (existing == null || existing.Character == null || data == null)
+            return;
+        if (string.IsNullOrEmpty(data.PngHash) || existing.PngHash == data.PngHash)
+            return;
+        string source = PngPath(data.PngHash);
+        if (!File.Exists(source))
+            return;
+        string path = CompanionPath(existing.Character.ID);
+        string directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+        File.Copy(source, path, true);
+        if (!existing.Character.ReloadSourceImage(path))
+            return;
+        CharacterType kept = existing.Character.CharacterType;
+        existing.Character.RecalculateBaseStatsKeepingType(balance, kept);
+        existing.PngHash = data.PngHash;
+        uint sourceId = existing.SourceId != 0 ? existing.SourceId : data.SourceId;
+        existing.JoinKey = MakeJoinKey(stage != null ? stage.AuthorId : "", sourceId, data.PngHash);
+        if (!ReplacedPictures.Contains(existing.Character.ID))
+            ReplacedPictures.Add(existing.Character.ID);
     }
 
     static void FillCharacterIds(SharedStageRecord stage)
@@ -1176,7 +1373,11 @@ public static class ShareStageLibrary
         for (int i = 0; i < stage.Characters.Count; i++)
         {
             SharedStageCharacterData character = stage.Characters[i];
-            uint id = CharacterIds.IdOf(stage.AuthorId, character.PngHash);
+            uint id = character.SourceId != 0
+                ? CharacterIds.IdOfSource(stage.AuthorId, character.SourceId)
+                : 0;
+            if (id == 0)
+                id = CharacterIds.IdOf(stage.AuthorId, character.PngHash);
             if (id != 0)
                 character.CharacterId = id;
         }
@@ -1253,7 +1454,13 @@ public static class ShareStageLibrary
             character.RecalculateBaseStatsKeepingType(balance, record.CharacterType);
         if (record.Id > HighestCompanionId)
             HighestCompanionId = record.Id;
-        Companions.Add(new SharedCompanion { Character = character, JoinKey = record.JoinKey, PngHash = record.PngHash });
+        Companions.Add(new SharedCompanion
+        {
+            Character = character,
+            JoinKey = record.JoinKey,
+            PngHash = record.PngHash,
+            SourceId = record.SourceId
+        });
     }
 
     static void WriteStage(StreamWriter sw, int index, SharedStageRecord stage)
@@ -1302,6 +1509,7 @@ public static class ShareStageLibrary
             sw.WriteLine(mark + "Attribute," + character.Attribute);
             sw.WriteLine(mark + "PngHash," + character.PngHash);
             sw.WriteLine(mark + "CharacterId," + character.CharacterId.ToString(CultureInfo.InvariantCulture));
+            sw.WriteLine(mark + "SourceId," + character.SourceId.ToString(CultureInfo.InvariantCulture));
         }
     }
 
@@ -1315,6 +1523,9 @@ public static class ShareStageLibrary
             if (string.IsNullOrEmpty(hash))
                 break;
             sw.WriteLine(prefix + "Hash[" + i.ToString(CultureInfo.InvariantCulture) + "]," + hash);
+            uint source = CharacterIds.SourceAt(index, i);
+            if (source != 0)
+                sw.WriteLine(prefix + "Source[" + i.ToString(CultureInfo.InvariantCulture) + "]," + source.ToString(CultureInfo.InvariantCulture));
         }
     }
 
@@ -1329,6 +1540,7 @@ public static class ShareStageLibrary
         sw.WriteLine(prefix + "Name," + Escape(character.Name));
         sw.WriteLine(prefix + "JoinKey," + Escape(companion.JoinKey));
         sw.WriteLine(prefix + "PngHash," + companion.PngHash);
+        sw.WriteLine(prefix + "SourceId," + companion.SourceId.ToString(CultureInfo.InvariantCulture));
         sw.WriteLine(prefix + "OwnedNumMax," + character.OwnedNumMax.ToString(CultureInfo.InvariantCulture));
         sw.WriteLine(prefix + "OwnedNumCur," + character.OwnedNumCur.ToString(CultureInfo.InvariantCulture));
         sw.WriteLine(prefix + "Level," + character.Level.ToString(CultureInfo.InvariantCulture));
@@ -1456,6 +1668,12 @@ public static class ShareStageLibrary
             if (uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out id))
                 character.CharacterId = id;
         }
+        else if (field == "SourceId")
+        {
+            uint id;
+            if (uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out id))
+                character.SourceId = id;
+        }
     }
 
     static bool ReadAuthorField(string key, string value)
@@ -1487,6 +1705,20 @@ public static class ShareStageLibrary
             author.Hashes[hashIndex] = value;
             return true;
         }
+        if (rest.StartsWith(".Source[", StringComparison.Ordinal) && rest.EndsWith("]", StringComparison.Ordinal))
+        {
+            int sourceIndex;
+            string number = rest.Substring(".Source[".Length, rest.Length - ".Source[".Length - 1);
+            if (!int.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out sourceIndex) || sourceIndex < 0 || sourceIndex >= SharedCharacterIds.PerAuthor)
+                return true;
+            uint sourceId;
+            if (!uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out sourceId))
+                return true;
+            while (author.Sources.Count <= sourceIndex)
+                author.Sources.Add(0);
+            author.Sources[sourceIndex] = sourceId;
+            return true;
+        }
         return true;
     }
 
@@ -1515,6 +1747,12 @@ public static class ShareStageLibrary
             record.JoinKey = value;
         else if (field == "PngHash")
             record.PngHash = value;
+        else if (field == "SourceId")
+        {
+            uint id;
+            if (uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out id))
+                record.SourceId = id;
+        }
         else if (field == "OwnedNumMax")
             record.OwnedNumMax = ReadUlong(value);
         else if (field == "OwnedNumCur")
@@ -1689,7 +1927,7 @@ public static class ShareBattleRoster
             Names[id] = data.Name;
             byte[] png = File.ReadAllBytes(path);
             Pngs[id] = png;
-            Keys[id] = stage.AuthorId + "|" + data.PngHash;
+            Keys[id] = ShareStageLibrary.MakeJoinKey(stage.AuthorId, data.SourceId, data.PngHash);
         }
     }
 

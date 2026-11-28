@@ -902,7 +902,7 @@ public static class ImportedCharacters
             File.Delete(normalized);
     }
 
-    // 所持から外す。ID は再利用しない。枚数は Entries の数なので、消すと読み込み枠が戻る。
+    // 所持から外す。次に使うIDはセーブに残し、消したIDは戻さない。枚数は Entries の数なので、消すと読み込み枠が戻る。
     public static bool TryRemove(uint id)
     {
         if (id < FirstId)
@@ -939,7 +939,16 @@ public static class ImportedCharacters
 
     public static bool TryReadSaveLine(string line)
     {
-        if (string.IsNullOrEmpty(line) || !line.StartsWith("ImportedCharacter["))
+        if (string.IsNullOrEmpty(line))
+            return false;
+        if (line.StartsWith("ImportedCharacterNextId,"))
+        {
+            uint next;
+            if (uint.TryParse(line.Substring("ImportedCharacterNextId,".Length), out next))
+                NoteNextId(next);
+            return true;
+        }
+        if (!line.StartsWith("ImportedCharacter["))
             return false;
 
         int comma = line.IndexOf(',');
@@ -969,6 +978,7 @@ public static class ImportedCharacters
 
     public static void WriteSave(StreamWriter sw)
     {
+        sw.WriteLine("ImportedCharacterNextId," + NextId().ToString());
         for (int i = 0; i < Entries.Count; i++)
         {
             CharacterClass character = Entries[i].Character;
@@ -1346,6 +1356,15 @@ public static class ImportedCharacters
             case CharacterType.Light: return "光";
             default: return "なし";
         }
+    }
+
+    static void NoteNextId(uint next)
+    {
+        if (next <= FirstId)
+            return;
+        uint high = next - 1;
+        if (high > HighestId)
+            HighestId = high;
     }
 
     static uint NextId()

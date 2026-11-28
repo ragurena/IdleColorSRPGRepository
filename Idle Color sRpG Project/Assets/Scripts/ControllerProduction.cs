@@ -3342,6 +3342,35 @@ public class ControllerProduction : MonoBehaviour
         return true;
     }
 
+    public void NoteSharedPicturesReplaced()
+    {
+        List<uint> ids = new List<uint>();
+        ShareStageLibrary.TakeReplacedPictures(ids);
+        if (ids.Count == 0)
+            return;
+        for (int i = 0; i < ids.Count; i++)
+        {
+            InvalidateCharacterPortraitCaches(ids[i]);
+            RebuildProducedSilhouetteIfNeeded(ids[i]);
+        }
+        UpdateRGBProductionScene();
+        RefreshProductionAssignmentViews();
+        RefreshProductionFigures();
+        ShowCharacterOwnedNum();
+        if (ControllerCatalog != null && PanelCatalog != null && PanelCatalog.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerCatalog.Refresh();
+        if (ControllerFusion != null && PanelFusion != null && PanelFusion.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerFusion.Refresh();
+        if (ControllerHospital != null && PanelHospital != null && PanelHospital.GetComponent<CanvasGroup>().alpha > 0f)
+            ControllerHospital.Refresh();
+        if (ControllerBattleParty != null && PanelBattleParty != null)
+        {
+            CanvasGroup party = PanelBattleParty.GetComponent<CanvasGroup>();
+            if (party != null && party.alpha > 0f)
+                ControllerBattleParty.Refresh();
+        }
+    }
+
     void InvalidateCharacterPortraitCaches(uint characterId)
     {
         if (characterId == 0)

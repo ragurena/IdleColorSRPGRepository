@@ -1515,7 +1515,10 @@ public class ShareStageBoard : MonoBehaviour
             return;
         }
         if (_production != null)
+        {
             _production.SaveGame();
+            _production.NoteSharedPicturesReplaced();
+        }
         ShowLoaded(document);
     }
 

@@ -21,6 +21,7 @@ public sealed class PiquaCharacter
     public int Spd;
     public long Luc;
     public long Obs;
+    public uint SourceId;
     public byte[] Png;
 }
 
@@ -222,7 +223,7 @@ public static class PiquaCodec
             error = "アプリのバージョンが古いため、このステージを読めません。";
             return false;
         }
-        if (document.FormatVersion != ShareStageRules.FormatVersion)
+        if (document.FormatVersion < ShareStageRules.MinFormatVersion)
         {
             error = "対応していないファイル形式です。";
             return false;
@@ -362,6 +363,26 @@ public static class PiquaCodec
             character.Spd = item.ContainsKey("spd") ? item["spd"].Int() : -1;
             character.Luc = item.ContainsKey("luc") ? item["luc"].Long() : -1;
             character.Obs = item.ContainsKey("obs") ? item["obs"].Long() : -1;
+            if (item.ContainsKey("sourceId"))
+            {
+                int raw = item["sourceId"].Int();
+                if (raw < 0)
+                {
+                    error = "不正なキャラクターデータです。";
+                    return false;
+                }
+                character.SourceId = (uint)raw;
+            }
+            if (document.FormatVersion >= 2)
+            {
+                if (!ShareStageRules.IsAuthorCharacterId(character.SourceId))
+                {
+                    error = "不正なキャラクターデータです。";
+                    return false;
+                }
+            }
+            else
+                character.SourceId = 0;
             if (!ValidCharacter(character, out error))
                 return false;
             byte[] png;
@@ -380,6 +401,20 @@ public static class PiquaCodec
             {
                 error = "不正なキャラクターデータです。";
                 return false;
+            }
+        }
+        if (document.FormatVersion >= 2)
+        {
+            for (int i = 0; i < document.Characters.Count; i++)
+            {
+                uint sourceId = document.Characters[i].SourceId;
+                for (int j = 0; j < i; j++)
+                {
+                    if (document.Characters[j].SourceId != sourceId)
+                        continue;
+                    error = "不正なキャラクターデータです。";
+                    return false;
+                }
             }
         }
         return true;
@@ -493,7 +528,7 @@ public static class PiquaCodec
         {
             if (i > 0)
                 json.Append(',');
-            AppendCharacter(json, ordered[i]);
+            AppendCharacter(json, ordered[i], document.FormatVersion >= 2);
         }
         json.Append("],\"comment\":").Append(Quote(document.Comment));
         json.Append(",\"floorCount\":").Append(document.FloorCount.ToString(CultureInfo.InvariantCulture));
@@ -505,7 +540,7 @@ public static class PiquaCodec
         return json.ToString();
     }
 
-    static void AppendCharacter(StringBuilder json, PiquaCharacter character)
+    static void AppendCharacter(StringBuilder json, PiquaCharacter character, bool includeSourceId)
     {
         json.Append("{\"atk\":").Append(character.Atk.ToString(CultureInfo.InvariantCulture));
         json.Append(",\"attribute\":").Append(Quote(character.Attribute));
@@ -519,6 +554,8 @@ public static class PiquaCodec
         json.Append(",\"obs\":").Append(character.Obs.ToString(CultureInfo.InvariantCulture));
         json.Append(",\"size\":").Append(character.Size.ToString(CultureInfo.InvariantCulture));
         json.Append(",\"slot\":").Append(character.Slot.ToString(CultureInfo.InvariantCulture));
+        if (includeSourceId)
+            json.Append(",\"sourceId\":").Append(character.SourceId.ToString(CultureInfo.InvariantCulture));
         json.Append(",\"spd\":").Append(character.Spd.ToString(CultureInfo.InvariantCulture));
         json.Append('}');
     }

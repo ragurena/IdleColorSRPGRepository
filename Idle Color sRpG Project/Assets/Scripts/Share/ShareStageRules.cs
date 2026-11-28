@@ -5,7 +5,8 @@ using System.Globalization;
 // 共有ステージの判定。Unity に依存しない。戦闘の敵レベル、読み込み回数、ファイルの形をここへ集める。
 public static class ShareStageRules
 {
-    public const int FormatVersion = 1;
+    public const int FormatVersion = 2;
+    public const int MinFormatVersion = 1;
     public const string GameVersion = "0.0.9";
     public const int FloorCount = 300;
     public const int MinCharacters = 1;
@@ -212,6 +213,12 @@ public static class ShareStageRules
         return band;
     }
 
+    // 投稿者の自作キャラID。手直しでも変わらない。共有先の仲間ID（20000番台）とは別。
+    public static bool IsAuthorCharacterId(uint id)
+    {
+        return id >= ImportedCharacters.FirstId && id < SharedCharacterIds.FirstId;
+    }
+
     public static bool IsUuid(string value)
     {
         if (string.IsNullOrEmpty(value) || value.Length != 36)
@@ -394,6 +401,7 @@ public static class ShareStageRules
 
 // 共有ファイルから入ったキャラの ID。50 個ごとの枠を 20000 から順に置く。
 // 同じ投稿者の枠は続く。50 体を超えたら、末尾に次の 50 枠を足す。
+// 版2は投稿者のキャラIDを枠に結び付ける。絵が変わっても、同じ枠のままにする。
 public sealed class SharedCharacterIds
 {
     public const uint FirstId = 20000;
@@ -402,6 +410,7 @@ public sealed class SharedCharacterIds
 
     readonly List<string> _authors = new List<string>();
     readonly List<List<string>> _hashes = new List<List<string>>();
+    readonly List<List<uint>> _sources = new List<List<uint>>();
 
     public int AuthorCount
     {
@@ -412,6 +421,7 @@ public sealed class SharedCharacterIds
     {
         _authors.Clear();
         _hashes.Clear();
+        _sources.Clear();
     }
 
     public int HashCount(string authorId)
@@ -449,42 +459,74 @@ public sealed class SharedCharacterIds
         return _hashes[authorIndex][hashIndex];
     }
 
-    public bool LoadAuthor(string authorId, IList<string> hashes)
+    public uint SourceAt(int authorIndex, int hashIndex)
+    {
+        if (authorIndex < 0 || authorIndex >= _sources.Count)
+            return 0;
+        if (hashIndex < 0 || hashIndex >= _sources[authorIndex].Count)
+            return 0;
+        return _sources[authorIndex][hashIndex];
+    }
+
+    public uint SourceOf(uint localId)
+    {
+        if (localId < FirstId)
+            return 0;
+        uint offset = localId - FirstId;
+        int block = (int)(offset / (uint)PerAuthor);
+        int index = (int)(offset % (uint)PerAuthor);
+        return SourceAt(block, index);
+    }
+
+    public bool LoadAuthor(string authorId, IList<string> hashes, IList<uint> sources)
     {
         if (_authors.Count >= MaxAuthors)
             return false;
         List<string> copy = new List<string>();
+        List<uint> sourceCopy = new List<uint>();
         if (ShareStageRules.IsUuid(authorId) && hashes != null)
         {
             for (int i = 0; i < hashes.Count && copy.Count < PerAuthor; i++)
             {
                 if (string.IsNullOrEmpty(hashes[i]) || copy.Contains(hashes[i]))
                     continue;
+                uint source = 0;
+                if (sources != null && i < sources.Count)
+                    source = sources[i];
+                if (source != 0 && sourceCopy.Contains(source))
+                    source = 0;
                 copy.Add(hashes[i]);
+                sourceCopy.Add(source);
             }
         }
         else
             authorId = "";
         _authors.Add(authorId);
         _hashes.Add(copy);
+        _sources.Add(sourceCopy);
         return authorId.Length > 0;
     }
 
-    public bool TryAdd(string authorId, IList<string> hashes, out string error)
+    public bool TryAdd(string authorId, IList<string> hashes, IList<uint> sources, out string error)
     {
         error = null;
-        if (!ShareStageRules.IsUuid(authorId) || hashes == null)
+        if (!ShareStageRules.IsUuid(authorId) || hashes == null || sources == null || sources.Count != hashes.Count)
         {
             error = "ファイルが破損しています。";
             return false;
         }
         List<string> fresh = new List<string>();
+        List<uint> freshSources = new List<uint>();
         for (int i = 0; i < hashes.Count; i++)
         {
             string hash = hashes[i];
+            uint source = sources[i];
             if (string.IsNullOrEmpty(hash) || fresh.Contains(hash) || Known(authorId, hash))
                 continue;
+            if (source != 0 && (IdOfSource(authorId, source) != 0 || freshSources.Contains(source)))
+                continue;
             fresh.Add(hash);
+            freshSources.Add(source);
         }
         int room = PerAuthor - OpenCount(authorId);
         if (LastIndexOf(authorId) < 0)
@@ -506,12 +548,15 @@ public sealed class SharedCharacterIds
             {
                 _authors.Add(authorId);
                 _hashes.Add(new List<string>());
+                _sources.Add(new List<uint>());
                 index = _authors.Count - 1;
             }
             List<string> block = _hashes[index];
+            List<uint> bound = _sources[index];
             while (cursor < fresh.Count && block.Count < PerAuthor)
             {
                 block.Add(fresh[cursor]);
+                bound.Add(freshSources[cursor]);
                 cursor++;
             }
         }
@@ -522,8 +567,11 @@ public sealed class SharedCharacterIds
     {
         while (_authors.Count > blockCount)
         {
-            _authors.RemoveAt(_authors.Count - 1);
-            _hashes.RemoveAt(_hashes.Count - 1);
+            int last = _authors.Count - 1;
+            _authors.RemoveAt(last);
+            _hashes.RemoveAt(last);
+            if (last < _sources.Count)
+                _sources.RemoveAt(last);
         }
         int index = LastIndexOf(authorId);
         if (index < 0)
@@ -531,11 +579,54 @@ public sealed class SharedCharacterIds
         List<string> owned = _hashes[index];
         while (owned.Count > openCount)
             owned.RemoveAt(owned.Count - 1);
+        if (index < _sources.Count)
+        {
+            List<uint> bound = _sources[index];
+            while (bound.Count > owned.Count)
+                bound.RemoveAt(bound.Count - 1);
+        }
         if (owned.Count == 0)
         {
             _authors.RemoveAt(index);
             _hashes.RemoveAt(index);
+            if (index < _sources.Count)
+                _sources.RemoveAt(index);
         }
+    }
+
+    public bool CanBindSource(string authorId, uint sourceId, string hash)
+    {
+        if (sourceId == 0 || string.IsNullOrEmpty(hash))
+            return false;
+        uint existing = IdOfSource(authorId, sourceId);
+        uint hashId = IdOf(authorId, hash);
+        if (hashId == 0)
+            return false;
+        if (existing != 0)
+            return existing == hashId;
+        return SlotSource(authorId, hash) == 0;
+    }
+
+    public bool TryBindSource(string authorId, uint sourceId, string hash)
+    {
+        if (!CanBindSource(authorId, sourceId, hash))
+            return false;
+        if (IdOfSource(authorId, sourceId) != 0)
+            return true;
+        for (int block = 0; block < _authors.Count; block++)
+        {
+            if (!SameAuthor(_authors[block], authorId))
+                continue;
+            int character = _hashes[block].IndexOf(hash);
+            if (character < 0)
+                continue;
+            List<uint> bound = _sources[block];
+            while (bound.Count <= character)
+                bound.Add(0);
+            bound[character] = sourceId;
+            return true;
+        }
+        return false;
     }
 
     public uint IdOf(string authorId, string hash)
@@ -550,6 +641,38 @@ public sealed class SharedCharacterIds
             if (character < 0)
                 continue;
             return FirstId + (uint)block * (uint)PerAuthor + (uint)character;
+        }
+        return 0;
+    }
+
+    public uint IdOfSource(string authorId, uint sourceId)
+    {
+        if (sourceId == 0)
+            return 0;
+        for (int block = 0; block < _authors.Count; block++)
+        {
+            if (!SameAuthor(_authors[block], authorId) || block >= _sources.Count)
+                continue;
+            int character = _sources[block].IndexOf(sourceId);
+            if (character < 0)
+                continue;
+            return FirstId + (uint)block * (uint)PerAuthor + (uint)character;
+        }
+        return 0;
+    }
+
+    uint SlotSource(string authorId, string hash)
+    {
+        if (string.IsNullOrEmpty(hash))
+            return 0;
+        for (int block = 0; block < _authors.Count; block++)
+        {
+            if (!SameAuthor(_authors[block], authorId) || block >= _sources.Count)
+                continue;
+            int character = _hashes[block].IndexOf(hash);
+            if (character < 0 || character >= _sources[block].Count)
+                continue;
+            return _sources[block][character];
         }
         return 0;
     }
